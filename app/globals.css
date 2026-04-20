@@ -6,78 +6,210 @@
 @layer base {
   html {
     -webkit-tap-highlight-color: transparent;
+    scroll-behavior: smooth;
   }
 
   body {
-    @apply font-body bg-ostad-concrete text-ostad-steel antialiased;
+    @apply font-body bg-parsian-concrete text-parsian-steel antialiased;
   }
 
-  /* RTL specific */
+  /* RTL Text Alignment */
   [dir="rtl"] {
     text-align: right;
+  }
+
+  /* Persian Number Rendering */
+  .persian-number {
+    font-feature-settings: "ss01";
+    -moz-font-feature-settings: "ss01";
+    -webkit-font-feature-settings: "ss01";
+  }
+
+  /* Selection Color */
+  ::selection {
+    @apply bg-parsian-gold/20 text-parsian-dark;
   }
 }
 
 @layer components {
-  /* Ostad-specific reusable components */
-  .ostad-container {
-    @apply container mx-auto px-4 xs:px-6 md:px-8 max-w-7xl;
+  /* Container */
+  .parsian-container {
+    @apply container mx-auto px-4 xs:px-5 sm:px-6 lg:px-8 max-w-7xl;
   }
 
-  .ostad-warning-box {
-    @apply bg-ostad-rust/10 border-r-4 border-ostad-rust p-4 rounded-lg;
+  /* Cards */
+  .parsian-card {
+    @apply bg-white rounded-xl shadow-card hover:shadow-card-hover 
+           transition-all duration-300 ease-parsian
+           border border-parsian-border/30;
   }
 
-  .ostad-warning-text {
-    @apply font-heavy text-ostad-rust;
+  .parsian-card-premium {
+    @apply parsian-card shadow-ostad border-parsian-gold/20;
   }
 
-  .ostad-price-tag {
-    @apply font-heavy text-2xl md:text-3xl text-ostad-blue tracking-tight;
+  /* Warning Box (Enhanced) */
+  .parsian-warning {
+    @apply bg-parsian-rust/5 border-r-4 border-parsian-rust 
+           p-4 rounded-lg animate-slide-up;
   }
 
-  .ostad-card {
-    @apply bg-white rounded-lg shadow-ostad hover:shadow-ostad-heavy transition-shadow duration-300;
+  .parsian-warning-title {
+    @apply font-heading text-parsian-rust text-lg mb-1;
   }
 
-  .ostad-button-primary {
-    @apply bg-ostad-blue text-white font-heavy py-3 px-6 rounded-lg 
-           hover:bg-ostad-dark transition-colors duration-200
-           active:scale-95 transform
-           min-h-[44px] flex items-center justify-center;
+  .parsian-warning-text {
+    @apply font-body text-parsian-steel text-sm;
   }
 
-  .ostad-button-gold {
-    @apply bg-ostad-gold text-ostad-dark font-heavy py-3 px-6 rounded-lg 
-           hover:bg-ostad-gold/80 transition-colors duration-200
-           min-h-[44px] flex items-center justify-center;
+  /* Price Display */
+  .parsian-price {
+    @apply font-price text-2xl md:text-3xl text-parsian-blue 
+           tracking-tight persian-number;
   }
 
-  /* Magnifier zoom container */
-  .ostad-zoom-container {
-    @apply relative overflow-hidden rounded-lg border-2 border-ostad-steel/20 cursor-zoom-in;
+  .parsian-price-old {
+    @apply font-body text-sm text-parsian-steel/50 line-through persian-number;
   }
 
-  /* Touch-friendly tap targets */
-  .ostad-tap {
-    @apply min-h-[44px] min-w-[44px] flex items-center justify-center;
+  .parsian-price-discount {
+    @apply font-body text-xs bg-parsian-rust/10 text-parsian-rust 
+           px-2 py-1 rounded-full persian-number;
+  }
+
+  /* Buttons */
+  .parsian-btn-primary {
+    @apply bg-parsian-blue text-white font-heading 
+           py-3 px-6 rounded-lg text-base
+           hover:bg-parsian-dark 
+           active:scale-[0.98]
+           transition-all duration-200 ease-parsian
+           min-h-touch flex items-center justify-center
+           shadow-subtle hover:shadow-card;
+  }
+
+  .parsian-btn-gold {
+    @apply bg-parsian-gold text-parsian-dark font-heading 
+           py-3 px-6 rounded-lg text-base
+           hover:bg-parsian-gold/85 
+           active:scale-[0.98]
+           transition-all duration-200 ease-parsian
+           min-h-touch flex items-center justify-center
+           shadow-subtle hover:shadow-card;
+  }
+
+  .parsian-btn-outline {
+    @apply border-2 border-parsian-steel/20 text-parsian-steel 
+           font-body py-3 px-6 rounded-lg text-base
+           hover:bg-parsian-steel/5 hover:border-parsian-steel/30
+           active:scale-[0.98]
+           transition-all duration-200 ease-parsian
+           min-h-touch flex items-center justify-center;
+  }
+
+  /* Magnifier Zoom Container */
+  .parsian-zoom {
+    @apply relative overflow-hidden rounded-xl 
+           border border-parsian-border/50 
+           bg-parsian-concrete
+           cursor-zoom-in;
+  }
+
+  .parsian-zoom-overlay {
+    @apply absolute inset-0 pointer-events-none
+           bg-gradient-to-br from-white/5 to-transparent
+           opacity-0 transition-opacity duration-300;
+  }
+
+  .parsian-zoom:hover .parsian-zoom-overlay {
+    @apply opacity-100;
+  }
+
+  /* Authenticity Badge */
+  .parsian-badge-genuine {
+    @apply inline-flex items-center gap-1.5
+           bg-parsian-gold/10 border border-parsian-gold/30
+           px-3 py-1.5 rounded-full
+           font-heading text-xs text-parsian-gold
+           shadow-inner-glow;
+  }
+
+  /* Ostad Video Feed Card */
+  .parsian-video-card {
+    @apply relative rounded-xl overflow-hidden
+           border border-parsian-border/30
+           shadow-card;
+  }
+
+  .parsian-video-badge {
+    @apply absolute top-3 right-3 z-10
+           bg-parsian-dark/80 backdrop-blur-sm
+           text-white font-heading text-xs
+           px-3 py-1.5 rounded-full
+           border border-white/10;
+  }
+
+  /* Touch-Optimized Interactive Elements */
+  .parsian-touch {
+    @apply min-h-touch min-w-touch flex items-center justify-center;
+  }
+
+  /* Divider with Ostad Style */
+  .parsian-divider {
+    @apply relative my-6;
+  }
+
+  .parsian-divider::after {
+    content: "";
+    @apply absolute left-0 right-0 h-px bg-parsian-border/50;
+  }
+
+  .parsian-divider-text {
+    @apply relative inline-block bg-parsian-concrete px-4 
+           font-heading text-xs text-parsian-steel/60
+           tracking-wider;
   }
 }
 
 @layer utilities {
-  /* Persian text optimization */
-  .text-persian {
-    text-rendering: optimizeLegibility;
-    font-feature-settings: "kern" 1;
-    font-kerning: normal;
+  /* RTL Icon Mirroring */
+  .rtl-mirror {
+    transform: scaleX(-1);
   }
 
-  /* Hide scrollbar but keep functionality */
+  /* Hide Scrollbar */
   .scrollbar-hide {
     -ms-overflow-style: none;
     scrollbar-width: none;
   }
   .scrollbar-hide::-webkit-scrollbar {
     display: none;
+  }
+
+  /* Persian Text Optimizations */
+  .text-persian {
+    text-rendering: optimizeLegibility;
+    font-feature-settings:
+      "kern" 1,
+      "ss01" 1;
+    font-kerning: normal;
+  }
+
+  /* Prevent Content Shift */
+  .content-visibility-auto {
+    content-visibility: auto;
+  }
+
+  /* Smooth Gradient Text */
+  .text-gradient-gold {
+    @apply bg-clip-text text-transparent 
+           bg-gradient-to-r from-parsian-gold to-parsian-gold/70;
+  }
+
+  /* Glassmorphism for Modals */
+  .glass-parsian {
+    @apply bg-white/90 backdrop-blur-md 
+           border border-white/20
+           shadow-elevated;
   }
 }
