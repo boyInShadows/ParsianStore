@@ -15,6 +15,19 @@ jobs:
     runs-on: ubuntu-latest
     env:
       CI: true
+    # P2.S2 added Mongoose-backed tests (base plugins, db connection) that
+    # run against a real MongoDB rather than a mock, matching local dev
+    # (see docs/db-indexes.md). CI needs the same service dev already has.
+    services:
+      mongodb:
+        image: mongo:7
+        ports:
+          - 27017:27017
+        options: >-
+          --health-cmd "mongosh --eval 'db.runCommand({ ping: 1 })'"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
     steps:
       - name: Checkout
         uses: actions/checkout@v4

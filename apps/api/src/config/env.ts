@@ -14,6 +14,7 @@ const envSchema = z.object({
     .default("http://localhost:3000")
     .transform((value) => value.split(",").map((origin) => origin.trim())),
   LOG_LEVEL: z.enum(["trace", "debug", "info", "warn", "error", "fatal", "silent"]).default("info"),
+  MONGODB_URI: z.string().min(1).default("mongodb://localhost:27017/parsian-store"),
 });
 
 export type Env = z.infer<typeof envSchema>;
