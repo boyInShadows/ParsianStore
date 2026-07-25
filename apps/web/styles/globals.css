@@ -10,4 +10,12 @@
   @tailwind base;
   @tailwind components;
   @tailwind utilities;
+
+  /* Tailwind's `[&::backdrop]` arbitrary variant does not generate CSS for
+     the native <dialog> backdrop pseudo-element (confirmed empty output
+     building Modal/Drawer, P1.S7) -- plain CSS is the reliable path here.
+     color-mix() keeps this token-driven without a new hex literal. */
+  dialog::backdrop {
+    background-color: color-mix(in srgb, var(--color-graphite-950) 50%, transparent);
+  }
 }
