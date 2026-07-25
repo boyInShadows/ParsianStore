@@ -55,6 +55,18 @@ export default tseslint.config(
     ...reactHooks.configs.flat.recommended,
     files: webFiles,
   },
+  {
+    // CommonJS tool configs (tailwind.config.js et al.) -- not app code,
+    // not ESM, run directly by Node under require().
+    files: ["**/tailwind.config.js", "**/*.cjs"],
+    languageOptions: {
+      sourceType: "commonjs",
+      globals: { module: "readonly", require: "readonly", __dirname: "readonly" },
+    },
+    rules: {
+      "@typescript-eslint/no-require-imports": "off",
+    },
+  },
   // eslint-plugin-tailwindcss (installed, per masterPlan.md §4/P0.S4) is not wired
   // in yet -- v4's recommended config eagerly loads a live Tailwind theme and
   // hard-crashes without one, and Tailwind itself isn't installed until P1.S2.

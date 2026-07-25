@@ -7,9 +7,9 @@ export default async function Page() {
   const health = await getHealth();
 
   return (
-    <main>
-      <h1>ParsianStore</h1>
-      <p>API status: {health.data.status}</p>
+    <main className="flex min-h-screen flex-col items-center justify-center gap-2 bg-bg p-4 text-text">
+      <h1 className="text-2xl font-semibold text-brand">ParsianStore</h1>
+      <p className="text-text-muted">API status: {health.data.status}</p>
     </main>
   );
 }
