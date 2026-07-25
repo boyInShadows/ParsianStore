@@ -1,11 +1,11 @@
 import { afterAll, describe, expect, it } from "vitest";
 import mongoose from "mongoose";
 import { connectDB, disconnectDB } from "./db.js";
+import { testDbUri } from "./testDbUri.js";
 
 // Against a real local MongoDB — see plugins.test.ts for why. Dedicated
 // throwaway database, dropped in afterAll.
-const TEST_HOST = process.env.TEST_MONGODB_HOST ?? "mongodb://localhost:27017";
-const TEST_URI = `${TEST_HOST}/parsian-store-test-db`;
+const TEST_URI = testDbUri("parsian-store-test-db");
 
 describe("connectDB / disconnectDB", () => {
   afterAll(async () => {

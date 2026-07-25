@@ -1,14 +1,14 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import mongoose, { Schema } from "mongoose";
 import { applyBasePlugins } from "./plugins.js";
+import { testDbUri } from "../config/testDbUri.js";
 
 // Runs against a real local MongoDB (the same one dev/CI already need for
 // P2.S2+ — no mongodb-memory-server in the dependency manifest, and a real
 // connection exercises the plugins' actual query-hook behavior instead of
 // a mocked approximation of it). Uses a disposable, dedicated database so
 // it never touches real dev data, and drops it afterwards.
-const TEST_HOST = process.env.TEST_MONGODB_HOST ?? "mongodb://localhost:27017";
-const TEST_URI = `${TEST_HOST}/parsian-store-test-plugins`;
+const TEST_URI = testDbUri("parsian-store-test-plugins");
 
 interface Widget {
   name: string;
