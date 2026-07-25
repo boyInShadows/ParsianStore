@@ -2,15 +2,16 @@
 
 **Repo:** `https://github.com/boyInShadows/ParsianStore`
 **Integration branch:** `development`
-**Product:** Persian-first (RTL) e-commerce for car spare parts — Iranian & imported vehicles
+**Product:** Persian-first (RTL) e-commerce for car spare parts — Saipa & Iran Khodro vehicles only
 **Owner:** Ash Tech Group
-**Status:** Phase 0 complete. Phase 1 complete (P1.S1–P1.S9) — GATE 1→2 pending final palette sign-off.
-**Document version:** 1.3 — this is the *first move*. Phases 0–4 are locked. Phases 5+ are directionally locked but will be re-specced before execution.
+**Status:** Phase 0 complete. Phase 1 complete (P1.S1–P1.S9). GATE 1→2 cleared — owner signed off on the Steel Blue + Racing Red palette (v1.3) and asked to proceed. Phase 2 starting.
+**Document version:** 1.4 — this is the *first move*. Phases 0–4 are locked. Phases 5+ are directionally locked but will be re-specced before execution.
 
 **Changelog:**
 - 1.1 — Language decision reversed from plain JavaScript to TypeScript (§2.2), mid-Phase-0, before any app code existed. See `docs/decisions/0001-typescript-over-plain-js.md`.
 - 1.2 — Morabba (§6.5 Display face) is not OFL-licensed (commercial, fontiran.com) — replaced with Estedad, the document's own already-named fallback. See `docs/decisions/0002-morabba-not-ofl-use-estedad.md`.
 - 1.3 — Color palette (§6.1–§6.4) replaced: turquoise + safety-orange → Steel Blue + Racing Red, per owner feedback at GATE 1→2 and automotive-color research (Saipa/Iran Khodro both use blue; racing/tool-brand culture overwhelmingly uses red for excitement). See `docs/decisions/0003-color-palette-steel-and-race.md`.
+- 1.4 — Vehicle scope narrowed from "Iranian & imported vehicles" (implicitly ~6 domestic makes + top imports, per the original §1.2 audit framing) to **Saipa and Iran Khodro only**, per explicit owner instruction: "in iran we only use SAIPA and IRANKHODRO cars and our shop gonna aim this category of cars." Affects §5 item 08 and P2.S6/P3.S7 seed-data scope. §1.1's customer table already only named Saipa/IKCO models (Pride, Tiba, Quick / 405, Samand, Dena), so no change was needed there. See `docs/decisions/0004-vehicle-scope-saipa-ikco-only.md`.
 
 ---
 
@@ -443,7 +444,7 @@ Mobile-first. Every section must be usable and beautiful at 360px before desktop
 | 05 | Brand wall | Trust by association | Bosch, Valeo, Mahle, SKF, Denso, NGK, ایساکو, سایپا یدک. Grayscale → color on hover. Marquee **must** pause on `prefers-reduced-motion` and on hover. |
 | 06 | Authenticity story | Differentiator | Explains the Authenticity Record with a real example product. Not a slogan block. |
 | 07 | Deals / countdown | Urgency | Jalali-aware countdown. Only renders if live deals exist — never a fake timer. |
-| 08 | Shop by vehicle | SEO + navigation | Iranian makes first (ایران‌خودرو، سایپا، بهمن، مدیران‌خودرو، ام‌وی‌ام), then imported. Links to `/vehicle/...` landing pages. |
+| 08 | Shop by vehicle | SEO + navigation | Saipa and Iran Khodro only (ایران‌خودرو، سایپا) — no other makes, no imports. Links to `/vehicle/...` landing pages. |
 | 09 | Symptom finder | The Driver's entry | «صدای جیر جیر هنگام ترمز» → brake pads. 8–12 common symptoms → filtered results. Cheap to build, disproportionately useful. |
 | 10 | Numbers | Proof | Parts in stock · vehicles covered · orders shipped · years in business. Count-up on scroll, once, reduced-motion safe. |
 | 11 | How it works | Reduce friction | 4 steps: choose car → find part → confirm fitment → receive. Numbering is legitimate here — it *is* a sequence. |
@@ -904,7 +905,7 @@ Each step ends with: lint clean · tests pass · build passes · **committed and
 | **P2.S3** | `packages/schemas` — Zod schemas + `fa.js` utilities (§7.5), unit-tested against real Persian edge cases |
 | **P2.S4** | User model + phone OTP auth: request, verify, refresh rotation, logout, `/auth/me`. `SmsProvider` interface + `MockSmsProvider` + `KavenegarProvider` |
 | **P2.S5** | RBAC middleware, staff seeding, audit-log middleware on all admin writes |
-| **P2.S6** | Vehicle models + **seed data: full Iranian market** (ایران‌خودرو، سایپا، بهمن، مدیران‌خودرو، ام‌وی‌ام، کرمان‌موتور) + top imported makes, with generations and year ranges |
+| **P2.S6** | Vehicle models + **seed data: Saipa and Iran Khodro only** (ایران‌خودرو، سایپا) — full model/generation/year-range coverage for both, no other domestic makes, no imports |
 | **P2.S7** | Geo seed: all 31 Iranian provinces + cities. `/geo/*` endpoints |
 | **P2.S8** | `StorageProvider` interface + local-disk driver + sharp pipeline (AVIF/WebP, 4 sizes) |
 | **P2.S9** | Rate limiting, mongo-sanitize, request-id, security header audit |
@@ -924,7 +925,7 @@ Each step ends with: lint clean · tests pass · build passes · **committed and
 | **P3.S4** | `SearchProvider` interface + `MongoSearchProvider` (normalized text + prefix + OEM-number exact match). Faceted filtering with counts. |
 | **P3.S5** | Product listing API: filters (category, brand, vehicle, price range, attributes, in-stock), sorting, cursor-safe pagination |
 | **P3.S6** | Inventory: stock, movements, reservation with TTL, low-stock alerts |
-| **P3.S7** | Seed script: ≥ 300 realistic products across ≥ 8 categories, ≥ 15 brands, with **real fitment data** for top Iranian vehicles. Persian names, plausible Rial prices. |
+| **P3.S7** | Seed script: ≥ 300 realistic products across ≥ 8 categories, ≥ 15 brands, with **real fitment data** for Saipa and Iran Khodro vehicles (the shop's only supported makes, per P2.S6). Persian names, plausible Rial prices. |
 
 **GATE 3 → 4:** `/fitment/check` returns correct verdicts for 20 manually verified product↔vehicle pairs.
 
