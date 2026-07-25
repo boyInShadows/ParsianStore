@@ -1,0 +1,8 @@
+{
+  "HomePage": {
+    "title": "Parsian",
+    "tagline": "The part that fits your car, not something like it.",
+    "apiStatus": "API status: {status}",
+    "partNumberExample": "MB-0442-K"
+  }
+}

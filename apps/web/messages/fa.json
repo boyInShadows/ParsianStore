@@ -1,0 +1,8 @@
+{
+  "HomePage": {
+    "title": "پارسیان",
+    "tagline": "قطعه‌ای که به خودروی شما می‌خورد، نه چیزی شبیه آن.",
+    "apiStatus": "وضعیت API: {status}",
+    "partNumberExample": "MB-0442-K"
+  }
+}
