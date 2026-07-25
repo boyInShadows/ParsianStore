@@ -25,7 +25,7 @@ first. This file is the distilled, load-bearing subset for day-to-day edits.
    suppress the rule.
 7. **Read a file before editing it.** Grep for an existing util before
    adding a new one — especially the Persian-text helpers in
-   `packages/schemas/src/fa.js` (§7.5): `normalizeFa`, `toPersianDigits`,
+   `packages/schemas/src/fa.ts` (§7.5): `normalizeFa`, `toPersianDigits`,
    `toEnglishDigits`, `formatToman`, `formatJalali`, `normalizePhone`.
 8. **Money is an integer in Rial**, field names suffixed `Rial`. Display only
    through `formatToman(rial)`. Never float math on currency, never in the UI.
@@ -43,7 +43,13 @@ first. This file is the distilled, load-bearing subset for day-to-day edits.
 13. **`legacy/` is reference-only.** It is the pre-monorepo prototype, not
     part of the pnpm workspace. Never import from it into `apps/*` or
     `packages/*`; port UI ideas by rewriting them against the current design
-    system and component primitives instead.
+    system and component primitives instead. It stays plain JS and is never
+    migrated to TypeScript — it's frozen reference material, not active code.
+14. **TypeScript, strict mode, everywhere in `apps/*` and `packages/*`**
+    (§2.2, `docs/decisions/0001-typescript-over-plain-js.md`). `.ts` for
+    non-JSX modules, `.tsx` for components. Prefer inferring types from the
+    Zod schema (`z.infer<>`) over hand-writing a parallel interface — one
+    definition of a shape, not two. No `any` as a shortcut past a real type.
 
 ## Definition of Done, every step (§14)
 

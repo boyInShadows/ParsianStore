@@ -4,8 +4,11 @@
 **Integration branch:** `development`
 **Product:** Persian-first (RTL) e-commerce for car spare parts — Iranian & imported vehicles
 **Owner:** Ash Tech Group
-**Status:** Phase 0 not started
-**Document version:** 1.0 — this is the *first move*. Phases 0–4 are locked. Phases 5+ are directionally locked but will be re-specced before execution.
+**Status:** Phase 0 in progress — P0.S1 and P0.S2 complete
+**Document version:** 1.1 — this is the *first move*. Phases 0–4 are locked. Phases 5+ are directionally locked but will be re-specced before execution.
+
+**Changelog:**
+- 1.1 — Language decision reversed from plain JavaScript to TypeScript (§2.2), mid-Phase-0, before any app code existed. See `docs/decisions/0001-typescript-over-plain-js.md`.
 
 ---
 
@@ -118,7 +121,7 @@ Everything else on the page stays quiet so this lands. See §5.
 | Runtime | Node.js | 22 LTS | Yes |
 | Package manager | pnpm | 9.x | Yes |
 | Monorepo | pnpm workspaces + Turborepo | latest | Yes |
-| Language | **Plain JavaScript (ESM)** + JSDoc + Zod | — | See §2.2 |
+| Language | **TypeScript (strict)** + Zod | 5.x | See §2.2 |
 | Web framework | Next.js App Router | **15.x — pin the minor** | Yes |
 | Storefront styling | Tailwind CSS | **v3.4.x — v4 is forbidden** | Yes |
 | Admin UI | MUI | v7.x (Material UI) | Yes |
@@ -141,9 +144,30 @@ Everything else on the page stays quiet so this lands. See §5.
 
 ### 2.2 Language decision — read this
 
-**Assumption made: plain JavaScript, no TypeScript**, matching your existing stack conventions. Runtime safety comes from Zod schemas shared between client and server, plus JSDoc types for editor intellisense.
+**Reversed in v1.1: TypeScript, strict mode.** The original assumption in
+this document was plain JavaScript + JSDoc (see the changelog above). The
+owner explicitly reversed that decision during Phase 0, immediately after
+P0.S2 (repo scaffold) landed and before P0.S3 wrote a single line of app
+code — the cheapest point at which this document itself warned the cost
+would still be low. Full context, rationale, and consequences are logged as
+an ADR: `docs/decisions/0001-typescript-over-plain-js.md`.
 
-> **This is the single most expensive decision to reverse.** If you want TypeScript, say so **before P0.S2**. After Phase 2 the cost is roughly a full week. Flag it now or it's locked.
+Runtime safety still comes from Zod schemas shared between client and
+server (`packages/schemas`); TypeScript adds compile-time safety on top,
+inferring types from those same Zod schemas via `z.infer<>` wherever
+possible rather than hand-duplicating types.
+
+**File-extension convention, repo-wide:** `.ts` for non-JSX modules, `.tsx`
+for JSX/React components. Every `.js`/`.jsx` filename that still appears
+elsewhere in this document (the illustrative tree in §8, the `apps/api`
+module pattern `*.routes.js`/`*.controller.js`/`*.service.js`/`*.schema.js`,
+etc.) should be read as `.ts`/`.tsx` per this amendment — those references
+were not individually rewritten; this note is the single source of truth
+for the substitution. Tool config files that run directly under Node
+(`eslint.config.mjs`, `next.config.mjs`, etc.) are unaffected and stay
+`.mjs` — the module-file marker is orthogonal to the language choice.
+
+> **This was the single most expensive decision to reverse — now reversed while it was still cheap.** Any further language reversal after Phase 2 costs roughly a full week; this one cost a docs edit and an unstarted Phase 0 step.
 
 ### 2.3 Explicitly rejected
 
@@ -357,6 +381,9 @@ next-themes
 swiper            (carousels only; no second carousel lib)
 sharp             (next/image self-hosted optimizer)
 nprogress         (route transitions)
+
+# TypeScript (added v1.1, see §2.2 / docs/decisions/0001)
+typescript @types/react @types/react-dom @types/node
 ```
 
 ### `apps/api`
@@ -373,12 +400,16 @@ dayjs jalaliday
 nanoid
 dotenv
 node-cron         (stock reservation cleanup, sitemap regen)
+
+# TypeScript (added v1.1, see §2.2 / docs/decisions/0001)
+typescript @types/node @types/express @types/cors @types/compression
+@types/cookie-parser tsx   (dev-time TS runner; production runs compiled dist/)
 ```
 
 ### `packages/*`
 ```
-packages/schemas   → zod only
-packages/config    → eslint + prettier + tailwind preset
+packages/schemas   → zod + typescript only, no build step (consumed as TS source)
+packages/config    → eslint + prettier + tailwind preset + typescript
 packages/ui        → shared primitives (Phase 4+)
 ```
 
@@ -387,6 +418,7 @@ packages/ui        → shared primitives (Phase 4+)
 turbo
 eslint@^9 @eslint/js eslint-plugin-react eslint-plugin-react-hooks
 eslint-plugin-tailwindcss eslint-plugin-import
+typescript typescript-eslint        (added v1.1, see §2.2 / docs/decisions/0001)
 prettier prettier-plugin-tailwindcss
 vitest @testing-library/react @testing-library/jest-dom jsdom
 @playwright/test

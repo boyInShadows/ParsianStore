@@ -9,7 +9,7 @@ Always-on coding rules for agents/contributors live in [`CLAUDE.md`](./CLAUDE.md
 
 ## Stack
 
-Plain JavaScript (ESM) + JSDoc + Zod · Next.js 15 (App Router) · Express 5 ·
+TypeScript (strict) + Zod · Next.js 15 (App Router) · Express 5 ·
 MongoDB/Mongoose · Tailwind CSS 3.4 (storefront) · MUI 7 (admin) · pnpm
 workspaces + Turborepo. See `masterPlan.md` §2 for the full locked stack and
 §4 for the exact dependency manifest — do not add a dependency outside it
