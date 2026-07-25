@@ -57,6 +57,20 @@ function authHeader(userId: string): Record<string, string> {
   return { cookie: `accessToken=${token}` };
 }
 
+// The middleware writes on res.on("finish"), after the response has
+// already gone out — a fixed sleep here was flaky under full-suite load
+// (passed in isolation, occasionally missed the write when many other
+// test files' Mongo connections were competing for the event loop).
+// Polling for the actual condition is deterministic regardless of load.
+async function waitForAuditEntry(timeoutMs = 1000): Promise<void> {
+  const start = Date.now();
+  while (Date.now() - start < timeoutMs) {
+    if ((await AuditLogModel.countDocuments({})) > 0) return;
+    await new Promise((resolve) => setTimeout(resolve, 10));
+  }
+  throw new Error(`No audit log entry appeared within ${timeoutMs}ms`);
+}
+
 describe("auditLog middleware", () => {
   it("does not log a GET request", async () => {
     const userId = new mongoose.Types.ObjectId().toString();
@@ -73,9 +87,7 @@ describe("auditLog middleware", () => {
       body: JSON.stringify({ name: "updated" }),
     });
     expect(res.status).toBe(200);
-
-    // res.on("finish") fires the write asynchronously; give it a tick.
-    await new Promise((resolve) => setTimeout(resolve, 50));
+    await waitForAuditEntry();
 
     const entries = await AuditLogModel.find({});
     expect(entries).toHaveLength(1);
