@@ -1,5 +1,13 @@
-import "dotenv/config";
+import { config as loadDotenv } from "dotenv";
+import { fileURLToPath } from "node:url";
 import { z } from "zod";
+
+// `dotenv/config` resolves `.env` relative to `process.cwd()`, which is
+// only apps/api when run via `pnpm --filter api ...` — a root-level `pnpm
+// test`/`pnpm build` runs with the repo root as cwd instead and would
+// silently miss this file. Resolving relative to this module's own path
+// works regardless of which directory the process was launched from.
+loadDotenv({ path: fileURLToPath(new URL("../../.env", import.meta.url)) });
 
 // Only the variables this phase's code actually reads. Later P2 steps
 // (Mongo, JWT/SMS auth, storage, search) add their own vars to this schema

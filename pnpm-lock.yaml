@@ -226,6 +226,12 @@ importers:
 
   packages/schemas:
     dependencies:
+      dayjs:
+        specifier: ^1.11.13
+        version: 1.11.21
+      jalaliday:
+        specifier: ^3.1.1
+        version: 3.1.1(dayjs@1.11.21)
       zod:
         specifier: ^3.24.0
         version: 3.25.76
@@ -2644,6 +2650,11 @@ packages:
   iterator.prototype@1.1.5:
     resolution: {integrity: sha512-H0dkQoCa3b2VEeKQBOxFph+JAbcrQdE7KC0UkqwpLmv2EC4P41QXP+rqo9wYodACiG5/WM5s9oDApTU8utwj9g==}
     engines: {node: '>= 0.4'}
+
+  jalaliday@3.1.1:
+    resolution: {integrity: sha512-exZzDOfp/32Gj2YkEHNhBBMcltBCTrIe8RXLTfpCvdjYHNfbYSQiNeFVf4RR59FV+2fixUOCEFfzOzyXfgenlg==}
+    peerDependencies:
+      dayjs: ^1.11.13
 
   jiti@1.21.7:
     resolution: {integrity: sha512-/imKNG4EbWNrVjoNC/1H5/9GFy+tqjGBHCaSsN+P2RnPqjsLmv6UD3Ej+Kj8nBWaRAwyk7kK5ZUc+OEatnTR3A==}
@@ -6476,6 +6487,10 @@ snapshots:
       get-proto: 1.0.1
       has-symbols: 1.1.0
       set-function-name: 2.0.2
+
+  jalaliday@3.1.1(dayjs@1.11.21):
+    dependencies:
+      dayjs: 1.11.21
 
   jiti@1.21.7: {}
 
