@@ -9,6 +9,7 @@ import { env } from "./config/env.js";
 import { logger } from "./config/logger.js";
 import { notFoundHandler } from "./middleware/notFound.js";
 import { errorHandler } from "./middleware/error.js";
+import { authRouter } from "./modules/auth/auth.routes.js";
 
 export function healthHandler(_req: Request, res: Response): void {
   const payload = healthResponseSchema.parse({
@@ -28,6 +29,7 @@ app.use(express.json());
 app.use(pinoHttp({ logger }));
 
 app.get("/api/v1/health", healthHandler);
+app.use("/api/v1/auth", authRouter);
 
 // Must be registered after every route: unmatched requests fall through
 // to notFoundHandler, thrown/passed errors fall through to errorHandler.

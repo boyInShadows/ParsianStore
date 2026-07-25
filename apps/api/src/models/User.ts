@@ -1,0 +1,96 @@
+import { Schema, model, type Model, type Types } from "mongoose";
+import {
+  applyBasePlugins,
+  type SoftDeleteMethods,
+  type WithSoftDelete,
+  type WithTimestamps,
+} from "./plugins.js";
+
+export const USER_ROLES = ["customer", "support", "operator", "admin", "superadmin"] as const;
+export type UserRole = (typeof USER_ROLES)[number];
+
+// §3.2 Address: embedded, not a top-level collection.
+export interface Address {
+  province: string;
+  city: string;
+  line: string;
+  postalCode: string;
+  plate?: string;
+  unit?: string;
+  receiverName: string;
+  receiverPhone: string;
+}
+
+// §3.4: "the Garage stores { makeId, modelId, genId, engineId?, year,
+// nickname }". The Vehicle* models these reference don't exist until
+// P2.S6 — a Mongoose `ref` is just a string name, so this is safe to
+// write now and will resolve once those collections land.
+export interface GarageEntry {
+  makeId: Types.ObjectId;
+  modelId: Types.ObjectId;
+  genId: Types.ObjectId;
+  engineId?: Types.ObjectId;
+  year: number;
+  nickname?: string;
+}
+
+export interface User extends WithTimestamps, WithSoftDelete {
+  phone: string;
+  name: string;
+  email?: string;
+  // Staff-only, optional (§3.3.5) — no login endpoint uses this yet since
+  // §9's auth routes are phone-OTP only. Never selected by default so it
+  // can't leak into an API response by accident.
+  passwordHash?: string;
+  role: UserRole;
+  addresses: Address[];
+  garage: GarageEntry[];
+  walletBalanceRial: number;
+  isActive: boolean;
+  lastLoginAt: Date | null;
+}
+
+type UserModelType = Model<User, object, SoftDeleteMethods>;
+
+const addressSchema = new Schema<Address>(
+  {
+    province: { type: String, required: true },
+    city: { type: String, required: true },
+    line: { type: String, required: true },
+    postalCode: { type: String, required: true },
+    plate: String,
+    unit: String,
+    receiverName: { type: String, required: true },
+    receiverPhone: { type: String, required: true },
+  },
+  { _id: true },
+);
+
+const garageEntrySchema = new Schema<GarageEntry>(
+  {
+    makeId: { type: Schema.Types.ObjectId, ref: "VehicleMake", required: true },
+    modelId: { type: Schema.Types.ObjectId, ref: "VehicleModel", required: true },
+    genId: { type: Schema.Types.ObjectId, ref: "VehicleGen", required: true },
+    engineId: { type: Schema.Types.ObjectId, ref: "VehicleEngine" },
+    year: { type: Number, required: true },
+    nickname: String,
+  },
+  { _id: true },
+);
+
+const userSchema = new Schema<User, UserModelType, SoftDeleteMethods>({
+  phone: { type: String, required: true, unique: true },
+  name: { type: String, required: true },
+  email: { type: String },
+  passwordHash: { type: String, select: false },
+  role: { type: String, enum: USER_ROLES, default: "customer", required: true },
+  addresses: { type: [addressSchema], default: [] },
+  garage: { type: [garageEntrySchema], default: [] },
+  walletBalanceRial: { type: Number, default: 0 },
+  isActive: { type: Boolean, default: true },
+  lastLoginAt: { type: Date, default: null },
+});
+
+applyBasePlugins(userSchema);
+
+export const UserModel = model<User, UserModelType>("User", userSchema);

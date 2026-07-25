@@ -1,5 +1,21 @@
 import type { Schema, Query, HydratedDocument } from "mongoose";
 
+// Shared shape every model built from P2.S4 onward extends, so each model
+// file doesn't redeclare the same two fields/one method the base plugins
+// actually add at runtime.
+export interface WithTimestamps {
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface WithSoftDelete {
+  deletedAt: Date | null;
+}
+
+export interface SoftDeleteMethods {
+  softDelete(): Promise<void>;
+}
+
 // createdAt/updatedAt on every collection (§3.2: "add createdAt/updatedAt
 // to all"). A named plugin rather than passing `{ timestamps: true }` at
 // each schema's construction site keeps the requirement enforced in one

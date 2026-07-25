@@ -9,10 +9,10 @@ import { z } from "zod";
 // works regardless of which directory the process was launched from.
 loadDotenv({ path: fileURLToPath(new URL("../../.env", import.meta.url)) });
 
-// Only the variables this phase's code actually reads. Later P2 steps
-// (Mongo, JWT/SMS auth, storage, search) add their own vars to this schema
-// when the code that consumes them lands — see .env.example for the full
-// declared surface (§11).
+// Only the variables the code written so far actually reads. Later P2
+// steps (storage, search) add their own vars to this schema when the code
+// that consumes them lands — see .env.example for the full declared
+// surface (§11).
 const envSchema = z.object({
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
   PORT: z.coerce.number().int().positive().default(4000),
@@ -23,6 +23,18 @@ const envSchema = z.object({
     .transform((value) => value.split(",").map((origin) => origin.trim())),
   LOG_LEVEL: z.enum(["trace", "debug", "info", "warn", "error", "fatal", "silent"]).default("info"),
   MONGODB_URI: z.string().min(1).default("mongodb://localhost:27017/parsian-store"),
+
+  // P2.S4 — auth. Secrets get NO default: a hardcoded fallback secret in
+  // source is itself the vulnerability (CLAUDE.md's secret-management
+  // rule), unlike CORS_ORIGINS/MONGODB_URI above which are non-secret
+  // config with a legitimate local-dev default.
+  JWT_ACCESS_SECRET: z.string().min(32, "JWT_ACCESS_SECRET must be at least 32 characters"),
+  JWT_REFRESH_SECRET: z.string().min(32, "JWT_REFRESH_SECRET must be at least 32 characters"),
+  JWT_ACCESS_TTL: z.string().default("15m"),
+  JWT_REFRESH_TTL: z.string().default("30d"),
+  SMS_PROVIDER: z.enum(["mock", "kavenegar"]).default("mock"),
+  KAVENEGAR_API_KEY: z.string().optional(),
+  OTP_TEMPLATE: z.string().optional(),
 });
 
 export type Env = z.infer<typeof envSchema>;
