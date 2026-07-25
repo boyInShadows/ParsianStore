@@ -1,0 +1,162 @@
+/**
+ * Design tokens -- masterPlan.md §6.
+ *
+ * This is the ONLY file in the repo allowed to contain a raw hex literal
+ * (CLAUDE.md rule 5 / masterPlan.md §6.7). tailwind.config.js (P1.S2) and the
+ * MUI theme (P1.S6) both read these same CSS custom properties -- one
+ * palette, two consumers. Never hardcode a color, radius, spacing, or motion
+ * value anywhere else; add or extend a token here instead.
+ *
+ * Two-accent discipline (§6.3): Firouzeh owns links, active nav, focus
+ * rings, brand marks, fitment-verified state, selected filters -- never a
+ * "buy" affordance. Signal Orange owns add-to-cart, checkout, prices,
+ * discount badges, low-stock urgency -- never navigation, links, or
+ * decoration. Warning chips are always outlined + icon-led, never solid
+ * fill, so they can never be mistaken for a CTA sitting next to orange.
+ */
+
+:root {
+  /* ---- Firouzeh ramp -- identity, navigation, system state (§6.2) ---- */
+  --color-firouzeh-50: #e6faf7;
+  --color-firouzeh-100: #c2f3ec;
+  --color-firouzeh-200: #8ae7db;
+  --color-firouzeh-300: #4fd8c7;
+  --color-firouzeh-400: #24c4b2;
+  --color-firouzeh-500: #0fb5a8;
+  --color-firouzeh-600: #0a9186;
+  --color-firouzeh-700: #0a736b;
+  --color-firouzeh-800: #0c5b56;
+  --color-firouzeh-900: #0d4a46;
+  --color-firouzeh-950: #042b29;
+
+  /* ---- Signal Orange ramp -- money and action ONLY (§6.2) ---- */
+  --color-orange-50: #fff3eb;
+  --color-orange-100: #ffe1cc;
+  --color-orange-200: #ffc199;
+  --color-orange-300: #ff9e63;
+  --color-orange-400: #ff8038;
+  --color-orange-500: #ff6b1a;
+  --color-orange-600: #e0530a;
+  --color-orange-700: #b33f07;
+  --color-orange-800: #8a320a;
+  --color-orange-900: #702b0c;
+  --color-orange-950: #3d1304;
+
+  /* ---- Graphite ramp -- neutrals, cool cast (§6.2) ---- */
+  --color-graphite-0: #ffffff;
+  --color-graphite-25: #f7f9fa;
+  --color-graphite-50: #eef1f4;
+  --color-graphite-100: #e2e7ec;
+  --color-graphite-200: #cbd3da;
+  --color-graphite-300: #a8b4be;
+  --color-graphite-400: #7c8b97;
+  --color-graphite-500: #5c6b78;
+  --color-graphite-600: #465360;
+  --color-graphite-700: #36414c;
+  --color-graphite-800: #242d36;
+  --color-graphite-850: #1a222a;
+  --color-graphite-900: #141b21;
+  --color-graphite-950: #0e1418;
+  --color-graphite-1000: #080c0f;
+
+  /* ---- Semantic status colors, light values (§6.2) ---- */
+  --color-success: #16a34a;
+  --color-warning: #e8a317;
+  --color-danger: #dc2626;
+  --color-info: #2563eb;
+
+  /* ---- Contrast-safe pairs, light values (§6.4, WCAG AA verified) ---- */
+  --bg: #eef1f4;
+  --surface: #ffffff;
+  --surface-raised: #f7f9fa;
+  --text: #141b21;
+  --text-muted: #5c6b78;
+  --border: #cbd3da;
+  --brand: #0a736b;
+  --brand-solid: #0a9186;
+  --brand-fg: #ffffff;
+  --cta: #d14a08;
+  --cta-fg: #ffffff;
+  --focus: #0fb5a8;
+
+  /* ---- Radius (§6.6) ---- */
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-xl: 20px;
+  --radius-full: 9999px;
+
+  /* ---- Spacing, 4px base scale (§6.6) ---- */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-12: 48px;
+  --space-16: 64px;
+  --space-20: 80px;
+  --space-24: 96px;
+  --space-32: 128px;
+
+  /* ---- Shadow, light: soft, low-alpha, cool-tinted (§6.6) ---- */
+  --shadow-sm: 0 1px 2px 0 rgb(20 27 33 / 0.06);
+  --shadow-md: 0 4px 10px -2px rgb(20 27 33 / 0.08), 0 2px 4px -2px rgb(20 27 33 / 0.06);
+  --shadow-lg: 0 12px 24px -6px rgb(20 27 33 / 0.1), 0 4px 8px -4px rgb(20 27 33 / 0.06);
+
+  /* ---- Motion (§6.6) ---- */
+  --duration-fast: 150ms;
+  --duration-base: 250ms;
+  --duration-slow: 400ms;
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+
+  /* ---- Container (§6.6) ---- */
+  --container-max: 1440px;
+  --container-gutter: 16px; /* mobile; widened to 32px at --breakpoint-lg below */
+
+  /* ---- Breakpoints (§6.6), reference values only --------------------
+     CSS custom properties cannot be used inside @media conditions, so
+     these exist for JS (matchMedia) and documentation. tailwind.config.js
+     (P1.S2) must duplicate these same literal values in its `screens`
+     config -- keep both in sync by hand. */
+  --breakpoint-sm: 640px;
+  --breakpoint-md: 768px;
+  --breakpoint-lg: 1024px;
+  --breakpoint-xl: 1280px;
+  --breakpoint-2xl: 1536px;
+}
+
+@media (min-width: 1024px) {
+  :root {
+    --container-gutter: 32px;
+  }
+}
+
+[data-theme="dark"] {
+  --color-success: #31c46a;
+  --color-warning: #f5b93c;
+  --color-danger: #f0524b;
+  --color-info: #5b8def;
+
+  --bg: #0e1418;
+  --surface: #1a222a;
+  --surface-raised: #242d36;
+  --text: #e2e7ec;
+  --text-muted: #a8b4be;
+  --border: #36414c;
+  --brand: #2fd9c9;
+  --brand-solid: #0fb5a8;
+  --brand-fg: #042b29;
+  /* Deliberately dark text on bright orange -- hits 8.5:1 and looks
+     sharper than the muddy white-on-orange everyone else ships. */
+  --cta: #ff7a2e;
+  --cta-fg: #0e1418;
+  --focus: #2fd9c9;
+
+  /* Dark mode uses NO shadows -- elevation comes from --surface-raised
+     + --border instead (§6.6). */
+  --shadow-sm: none;
+  --shadow-md: none;
+  --shadow-lg: none;
+}
