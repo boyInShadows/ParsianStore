@@ -5,10 +5,11 @@
 **Product:** Persian-first (RTL) e-commerce for car spare parts — Iranian & imported vehicles
 **Owner:** Ash Tech Group
 **Status:** Phase 0 in progress — P0.S1 and P0.S2 complete
-**Document version:** 1.1 — this is the *first move*. Phases 0–4 are locked. Phases 5+ are directionally locked but will be re-specced before execution.
+**Document version:** 1.2 — this is the *first move*. Phases 0–4 are locked. Phases 5+ are directionally locked but will be re-specced before execution.
 
 **Changelog:**
 - 1.1 — Language decision reversed from plain JavaScript to TypeScript (§2.2), mid-Phase-0, before any app code existed. See `docs/decisions/0001-typescript-over-plain-js.md`.
+- 1.2 — Morabba (§6.5 Display face) is not OFL-licensed (commercial, fontiran.com) — replaced with Estedad, the document's own already-named fallback. See `docs/decisions/0002-morabba-not-ofl-use-estedad.md`.
 
 ---
 
@@ -527,11 +528,21 @@ info     light #2563EB  dark #5B8DEF
 
 | Role | Face | License | Used for |
 |---|---|---|---|
-| **Display** | **Morabba** | SIL OFL 1.1 | Hero headline, section headings, big numbers |
+| **Display** | ~~Morabba~~ **Estedad** | SIL OFL 1.1 | Hero headline, section headings, big numbers |
 | **Body / UI** | **Vazirmatn** (variable) | SIL OFL 1.1 | Everything else, Persian + Latin |
 | **Data** | **JetBrains Mono** | SIL OFL 1.1 | Part numbers, SKU, OEM codes, VIN, order codes, system codes, admin tables |
 
-Fallback for Display if Morabba's weight coverage disappoints in testing: **Estedad** Black (also OFL). Verify the OFL file ships in the repo for each face before P1.S3 passes.
+> **v1.2 amendment:** Morabba turned out not to be OFL-licensed — it's a
+> commercial font owned by fontiran.com, license required. Replaced with
+> **Estedad**, which this document's own v1.0 text already named as the
+> fallback for a different reason ("if Morabba's weight coverage
+> disappoints in testing"). See `docs/decisions/0002-morabba-not-ofl-use-estedad.md`.
+> Estedad Black stands in for the old "Morabba 700" slots (display-1,
+> display-2); Estedad Bold stands in for the old "Morabba 600" slot (h1),
+> preserving the original weight hierarchy (900 > 700, same relation as the
+> old 700 > 600).
+
+Verify the OFL file ships in the repo for each face before P1.S3 passes.
 
 **Mono is not decoration.** Part numbers *are* the vernacular of this industry. Setting `MB-0442-K` in mono inside a hairline box is how a real parts catalog behaves.
 
@@ -539,9 +550,9 @@ Fallback for Display if Morabba's weight coverage disappoints in testing: **Este
 
 **Type scale** (1.25 ratio, `clamp()` for fluid):
 ```
-display-1  clamp(2.5rem, 6vw, 4.5rem)   Morabba 700   line-height 1.1  ls -0.02em
-display-2  clamp(2rem, 4.5vw, 3rem)     Morabba 700   1.15
-h1         clamp(1.75rem, 3vw, 2.25rem) Morabba 600   1.25
+display-1  clamp(2.5rem, 6vw, 4.5rem)   Estedad 900   line-height 1.1  ls -0.02em
+display-2  clamp(2rem, 4.5vw, 3rem)     Estedad 900   1.15
+h1         clamp(1.75rem, 3vw, 2.25rem) Estedad 700   1.25
 h2         1.5rem                       Vazirmatn 700 1.35
 h3         1.25rem                      Vazirmatn 600 1.4
 body-lg    1.125rem                     Vazirmatn 400 1.75
