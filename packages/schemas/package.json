@@ -6,8 +6,6 @@
   "main": "./src/index.ts",
   "types": "./src/index.ts",
   "scripts": {
-    "lint": "echo \"schemas: lint wired in P0.S4\"",
-    "test": "echo \"schemas: tests wired in P0.S4\"",
     "build": "tsc --noEmit"
   },
   "dependencies": {

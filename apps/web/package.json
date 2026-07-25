@@ -5,9 +5,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "next start",
-    "lint": "echo \"web: lint wired in P0.S4\"",
-    "test": "echo \"web: tests wired in P0.S4\""
+    "start": "next start"
   },
   "dependencies": {
     "next": "15.5.21",
