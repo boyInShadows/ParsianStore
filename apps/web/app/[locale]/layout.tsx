@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { hasLocale, NextIntlClientProvider } from "next-intl";
 import { notFound } from "next/navigation";
+import { ThemeProvider } from "next-themes";
 import "../../styles/globals.css";
 import { bodyFont, displayFont, monoFont } from "@/lib/fonts";
 import { routing } from "@/i18n/routing";
@@ -27,13 +28,20 @@ export default async function LocaleLayout({ children, params }: Props) {
   const dir = locale === "fa" ? "rtl" : "ltr";
 
   return (
+    // suppressHydrationWarning is required by next-themes: its blocking
+    // inline script sets `data-theme` on <html> before React hydrates,
+    // which would otherwise be flagged as a server/client mismatch
+    // (masterPlan.md §6.7 -- no flash on reload in either theme).
     <html
       lang={locale}
       dir={dir}
+      suppressHydrationWarning
       className={`${displayFont.variable} ${bodyFont.variable} ${monoFont.variable}`}
     >
       <body className="font-body">
-        <NextIntlClientProvider>{children}</NextIntlClientProvider>
+        <ThemeProvider attribute="data-theme" defaultTheme="system" enableSystem>
+          <NextIntlClientProvider>{children}</NextIntlClientProvider>
+        </ThemeProvider>
       </body>
     </html>
   );

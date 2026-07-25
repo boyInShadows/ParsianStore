@@ -1,7 +1,8 @@
 import { getTranslations } from "next-intl/server";
 import { getHealth } from "@/lib/api-client";
+import { ThemeToggle } from "@/components/theme/theme-toggle";
 
-// Debug/proof-of-wiring page for P0.S3/P1.S3/P1.S4. Replaced by the real landing page in Phase 4.
+// Debug/proof-of-wiring page for P0.S3/P1.S3/P1.S4/P1.S5. Replaced by the real landing page in Phase 4.
 export const dynamic = "force-dynamic";
 
 export default async function Page() {
@@ -10,6 +11,7 @@ export default async function Page() {
 
   return (
     <main className="flex min-h-screen flex-col items-center justify-center gap-4 bg-bg p-4 text-text">
+      <ThemeToggle />
       <h1 className="font-display text-display-1 font-black text-brand">{t("title")}</h1>
       <p className="font-body text-body text-text-muted">{t("tagline")}</p>
       <p className="font-mono text-data text-text-muted">
