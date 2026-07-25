@@ -56,6 +56,18 @@ export default tseslint.config(
     files: webFiles,
   },
   {
+    // MUI's palette can't accept var(--...) strings -- createTheme() runs
+    // real color algebra (contrast ratios, lighten/darken, alpha()) that
+    // needs a parseable hex/rgb/hsl value (see the file's own top comment).
+    // This is the one narrow, documented exception to "zero hex outside
+    // tokens.css"; every literal here is commented with the tokens.css
+    // property it must stay byte-identical to.
+    files: ["apps/web/lib/mui-theme.ts"],
+    rules: {
+      "local/no-raw-hex": "off",
+    },
+  },
+  {
     // CommonJS tool configs (tailwind.config.js et al.) -- not app code,
     // not ESM, run directly by Node under require().
     files: ["**/tailwind.config.js", "**/*.cjs"],

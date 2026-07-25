@@ -17,9 +17,11 @@ module.exports = {
     "./app/**/*.{ts,tsx}",
     "./components/**/*.{ts,tsx}",
     "./lib/**/*.{ts,tsx}",
-    // Physical separation from the MUI world (masterPlan.md §7.4): once the
-    // (admin) route group exists (P1.S6), Tailwind must never process it.
-    "!./app/(admin)/**",
+    // Physical separation from the MUI world (masterPlan.md §7.4). Written as
+    // "**/(admin)/**" (not "./app/[locale]/(admin)/**") so the literal `[locale]`
+    // path segment never has to appear in a glob pattern -- fast-glob would
+    // otherwise parse `[locale]` as a character class, not a literal folder name.
+    "!./app/**/(admin)/**",
   ],
   darkMode: ["selector", '[data-theme="dark"]'],
   theme: {
