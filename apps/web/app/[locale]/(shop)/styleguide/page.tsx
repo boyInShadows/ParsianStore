@@ -21,6 +21,7 @@ import {
   Toaster,
   Tooltip,
 } from "@/components/primitives";
+import { CountUp, Marquee, Reveal, Stagger } from "@/components/motion";
 import { useToastStore } from "@/stores/toast-store";
 
 // P1.S7 proof-of-wiring page: every primitive, real Persian copy (not
@@ -134,6 +135,39 @@ export default function StyleguidePage() {
       <Drawer open={drawerOpen} onClose={() => setDrawerOpen(false)} title="فیلترها" side="end">
         <p className="text-body text-text-muted">فیلترهای دسته‌بندی در اینجا قرار می‌گیرند.</p>
       </Drawer>
+
+      <Reveal>
+        <Card>
+          <p className="text-body text-text">
+            این کارت هنگام ورود به دید، محو و کمی جابه‌جا نمایان می‌شود.
+          </p>
+        </Card>
+      </Reveal>
+
+      <Stagger className="grid grid-cols-3 gap-3">
+        <Stagger.Item>
+          <Card>موتوری</Card>
+        </Stagger.Item>
+        <Stagger.Item>
+          <Card>ترمز</Card>
+        </Stagger.Item>
+        <Stagger.Item>
+          <Card>برقی</Card>
+        </Stagger.Item>
+      </Stagger>
+
+      <Card className="flex items-center gap-2">
+        <CountUp value={12000} className="font-display text-h1 text-brand" />
+        <span className="text-body text-text-muted">قطعه در انبار</span>
+      </Card>
+
+      <Marquee>
+        {["بوش", "والئو", "NGK", "دنسو", "ساچمی"].map((brand) => (
+          <span key={brand} className="text-h3 font-semibold text-text-muted">
+            {brand}
+          </span>
+        ))}
+      </Marquee>
 
       <Toaster />
     </main>

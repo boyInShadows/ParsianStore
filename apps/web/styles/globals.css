@@ -18,4 +18,29 @@
   dialog::backdrop {
     background-color: color-mix(in srgb, var(--color-graphite-950) 50%, transparent);
   }
+
+  /* Marquee loop (components/motion/Marquee.tsx). Translating by exactly
+     -50% works because the marquee duplicates its content once, making the
+     track exactly double the width of one copy. */
+  @keyframes marquee {
+    from {
+      transform: translateX(0);
+    }
+    to {
+      transform: translateX(-50%);
+    }
+  }
+
+  /* CSS-level backstop for the same reduced-motion check Marquee.tsx does
+     in JS: `useReducedMotion()` needs `window.matchMedia`, unavailable
+     during SSR, so the very first paint (before hydration resolves the
+     preference) could otherwise briefly run the animation. This guarantees
+     it never does, independent of hydration timing. Targets a stable class
+     (not an inline-style attribute selector, whose serialized string order
+     isn't guaranteed across browsers for shorthand properties). */
+  @media (prefers-reduced-motion: reduce) {
+    .motion-marquee-track {
+      animation: none !important;
+    }
+  }
 }
