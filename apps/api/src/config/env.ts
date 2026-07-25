@@ -35,6 +35,10 @@ const envSchema = z.object({
   SMS_PROVIDER: z.enum(["mock", "kavenegar"]).default("mock"),
   KAVENEGAR_API_KEY: z.string().optional(),
   OTP_TEMPLATE: z.string().optional(),
+
+  // P2.S5 — staff seeding. Optional: a deploy that never runs the seed
+  // script (or a test run) has no need for it.
+  ADMIN_SEED_PHONE: z.string().optional(),
 });
 
 export type Env = z.infer<typeof envSchema>;
