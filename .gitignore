@@ -49,3 +49,9 @@ next-env.d.ts
 # editor
 .vscode/*
 !.vscode/extensions.json
+
+# agent memory / AI-session notes -- kept locally for this and future Claude
+# Code sessions, deliberately not pushed to GitHub. masterPlan.md, README.md,
+# and docs/audit.md are real product docs and stay tracked; these aren't.
+/CLAUDE.md
+/docs/decisions/

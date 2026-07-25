@@ -6,10 +6,14 @@ export default {
       rules: {
         "step-tag-present": (parsed) => {
           const subject = parsed.subject ?? "";
-          const ok = /^\[(P\d+\.S\d+|PLAN)\]\s/.test(subject);
+          // PLAN: masterPlan.md content amendments (§16). REPO: cross-cutting
+          // repo/tooling hygiene not tied to a single phase step (e.g. .gitignore
+          // policy) -- both are additions on top of masterPlan.md §12's own
+          // "[P<phase>.S<step>]" tag requirement, not a replacement for it.
+          const ok = /^\[(P\d+\.S\d+|PLAN|REPO)\]\s/.test(subject);
           return [
             ok,
-            'Commit subject must start with a "[P<phase>.S<step>]" or "[PLAN]" tag, e.g. "[P0.S4] wire eslint gate" (masterPlan.md §12).',
+            'Commit subject must start with a "[P<phase>.S<step>]", "[PLAN]", or "[REPO]" tag, e.g. "[P0.S4] wire eslint gate" (masterPlan.md §12).',
           ];
         },
       },
