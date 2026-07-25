@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Box, Button, Stack, TextField, Typography } from "@mui/material";
+import { Box, Button, Stack, TextField, Typography, useTheme } from "@mui/material";
 import { DataGrid, type GridColDef } from "@mui/x-data-grid";
 import { LocalizationProvider, DatePicker } from "@mui/x-date-pickers";
 import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
@@ -35,6 +35,7 @@ const weeklyStock = [
 export default function AdminDemoPage() {
   const [partName, setPartName] = useState("");
   const [entryDate, setEntryDate] = useState<Dayjs | null>(dayjs());
+  const theme = useTheme();
 
   return (
     <Box sx={{ p: 4, display: "flex", flexDirection: "column", gap: 4 }}>
@@ -77,6 +78,12 @@ export default function AdminDemoPage() {
           dataset={weeklyStock}
           xAxis={[{ dataKey: "week", scaleType: "band" }]}
           series={[{ dataKey: "count", label: "تعداد" }]}
+          // X-Charts ships its own default series palette, independent of
+          // the MUI theme, unless told otherwise -- without this the chart
+          // silently ignores our brand color (found re-verifying P1.S6
+          // after the P1.S9 palette swap: the bars stayed the old
+          // turquoise-ish default even though the theme's primary changed).
+          colors={[theme.palette.primary.main]}
         />
       </Box>
     </Box>

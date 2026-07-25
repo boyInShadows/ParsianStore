@@ -4,12 +4,13 @@
 **Integration branch:** `development`
 **Product:** Persian-first (RTL) e-commerce for car spare parts — Iranian & imported vehicles
 **Owner:** Ash Tech Group
-**Status:** Phase 0 in progress — P0.S1 and P0.S2 complete
-**Document version:** 1.2 — this is the *first move*. Phases 0–4 are locked. Phases 5+ are directionally locked but will be re-specced before execution.
+**Status:** Phase 0 complete. Phase 1 complete (P1.S1–P1.S9) — GATE 1→2 pending final palette sign-off.
+**Document version:** 1.3 — this is the *first move*. Phases 0–4 are locked. Phases 5+ are directionally locked but will be re-specced before execution.
 
 **Changelog:**
 - 1.1 — Language decision reversed from plain JavaScript to TypeScript (§2.2), mid-Phase-0, before any app code existed. See `docs/decisions/0001-typescript-over-plain-js.md`.
 - 1.2 — Morabba (§6.5 Display face) is not OFL-licensed (commercial, fontiran.com) — replaced with Estedad, the document's own already-named fallback. See `docs/decisions/0002-morabba-not-ofl-use-estedad.md`.
+- 1.3 — Color palette (§6.1–§6.4) replaced: turquoise + safety-orange → Steel Blue + Racing Red, per owner feedback at GATE 1→2 and automotive-color research (Saipa/Iran Khodro both use blue; racing/tool-brand culture overwhelmingly uses red for excitement). See `docs/decisions/0003-color-palette-steel-and-race.md`.
 
 ---
 
@@ -463,22 +464,34 @@ Mobile-first. Every section must be usable and beautiful at 360px before desktop
 
 ### 6.1 Direction
 
-Machined-metal graphite ground, Persian turquoise identity, safety-orange commerce. The vernacular is the parts catalog: hairline rules, mono-set reference codes, exploded diagrams. Restraint everywhere except the Exploded View.
+> **v1.3 amendment:** the original turquoise + safety-orange direction below
+> is superseded. Replaced with **Steel Blue + Racing Red**, grounded in
+> automotive/motorsport color research rather than a Persian-tilework
+> reference: blue is the color both Saipa and Iran Khodro (the two domestic
+> brands this shop targets, per the owner) use in their own identities, and
+> racing red is the universal "speed and excitement" color across
+> motorsport and the mechanic/tool trade (Ferrari Rosso Corsa; Snap-on and
+> Milwaukee, the tool brands mechanics actually reach for). See
+> `docs/decisions/0003-color-palette-steel-and-race.md`. The graphite
+> neutral ramp is unchanged — "machined-metal graphite ground" already
+> suited the new direction as well as the old one.
 
-Turquoise (فیروزه) is the deliberate risk: this market is 90% red/orange/blue, and turquoise is authentically Persian — Isfahan tilework, Neyshabur stone — for a brand called Parsian. It also reads as diagnostic-instrument cyan in an automotive context. Justified twice.
+~~Machined-metal graphite ground, Persian turquoise identity, safety-orange commerce.~~ The vernacular is the parts catalog: hairline rules, mono-set reference codes, exploded diagrams. Restraint everywhere except the Exploded View.
+
+~~Turquoise (فیروزه) is the deliberate risk: this market is 90% red/orange/blue, and turquoise is authentically Persian — Isfahan tilework, Neyshabur stone — for a brand called Parsian. It also reads as diagnostic-instrument cyan in an automotive context. Justified twice.~~
 
 ### 6.2 Color ramps
 
-**Firouzeh — identity, navigation, system state**
+**Steel Blue — identity, navigation, system state**
 ```
-50 #E6FAF7   100 #C2F3EC   200 #8AE7DB   300 #4FD8C7   400 #24C4B2
-500 #0FB5A8  600 #0A9186   700 #0A736B   800 #0C5B56   900 #0D4A46   950 #042B29
+50 #EAF1FF   100 #D3E3FF   200 #A8C6FF   300 #7BA6FF   400 #4C86FA
+500 #2E6BEF  600 #1E52D6   700 #1A3FA8   800 #16337F   900 #142B63   950 #0A1733
 ```
 
-**Signal Orange — money and action ONLY**
+**Racing Red — money and action ONLY**
 ```
-50 #FFF3EB   100 #FFE1CC   200 #FFC199   300 #FF9E63   400 #FF8038
-500 #FF6B1A  600 #E0530A   700 #B33F07   800 #8A320A   900 #702B0C   950 #3D1304
+50 #FFEDEC   100 #FFD5D2   200 #FFACA5   300 #FF7B70   400 #F94E3F
+500 #D31D14  600 #AD160F   700 #8A130F   800 #6B110E   900 #4F0E0B   950 #2C0705
 ```
 
 **Graphite — neutrals (cool cast)**
@@ -492,18 +505,18 @@ Turquoise (فیروزه) is the deliberate risk: this market is 90% red/orange/b
 ```
 success  light #16A34A  dark #31C46A
 warning  light #E8A317  dark #F5B93C
-danger   light #DC2626  dark #F0524B
-info     light #2563EB  dark #5B8DEF
+danger   light #C81E4A  dark #F0527D   (hue ~344°, shifted off Racing Red's ~3-5° on purpose)
+info     light #1E52D6  dark #2E6BEF   (aliases the brand ramp directly -- brand is blue now too)
 ```
 
 ### 6.3 The two-accent discipline
 
 | Color | Owns | Never used for |
 |---|---|---|
-| **Firouzeh** | Links, active nav, focus rings, brand marks, fitment-verified state, selected filters | Any "buy" affordance |
-| **Signal Orange** | Add to cart, checkout, prices, discount badges, low-stock urgency | Navigation, links, decoration |
+| **Steel Blue** | Links, active nav, focus rings, brand marks, fitment-verified state, selected filters | Any "buy" affordance |
+| **Racing Red** | Add to cart, checkout, prices, discount badges, low-stock urgency | Navigation, links, decoration |
 
-**Warning rule:** warning chips are *always* outlined + icon-led, never solid fill — so they can never be mistaken for a CTA sitting next to orange.
+**Warning rule:** warning chips are *always* outlined + icon-led, never solid fill — so they can never be mistaken for a CTA. **Danger vs. CTA rule:** both are reds by nature (motorsport red and error red occupy the same hue family everywhere), so danger is deliberately shifted toward crimson (~344° hue) away from Racing Red's ~3-5° — verified via HSL, not eyeballed — so the two read as related but distinct rather than identical.
 
 ### 6.4 Contrast-safe pairs (WCAG AA verified)
 
@@ -515,14 +528,14 @@ info     light #2563EB  dark #5B8DEF
 | `--text` | `#141B21` | `#E2E7EC` |
 | `--text-muted` | `#5C6B78` | `#A8B4BE` |
 | `--border` | `#CBD3DA` | `#36414C` |
-| `--brand` (text/link) | `#0A736B` | `#2FD9C9` |
-| `--brand-solid` | `#0A9186` | `#0FB5A8` |
-| `--brand-fg` | `#FFFFFF` | `#042B29` |
-| `--cta` | `#D14A08` | `#FF7A2E` |
+| `--brand` (text/link) | `#1A3FA8` | `#7BA6FF` |
+| `--brand-solid` | `#1E52D6` | `#2E6BEF` |
+| `--brand-fg` | `#FFFFFF` | `#FFFFFF` |
+| `--cta` | `#D31D14` | `#F94E3F` |
 | `--cta-fg` | `#FFFFFF` | `#0E1418` |
-| `--focus` | `#0FB5A8` | `#2FD9C9` |
+| `--focus` | `#2E6BEF` | `#7BA6FF` |
 
-> Dark-mode CTA deliberately uses **dark text on bright orange** — it hits 8.5:1 and looks sharper than the muddy white-on-orange everyone else ships.
+> Dark-mode CTA deliberately uses **dark text on bright racing red** — 5.47:1, clears AA with real margin and looks sharper than white-on-bright, the same trick the v1.0 orange CTA used. Every pair above was checked with a real relative-luminance contrast calculation before being locked in, not eyeballed.
 
 ### 6.5 Typography
 

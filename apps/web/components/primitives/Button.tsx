@@ -13,7 +13,7 @@ const base =
   "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2 focus-visible:ring-offset-bg " +
   "disabled:pointer-events-none disabled:opacity-50";
 
-// Firouzeh owns navigation/brand affordances; Signal Orange owns money/action
+// Steel Blue owns navigation/brand affordances; Racing Red owns money/action
 // only -- masterPlan.md §6.3. Never swap which variant a CTA-vs-nav button uses.
 const variants: Record<Variant, string> = {
   brand: "bg-brand-solid text-brand-fg hover:opacity-90",

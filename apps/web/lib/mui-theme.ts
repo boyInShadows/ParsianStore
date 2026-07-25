@@ -34,13 +34,13 @@ export const muiTheme = createTheme(
       light: {
         palette: {
           primary: {
-            main: "#0A9186", // --brand-solid (light) / --color-firouzeh-600
+            main: "#1E52D6", // --brand-solid (light) / --color-steel-600
             contrastText: "#FFFFFF", // --brand-fg (light)
           },
-          error: { main: "#DC2626" }, // --color-danger (light)
+          error: { main: "#C81E4A" }, // --color-danger (light)
           warning: { main: "#E8A317" }, // --color-warning (light)
           success: { main: "#16A34A" }, // --color-success (light)
-          info: { main: "#2563EB" }, // --color-info (light)
+          info: { main: "#1E52D6" }, // --color-info (light) -- now aliases brand
           background: {
             default: "#EEF1F4", // --bg (light)
             paper: "#FFFFFF", // --surface (light)
@@ -55,13 +55,13 @@ export const muiTheme = createTheme(
       dark: {
         palette: {
           primary: {
-            main: "#0FB5A8", // --brand-solid (dark) / --color-firouzeh-500
-            contrastText: "#042B29", // --brand-fg (dark)
+            main: "#2E6BEF", // --brand-solid (dark) / --color-steel-500
+            contrastText: "#FFFFFF", // --brand-fg (dark)
           },
-          error: { main: "#F0524B" }, // --color-danger (dark)
+          error: { main: "#F0527D" }, // --color-danger (dark)
           warning: { main: "#F5B93C" }, // --color-warning (dark)
           success: { main: "#31C46A" }, // --color-success (dark)
-          info: { main: "#5B8DEF" }, // --color-info (dark)
+          info: { main: "#2E6BEF" }, // --color-info (dark) -- now aliases brand
           background: {
             default: "#0E1418", // --bg (dark)
             paper: "#1A222A", // --surface (dark)
