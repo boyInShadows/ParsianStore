@@ -1,0 +1,16 @@
+{
+  "name": "config",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "scripts": {
+    "lint": "echo \"config: lint wired in P0.S4\"",
+    "test": "echo \"config: no tests\"",
+    "build": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.0"
+  }
+}
