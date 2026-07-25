@@ -135,6 +135,28 @@ module.exports = {
       maxWidth: {
         container: "var(--container-max)",
       },
+      // Type scale -- masterPlan.md §6.5. fontFamily/fontWeight compose with
+      // these: e.g. `font-display text-display-1` or `font-mono text-data`.
+      fontFamily: {
+        display: ["var(--font-display)", "Tahoma", "sans-serif"],
+        body: ["var(--font-body)", "Tahoma", "sans-serif"],
+        mono: ["var(--font-mono)", "ui-monospace", "monospace"],
+      },
+      fontSize: {
+        "display-1": [
+          "clamp(2.5rem, 6vw, 4.5rem)",
+          { lineHeight: "1.1", letterSpacing: "-0.02em" },
+        ],
+        "display-2": ["clamp(2rem, 4.5vw, 3rem)", { lineHeight: "1.15" }],
+        h1: ["clamp(1.75rem, 3vw, 2.25rem)", { lineHeight: "1.25" }],
+        h2: ["1.5rem", { lineHeight: "1.35" }],
+        h3: ["1.25rem", { lineHeight: "1.4" }],
+        "body-lg": ["1.125rem", { lineHeight: "1.75" }],
+        body: ["1rem", { lineHeight: "1.75" }],
+        "body-sm": ["0.875rem", { lineHeight: "1.7" }],
+        caption: ["0.75rem", { lineHeight: "1.5", letterSpacing: "0.02em" }],
+        data: ["0.875rem", { letterSpacing: "0.01em" }],
+      },
     },
   },
   plugins: [require("tailwindcss-logical"), require("@tailwindcss/typography")],
