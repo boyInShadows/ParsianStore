@@ -153,6 +153,13 @@ productSchema.index({ categoryId: 1, brandId: 1, status: 1 });
 // "none" just does plain whitespace tokenization over the normalized text.
 productSchema.index({ searchText: "text" }, { default_language: "none" });
 
+// P3.S5's cursor-safe listing (utils/cursorPaginate.ts) sorts and
+// range-filters on exactly `(sortField, _id)` for each supported sort —
+// these compound indexes let keyset pagination use an index scan instead
+// of an in-memory sort as the catalog grows.
+productSchema.index({ createdAt: 1, _id: 1 });
+productSchema.index({ priceRial: 1, _id: 1 });
+
 productSchema.pre("save", function (next) {
   const parts = [this.name.fa, this.name.en, this.sku, ...this.oemNumbers, ...this.crossRefNumbers];
   this.searchText = normalizeFa(parts.join(" "));

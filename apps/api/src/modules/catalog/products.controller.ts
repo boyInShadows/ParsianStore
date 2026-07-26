@@ -1,0 +1,47 @@
+import type { NextFunction, Request, Response } from "express";
+import * as productsService from "./products.service.js";
+import type { ListProductsQuery, RelatedProductsQuery } from "./products.schema.js";
+
+export async function listProductsHandler(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  try {
+    const { sort, cursor, limit, ...filters } = req.validatedQuery as ListProductsQuery;
+    const { data, meta } = await productsService.listProducts(filters, sort, cursor, limit);
+    res.json({ ok: true, data, meta });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function getProductBySlugHandler(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  try {
+    const product = await productsService.getProductBySlug(req.params.slug as string);
+    res.json({ ok: true, data: product });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function getRelatedProductsHandler(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  try {
+    const { limit } = req.validatedQuery as RelatedProductsQuery;
+    const { data, meta } = await productsService.getRelatedProducts(
+      req.params.slug as string,
+      limit,
+    );
+    res.json({ ok: true, data, meta });
+  } catch (err) {
+    next(err);
+  }
+}

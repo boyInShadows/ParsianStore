@@ -46,6 +46,10 @@ here rather than re-derived per model.
   `$or`/`$and` — `MongoSearchProvider` runs it, a substring `$regex` (for
   prefix/partial-word queries `$text` can't do), and the OEM lookup as
   three separate queries unioned by product id, not one combined query.
+  Also: compound `(createdAt, _id)` and `(priceRial, _id)` indexes for
+  `utils/cursorPaginate.ts` (P3.S5) — keyset pagination always sorts and
+  range-filters on exactly `(sortField, _id)`, so each supported sort gets
+  its own compound index rather than relying on an in-memory sort.
 - **`VehicleModel`/`VehicleGen`/`VehicleEngine`**: index on their parent
   reference (`makeId`, `modelId`, `genId` respectively) — the vehicle tree
   is always walked top-down (`/vehicles/models?makeId`, §9).
