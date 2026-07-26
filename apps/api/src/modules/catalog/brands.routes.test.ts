@@ -44,6 +44,18 @@ interface Envelope<T> {
   data: T;
 }
 
+// auditLog() writes on res.on("finish"), after the response has already
+// gone out — see middleware/auditLog.test.ts for why this polls instead
+// of a fixed sleep (flaky under full-suite load with a fixed delay).
+async function waitForAuditEntry(entity: string, timeoutMs = 1000): Promise<void> {
+  const start = Date.now();
+  while (Date.now() - start < timeoutMs) {
+    if ((await AuditLogModel.countDocuments({ entity })) > 0) return;
+    await new Promise((resolve) => setTimeout(resolve, 10));
+  }
+  throw new Error(`No audit log entry for "${entity}" appeared within ${timeoutMs}ms`);
+}
+
 async function seedBrand() {
   return BrandModel.create({ name: { fa: "بوش", en: "Bosch" }, slug: "bosch", country: "Germany" });
 }
@@ -98,6 +110,7 @@ describe("POST/PATCH/DELETE /admin/catalog/brands", () => {
     const body = (await res.json()) as Envelope<{ isOEM: boolean }>;
     expect(body.data.isOEM).toBe(true);
 
+    await waitForAuditEntry("brand");
     const entries = await AuditLogModel.find({ entity: "brand" });
     expect(entries).toHaveLength(1);
   });

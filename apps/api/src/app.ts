@@ -16,6 +16,7 @@ import { authenticityRouter } from "./modules/authenticity/authenticity.routes.j
 import { authRouter } from "./modules/auth/auth.routes.js";
 import { adminCatalogRouter } from "./modules/catalog/catalog.admin.routes.js";
 import { catalogRouter } from "./modules/catalog/catalog.routes.js";
+import { fitmentRouter } from "./modules/fitment/fitment.routes.js";
 import { geoRouter } from "./modules/geo/geo.routes.js";
 import { vehiclesRouter } from "./modules/vehicles/vehicles.routes.js";
 import { uploadsDir } from "./providers/storage/index.js";
@@ -47,6 +48,7 @@ app.use("/api/v1/geo", geoRouter);
 app.use("/api/v1/catalog", catalogRouter);
 app.use("/api/v1/admin/catalog", adminCatalogRouter);
 app.use("/api/v1/authenticity", authenticityRouter);
+app.use("/api/v1/fitment", fitmentRouter);
 // LocalDiskStorageProvider's saved variants (P2.S8) — served directly, no
 // auth: product/category imagery is public by nature. P2.S9 security
 // header audit: helmet()'s default Cross-Origin-Resource-Policy is

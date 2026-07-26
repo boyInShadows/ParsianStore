@@ -44,6 +44,18 @@ interface Envelope<T> {
   data: T;
 }
 
+// auditLog() writes on res.on("finish"), after the response has already
+// gone out — see middleware/auditLog.test.ts for why this polls instead
+// of a fixed sleep (flaky under full-suite load with a fixed delay).
+async function waitForAuditEntry(entity: string, timeoutMs = 1000): Promise<void> {
+  const start = Date.now();
+  while (Date.now() - start < timeoutMs) {
+    if ((await AuditLogModel.countDocuments({ entity })) > 0) return;
+    await new Promise((resolve) => setTimeout(resolve, 10));
+  }
+  throw new Error(`No audit log entry for "${entity}" appeared within ${timeoutMs}ms`);
+}
+
 describe("GET /admin/catalog/attributes", () => {
   it("rejects an unauthenticated request (no public attributes route exists)", async () => {
     const res = await fetch(`${baseUrl}/api/v1/admin/catalog/attributes`);
@@ -86,6 +98,7 @@ describe("POST/PATCH/DELETE /admin/catalog/attributes", () => {
     const body = (await res.json()) as Envelope<{ key: string }>;
     expect(body.data.key).toBe("color");
 
+    await waitForAuditEntry("attribute");
     const entries = await AuditLogModel.find({ entity: "attribute" });
     expect(entries).toHaveLength(1);
   });
