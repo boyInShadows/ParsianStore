@@ -44,3 +44,17 @@ export function validateQuery(schema: ZodSchema): RequestHandler {
     }
   };
 }
+
+/** Same contract as validate(), for route params (:id, :slug, ...). Unlike
+ * req.query, req.params is a plain property the router assigns per-request
+ * (not a getter), so it can be reassigned directly like req.body. */
+export function validateParams(schema: ZodSchema): RequestHandler {
+  return (req, _res, next) => {
+    try {
+      req.params = schema.parse(req.params);
+      next();
+    } catch (err) {
+      next(err);
+    }
+  };
+}

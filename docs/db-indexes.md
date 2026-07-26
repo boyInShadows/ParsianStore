@@ -48,12 +48,22 @@ here rather than re-derived per model.
   `VehicleModel`'s `(makeId, slug)`. A city's slug only needs to be unique
   within its own province, and `/geo/cities?provinceId` (§9) always walks
   the geo tree top-down too.
+- **`Category`**: `parentId` indexed (subcategory listings always filter by
+  it, `/catalog/categories?parentId`, §9); `slug` unique per the
+  conventions above. `systemCode` is a bounded ~10-value enum
+  (`packages/schemas/catalogSystems.ts`), not indexed — filtering by it
+  isn't a listed query path, and an index over 10 near-evenly-distributed
+  values buys little.
+- **`Attribute`**: `key` unique (it's `Product.attributes[].key`'s foreign
+  reference in spirit, even though Product stores it by value rather than
+  ObjectId — see §3.2's `Product.attributes[{key,value}]`).
 
 ## Why this is a doc and not code yet
 
 P2.S2 ships the plugin layer (`deletedAt` indexing is real, applied via
 `applyBasePlugins`) but not the models themselves — those land in P2.S4
-(User/auth) through P2.S7 (geo). Each model file declares its own
-schema-level indexes per the rules above when it's actually written; this
-doc is the reference those steps implement against, so the reasoning is
-recorded once instead of re-litigated per collection.
+(User/auth) onward, one phase/step at a time (P2.S4-S9, then P3.S1+). Each
+model file declares its own schema-level indexes per the rules above when
+it's actually written; this doc is the reference those steps implement
+against, so the reasoning is recorded once instead of re-litigated per
+collection.

@@ -23,6 +23,13 @@ export interface LocalizedName {
   en: string;
 }
 
+// §3.2's `seo{}` field recurs across Category, Brand, and Product (P3.S1+)
+// with the same minimal shape — one definition, not one per model.
+export interface SeoMeta {
+  title?: string;
+  description?: string;
+}
+
 // createdAt/updatedAt on every collection (§3.2: "add createdAt/updatedAt
 // to all"). A named plugin rather than passing `{ timestamps: true }` at
 // each schema's construction site keeps the requirement enforced in one

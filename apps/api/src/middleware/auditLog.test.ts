@@ -10,11 +10,11 @@ import { requireAuth } from "./auth.js";
 import { auditLog } from "./auditLog.js";
 import { errorHandler } from "./error.js";
 
-// A minimal throwaway app rather than the real one: this middleware isn't
-// mounted anywhere in app.ts yet (no real admin CRUD routes exist until
-// Phase 8 — see the commit message for why), so it's exercised directly
-// against routes built just for this test, the same way a future admin
-// router would wire it.
+// A minimal throwaway app rather than the real one: exercises the
+// middleware's generic actor/action/entity/ip behavior in isolation. The
+// real admin catalog routers (modules/catalog/*.admin.routes.ts, P3.S1+)
+// wire this the same way against real entities — see their own route
+// tests for that integration.
 const TEST_URI = testDbUri("parsian-store-test-audit-middleware");
 let server: Server;
 let baseUrl: string;
