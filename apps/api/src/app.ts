@@ -12,6 +12,7 @@ import { errorHandler } from "./middleware/error.js";
 import { apiRateLimiter } from "./middleware/rateLimit.js";
 import { requestId } from "./middleware/requestId.js";
 import { sanitizeRequest } from "./middleware/sanitize.js";
+import { authenticityRouter } from "./modules/authenticity/authenticity.routes.js";
 import { authRouter } from "./modules/auth/auth.routes.js";
 import { adminCatalogRouter } from "./modules/catalog/catalog.admin.routes.js";
 import { catalogRouter } from "./modules/catalog/catalog.routes.js";
@@ -45,6 +46,7 @@ app.use("/api/v1/vehicles", vehiclesRouter);
 app.use("/api/v1/geo", geoRouter);
 app.use("/api/v1/catalog", catalogRouter);
 app.use("/api/v1/admin/catalog", adminCatalogRouter);
+app.use("/api/v1/authenticity", authenticityRouter);
 // LocalDiskStorageProvider's saved variants (P2.S8) — served directly, no
 // auth: product/category imagery is public by nature. P2.S9 security
 // header audit: helmet()'s default Cross-Origin-Resource-Policy is
