@@ -16,6 +16,13 @@ export interface SoftDeleteMethods {
   softDelete(): Promise<void>;
 }
 
+// Every fa/en pair in the domain (vehicle makes/models, provinces,
+// cities, ...) shares this exact shape — one definition, not one per model.
+export interface LocalizedName {
+  fa: string;
+  en: string;
+}
+
 // createdAt/updatedAt on every collection (§3.2: "add createdAt/updatedAt
 // to all"). A named plugin rather than passing `{ timestamps: true }` at
 // each schema's construction site keeps the requirement enforced in one

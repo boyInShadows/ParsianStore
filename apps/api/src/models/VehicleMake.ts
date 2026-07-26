@@ -1,15 +1,11 @@
 import { Schema, model, type Model } from "mongoose";
 import {
   applyBasePlugins,
+  type LocalizedName,
   type SoftDeleteMethods,
   type WithSoftDelete,
   type WithTimestamps,
 } from "./plugins.js";
-
-export interface LocalizedName {
-  fa: string;
-  en: string;
-}
 
 export interface VehicleMake extends WithTimestamps, WithSoftDelete {
   name: LocalizedName;

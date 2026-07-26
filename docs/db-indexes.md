@@ -44,6 +44,10 @@ here rather than re-derived per model.
 - **`VehicleModel`/`VehicleGen`/`VehicleEngine`**: index on their parent
   reference (`makeId`, `modelId`, `genId` respectively) — the vehicle tree
   is always walked top-down (`/vehicles/models?makeId`, §9).
+- **`City`**: compound index `(provinceId, slug)`, unique — same shape as
+  `VehicleModel`'s `(makeId, slug)`. A city's slug only needs to be unique
+  within its own province, and `/geo/cities?provinceId` (§9) always walks
+  the geo tree top-down too.
 
 ## Why this is a doc and not code yet
 
