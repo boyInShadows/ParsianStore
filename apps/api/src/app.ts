@@ -12,6 +12,7 @@ import { errorHandler } from "./middleware/error.js";
 import { authRouter } from "./modules/auth/auth.routes.js";
 import { geoRouter } from "./modules/geo/geo.routes.js";
 import { vehiclesRouter } from "./modules/vehicles/vehicles.routes.js";
+import { uploadsDir } from "./providers/storage/index.js";
 
 export function healthHandler(_req: Request, res: Response): void {
   const payload = healthResponseSchema.parse({
@@ -34,6 +35,9 @@ app.get("/api/v1/health", healthHandler);
 app.use("/api/v1/auth", authRouter);
 app.use("/api/v1/vehicles", vehiclesRouter);
 app.use("/api/v1/geo", geoRouter);
+// LocalDiskStorageProvider's saved variants (P2.S8) — served directly,
+// no auth: product/category imagery is public by nature.
+app.use("/uploads", express.static(uploadsDir));
 
 // Must be registered after every route: unmatched requests fall through
 // to notFoundHandler, thrown/passed errors fall through to errorHandler.

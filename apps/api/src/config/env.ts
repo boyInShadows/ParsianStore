@@ -39,6 +39,13 @@ const envSchema = z.object({
   // P2.S5 — staff seeding. Optional: a deploy that never runs the seed
   // script (or a test run) has no need for it.
   ADMIN_SEED_PHONE: z.string().optional(),
+
+  // P2.S8 — storage. Only "local" is implemented (§4 manifest: an
+  // S3-compatible driver is a later phase's job); PUBLIC_URL builds the
+  // URLs LocalDiskStorageProvider hands back for files served from
+  // apps/api's own /uploads static route.
+  STORAGE_DRIVER: z.enum(["local"]).default("local"),
+  PUBLIC_URL: z.string().url().default("http://localhost:4000"),
 });
 
 export type Env = z.infer<typeof envSchema>;

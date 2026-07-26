@@ -24,6 +24,9 @@ build/
 playwright-report/
 test-results/
 
+# local-disk StorageProvider (P2.S8) — uploaded/rendered images, dev-only
+apps/api/uploads/
+
 # misc
 .DS_Store
 *.pem
