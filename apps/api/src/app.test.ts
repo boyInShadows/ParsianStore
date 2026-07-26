@@ -45,6 +45,19 @@ describe("app (integration)", () => {
     expect(res.headers.get("x-dns-prefetch-control")).toBe("off");
   });
 
+  it("echoes a per-request id as X-Request-Id", async () => {
+    const res = await fetch(`${baseUrl}/api/v1/health`);
+    expect(res.headers.get("x-request-id")).toBeTruthy();
+  });
+
+  it("relaxes Cross-Origin-Resource-Policy to cross-origin for /uploads only, so apps/web (a different origin) can load product images", async () => {
+    const uploadRes = await fetch(`${baseUrl}/uploads/does-not-exist/thumb.webp`);
+    expect(uploadRes.headers.get("cross-origin-resource-policy")).toBe("cross-origin");
+
+    const apiRes = await fetch(`${baseUrl}/api/v1/health`);
+    expect(apiRes.headers.get("cross-origin-resource-policy")).toBe("same-origin");
+  });
+
   it("returns the 404 envelope for an unknown route", async () => {
     const res = await fetch(`${baseUrl}/api/v1/does-not-exist`);
     expect(res.status).toBe(404);

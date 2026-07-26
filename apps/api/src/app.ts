@@ -9,6 +9,9 @@ import { env } from "./config/env.js";
 import { logger } from "./config/logger.js";
 import { notFoundHandler } from "./middleware/notFound.js";
 import { errorHandler } from "./middleware/error.js";
+import { apiRateLimiter } from "./middleware/rateLimit.js";
+import { requestId } from "./middleware/requestId.js";
+import { sanitizeRequest } from "./middleware/sanitize.js";
 import { authRouter } from "./modules/auth/auth.routes.js";
 import { geoRouter } from "./modules/geo/geo.routes.js";
 import { vehiclesRouter } from "./modules/vehicles/vehicles.routes.js";
@@ -29,15 +32,30 @@ app.use(cors({ origin: env.CORS_ORIGINS, credentials: true }));
 app.use(compression());
 app.use(cookieParser());
 app.use(express.json());
+app.use(requestId);
 app.use(pinoHttp({ logger }));
+app.use(sanitizeRequest);
+app.use("/api/v1", apiRateLimiter);
 
 app.get("/api/v1/health", healthHandler);
 app.use("/api/v1/auth", authRouter);
 app.use("/api/v1/vehicles", vehiclesRouter);
 app.use("/api/v1/geo", geoRouter);
-// LocalDiskStorageProvider's saved variants (P2.S8) — served directly,
-// no auth: product/category imagery is public by nature.
-app.use("/uploads", express.static(uploadsDir));
+// LocalDiskStorageProvider's saved variants (P2.S8) — served directly, no
+// auth: product/category imagery is public by nature. P2.S9 security
+// header audit: helmet()'s default Cross-Origin-Resource-Policy is
+// same-origin, which would make browsers block <img> loads from apps/web
+// (a different origin in both dev and prod) — overridden to cross-origin
+// for this route only. The JSON API routes above keep helmet's stricter
+// default; only intentionally-public static assets need this.
+app.use(
+  "/uploads",
+  (_req, res, next) => {
+    res.setHeader("Cross-Origin-Resource-Policy", "cross-origin");
+    next();
+  },
+  express.static(uploadsDir),
+);
 
 // Must be registered after every route: unmatched requests fall through
 // to notFoundHandler, thrown/passed errors fall through to errorHandler.
