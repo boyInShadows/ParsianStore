@@ -66,6 +66,15 @@ here rather than re-derived per model.
 - **`Attribute`**: `key` unique (it's `Product.attributes[].key`'s foreign
   reference in spirit, even though Product stores it by value rather than
   ObjectId — see §3.2's `Product.attributes[{key,value}]`).
+- **`StockReservation`** (P3.S6, not in §3.2 — introduced ahead of Cart/
+  Order, Phase 5+, as the self-contained half of "reservation with TTL";
+  see `modules/inventory/inventory.service.ts`'s own doc comment): real
+  `{ expiresAt: 1 }` TTL index (`expireAfterSeconds: 0`), same shape as
+  Cart's above, plus `productId` indexed per the FK convention. The
+  `jobs/inventoryCron.ts` sweep is the actual mechanism that restores
+  `Product.stock` on expiry — the TTL index alone only guarantees the
+  reservation document itself never outlives its expiry, per the "TTL
+  collections expire via Mongo, not a cron sweep" convention above.
 
 ## Why this is a doc and not code yet
 
