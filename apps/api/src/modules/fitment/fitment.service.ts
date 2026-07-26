@@ -71,13 +71,20 @@ export async function checkFitment(
   return { confidence: best.confidence, note: best.note };
 }
 
+/** Distinct product ids with at least one Fitment record matching this
+ * vehicle — shared with modules/catalog's `vehicle=` search/facet filter
+ * so both consumers agree on exactly one definition of "fits". */
+export async function getFittingProductIds(vehicle: VehicleKeyParts): Promise<string[]> {
+  const fitments = await FitmentModel.find(vehicleMatchFilter(vehicle)).select("productId");
+  return [...new Set(fitments.map((f) => f.productId.toString()))];
+}
+
 export async function listFittingProducts(
   vehicle: VehicleKeyParts,
   categorySlug: string | undefined,
   pagination: PaginationQuery,
 ): Promise<PaginatedResult<HydratedDocument<Product>>> {
-  const fitments = await FitmentModel.find(vehicleMatchFilter(vehicle)).select("productId");
-  const productIds = [...new Set(fitments.map((f) => f.productId.toString()))];
+  const productIds = await getFittingProductIds(vehicle);
 
   if (productIds.length === 0) {
     return { data: [], meta: { total: 0, page: pagination.page, limit: pagination.limit } };

@@ -80,9 +80,7 @@ export interface Product extends WithTimestamps, WithSoftDelete {
   status: ProductStatus;
   rating: ProductRating;
   // Auto-maintained by the pre-save hook below — never set directly by a
-  // caller. Only normalizeFa()'d today; the text/prefix index over this
-  // field lands with SearchProvider in P3.S4 (docs/db-indexes.md), once
-  // there's a consumer for it.
+  // caller.
   searchText: string;
   seo: SeoMeta;
 }
@@ -96,7 +94,9 @@ const productSchema = new Schema<Product, ProductModelType, SoftDeleteMethods>({
   },
   slug: { type: String, required: true, unique: true },
   sku: { type: String, required: true, unique: true },
-  oemNumbers: { type: [String], default: [] },
+  // Indexed for the "OEM-number exact match" leg of MongoSearchProvider
+  // (P3.S4) — a shopper searching an OEM code expects an instant hit.
+  oemNumbers: { type: [String], default: [], index: true },
   crossRefNumbers: { type: [String], default: [] },
   brandId: { type: Schema.Types.ObjectId, ref: "Brand", required: true, index: true },
   categoryId: { type: Schema.Types.ObjectId, ref: "Category", required: true, index: true },
@@ -144,6 +144,14 @@ const productSchema = new Schema<Product, ProductModelType, SoftDeleteMethods>({
 // §9 `/catalog/products` filters by category + brand + status together —
 // the compound index docs/db-indexes.md calls out explicitly for Product.
 productSchema.index({ categoryId: 1, brandId: 1, status: 1 });
+
+// P3.S4's MongoSearchProvider consumer now exists — the text index over
+// searchText docs/db-indexes.md deferred until "there's a consumer for
+// it" lands here. `default_language: "none"` disables English stemming/
+// stopwords entirely: searchText is already normalizeFa()'d, and Mongo's
+// text indexer has no Persian-specific stemmer to opt into anyway, so
+// "none" just does plain whitespace tokenization over the normalized text.
+productSchema.index({ searchText: "text" }, { default_language: "none" });
 
 productSchema.pre("save", function (next) {
   const parts = [this.name.fa, this.name.en, this.sku, ...this.oemNumbers, ...this.crossRefNumbers];

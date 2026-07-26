@@ -36,11 +36,16 @@ here rather than re-derived per model.
   — §3.2 names this explicitly, since `/fitment/check` (§9) is a hot path
   and a single-field index can't serve that query efficiently.
 - **`Product`**: compound index on `(categoryId, brandId, status)` for the
-  catalog listing filters (§9 `/catalog/products`); a separate text/normalized
-  index on `searchText` lands with the `SearchProvider` in P3.S4, once the
-  normalization function (`normalizeFa()`, §8.3) that populates it exists —
-  indexing a field before its population logic exists would just index
-  garbage.
+  catalog listing filters (§9 `/catalog/products`). A Mongo `text` index on
+  `searchText` (landed with `MongoSearchProvider`, P3.S4, once the
+  normalization function (`normalizeFa()`, §8.3) that populates it existed)
+  with `default_language: "none"` — Mongo has no Persian stemmer to opt
+  into anyway, so "none" just tokenizes the already-normalizeFa()'d text on
+  whitespace. `oemNumbers` is also indexed for the exact-match search leg.
+  Note: `$text` can only appear at a query's top level, never inside
+  `$or`/`$and` — `MongoSearchProvider` runs it, a substring `$regex` (for
+  prefix/partial-word queries `$text` can't do), and the OEM lookup as
+  three separate queries unioned by product id, not one combined query.
 - **`VehicleModel`/`VehicleGen`/`VehicleEngine`**: index on their parent
   reference (`makeId`, `modelId`, `genId` respectively) — the vehicle tree
   is always walked top-down (`/vehicles/models?makeId`, §9).

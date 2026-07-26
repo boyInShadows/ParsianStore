@@ -1,3 +1,5 @@
+import { z } from "zod";
+
 // §3.4 "My Garage": the active vehicle is reflected in the URL as
 // `?v=<vehicleKey>` so results are shareable/crawlable, and §9's
 // `/fitment/check?productId&vehicleKey` needs the exact same encoding on
@@ -50,3 +52,18 @@ export function parseVehicleKey(key: string): VehicleKeyParts {
 
   return engineId ? { makeId, modelId, genId, year, engineId } : { makeId, modelId, genId, year };
 }
+
+/**
+ * Zod schema wrapping parseVehicleKey() for the `?vehicleKey=`/`?vehicle=`
+ * query params apps/api validates every route through (§9). Shared here
+ * rather than redefined per-module (modules/fitment, modules/catalog) so
+ * every consumer reports the exact same 400 shape on a malformed key.
+ */
+export const vehicleKeySchema = z.string().transform((value, ctx) => {
+  try {
+    return parseVehicleKey(value);
+  } catch {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, message: "کلید خودرو نامعتبر است" });
+    return z.NEVER;
+  }
+});
