@@ -41,6 +41,14 @@ function nodeVariants(node: ExplodedNode) {
   };
 }
 
+// masterPlan.md P4.S6: "cut anything that doesn't serve the page. Remove
+// one accessory." The four filled "wheel" rects this originally had
+// (P4.S2) were the only solid-fill shapes in an otherwise all-hairline
+// composition -- decorative clutter that didn't make the silhouette read
+// any more clearly as a car, and broke the "hairline rules" vernacular
+// (§6.1) the rest of the Exploded View already holds to. Removed; the
+// body outline + windshield rect alone already read as a car from
+// directly above.
 function CarSilhouette({ playIntro }: { playIntro: boolean }) {
   return (
     <motion.g
@@ -65,10 +73,6 @@ function CarSilhouette({ playIntro }: { playIntro: boolean }) {
         stroke="currentColor"
         strokeWidth="1.5"
       />
-      <rect x="378" y="196" width="16" height="10" rx="2" fill="currentColor" />
-      <rect x="378" y="274" width="16" height="10" rx="2" fill="currentColor" />
-      <rect x="646" y="196" width="16" height="10" rx="2" fill="currentColor" />
-      <rect x="646" y="274" width="16" height="10" rx="2" fill="currentColor" />
     </motion.g>
   );
 }
