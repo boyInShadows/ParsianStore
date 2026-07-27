@@ -1,8 +1,80 @@
 {
-  "HomePage": {
-    "title": "Parsian",
-    "tagline": "The part that fits your car, not something like it.",
-    "apiStatus": "API status: {status}",
-    "partNumberExample": "MB-0442-K"
+  "Landing": {
+    "meta": {
+      "title": "Genuine parts for Saipa & Iran Khodro",
+      "description": "Genuine, authenticity-checked parts for Saipa and Iran Khodro vehicles — fast delivery, secure payment, and free consultation before you buy."
+    },
+    "sections": {
+      "hero": {
+        "code": "01",
+        "headline": "The part that fits your car, not something like it.",
+        "subheadline": "Built for Saipa and Iran Khodro. Genuine parts, authenticity-checked, fast delivery."
+      },
+      "trustStrip": {
+        "code": "02",
+        "title": "Why Parsian",
+        "subtitle": "Authenticity guarantee, fast delivery, secure payment, and free consultation — before you buy."
+      },
+      "shopBySystem": {
+        "code": "03",
+        "title": "Shop by system",
+        "subtitle": "Engine, suspension, electrical, body, brakes, and more — in the vocabulary mechanics actually use."
+      },
+      "bestSellers": {
+        "code": "04",
+        "title": "Best sellers",
+        "subtitle": "The parts customers trust most, matched to your vehicle."
+      },
+      "brandWall": {
+        "code": "05",
+        "title": "Trusted brands",
+        "subtitle": "Bosch, Valeo, Mahle, SKF, Denso, NGK, ISACO, and Saipa Yadak."
+      },
+      "authenticityStory": {
+        "code": "06",
+        "title": "An authenticity guarantee, not a slogan",
+        "subtitle": "Every item carries an Authenticity Record: hologram code, batch, and supply chain — verifiable by any buyer."
+      },
+      "deals": {
+        "code": "07",
+        "title": "Special offers",
+        "subtitle": "Time-limited deals, shown only when they're actually live."
+      },
+      "shopByVehicle": {
+        "code": "08",
+        "title": "Shop by vehicle",
+        "subtitle": "Pride, Tiba, Quick, 405, Samand, Dena — parts matched to your exact Saipa or Iran Khodro model."
+      },
+      "symptomFinder": {
+        "code": "09",
+        "title": "Know the symptom?",
+        "subtitle": "For example, \"squeaking when braking\" — pick a symptom and we'll find the matching part."
+      },
+      "numbers": {
+        "code": "10",
+        "title": "Parsian at a glance",
+        "subtitle": "Parts in stock, vehicles covered, orders shipped, and years in business."
+      },
+      "howItWorks": {
+        "code": "11",
+        "title": "How it works",
+        "subtitle": "Choose your car, find the part, confirm fitment and authenticity, receive it."
+      },
+      "guidesTeaser": {
+        "code": "12",
+        "title": "Buying & repair guides",
+        "subtitle": "Counterfeit-part identification and common symptom guides."
+      },
+      "support": {
+        "code": "13",
+        "title": "Always reachable",
+        "subtitle": "Phone, WhatsApp, and free consultation before you buy."
+      },
+      "newsletter": {
+        "code": "14",
+        "title": "Join the newsletter",
+        "subtitle": "Enter your phone number to hear about special offers."
+      }
+    }
   }
 }

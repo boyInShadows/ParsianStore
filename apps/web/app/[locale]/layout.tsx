@@ -1,13 +1,22 @@
 import type { ReactNode } from "react";
+import type { Metadata } from "next";
 import { hasLocale, NextIntlClientProvider } from "next-intl";
 import { notFound } from "next/navigation";
 import { ThemeProvider } from "next-themes";
 import "../../styles/globals.css";
 import { bodyFont, displayFont, monoFont } from "@/lib/fonts";
 import { routing } from "@/i18n/routing";
+import { siteUrl } from "@/lib/seo";
 
-export const metadata = {
-  title: "ParsianStore",
+// Site-wide fallback; per-route pages (starting with the landing page,
+// P4.S1) set their own generateMetadata and override title via the "%s |
+// پارسیان" template below.
+export const metadata: Metadata = {
+  metadataBase: new URL(siteUrl),
+  title: {
+    default: "پارسیان",
+    template: "%s | پارسیان",
+  },
 };
 
 export function generateStaticParams() {

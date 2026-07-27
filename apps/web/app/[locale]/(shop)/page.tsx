@@ -1,25 +1,82 @@
+import type { Metadata } from "next";
 import { getTranslations } from "next-intl/server";
-import { getHealth } from "@/lib/api-client";
-import { ThemeToggle } from "@/components/theme/theme-toggle";
+import { routing } from "@/i18n/routing";
+import { absoluteUrl, hreflangAlternates, localizedPath } from "@/lib/seo";
+import { organizationJsonLd, websiteJsonLd } from "@/lib/json-ld";
+import { JsonLd } from "@/components/seo/JsonLd";
+import {
+  AuthenticityStory,
+  BestSellers,
+  BrandWall,
+  Deals,
+  GuidesTeaser,
+  Hero,
+  HowItWorks,
+  Newsletter,
+  Numbers,
+  ShopBySystem,
+  ShopByVehicle,
+  Support,
+  SymptomFinder,
+  TrustStrip,
+} from "@/components/landing";
 
-// Debug/proof-of-wiring page for P0.S3/P1.S3/P1.S4/P1.S5. Replaced by the real landing page in Phase 4.
-export const dynamic = "force-dynamic";
+type Props = {
+  params: Promise<{ locale: (typeof routing.locales)[number] }>;
+};
 
-export default async function Page() {
-  const t = await getTranslations("HomePage");
-  const health = await getHealth();
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
+  const { locale } = await params;
+  const t = await getTranslations({ locale, namespace: "Landing.meta" });
+  const title = t("title");
+  const description = t("description");
+  const url = absoluteUrl(localizedPath(locale));
 
+  return {
+    title,
+    description,
+    alternates: {
+      canonical: url,
+      languages: hreflangAlternates(),
+    },
+    openGraph: {
+      title,
+      description,
+      url,
+      siteName: "پارسیان",
+      locale: locale === "fa" ? "fa_IR" : "en_US",
+      type: "website",
+    },
+    twitter: {
+      card: "summary",
+      title,
+      description,
+    },
+  };
+}
+
+// Real landing route (masterPlan.md §5, roadmap P4.S1). Sections carry real
+// Persian copy end to end -- no placeholder/lorem content. Data-driven
+// sections (best sellers, brand wall, deals, ...) stay heading-only until
+// P4.S4/P4.S5 wire real data; see each section's own file for why.
+export default function LandingPage() {
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center gap-4 bg-bg p-4 text-text">
-      <ThemeToggle />
-      <h1 className="font-display text-display-1 font-black text-brand">{t("title")}</h1>
-      <p className="font-body text-body text-text-muted">{t("tagline")}</p>
-      <p className="font-mono text-data text-text-muted">
-        {t("apiStatus", { status: health.data.status })}
-      </p>
-      <p className="rounded-md border border-border px-3 py-1 font-mono text-data text-text">
-        {t("partNumberExample")}
-      </p>
+    <main>
+      <JsonLd data={[organizationJsonLd(), websiteJsonLd()]} />
+      <Hero />
+      <TrustStrip />
+      <ShopBySystem />
+      <BestSellers />
+      <BrandWall />
+      <AuthenticityStory />
+      <Deals />
+      <ShopByVehicle />
+      <SymptomFinder />
+      <Numbers />
+      <HowItWorks />
+      <GuidesTeaser />
+      <Support />
+      <Newsletter />
     </main>
   );
 }
