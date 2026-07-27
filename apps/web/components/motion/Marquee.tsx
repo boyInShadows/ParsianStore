@@ -12,7 +12,12 @@ type Props = {
 // Continuous horizontal loop (brand wall, masterPlan.md §5 section 05).
 // MUST pause on prefers-reduced-motion and on hover. Content is duplicated
 // once so the loop is seamless; the duplicate is aria-hidden so screen
-// readers don't announce it twice.
+// readers don't announce it twice. `inert` (not just aria-hidden) is
+// required whenever children can themselves be focusable (links, in
+// BrandWall's case, P4.S4) -- aria-hidden alone hides content from
+// assistive tech but does NOT stop keyboard Tab from reaching it, so a
+// sighted keyboard user would tab into invisible duplicate links without
+// `inert` (caught by axe's aria-hidden-focus rule).
 export function Marquee({ children, className = "", durationSeconds = 30 }: Props) {
   const reduceMotion = useReducedMotion();
 
@@ -25,7 +30,7 @@ export function Marquee({ children, className = "", durationSeconds = 30 }: Prop
         }
       >
         {children}
-        <div aria-hidden="true" className="flex w-max gap-8">
+        <div aria-hidden="true" inert className="flex w-max gap-8">
           {children}
         </div>
       </div>

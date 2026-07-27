@@ -1,5 +1,10 @@
 {
   "Landing": {
+    "partsCount": "{count} parts",
+    "explodedView": {
+      "svgLabel": "Exploded view of the car by system -- select a system to see its parts",
+      "systemLinkLabel": "{name} system -- view parts"
+    },
     "meta": {
       "title": "Genuine parts for Saipa & Iran Khodro",
       "description": "Genuine, authenticity-checked parts for Saipa and Iran Khodro vehicles — fast delivery, secure payment, and free consultation before you buy."
@@ -13,7 +18,7 @@
       "trustStrip": {
         "code": "02",
         "title": "Why Parsian",
-        "subtitle": "Authenticity guarantee, fast delivery, secure payment, and free consultation — before you buy."
+        "items": ["Authenticity guarantee", "Fast delivery", "Secure payment", "Free consultation"]
       },
       "shopBySystem": {
         "code": "03",
@@ -22,18 +27,28 @@
       },
       "bestSellers": {
         "code": "04",
-        "title": "Best sellers",
-        "subtitle": "The parts customers trust most, matched to your vehicle."
+        "title": "Featured picks",
+        "subtitle": "A selection of what's in stock — this section switches to real best-sellers once we have order history.",
+        "noPhoto": "No photo"
       },
       "brandWall": {
         "code": "05",
-        "title": "Trusted brands",
-        "subtitle": "Bosch, Valeo, Mahle, SKF, Denso, NGK, ISACO, and Saipa Yadak."
+        "title": "Trusted brands"
       },
       "authenticityStory": {
         "code": "06",
         "title": "An authenticity guarantee, not a slogan",
-        "subtitle": "Every item carries an Authenticity Record: hologram code, batch, and supply chain — verifiable by any buyer."
+        "subtitle": "Every item carries an Authenticity Record: a verification code, supply route, and country of manufacture — checkable by any buyer.",
+        "verificationCode": "Verification code",
+        "supplyRoute": "Supply route",
+        "sourceBrand": "Source brand",
+        "countryOfManufacture": "Country of manufacture",
+        "supplyRoutes": {
+          "oem": "OEM",
+          "genuineImported": "Genuine imported",
+          "domestic": "Domestic",
+          "grade1Aftermarket": "Grade 1 aftermarket"
+        }
       },
       "deals": {
         "code": "07",

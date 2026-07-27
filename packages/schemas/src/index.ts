@@ -4,3 +4,5 @@ export * from "./catalogSystems.js";
 export * from "./vehicleKey.js";
 export * from "./facets.js";
 export * from "./vehicles.js";
+export * from "./products.js";
+export * from "./brands.js";

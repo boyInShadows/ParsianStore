@@ -1,12 +1,18 @@
 "use client"; // motion (load choreography) + hover/focus interaction state
 
 import { motion, useReducedMotion } from "motion/react";
+import type { CatalogSystemCode } from "schemas";
 import { DURATION, EASE_OUT } from "@/lib/motion-tokens";
-import type { SystemPartCounts } from "@/lib/fetchers/exploded-view";
 import { EXPLODED_NODES, EXPLODED_VIEWBOX, type ExplodedNode } from "./explodedViewLayout";
 
+export type NodeLabels = Record<
+  CatalogSystemCode,
+  { partsCountLabel: string | null; linkLabel: string }
+>;
+
 type Props = {
-  counts: SystemPartCounts;
+  svgLabel: string;
+  nodeLabels: NodeLabels;
 };
 
 // Car-body centroid -- masterPlan.md §1.3: components animate outward from
@@ -77,14 +83,22 @@ function CarSilhouette({ playIntro }: { playIntro: boolean }) {
 // motion.g (variant label + `initial={false}` both propagate through the
 // intervening plain <a>), which is what keeps every node in sync with the
 // parent's stagger instead of each one racing its own animation.
-function Node({ node, count }: { node: ExplodedNode; count: number | null }) {
+function Node({
+  node,
+  partsCountLabel,
+  linkLabel,
+}: {
+  node: ExplodedNode;
+  partsCountLabel: string | null;
+  linkLabel: string;
+}) {
   const labelDy = node.row === "top" ? -14 : 22;
   const nameDy = node.row === "top" ? -28 : 36;
 
   return (
     <a
       href={`/c/${node.slug}`}
-      aria-label={`سیستم ${node.name.fa} -- مشاهده قطعات`}
+      aria-label={linkLabel}
       className="group outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-focus"
     >
       <motion.g variants={nodeVariants(node)} className="cursor-pointer">
@@ -124,7 +138,9 @@ function Node({ node, count }: { node: ExplodedNode; count: number | null }) {
           className="pointer-events-none fill-text font-body text-[13px] opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100 motion-reduce:transition-none"
         >
           {node.name.fa}
-          {count !== null ? <tspan className="fill-text-muted"> · {count} قطعه</tspan> : null}
+          {partsCountLabel !== null ? (
+            <tspan className="fill-text-muted"> · {partsCountLabel}</tspan>
+          ) : null}
         </text>
       </motion.g>
     </a>
@@ -146,7 +162,7 @@ function Node({ node, count }: { node: ExplodedNode; count: number | null }) {
 // if the value is still "hidden" for those first ~1 render, the state
 // then flips to false before any visible paint, so it never gets stuck
 // mid-transition the way toggling `variants` on/off did.
-export function ExplodedView({ counts }: Props) {
+export function ExplodedView({ svgLabel, nodeLabels }: Props) {
   const reduceMotion = useReducedMotion();
   const playIntro = !reduceMotion;
 
@@ -158,7 +174,7 @@ export function ExplodedView({ counts }: Props) {
       <svg
         viewBox={EXPLODED_VIEWBOX}
         role="group"
-        aria-label="نمای تفکیک‌شده خودرو بر اساس سیستم -- برای مشاهده قطعات هر سیستم را انتخاب کنید"
+        aria-label={svgLabel}
         className="hidden w-full md:block"
       >
         <CarSilhouette playIntro={playIntro} />
@@ -168,7 +184,7 @@ export function ExplodedView({ counts }: Props) {
           variants={parentVariants}
         >
           {EXPLODED_NODES.map((node) => (
-            <Node key={node.code} node={node} count={counts[node.code]} />
+            <Node key={node.code} node={node} {...nodeLabels[node.code]} />
           ))}
         </motion.g>
       </svg>
@@ -187,8 +203,10 @@ export function ExplodedView({ counts }: Props) {
                 <span className="font-mono text-data text-text-muted">{node.code}</span>
                 <span>{node.name.fa}</span>
               </span>
-              {counts[node.code] !== null ? (
-                <span className="text-body-sm text-text-muted">{counts[node.code]} قطعه</span>
+              {nodeLabels[node.code].partsCountLabel !== null ? (
+                <span className="text-body-sm text-text-muted">
+                  {nodeLabels[node.code].partsCountLabel}
+                </span>
               ) : null}
             </a>
           </li>
