@@ -2,8 +2,10 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Drawer } from "@/components/primitives";
+import { Drawer, Modal } from "@/components/primitives";
 import { ThemeToggle } from "@/components/theme/theme-toggle";
+import { VehicleSelectorLazy } from "@/components/garage";
+import { selectActiveVehicle, useGarageStore } from "@/stores/garage-store";
 
 // Real system-category vocabulary from masterPlan.md §1.2 / §3.1 -- the
 // mechanic persona's own terms, not invented labels.
@@ -18,6 +20,14 @@ const CATEGORIES = [
 export function Header() {
   const [categoriesOpen, setCategoriesOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [vehicleModalOpen, setVehicleModalOpen] = useState(false);
+  // Persisted client state (garage-store.ts's cookie-backed storage) is
+  // only readable in the browser -- SSR and the first client render both
+  // show "no active vehicle" here, then this updates once Zustand's
+  // persist middleware finishes rehydrating from the cookie. Same
+  // accepted-tradeoff category as any cart/wishlist badge that flashes
+  // empty before hydration; not attempting an SSR-cookie-read here.
+  const activeVehicle = useGarageStore(selectActiveVehicle);
 
   return (
     <header className="sticky top-0 z-40 border-b border-border bg-surface">
@@ -74,14 +84,18 @@ export function Header() {
         </form>
 
         <div className="flex items-center gap-2">
-          {/* Static for now -- wired to the real garage store in P4.S3 (masterPlan.md §3.4). */}
+          {/* masterPlan.md §3.4: "Header shows the active vehicle as a
+              compact chip; tap to switch." */}
           <button
             type="button"
-            aria-label="انتخاب خودرو"
+            onClick={() => setVehicleModalOpen(true)}
+            aria-label={
+              activeVehicle ? `تعویض خودرو، فعلاً ${activeVehicle.label}` : "انتخاب خودرو"
+            }
             className="hidden items-center gap-1 rounded-full border border-border px-3 py-1 text-body-sm text-text-muted hover:text-text sm:inline-flex"
           >
             <CarIcon />
-            انتخاب خودرو
+            {activeVehicle?.label ?? "انتخاب خودرو"}
           </button>
           <Link
             href="/cart"
@@ -135,6 +149,23 @@ export function Header() {
           </Link>
         </nav>
       </Drawer>
+
+      <Modal
+        open={vehicleModalOpen}
+        onClose={() => setVehicleModalOpen(false)}
+        title="انتخاب خودرو"
+      >
+        {/* Modal renders its children into the DOM even while closed (it
+            only toggles the native <dialog>'s open state) -- mounting
+            VehicleSelectorLazy unconditionally would trigger its dynamic
+            import on every page load regardless of whether this modal is
+            ever opened. Gating on vehicleModalOpen defers the fetch to
+            an actual click, which is the whole point of code-splitting
+            it (masterPlan.md §10). */}
+        {vehicleModalOpen ? (
+          <VehicleSelectorLazy onSelected={() => setVehicleModalOpen(false)} />
+        ) : null}
+      </Modal>
     </header>
   );
 }
