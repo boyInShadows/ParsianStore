@@ -11,6 +11,17 @@
   @tailwind components;
   @tailwind utilities;
 
+  /* No page-level wrapper should have to remember `bg-bg text-text` --
+     found missing while visually verifying P4.S2 in dark mode: the old
+     debug page (replaced in P4.S1) happened to set these on its own
+     <main>, masking the fact that nothing set them globally. Light-mode
+     text on a default-white background then read as low-contrast
+     dark-on-dark in the theme's dark palette. */
+  body {
+    background-color: var(--bg);
+    color: var(--text);
+  }
+
   /* Tailwind's `[&::backdrop]` arbitrary variant does not generate CSS for
      the native <dialog> backdrop pseudo-element (confirmed empty output
      building Modal/Drawer, P1.S7) -- plain CSS is the reliable path here.
