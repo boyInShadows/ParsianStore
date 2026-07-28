@@ -4,7 +4,7 @@
 **Integration branch:** `development`
 **Product:** Persian-first (RTL) e-commerce for car spare parts — Saipa & Iran Khodro vehicles only
 **Owner:** Ash Tech Group
-**Status:** Phase 0 complete. Phase 1 complete (P1.S1–P1.S9). GATE 1→2 cleared — owner signed off on the Steel Blue + Racing Red palette (v1.3) and asked to proceed. Phase 2 starting.
+**Status:** Phases 0–4 complete (P0.S1–P4.S8). Palette refined to v1.5 (Marigold CTA) per owner review. **GATE 4→5 cleared 2026-07-28** — owner approved the landing page's structure/content and, once the palette was fixed, gave explicit go-ahead. Phase 5 (storefront) has not started — per §16, it needs a re-speccing conversation before any code, same as this document's own Phases 0–4 got.
 **Document version:** 1.5 — this is the *first move*. Phases 0–4 are locked. Phases 5+ are directionally locked but will be re-specced before execution.
 
 **Changelog:**
