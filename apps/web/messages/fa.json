@@ -161,6 +161,48 @@
       "inStock": "موجود",
       "outOfStock": "ناموجود",
       "noPhoto": "بدون تصویر"
+    },
+    "pdp": {
+      "notFound": {
+        "title": "کالا یافت نشد",
+        "description": "این کالا وجود ندارد یا حذف شده است.",
+        "backHome": "بازگشت به صفحه اصلی"
+      },
+      "authenticity": {
+        "title": "اصالت کالا",
+        "supplyRouteLabel": "منبع تأمین",
+        "supplyRoute": {
+          "oem": "OEM",
+          "genuine-imported": "اصلی وارداتی",
+          "domestic": "تولید داخل",
+          "grade1-aftermarket": "درجه ۱ بازار"
+        },
+        "sourceBrandLabel": "برند سازنده",
+        "countryLabel": "کشور تولید",
+        "verificationCodeLabel": "کد استعلام اصالت",
+        "guideLink": "راهنمای تشخیص اصالت"
+      },
+      "specs": {
+        "title": "مشخصات فنی",
+        "weight": "وزن (گرم)",
+        "dimensions": "ابعاد (میلی‌متر)",
+        "warranty": "گارانتی"
+      },
+      "oemTable": {
+        "title": "کد فنی و شماره‌های معادل",
+        "oemNumbers": "شماره اصلی (OEM)",
+        "crossRefNumbers": "شماره‌های معادل"
+      },
+      "fitment": {
+        "exact": "این قطعه دقیقاً با خودروی شما سازگار است.",
+        "likely": "این قطعه احتمالاً با خودروی شما سازگار است.",
+        "check": "سازگاری این قطعه با خودروی شما تأیید نشده — پیش از خرید با کارشناس تماس بگیرید.",
+        "checkVehicle": "برای بررسی سازگاری، ابتدا یک خودرو در گاراژ خود انتخاب کنید."
+      },
+      "related": {
+        "title": "قطعات مرتبط"
+      },
+      "brandLink": "مشاهده همه محصولات {brand}"
     }
   }
 }

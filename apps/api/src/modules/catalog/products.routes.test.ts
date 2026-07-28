@@ -293,6 +293,13 @@ describe("GET /catalog/products/:slug", () => {
 
     const res = await fetch(`${baseUrl}/api/v1/catalog/products/brake-pad`);
     expect(res.status).toBe(200);
+    const body = (await res.json()) as Envelope<{
+      slug: string;
+      brand: { slug: string } | null;
+      category: { slug: string } | null;
+    }>;
+    expect(body.data.brand?.slug).toBe(brand.slug);
+    expect(body.data.category?.slug).toBe(category.slug);
   });
 
   it("returns 404 for a draft product (not publicly visible)", async () => {

@@ -22,8 +22,18 @@ export async function getProductBySlugHandler(
   next: NextFunction,
 ): Promise<void> {
   try {
-    const product = await productsService.getProductBySlug(req.params.slug as string);
-    res.json({ ok: true, data: product });
+    const { product, brand, category, attributes } = await productsService.getProductDetailBySlug(
+      req.params.slug as string,
+    );
+    res.json({
+      ok: true,
+      data: {
+        ...product.toJSON(),
+        attributes,
+        brand: brand?.toJSON() ?? null,
+        category: category?.toJSON() ?? null,
+      },
+    });
   } catch (err) {
     next(err);
   }

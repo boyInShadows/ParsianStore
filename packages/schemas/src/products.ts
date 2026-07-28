@@ -35,3 +35,52 @@ export const productsResponseSchema = z.object({
   data: z.array(productListItemSchema),
   meta: z.object({ nextCursor: z.string().nullable(), limit: z.number() }),
 });
+
+// GET /catalog/products/:slug/related (P5.S2) uses plain page/limit
+// pagination (utils/pagination.ts), not the cursor shape above -- a small
+// bounded widget, not the scrollable listing cursorPaginate exists for
+// (see products.service.ts's getRelatedProducts doc comment). Different
+// meta shape, so it needs its own response schema, not productsResponseSchema.
+export const relatedProductsResponseSchema = z.object({
+  ok: z.literal(true),
+  data: z.array(productListItemSchema),
+  meta: z.object({ total: z.number(), page: z.number(), limit: z.number() }),
+});
+
+// The PDP (P5.S2) needs the full product record, not the list item's
+// trimmed subset -- mirrors apps/api's enriched GET /catalog/products/:slug
+// (products.service.ts's getProductDetailBySlug), which also resolves
+// brand/category since Product only stores their raw ids.
+const brandRefSchema = z.object({ id: z.string(), name: localizedNameSchema, slug: z.string() });
+const categoryRefSchema = z.object({
+  id: z.string(),
+  name: localizedNameSchema,
+  slug: z.string(),
+  path: z.array(z.string()),
+});
+
+export const productDetailSchema = productListItemSchema.extend({
+  sku: z.string(),
+  oemNumbers: z.array(z.string()),
+  crossRefNumbers: z.array(z.string()),
+  attributes: z.array(
+    z.object({
+      key: z.string(),
+      keyLabel: z.string(),
+      unit: z.string().optional(),
+      value: z.string(),
+    }),
+  ),
+  warranty: z.object({ months: z.number(), text: z.string() }),
+  dimensions: z.object({ lengthMm: z.number(), widthMm: z.number(), heightMm: z.number() }),
+  weightGram: z.number(),
+  rating: z.object({ avg: z.number(), count: z.number() }),
+  brand: brandRefSchema.nullable(),
+  category: categoryRefSchema.nullable(),
+});
+export type ProductDetailDto = z.infer<typeof productDetailSchema>;
+
+export const productDetailResponseSchema = z.object({
+  ok: z.literal(true),
+  data: productDetailSchema,
+});

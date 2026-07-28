@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { productsResponseSchema } from "./products.js";
+import { productDetailResponseSchema, productsResponseSchema } from "./products.js";
 
 const validProduct = {
   id: "1",
@@ -33,5 +33,47 @@ describe("productsResponseSchema", () => {
       meta: { nextCursor: null, limit: 20 },
     });
     expect(result.success).toBe(false);
+  });
+});
+
+describe("productDetailResponseSchema", () => {
+  it("accepts a valid product detail payload with brand/category", () => {
+    const result = productDetailResponseSchema.safeParse({
+      ok: true,
+      data: {
+        ...validProduct,
+        sku: "SKU-1",
+        oemNumbers: ["04465-YZZ"],
+        crossRefNumbers: [],
+        attributes: [{ key: "color", keyLabel: "رنگ", value: "قرمز" }],
+        warranty: { months: 12, text: "۱۲ ماه" },
+        dimensions: { lengthMm: 150, widthMm: 100, heightMm: 40 },
+        weightGram: 800,
+        rating: { avg: 0, count: 0 },
+        brand: { id: "b1", name: { fa: "بوش", en: "Bosch" }, slug: "bosch" },
+        category: { id: "c1", name: { fa: "ترمز", en: "Brakes" }, slug: "brakes", path: [] },
+      },
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it("accepts null brand/category (soft-deleted or missing reference)", () => {
+    const result = productDetailResponseSchema.safeParse({
+      ok: true,
+      data: {
+        ...validProduct,
+        sku: "SKU-1",
+        oemNumbers: [],
+        crossRefNumbers: [],
+        attributes: [],
+        warranty: { months: 12, text: "۱۲ ماه" },
+        dimensions: { lengthMm: 150, widthMm: 100, heightMm: 40 },
+        weightGram: 800,
+        rating: { avg: 0, count: 0 },
+        brand: null,
+        category: null,
+      },
+    });
+    expect(result.success).toBe(true);
   });
 });

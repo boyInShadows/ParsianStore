@@ -161,6 +161,48 @@
       "inStock": "In stock",
       "outOfStock": "Out of stock",
       "noPhoto": "No photo"
+    },
+    "pdp": {
+      "notFound": {
+        "title": "Product not found",
+        "description": "This product doesn't exist or has been removed.",
+        "backHome": "Back to home"
+      },
+      "authenticity": {
+        "title": "Authenticity",
+        "supplyRouteLabel": "Supply route",
+        "supplyRoute": {
+          "oem": "OEM",
+          "genuine-imported": "Genuine imported",
+          "domestic": "Domestic",
+          "grade1-aftermarket": "Grade 1 aftermarket"
+        },
+        "sourceBrandLabel": "Manufacturer",
+        "countryLabel": "Country of manufacture",
+        "verificationCodeLabel": "Authenticity verification code",
+        "guideLink": "Authenticity guide"
+      },
+      "specs": {
+        "title": "Specifications",
+        "weight": "Weight (g)",
+        "dimensions": "Dimensions (mm)",
+        "warranty": "Warranty"
+      },
+      "oemTable": {
+        "title": "OEM code & cross-reference numbers",
+        "oemNumbers": "OEM number",
+        "crossRefNumbers": "Cross-reference numbers"
+      },
+      "fitment": {
+        "exact": "This part is an exact fit for your vehicle.",
+        "likely": "This part is likely to fit your vehicle.",
+        "check": "Fitment for your vehicle isn't confirmed — check with a specialist before buying.",
+        "checkVehicle": "Pick a vehicle in your garage to check fitment."
+      },
+      "related": {
+        "title": "Related parts"
+      },
+      "brandLink": "View all {brand} products"
     }
   }
 }

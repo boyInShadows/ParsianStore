@@ -2,9 +2,12 @@ import {
   categoriesResponseSchema,
   categoryResponseSchema,
   facetsResponseSchema,
+  productDetailResponseSchema,
   productsResponseSchema,
+  relatedProductsResponseSchema,
   type CategoryDto,
   type FacetsResponse,
+  type ProductDetailDto,
   type ProductListItemDto,
 } from "schemas";
 
@@ -102,6 +105,36 @@ export async function fetchCatalogProducts(
     return { ok: true, data: { data: parsed.data.data, nextCursor: parsed.data.meta.nextCursor } };
   } catch {
     return { ok: false, reason: "down" };
+  }
+}
+
+export async function fetchProductDetailBySlug(
+  slug: string,
+): Promise<FetchResult<ProductDetailDto>> {
+  try {
+    const res = await fetch(`${API_URL}/api/v1/catalog/products/${slug}`);
+    if (res.status === 404) return { ok: false, reason: "not-found" };
+    if (!res.ok) return { ok: false, reason: "down" };
+    const json = await res.json();
+    const parsed = productDetailResponseSchema.safeParse(json);
+    return parsed.success ? { ok: true, data: parsed.data.data } : { ok: false, reason: "down" };
+  } catch {
+    return { ok: false, reason: "down" };
+  }
+}
+
+// Bounded widget (masterPlan §5's "related & alternative parts"), not
+// primary page content -- degrades to [] on failure rather than a
+// FetchResult, same reasoning as fetchChildCategories.
+export async function fetchRelatedProducts(slug: string, limit = 8): Promise<ProductListItemDto[]> {
+  try {
+    const res = await fetch(`${API_URL}/api/v1/catalog/products/${slug}/related?limit=${limit}`);
+    if (!res.ok) return [];
+    const json = await res.json();
+    const parsed = relatedProductsResponseSchema.safeParse(json);
+    return parsed.success ? parsed.data.data : [];
+  } catch {
+    return [];
   }
 }
 
