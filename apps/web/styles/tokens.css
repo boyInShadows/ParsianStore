@@ -1,9 +1,10 @@
 /**
- * Design tokens -- masterPlan.md §6 (v1.3 palette -- see
- * docs/decisions/0003-color-palette-steel-and-race.md for the full
- * rationale: research-grounded on automotive/motorsport color psychology
- * and the two Iranian domestic brands this shop targets, Saipa and Iran
- * Khodro, both of which use blue in their own identity).
+ * Design tokens -- masterPlan.md §6 (v1.5 palette -- see
+ * docs/decisions/0005-color-palette-marigold-cta.md for the full rationale.
+ * v1.3's Steel Blue + Racing Red (docs/decisions/0003-...) read as "sport
+ * car," not auto-parts retail, on owner review -- Steel Blue is kept as-is
+ * (it was never the complaint, and stays grounded in Saipa/Iran Khodro's
+ * own blue logos); Racing Red is replaced with Marigold).
  *
  * This is the ONLY file in the repo allowed to contain a raw hex literal
  * (CLAUDE.md rule 5 / masterPlan.md §6.7). tailwind.config.js (P1.S2) and the
@@ -13,14 +14,18 @@
  *
  * Two-accent discipline (§6.3): Steel Blue owns links, active nav, focus
  * rings, brand marks, fitment-verified state, selected filters -- never a
- * "buy" affordance. Racing Red owns add-to-cart, checkout, prices, discount
+ * "buy" affordance. Marigold owns add-to-cart, checkout, prices, discount
  * badges, low-stock urgency -- never navigation, links, or decoration.
- * Warning chips are always outlined + icon-led, never solid fill, so they
- * can never be mistaken for a CTA. Danger is deliberately hue-shifted
- * toward crimson (~344°) away from CTA's racing red (~3-5°) so the two
- * read as related-but-distinct, not identical, when they appear near each
- * other -- verified, not eyeballed (WCAG contrast + HSL hue separation
- * both checked before locking these values in).
+ * Warning chips are always outlined + icon-led, never solid fill -- this
+ * matters MORE now than it did with a red CTA, since --color-warning
+ * (~40° hue) sits close to Marigold (~42-43° hue) in a way the old
+ * red-CTA/amber-warning pair never did; shape (outline vs. solid), not
+ * hue, is what keeps warning from reading as a second "buy" affordance.
+ * Danger stays hue-shifted toward crimson (~344°), unaffected by this
+ * change since it was always separated from CTA, not from warning.
+ * CTA text-on-fill uses dark text in BOTH themes (Marigold is bright
+ * enough that white text fails contrast even in light mode -- verified,
+ * not eyeballed: see the ADR for the full relative-luminance numbers).
  */
 
 :root {
@@ -40,20 +45,22 @@
   --color-steel-900: #142b63;
   --color-steel-950: #0a1733;
 
-  /* ---- Racing Red ramp -- money and action ONLY (§6.2). Ferrari Rosso
-     Corsa territory: the color motorsport and performance culture already
-     associates with speed and excitement. */
-  --color-racing-50: #ffedec;
-  --color-racing-100: #ffd5d2;
-  --color-racing-200: #ffaca5;
-  --color-racing-300: #ff7b70;
-  --color-racing-400: #f94e3f;
-  --color-racing-500: #d31d14;
-  --color-racing-600: #ad160f;
-  --color-racing-700: #8a130f;
-  --color-racing-800: #6b110e;
-  --color-racing-900: #4f0e0b;
-  --color-racing-950: #2c0705;
+  /* ---- Marigold ramp -- money and action ONLY (§6.2). Replaces Racing Red
+     (v1.3) -- same "warm hue owns CTA" role, deliberately NOT red or
+     orange-dark-enough-to-read-brown: hue held ~42-43° at 50-77% saturation
+     through the mid ramp so it reads as gold, not as a Home-Depot-brown
+     swatch (the specific complaint about the v1.3-round CTA candidate). */
+  --color-marigold-50: #fdf5e6;
+  --color-marigold-100: #fbe8c2;
+  --color-marigold-200: #f6d488;
+  --color-marigold-300: #efbc55;
+  --color-marigold-400: #e8b032;
+  --color-marigold-500: #e2a91d;
+  --color-marigold-600: #c28c14;
+  --color-marigold-700: #9c6f10;
+  --color-marigold-800: #78550c;
+  --color-marigold-900: #573d08;
+  --color-marigold-950: #362605;
 
   /* ---- Graphite ramp -- neutrals, cool cast (§6.2). Unchanged from v1.0 --
      already reads as steel/metal, which only suits the new direction better. */
@@ -93,8 +100,8 @@
   --brand: #1a3fa8;
   --brand-solid: #1e52d6;
   --brand-fg: #ffffff;
-  --cta: #d31d14;
-  --cta-fg: #ffffff;
+  --cta: #e2a91d;
+  --cta-fg: #141b21;
   --focus: #2e6bef;
 
   /* ---- Radius (§6.6) ---- */
@@ -166,10 +173,11 @@
   --brand: #7ba6ff;
   --brand-solid: #2e6bef;
   --brand-fg: #ffffff;
-  /* Deliberately dark text on the bright racing red -- mirrors the same
-     trick the v1.0 orange CTA used (dark text on a bright fill reads
-     sharper than white-on-bright and clears AA with real margin: 5.47:1). */
-  --cta: #f94e3f;
+  /* Marigold-400, one step brighter than the light-mode value -- pops
+     against the dark surface. Dark text throughout, same as light mode
+     (9.45:1 here); unlike v1.3's racing red, Marigold never needs to flip
+     which text color it pairs with between themes. */
+  --cta: #e8b032;
   --cta-fg: #0e1418;
   --focus: #7ba6ff;
 

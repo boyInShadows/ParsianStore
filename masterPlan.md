@@ -5,13 +5,14 @@
 **Product:** Persian-first (RTL) e-commerce for car spare parts — Saipa & Iran Khodro vehicles only
 **Owner:** Ash Tech Group
 **Status:** Phase 0 complete. Phase 1 complete (P1.S1–P1.S9). GATE 1→2 cleared — owner signed off on the Steel Blue + Racing Red palette (v1.3) and asked to proceed. Phase 2 starting.
-**Document version:** 1.4 — this is the *first move*. Phases 0–4 are locked. Phases 5+ are directionally locked but will be re-specced before execution.
+**Document version:** 1.5 — this is the *first move*. Phases 0–4 are locked. Phases 5+ are directionally locked but will be re-specced before execution.
 
 **Changelog:**
 - 1.1 — Language decision reversed from plain JavaScript to TypeScript (§2.2), mid-Phase-0, before any app code existed. See `docs/decisions/0001-typescript-over-plain-js.md`.
 - 1.2 — Morabba (§6.5 Display face) is not OFL-licensed (commercial, fontiran.com) — replaced with Estedad, the document's own already-named fallback. See `docs/decisions/0002-morabba-not-ofl-use-estedad.md`.
 - 1.3 — Color palette (§6.1–§6.4) replaced: turquoise + safety-orange → Steel Blue + Racing Red, per owner feedback at GATE 1→2 and automotive-color research (Saipa/Iran Khodro both use blue; racing/tool-brand culture overwhelmingly uses red for excitement). See `docs/decisions/0003-color-palette-steel-and-race.md`.
 - 1.4 — Vehicle scope narrowed from "Iranian & imported vehicles" (implicitly ~6 domestic makes + top imports, per the original §1.2 audit framing) to **Saipa and Iran Khodro only**, per explicit owner instruction: "in iran we only use SAIPA and IRANKHODRO cars and our shop gonna aim this category of cars." Affects §5 item 08 and P2.S6/P3.S7 seed-data scope. §1.1's customer table already only named Saipa/IKCO models (Pride, Tiba, Quick / 405, Samand, Dena), so no change was needed there. See `docs/decisions/0004-vehicle-scope-saipa-ikco-only.md`.
+- 1.5 — Color palette (§6.2–§6.4) refined again: Racing Red → **Marigold**, per owner feedback reviewing the completed Phase 4 landing page ("sport car" combo, not auto-parts retail). Steel Blue unchanged. See `docs/decisions/0005-color-palette-marigold-cta.md`.
 
 ---
 
@@ -476,6 +477,18 @@ Mobile-first. Every section must be usable and beautiful at 360px before desktop
 > `docs/decisions/0003-color-palette-steel-and-race.md`. The graphite
 > neutral ramp is unchanged — "machined-metal graphite ground" already
 > suited the new direction as well as the old one.
+>
+> **v1.5 amendment:** Racing Red is superseded in turn. On reviewing the
+> live landing page, the owner rejected the Steel Blue + Racing Red combo
+> as reading like a generic "sport car" palette rather than an auto-parts
+> retail one. Steel Blue is kept — it was never the complaint, and stays
+> grounded in Saipa/Iran Khodro's own logos — but Racing Red is replaced
+> with **Marigold**, a warm gold/amber chosen specifically to avoid both
+> red (the actual complaint) and the market's other dominant hue pattern
+> (checked against NAPA, AutoZone, and Advance Auto Parts, all
+> red/blue/orange-heavy — O'Reilly is the one major chain that broke from
+> that pattern, with green). See
+> `docs/decisions/0005-color-palette-marigold-cta.md`.
 
 ~~Machined-metal graphite ground, Persian turquoise identity, safety-orange commerce.~~ The vernacular is the parts catalog: hairline rules, mono-set reference codes, exploded diagrams. Restraint everywhere except the Exploded View.
 
@@ -489,10 +502,10 @@ Mobile-first. Every section must be usable and beautiful at 360px before desktop
 500 #2E6BEF  600 #1E52D6   700 #1A3FA8   800 #16337F   900 #142B63   950 #0A1733
 ```
 
-**Racing Red — money and action ONLY**
+**Marigold — money and action ONLY**
 ```
-50 #FFEDEC   100 #FFD5D2   200 #FFACA5   300 #FF7B70   400 #F94E3F
-500 #D31D14  600 #AD160F   700 #8A130F   800 #6B110E   900 #4F0E0B   950 #2C0705
+50 #FDF5E6   100 #FBE8C2   200 #F6D488   300 #EFBC55   400 #E8B032
+500 #E2A91D  600 #C28C14   700 #9C6F10   800 #78550C   900 #573D08   950 #362605
 ```
 
 **Graphite — neutrals (cool cast)**
@@ -515,9 +528,9 @@ info     light #1E52D6  dark #2E6BEF   (aliases the brand ramp directly -- brand
 | Color | Owns | Never used for |
 |---|---|---|
 | **Steel Blue** | Links, active nav, focus rings, brand marks, fitment-verified state, selected filters | Any "buy" affordance |
-| **Racing Red** | Add to cart, checkout, prices, discount badges, low-stock urgency | Navigation, links, decoration |
+| **Marigold** | Add to cart, checkout, prices, discount badges, low-stock urgency | Navigation, links, decoration |
 
-**Warning rule:** warning chips are *always* outlined + icon-led, never solid fill — so they can never be mistaken for a CTA. **Danger vs. CTA rule:** both are reds by nature (motorsport red and error red occupy the same hue family everywhere), so danger is deliberately shifted toward crimson (~344° hue) away from Racing Red's ~3-5° — verified via HSL, not eyeballed — so the two read as related but distinct rather than identical.
+**Warning rule:** warning chips are *always* outlined + icon-led, never solid fill — so they can never be mistaken for a CTA. This rule now carries more weight than it did under v1.3: `--color-warning` (~40° hue) sits close to Marigold (~42-43° hue), unlike the old red-CTA/amber-warning pair which were never close. Shape (outline vs. solid fill), not hue, is what keeps warning legible as its own thing. **Danger vs. CTA rule:** danger stays shifted toward crimson (~344° hue) — that separation was always from CTA's red, and CTA is no longer red at all, so the two are trivially distinct now.
 
 ### 6.4 Contrast-safe pairs (WCAG AA verified)
 
@@ -532,11 +545,11 @@ info     light #1E52D6  dark #2E6BEF   (aliases the brand ramp directly -- brand
 | `--brand` (text/link) | `#1A3FA8` | `#7BA6FF` |
 | `--brand-solid` | `#1E52D6` | `#2E6BEF` |
 | `--brand-fg` | `#FFFFFF` | `#FFFFFF` |
-| `--cta` | `#D31D14` | `#F94E3F` |
-| `--cta-fg` | `#FFFFFF` | `#0E1418` |
+| `--cta` | `#E2A91D` | `#E8B032` |
+| `--cta-fg` | `#141B21` | `#0E1418` |
 | `--focus` | `#2E6BEF` | `#7BA6FF` |
 
-> Dark-mode CTA deliberately uses **dark text on bright racing red** — 5.47:1, clears AA with real margin and looks sharper than white-on-bright, the same trick the v1.0 orange CTA used. Every pair above was checked with a real relative-luminance contrast calculation before being locked in, not eyeballed.
+> CTA uses **dark text on Marigold in both themes** (8.21:1 light, 9.45:1 dark) — unlike v1.3's racing red, which was dark enough in light mode for white text (5.31:1) and only needed the dark-text trick after brightening for dark mode, Marigold is bright enough at every step used here that white text fails even in light mode (2.12:1) — verified via real relative-luminance calculation, not eyeballed; see the ADR for the full numbers.
 
 ### 6.5 Typography
 
