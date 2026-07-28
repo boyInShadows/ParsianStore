@@ -1,0 +1,15 @@
+legacy/
+node_modules/
+dist/
+.next/
+.turbo/
+coverage/
+playwright-report/
+test-results/
+pnpm-lock.yaml
+next-env.d.ts
+
+# Hand-authored prose/tables (masterPlan.md, ADRs, audit notes) -- Prettier's
+# markdown table reformatting would produce large, unrelated diffs on files
+# that are carefully hand-aligned. Revisit if the team wants this later.
+*.md

@@ -1,0 +1,189 @@
+/**
+ * Design tokens -- masterPlan.md §6 (v1.5 palette -- see
+ * docs/decisions/0005-color-palette-marigold-cta.md for the full rationale.
+ * v1.3's Steel Blue + Racing Red (docs/decisions/0003-...) read as "sport
+ * car," not auto-parts retail, on owner review -- Steel Blue is kept as-is
+ * (it was never the complaint, and stays grounded in Saipa/Iran Khodro's
+ * own blue logos); Racing Red is replaced with Marigold).
+ *
+ * This is the ONLY file in the repo allowed to contain a raw hex literal
+ * (CLAUDE.md rule 5 / masterPlan.md §6.7). tailwind.config.js (P1.S2) and the
+ * MUI theme (P1.S6) both read these same CSS custom properties -- one
+ * palette, two consumers. Never hardcode a color, radius, spacing, or motion
+ * value anywhere else; add or extend a token here instead.
+ *
+ * Two-accent discipline (§6.3): Steel Blue owns links, active nav, focus
+ * rings, brand marks, fitment-verified state, selected filters -- never a
+ * "buy" affordance. Marigold owns add-to-cart, checkout, prices, discount
+ * badges, low-stock urgency -- never navigation, links, or decoration.
+ * Warning chips are always outlined + icon-led, never solid fill -- this
+ * matters MORE now than it did with a red CTA, since --color-warning
+ * (~40° hue) sits close to Marigold (~42-43° hue) in a way the old
+ * red-CTA/amber-warning pair never did; shape (outline vs. solid), not
+ * hue, is what keeps warning from reading as a second "buy" affordance.
+ * Danger stays hue-shifted toward crimson (~344°), unaffected by this
+ * change since it was always separated from CTA, not from warning.
+ * CTA text-on-fill uses dark text in BOTH themes (Marigold is bright
+ * enough that white text fails contrast even in light mode -- verified,
+ * not eyeballed: see the ADR for the full relative-luminance numbers).
+ */
+
+:root {
+  /* ---- Steel Blue ramp -- identity, navigation, system state (§6.2).
+     Trust + engineering: the color most mainstream car brands use (Ford,
+     Honda, VW, Hyundai), and specifically the color both Saipa and Iran
+     Khodro use in their own logos. */
+  --color-steel-50: #eaf1ff;
+  --color-steel-100: #d3e3ff;
+  --color-steel-200: #a8c6ff;
+  --color-steel-300: #7ba6ff;
+  --color-steel-400: #4c86fa;
+  --color-steel-500: #2e6bef;
+  --color-steel-600: #1e52d6;
+  --color-steel-700: #1a3fa8;
+  --color-steel-800: #16337f;
+  --color-steel-900: #142b63;
+  --color-steel-950: #0a1733;
+
+  /* ---- Marigold ramp -- money and action ONLY (§6.2). Replaces Racing Red
+     (v1.3) -- same "warm hue owns CTA" role, deliberately NOT red or
+     orange-dark-enough-to-read-brown: hue held ~42-43° at 50-77% saturation
+     through the mid ramp so it reads as gold, not as a Home-Depot-brown
+     swatch (the specific complaint about the v1.3-round CTA candidate). */
+  --color-marigold-50: #fdf5e6;
+  --color-marigold-100: #fbe8c2;
+  --color-marigold-200: #f6d488;
+  --color-marigold-300: #efbc55;
+  --color-marigold-400: #e8b032;
+  --color-marigold-500: #e2a91d;
+  --color-marigold-600: #c28c14;
+  --color-marigold-700: #9c6f10;
+  --color-marigold-800: #78550c;
+  --color-marigold-900: #573d08;
+  --color-marigold-950: #362605;
+
+  /* ---- Graphite ramp -- neutrals, cool cast (§6.2). Unchanged from v1.0 --
+     already reads as steel/metal, which only suits the new direction better. */
+  --color-graphite-0: #ffffff;
+  --color-graphite-25: #f7f9fa;
+  --color-graphite-50: #eef1f4;
+  --color-graphite-100: #e2e7ec;
+  --color-graphite-200: #cbd3da;
+  --color-graphite-300: #a8b4be;
+  --color-graphite-400: #7c8b97;
+  --color-graphite-500: #5c6b78;
+  --color-graphite-600: #465360;
+  --color-graphite-700: #36414c;
+  --color-graphite-800: #242d36;
+  --color-graphite-850: #1a222a;
+  --color-graphite-900: #141b21;
+  --color-graphite-950: #0e1418;
+  --color-graphite-1000: #080c0f;
+
+  /* ---- Semantic status colors, light values (§6.2). success/warning
+     unchanged; danger re-tuned (see file header); info now aliases the
+     brand ramp directly since brand is blue now too -- one blue, not two
+     similar-but-different ones. */
+  --color-success: #16a34a;
+  --color-warning: #e8a317;
+  --color-danger: #c81e4a;
+  --color-info: #1e52d6;
+
+  /* ---- Contrast-safe pairs, light values (§6.4, WCAG AA verified via a
+     real relative-luminance calculation, not eyeballed -- see the ADR). ---- */
+  --bg: #eef1f4;
+  --surface: #ffffff;
+  --surface-raised: #f7f9fa;
+  --text: #141b21;
+  --text-muted: #5c6b78;
+  --border: #cbd3da;
+  --brand: #1a3fa8;
+  --brand-solid: #1e52d6;
+  --brand-fg: #ffffff;
+  --cta: #e2a91d;
+  --cta-fg: #141b21;
+  --focus: #2e6bef;
+
+  /* ---- Radius (§6.6) ---- */
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-xl: 20px;
+  --radius-full: 9999px;
+
+  /* ---- Spacing, 4px base scale (§6.6) ---- */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-12: 48px;
+  --space-16: 64px;
+  --space-20: 80px;
+  --space-24: 96px;
+  --space-32: 128px;
+
+  /* ---- Shadow, light: soft, low-alpha, cool-tinted (§6.6) ---- */
+  --shadow-sm: 0 1px 2px 0 rgb(20 27 33 / 0.06);
+  --shadow-md: 0 4px 10px -2px rgb(20 27 33 / 0.08), 0 2px 4px -2px rgb(20 27 33 / 0.06);
+  --shadow-lg: 0 12px 24px -6px rgb(20 27 33 / 0.1), 0 4px 8px -4px rgb(20 27 33 / 0.06);
+
+  /* ---- Motion (§6.6) ---- */
+  --duration-fast: 150ms;
+  --duration-base: 250ms;
+  --duration-slow: 400ms;
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+
+  /* ---- Container (§6.6) ---- */
+  --container-max: 1440px;
+  --container-gutter: 16px; /* mobile; widened to 32px at --breakpoint-lg below */
+
+  /* ---- Breakpoints (§6.6), reference values only --------------------
+     CSS custom properties cannot be used inside @media conditions, so
+     these exist for JS (matchMedia) and documentation. tailwind.config.js
+     (P1.S2) must duplicate these same literal values in its `screens`
+     config -- keep both in sync by hand. */
+  --breakpoint-sm: 640px;
+  --breakpoint-md: 768px;
+  --breakpoint-lg: 1024px;
+  --breakpoint-xl: 1280px;
+  --breakpoint-2xl: 1536px;
+}
+
+@media (min-width: 1024px) {
+  :root {
+    --container-gutter: 32px;
+  }
+}
+
+[data-theme="dark"] {
+  --color-success: #31c46a;
+  --color-warning: #f5b93c;
+  --color-danger: #f0527d;
+  --color-info: #2e6bef;
+
+  --bg: #0e1418;
+  --surface: #1a222a;
+  --surface-raised: #242d36;
+  --text: #e2e7ec;
+  --text-muted: #a8b4be;
+  --border: #36414c;
+  --brand: #7ba6ff;
+  --brand-solid: #2e6bef;
+  --brand-fg: #ffffff;
+  /* Marigold-400, one step brighter than the light-mode value -- pops
+     against the dark surface. Dark text throughout, same as light mode
+     (9.45:1 here); unlike v1.3's racing red, Marigold never needs to flip
+     which text color it pairs with between themes. */
+  --cta: #e8b032;
+  --cta-fg: #0e1418;
+  --focus: #7ba6ff;
+
+  /* Dark mode uses NO shadows -- elevation comes from --surface-raised
+     + --border instead (§6.6). */
+  --shadow-sm: none;
+  --shadow-md: none;
+  --shadow-lg: none;
+}

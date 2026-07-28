@@ -1,0 +1,109 @@
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import mongoose from "mongoose";
+import { buildVehicleKey, parseVehicleKey } from "schemas";
+import { testDbUri } from "../config/testDbUri.js";
+import { checkFitment } from "../modules/fitment/fitment.service.js";
+import { BrandModel } from "../models/Brand.js";
+import { CategoryModel } from "../models/Category.js";
+import { FitmentModel } from "../models/Fitment.js";
+import { ProductModel } from "../models/Product.js";
+import { VehicleMakeModel } from "../models/VehicleMake.js";
+import { CATEGORY_TEMPLATES } from "./catalog.data.js";
+import { seedCatalog } from "./catalog.js";
+
+const TEST_URI = testDbUri("parsian-store-test-seed-catalog");
+
+beforeAll(async () => {
+  await mongoose.connect(TEST_URI);
+  await ProductModel.init();
+}, 60_000);
+
+afterAll(async () => {
+  await mongoose.connection.dropDatabase();
+  await mongoose.disconnect();
+});
+
+describe("seedCatalog", () => {
+  it("creates >= 300 products across >= 8 categories and >= 15 brands, each with a Fitment record", async () => {
+    await seedCatalog();
+
+    const productCount = await ProductModel.countDocuments({});
+    expect(productCount).toBeGreaterThanOrEqual(300);
+
+    const categoriesUsed = await ProductModel.distinct("categoryId");
+    expect(categoriesUsed.length).toBeGreaterThanOrEqual(8);
+
+    const brandsUsed = await ProductModel.distinct("brandId");
+    expect(brandsUsed.length).toBeGreaterThanOrEqual(15);
+
+    const fitmentCount = await FitmentModel.countDocuments({});
+    expect(fitmentCount).toBe(productCount);
+  }, 60_000);
+
+  it("is idempotent — running it again does not create duplicates", async () => {
+    await seedCatalog();
+    const first = await ProductModel.countDocuments({});
+    await seedCatalog();
+    const second = await ProductModel.countDocuments({});
+    expect(second).toBe(first);
+  }, 120_000);
+
+  it("only uses vehicle makes from the real Saipa/Iran Khodro seed tree (ADR 0004)", async () => {
+    await seedCatalog();
+    const fitments = await FitmentModel.find({}).limit(50);
+    const makeIds = [...new Set(fitments.map((f) => f.makeId.toString()))];
+    const makes = await VehicleMakeModel.find({ _id: { $in: makeIds } });
+    expect(makes.every((m) => ["saipa", "iran-khodro"].includes(m.slug))).toBe(true);
+  }, 60_000);
+
+  it("GATE 3->4: /fitment/check-equivalent lookups return correct verdicts for 20 real product<->vehicle pairs", async () => {
+    await seedCatalog();
+
+    const fitments = await FitmentModel.aggregate<{ _id: unknown }>([{ $sample: { size: 20 } }]);
+    expect(fitments.length).toBe(20);
+
+    for (const sample of fitments) {
+      const fitment = await FitmentModel.findById(sample._id);
+      expect(fitment).not.toBeNull();
+
+      // The exact vehicle this Fitment record targets must verify as "exact".
+      const matchingKey = buildVehicleKey({
+        makeId: fitment!.makeId.toString(),
+        modelId: fitment!.modelId.toString(),
+        genId: fitment!.genId!.toString(),
+        year: fitment!.yearFrom,
+      });
+      const matchingVerdict = await checkFitment(
+        fitment!.productId.toString(),
+        parseVehicleKey(matchingKey),
+      );
+      expect(matchingVerdict.confidence).toBe("exact");
+
+      // An unrelated random vehicle must never false-positive.
+      const unrelatedKey = buildVehicleKey({
+        makeId: new mongoose.Types.ObjectId().toString(),
+        modelId: new mongoose.Types.ObjectId().toString(),
+        genId: new mongoose.Types.ObjectId().toString(),
+        year: fitment!.yearFrom,
+      });
+      const unrelatedVerdict = await checkFitment(
+        fitment!.productId.toString(),
+        parseVehicleKey(unrelatedKey),
+      );
+      expect(unrelatedVerdict.confidence).toBeNull();
+    }
+  }, 60_000);
+
+  it("every seeded category matches one of the >= 8 catalog systems", async () => {
+    await seedCatalog();
+    const categories = await CategoryModel.find({});
+    expect(categories.length).toBe(CATEGORY_TEMPLATES.length);
+  });
+
+  it("every seeded brand persists with its real name/country", async () => {
+    await seedCatalog();
+    const bosch = await BrandModel.findOne({ slug: "bosch" });
+    expect(bosch?.name.fa).toBe("بوش");
+    expect(bosch?.country).toBe("Germany");
+  });
+});

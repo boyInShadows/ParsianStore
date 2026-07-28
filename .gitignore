@@ -1,7 +1,5 @@
-# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
-
 # dependencies
-/node_modules
+node_modules/
 /.pnp
 .pnp.*
 .yarn/*
@@ -10,15 +8,24 @@
 !.yarn/releases
 !.yarn/versions
 
-# testing
-/coverage
+# turborepo
+.turbo/
 
 # next.js
-/.next/
-/out/
+.next/
+out/
 
-# production
-/build
+# build output
+dist/
+build/
+
+# testing
+/coverage
+playwright-report/
+test-results/
+
+# local-disk StorageProvider (P2.S8) — uploaded/rendered images, dev-only
+apps/api/uploads/
 
 # misc
 .DS_Store
@@ -28,14 +35,26 @@
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
-.pnpm-debug.log*
+pnpm-debug.log*
 
-# env files (can opt-in for committing if needed)
-.env*
+# env files (never commit real secrets)
+.env
+.env.local
+.env.*.local
 
-# vercel
+# vercel (unused — kept only so an accidental `vercel link` doesn't get committed)
 .vercel
 
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# editor
+.vscode/*
+!.vscode/extensions.json
+
+# agent memory / AI-session notes -- kept locally for this and future Claude
+# Code sessions, deliberately not pushed to GitHub. masterPlan.md, README.md,
+# and docs/audit.md are real product docs and stay tracked; these aren't.
+/CLAUDE.md
+/docs/decisions/
