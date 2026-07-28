@@ -117,5 +117,50 @@
         "comingSoon": "This feature launches soon."
       }
     }
+  },
+  "Catalog": {
+    "breadcrumbHome": "Parsian",
+    "notFound": {
+      "title": "Category not found",
+      "description": "This category doesn't exist or has been removed.",
+      "backHome": "Back to home"
+    },
+    "apiDown": {
+      "title": "Couldn't connect to the server",
+      "description": "Products can't be loaded right now. Please try again later."
+    },
+    "filters": {
+      "title": "Filters",
+      "category": "Category",
+      "brand": "Brand",
+      "price": "Price range",
+      "priceMin": "Min (Toman)",
+      "priceMax": "Max (Toman)",
+      "inStock": "In stock only",
+      "fitsMyVehicle": "Only parts that fit my vehicle",
+      "fitsMyVehicleHint": "Based on the active vehicle in your garage",
+      "noActiveVehicle": "Pick a vehicle in your garage first.",
+      "clearAll": "Clear filters",
+      "removeFilter": "Remove filter"
+    },
+    "sort": {
+      "label": "Sort",
+      "newest": "Newest",
+      "priceAsc": "Price: low to high",
+      "priceDesc": "Price: high to low"
+    },
+    "grid": {
+      "resultsCount": "{count} results",
+      "loadMore": "Load more",
+      "loading": "Loading...",
+      "emptyTitle": "No results found",
+      "emptyDescription": "No products match these filters.",
+      "clearFilters": "Clear all filters"
+    },
+    "product": {
+      "inStock": "In stock",
+      "outOfStock": "Out of stock",
+      "noPhoto": "No photo"
+    }
   }
 }

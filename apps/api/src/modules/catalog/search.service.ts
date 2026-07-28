@@ -3,6 +3,7 @@ import type { VehicleKeyParts } from "schemas";
 import { searchProvider, type ProductFacets } from "../../providers/search/index.js";
 import type { Product } from "../../models/Product.js";
 import type { PaginatedResult, PaginationQuery } from "../../utils/pagination.js";
+import type { FacetsQuery } from "./search.schema.js";
 
 // Thin pass-through to the swappable searchProvider (§8) — kept as its
 // own service (rather than calling searchProvider directly from the
@@ -17,6 +18,6 @@ export function searchProducts(
   return searchProvider.searchProducts(query, { vehicle }, pagination);
 }
 
-export function getFacets(vehicle: VehicleKeyParts | undefined): Promise<ProductFacets> {
-  return searchProvider.getFacets({ vehicle });
+export function getFacets(filters: FacetsQuery): Promise<ProductFacets> {
+  return searchProvider.getFacets(filters);
 }

@@ -1,8 +1,13 @@
 import { z } from "zod";
 import { vehicleKeySchema } from "schemas";
 
-const slugField = z.string().regex(/^[a-z0-9-]+$/, "نامک نامعتبر است");
-const booleanQueryParam = z
+// Exported: search.schema.ts's facetsQuerySchema needs the exact same
+// category/brand/price/attributes/inStock field shapes as this file's own
+// listProductsQuerySchema, since /catalog/facets counts against the same
+// filters the product grid uses (P5.S1) -- one definition of each field
+// shape, not two that could drift.
+export const slugField = z.string().regex(/^[a-z0-9-]+$/, "نامک نامعتبر است");
+export const booleanQueryParam = z
   .enum(["true", "false"])
   .transform((value) => value === "true")
   .optional();
@@ -11,9 +16,9 @@ export const PRODUCT_SORT_OPTIONS = ["newest", "price-asc", "price-desc"] as con
 export type ProductSortOption = (typeof PRODUCT_SORT_OPTIONS)[number];
 
 // "key:value,key2:value2" — validated as a shape here; parsed into actual
-// pairs in products.service.ts, since turning it into a Mongo filter is
+// pairs in productFilter.ts, since turning it into a Mongo filter is
 // domain logic, not a validation concern.
-const attributesField = z
+export const attributesField = z
   .string()
   .regex(/^[a-z][a-z0-9_]*:[^,:]+(,[a-z][a-z0-9_]*:[^,:]+)*$/, "قالب فیلتر ویژگی‌ها نامعتبر است")
   .optional();

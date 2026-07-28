@@ -22,8 +22,8 @@ export async function getFacetsHandler(
   next: NextFunction,
 ): Promise<void> {
   try {
-    const { vehicle } = req.validatedQuery as FacetsQuery;
-    const facets = await searchService.getFacets(vehicle);
+    const filters = req.validatedQuery as FacetsQuery;
+    const facets = await searchService.getFacets(filters);
     res.json({ ok: true, data: facets });
   } catch (err) {
     next(err);

@@ -1,23 +1,12 @@
-import type { FilterQuery, HydratedDocument } from "mongoose";
-import type { VehicleKeyParts } from "schemas";
-import { getFittingProductIds } from "../fitment/fitment.service.js";
-import { BrandModel } from "../../models/Brand.js";
-import { CategoryModel } from "../../models/Category.js";
+import type { HydratedDocument } from "mongoose";
 import { ProductModel, type Product } from "../../models/Product.js";
 import { ApiError } from "../../utils/ApiError.js";
 import { cursorPaginate, type CursorPageResult } from "../../utils/cursorPaginate.js";
 import { paginate, type PaginatedResult } from "../../utils/pagination.js";
+import { buildProductFilter, type ProductFilterInput } from "./productFilter.js";
 import type { ProductSortOption } from "./products.schema.js";
 
-export interface ListProductsFilters {
-  category?: string;
-  brand?: string;
-  vehicle?: VehicleKeyParts;
-  minPriceRial?: number;
-  maxPriceRial?: number;
-  attributes?: string;
-  inStock?: boolean;
-}
+export type ListProductsFilters = ProductFilterInput;
 
 const SORT_CONFIG: Record<
   ProductSortOption,
@@ -28,61 +17,13 @@ const SORT_CONFIG: Record<
   "price-desc": { field: "priceRial", valueType: "number", direction: -1 },
 };
 
-/** "color:red,size:large" -> [["color","red"], ["size","large"]] — the
- * shape itself is already Zod-validated (products.schema.ts); this just
- * splits it into pairs the caller turns into $elemMatch conditions. */
-function parseAttributesParam(raw: string): [string, string][] {
-  return raw.split(",").map((pair) => {
-    const [key, value] = pair.split(":") as [string, string];
-    return [key, value];
-  });
-}
-
-function emptyPage(limit: number): CursorPageResult<HydratedDocument<Product>> {
-  return { data: [], meta: { nextCursor: null, limit } };
-}
-
 export async function listProducts(
   filters: ListProductsFilters,
   sort: ProductSortOption,
   cursor: string | undefined,
   limit: number,
 ): Promise<CursorPageResult<HydratedDocument<Product>>> {
-  const filter: FilterQuery<Product> = { status: "active" };
-
-  if (filters.category) {
-    const category = await CategoryModel.findOne({ slug: filters.category });
-    if (!category) return emptyPage(limit);
-    filter.categoryId = category._id;
-  }
-
-  if (filters.brand) {
-    const brand = await BrandModel.findOne({ slug: filters.brand });
-    if (!brand) return emptyPage(limit);
-    filter.brandId = brand._id;
-  }
-
-  if (filters.vehicle) {
-    const productIds = await getFittingProductIds(filters.vehicle);
-    if (productIds.length === 0) return emptyPage(limit);
-    filter._id = { $in: productIds };
-  }
-
-  if (filters.minPriceRial !== undefined || filters.maxPriceRial !== undefined) {
-    filter.priceRial = {};
-    if (filters.minPriceRial !== undefined) filter.priceRial.$gte = filters.minPriceRial;
-    if (filters.maxPriceRial !== undefined) filter.priceRial.$lte = filters.maxPriceRial;
-  }
-
-  if (filters.inStock) {
-    filter.stock = { $gt: 0 };
-  }
-
-  if (filters.attributes) {
-    filter.$and = parseAttributesParam(filters.attributes).map(([key, value]) => ({
-      attributes: { $elemMatch: { key, value } },
-    }));
-  }
+  const filter = await buildProductFilter(filters);
 
   const { field, valueType, direction } = SORT_CONFIG[sort];
   return cursorPaginate(ProductModel, filter, {

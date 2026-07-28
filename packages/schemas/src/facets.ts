@@ -19,14 +19,26 @@ const stockFacetBucketSchema = z.object({
   count: z.number(),
 });
 
+// Attribute.name has no {fa,en} pair (internal admin/filter label) and
+// `value` is already the exact Persian option string to display -- see
+// apps/api's Attribute.ts and SearchProvider.ts for the full reasoning.
+const attributeFacetBucketSchema = z.object({
+  key: z.string(),
+  keyLabel: z.string(),
+  value: z.string(),
+  count: z.number(),
+});
+
 export const facetsResponseSchema = z.object({
   ok: z.literal(true),
   data: z.object({
     categories: z.array(facetBucketSchema),
     brands: z.array(facetBucketSchema),
     stock: z.array(stockFacetBucketSchema),
+    attributes: z.array(attributeFacetBucketSchema),
   }),
 });
 
 export type FacetsResponse = z.infer<typeof facetsResponseSchema>;
 export type FacetBucket = z.infer<typeof facetBucketSchema>;
+export type AttributeFacetBucket = z.infer<typeof attributeFacetBucketSchema>;

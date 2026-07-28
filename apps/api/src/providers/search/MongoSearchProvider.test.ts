@@ -1,6 +1,7 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import mongoose from "mongoose";
 import { testDbUri } from "../../config/testDbUri.js";
+import { AttributeModel } from "../../models/Attribute.js";
 import { BrandModel } from "../../models/Brand.js";
 import { CategoryModel } from "../../models/Category.js";
 import { FitmentModel } from "../../models/Fitment.js";
@@ -21,6 +22,7 @@ beforeEach(async () => {
     CategoryModel.deleteMany({}),
     BrandModel.deleteMany({}),
     FitmentModel.deleteMany({}),
+    AttributeModel.deleteMany({}),
   ]);
 });
 
@@ -224,5 +226,99 @@ describe("MongoSearchProvider.getFacets", () => {
       { inStock: false, count: 1 },
       { inStock: true, count: 1 },
     ]);
+    expect(facets.attributes).toEqual([]);
+  });
+
+  it("does not zero out a facet's own dimension when that dimension is filtered (OR-facet behavior)", async () => {
+    const { brand, category } = await seedCatalog();
+    const otherCategory = await CategoryModel.create({
+      name: { fa: "جلوبندی", en: "Suspension" },
+      slug: "suspension",
+      systemCode: "SYS-05",
+    });
+
+    await ProductModel.create(
+      productInput({
+        name: { fa: "الف", en: "A" },
+        slug: "product-a",
+        brandId: brand._id,
+        categoryId: category._id,
+        priceRial: 1_000_000,
+      }),
+    );
+    await ProductModel.create(
+      productInput({
+        name: { fa: "ب", en: "B" },
+        slug: "product-b",
+        brandId: brand._id,
+        categoryId: otherCategory._id,
+        priceRial: 1_000_000,
+      }),
+    );
+
+    // Filtering to `category` must still report `otherCategory`'s count in
+    // the categories bucket (so the UI can show "Suspension (1)" as a
+    // switchable option) -- it would incorrectly disappear if the
+    // category's own filter weren't excluded from its own bucket query.
+    const facets = await provider.getFacets({ category: category.slug });
+    expect(facets.categories.sort((a, b) => a.slug.localeCompare(b.slug))).toEqual(
+      [
+        { id: category.id, name: category.name, slug: category.slug, count: 1 },
+        { id: otherCategory.id, name: otherCategory.name, slug: otherCategory.slug, count: 1 },
+      ].sort((a, b) => a.slug.localeCompare(b.slug)),
+    );
+    // Brand bucket must still respect the active category filter, though
+    // (it isn't the excluded dimension) -- both products are brand `brand`,
+    // but only the one in `category` should count here.
+    expect(facets.brands).toEqual([{ id: brand.id, name: brand.name, slug: brand.slug, count: 1 }]);
+  });
+
+  it("returns attribute-value facet buckets hydrated with the attribute's display name", async () => {
+    const { brand, category } = await seedCatalog();
+    await AttributeModel.create({
+      name: "رنگ",
+      key: "color",
+      type: "select",
+      options: ["قرمز", "آبی"],
+    });
+
+    await ProductModel.create(
+      productInput({
+        name: { fa: "الف", en: "A" },
+        slug: "product-a",
+        brandId: brand._id,
+        categoryId: category._id,
+        priceRial: 1_000_000,
+        attributes: [{ key: "color", value: "قرمز" }],
+      }),
+    );
+    await ProductModel.create(
+      productInput({
+        name: { fa: "ب", en: "B" },
+        slug: "product-b",
+        brandId: brand._id,
+        categoryId: category._id,
+        priceRial: 1_000_000,
+        attributes: [{ key: "color", value: "قرمز" }],
+      }),
+    );
+    await ProductModel.create(
+      productInput({
+        name: { fa: "ج", en: "C" },
+        slug: "product-c",
+        brandId: brand._id,
+        categoryId: category._id,
+        priceRial: 1_000_000,
+        attributes: [{ key: "color", value: "آبی" }],
+      }),
+    );
+
+    const facets = await provider.getFacets({});
+    expect(facets.attributes.sort((a, b) => a.value.localeCompare(b.value))).toEqual(
+      [
+        { key: "color", keyLabel: "رنگ", value: "قرمز", count: 2 },
+        { key: "color", keyLabel: "رنگ", value: "آبی", count: 1 },
+      ].sort((a, b) => a.value.localeCompare(b.value)),
+    );
   });
 });

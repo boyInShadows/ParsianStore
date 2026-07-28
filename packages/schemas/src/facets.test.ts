@@ -11,6 +11,7 @@ describe("facetsResponseSchema", () => {
         categories: [validBucket],
         brands: [validBucket],
         stock: [{ inStock: true, count: 12 }],
+        attributes: [{ key: "color", keyLabel: "رنگ", value: "قرمز", count: 3 }],
       },
     });
     expect(result.success).toBe(true);
@@ -23,6 +24,7 @@ describe("facetsResponseSchema", () => {
         categories: [{ id: "1", slug: "brakes", count: 12 }],
         brands: [],
         stock: [],
+        attributes: [],
       },
     });
     expect(result.success).toBe(false);

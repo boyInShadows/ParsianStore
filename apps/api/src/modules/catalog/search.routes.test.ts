@@ -111,6 +111,7 @@ describe("GET /catalog/facets", () => {
       categories: unknown[];
       brands: unknown[];
       stock: unknown[];
+      attributes: unknown[];
     }>;
     expect(body.data.categories).toHaveLength(1);
     expect(body.data.brands).toHaveLength(1);

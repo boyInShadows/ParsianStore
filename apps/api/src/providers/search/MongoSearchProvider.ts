@@ -1,12 +1,14 @@
 import { Types, type FilterQuery, type Model } from "mongoose";
 import { normalizeFa } from "schemas";
-import { getFittingProductIds } from "../../modules/fitment/fitment.service.js";
+import { AttributeModel } from "../../models/Attribute.js";
 import { BrandModel, type Brand } from "../../models/Brand.js";
 import { CategoryModel, type Category } from "../../models/Category.js";
 import { ProductModel, type Product } from "../../models/Product.js";
+import { buildProductFilter } from "../../modules/catalog/productFilter.js";
 import { paginate, type PaginatedResult, type PaginationQuery } from "../../utils/pagination.js";
 import type { HydratedDocument } from "mongoose";
 import type {
+  AttributeFacetBucket,
   FacetBucket,
   ProductFacets,
   ProductSearchFilters,
@@ -17,13 +19,12 @@ function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
+// searchProducts (free-text search) only ever filters by vehicle today —
+// buildProductFilter's other fields (category/brand/price/attributes/
+// inStock) are facets-only (getFacets below), not yet exposed on the
+// search endpoint's own query schema.
 async function baseFilter(filters: ProductSearchFilters): Promise<FilterQuery<Product>> {
-  const filter: FilterQuery<Product> = { status: "active" };
-  if (filters.vehicle) {
-    const productIds = await getFittingProductIds(filters.vehicle);
-    filter._id = { $in: productIds.map((id) => new Types.ObjectId(id)) };
-  }
-  return filter;
+  return buildProductFilter(filters);
 }
 
 /**
@@ -92,6 +93,25 @@ interface StockCountBucket {
   count: number;
 }
 
+interface AttributeCountBucket {
+  _id: { key: string; value: string };
+  count: number;
+}
+
+async function hydrateAttributeBuckets(
+  buckets: AttributeCountBucket[],
+): Promise<AttributeFacetBucket[]> {
+  const keys = [...new Set(buckets.map((b) => b._id.key))];
+  const attributeDocs = await AttributeModel.find({ key: { $in: keys } });
+  const labelByKey = new Map(attributeDocs.map((doc) => [doc.key, doc.name]));
+  return buckets.map((bucket) => ({
+    key: bucket._id.key,
+    keyLabel: labelByKey.get(bucket._id.key) ?? bucket._id.key,
+    value: bucket._id.value,
+    count: bucket.count,
+  }));
+}
+
 export class MongoSearchProvider implements SearchProvider {
   async searchProducts(
     query: string,
@@ -110,33 +130,56 @@ export class MongoSearchProvider implements SearchProvider {
     return paginate(ProductModel, { _id: { $in: matchedIds } }, pagination);
   }
 
+  // Each dimension's bucket counts are computed against every filter
+  // EXCEPT that dimension's own current selection ("OR-facet" pattern) --
+  // otherwise, picking a brand would collapse every other brand's count to
+  // zero (its own filter would already exclude them), which defeats the
+  // point of showing "how many if you picked this option instead." Every
+  // other active filter (category, price, vehicle, ...) still applies.
   async getFacets(filters: ProductSearchFilters): Promise<ProductFacets> {
-    const filter = await baseFilter(filters);
+    const [categoryFilter, brandFilter, stockFilter, attributesFilter] = await Promise.all([
+      buildProductFilter({ ...filters, category: undefined }),
+      buildProductFilter({ ...filters, brand: undefined }),
+      buildProductFilter({ ...filters, inStock: undefined }),
+      buildProductFilter({ ...filters, attributes: undefined }),
+    ]);
 
-    const [categoryBuckets, brandBuckets, stockBuckets] = await Promise.all([
+    const [categoryBuckets, brandBuckets, stockBuckets, attributeBuckets] = await Promise.all([
       ProductModel.aggregate<CountBucket>([
-        { $match: filter },
+        { $match: categoryFilter },
         { $group: { _id: "$categoryId", count: { $sum: 1 } } },
       ]),
       ProductModel.aggregate<CountBucket>([
-        { $match: filter },
+        { $match: brandFilter },
         { $group: { _id: "$brandId", count: { $sum: 1 } } },
       ]),
       ProductModel.aggregate<StockCountBucket>([
-        { $match: filter },
+        { $match: stockFilter },
         { $group: { _id: { $gt: ["$stock", 0] }, count: { $sum: 1 } } },
+      ]),
+      ProductModel.aggregate<AttributeCountBucket>([
+        { $match: attributesFilter },
+        { $unwind: "$attributes" },
+        {
+          $group: {
+            _id: { key: "$attributes.key", value: "$attributes.value" },
+            count: { $sum: 1 },
+          },
+        },
       ]),
     ]);
 
-    const [categories, brands] = await Promise.all([
+    const [categories, brands, attributes] = await Promise.all([
       hydrateFacetBuckets<Category>(CategoryModel, categoryBuckets),
       hydrateFacetBuckets<Brand>(BrandModel, brandBuckets),
+      hydrateAttributeBuckets(attributeBuckets),
     ]);
 
     return {
       categories,
       brands,
       stock: stockBuckets.map((bucket) => ({ inStock: bucket._id, count: bucket.count })),
+      attributes,
     };
   }
 }

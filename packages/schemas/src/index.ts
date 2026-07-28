@@ -6,3 +6,4 @@ export * from "./facets.js";
 export * from "./vehicles.js";
 export * from "./products.js";
 export * from "./brands.js";
+export * from "./categories.js";

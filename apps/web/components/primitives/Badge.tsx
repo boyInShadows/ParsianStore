@@ -8,7 +8,8 @@ type Props = {
 };
 
 // Warning is always outlined + icon-led, never solid -- masterPlan.md §6.3,
-// so it can never be mistaken for a CTA sitting next to Signal Orange.
+// so it can never be mistaken for a CTA sitting next to Marigold (their
+// hues are close -- see tokens.css's header comment).
 const tones: Record<Tone, string> = {
   brand: "bg-brand-solid text-brand-fg",
   success: "bg-success text-brand-fg",
