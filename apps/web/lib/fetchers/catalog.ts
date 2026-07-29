@@ -5,6 +5,7 @@ import {
   productDetailResponseSchema,
   productsResponseSchema,
   relatedProductsResponseSchema,
+  searchProductsResponseSchema,
   type CategoryDto,
   type FacetsResponse,
   type ProductDetailDto,
@@ -135,6 +136,42 @@ export async function fetchRelatedProducts(slug: string, limit = 8): Promise<Pro
     return parsed.success ? parsed.data.data : [];
   } catch {
     return [];
+  }
+}
+
+export interface SearchResultsPage {
+  data: ProductListItemDto[];
+  total: number;
+  page: number;
+  limit: number;
+}
+
+// Primary page content (a real search results page, not a secondary
+// widget) -- FetchResult, same reasoning as fetchCatalogProducts: "zero
+// matches" and "API unreachable" need different UI, not one falsy value.
+export async function fetchSearchResults(
+  q: string,
+  page = 1,
+  limit = 20,
+): Promise<FetchResult<SearchResultsPage>> {
+  try {
+    const params = new URLSearchParams({ q, page: String(page), limit: String(limit) });
+    const res = await fetch(`${API_URL}/api/v1/catalog/search?${params.toString()}`);
+    if (!res.ok) return { ok: false, reason: "down" };
+    const json = await res.json();
+    const parsed = searchProductsResponseSchema.safeParse(json);
+    if (!parsed.success) return { ok: false, reason: "down" };
+    return {
+      ok: true,
+      data: {
+        data: parsed.data.data,
+        total: parsed.data.meta.total,
+        page: parsed.data.meta.page,
+        limit: parsed.data.meta.limit,
+      },
+    };
+  } catch {
+    return { ok: false, reason: "down" };
   }
 }
 

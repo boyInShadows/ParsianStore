@@ -160,9 +160,30 @@ productSchema.index({ searchText: "text" }, { default_language: "none" });
 productSchema.index({ createdAt: 1, _id: 1 });
 productSchema.index({ priceRial: 1, _id: 1 });
 
+// Exported so seed/catalog.ts (and any future admin product CRUD) can
+// compute the same value directly -- `pre("save")` below only fires on
+// `.save()`/`.create()` (document middleware), never on `findOneAndUpdate`/
+// `updateOne`/`insertMany` (query middleware, a different Mongoose hook
+// category entirely). A real bug this exact gap caused: seed/catalog.ts
+// upserts via `findOneAndUpdate`, so every seeded product's `searchText`
+// silently stayed empty -- both the $text and substring-regex legs of
+// MongoSearchProvider depend on it, so search against real seeded data
+// was non-functional until this was caught building P5.S3's results page.
+export function computeProductSearchText(
+  fields: Pick<Product, "name" | "sku" | "oemNumbers" | "crossRefNumbers">,
+): string {
+  const parts = [
+    fields.name.fa,
+    fields.name.en,
+    fields.sku,
+    ...fields.oemNumbers,
+    ...fields.crossRefNumbers,
+  ];
+  return normalizeFa(parts.join(" "));
+}
+
 productSchema.pre("save", function (next) {
-  const parts = [this.name.fa, this.name.en, this.sku, ...this.oemNumbers, ...this.crossRefNumbers];
-  this.searchText = normalizeFa(parts.join(" "));
+  this.searchText = computeProductSearchText(this);
   next();
 });
 

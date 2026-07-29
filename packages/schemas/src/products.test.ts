@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { productDetailResponseSchema, productsResponseSchema } from "./products.js";
+import {
+  productDetailResponseSchema,
+  productsResponseSchema,
+  searchProductsResponseSchema,
+} from "./products.js";
 
 const validProduct = {
   id: "1",
@@ -73,6 +77,17 @@ describe("productDetailResponseSchema", () => {
         brand: null,
         category: null,
       },
+    });
+    expect(result.success).toBe(true);
+  });
+});
+
+describe("searchProductsResponseSchema", () => {
+  it("accepts a valid search results payload (page/limit meta, not cursor)", () => {
+    const result = searchProductsResponseSchema.safeParse({
+      ok: true,
+      data: [validProduct],
+      meta: { total: 1, page: 1, limit: 20 },
     });
     expect(result.success).toBe(true);
   });

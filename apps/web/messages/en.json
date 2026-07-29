@@ -203,6 +203,15 @@
         "title": "Related parts"
       },
       "brandLink": "View all {brand} products"
+    },
+    "search": {
+      "title": "Search results",
+      "heading": "Search results for “{query}”",
+      "prompt": "Enter a search term at the top of the page.",
+      "emptyHint": "Check the spelling, or try a system name instead (e.g. “brakes”).",
+      "prev": "Previous",
+      "next": "Next",
+      "pageOf": "Page {page} of {pageCount}"
     }
   }
 }

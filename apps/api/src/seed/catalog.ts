@@ -5,7 +5,7 @@ import { logger } from "../config/logger.js";
 import { BrandModel } from "../models/Brand.js";
 import { CategoryModel } from "../models/Category.js";
 import { FitmentModel } from "../models/Fitment.js";
-import { ProductModel } from "../models/Product.js";
+import { computeProductSearchText, ProductModel } from "../models/Product.js";
 import { VehicleGenModel } from "../models/VehicleGen.js";
 import { VehicleModelModel } from "../models/VehicleModel.js";
 import { BRAND_SEED_DATA, CATEGORY_TEMPLATES, SUPPLY_ROUTE_ROTATION } from "./catalog.data.js";
@@ -104,14 +104,28 @@ export async function seedCatalog(): Promise<void> {
           .toUpperCase()
           .replace(/[^A-Z0-9]+/g, "-");
 
+        const oemNumbers = [`${template.oemPrefix}-${vehicle.modelSlug.toUpperCase()}`];
+        const crossRefNumbers = [`XREF-${sku}`];
+
         const product = await ProductModel.findOneAndUpdate(
           { slug },
           {
             name: template.name,
             slug,
             sku,
-            oemNumbers: [`${template.oemPrefix}-${vehicle.modelSlug.toUpperCase()}`],
-            crossRefNumbers: [`XREF-${sku}`],
+            oemNumbers,
+            crossRefNumbers,
+            // findOneAndUpdate is query middleware -- Product's `pre("save")`
+            // hook (document middleware) never fires here, so searchText
+            // must be computed explicitly or it silently stays empty (see
+            // computeProductSearchText's own doc comment for the real bug
+            // this was: search against the seeded catalog was non-functional).
+            searchText: computeProductSearchText({
+              name: template.name,
+              sku,
+              oemNumbers,
+              crossRefNumbers,
+            }),
             brandId: brandDoc!._id,
             categoryId: category._id,
             attributes: [],

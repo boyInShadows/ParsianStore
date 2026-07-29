@@ -47,6 +47,11 @@ export const relatedProductsResponseSchema = z.object({
   meta: z.object({ total: z.number(), page: z.number(), limit: z.number() }),
 });
 
+// GET /catalog/search (P5.S3) uses the exact same page/limit pagination
+// shape as /related -- same schema, re-exported under its own name so
+// each call site reads clearly for what it actually is.
+export const searchProductsResponseSchema = relatedProductsResponseSchema;
+
 // The PDP (P5.S2) needs the full product record, not the list item's
 // trimmed subset -- mirrors apps/api's enriched GET /catalog/products/:slug
 // (products.service.ts's getProductDetailBySlug), which also resolves
