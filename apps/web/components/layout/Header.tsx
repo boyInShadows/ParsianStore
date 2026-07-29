@@ -8,6 +8,7 @@ import { VehicleSelectorLazy } from "@/components/garage";
 import { selectActiveVehicle, useGarageStore } from "@/stores/garage-store";
 import { useAuthStore } from "@/stores/auth-store";
 import { useWishlistStore } from "@/stores/wishlist-store";
+import { selectItemCount, useCartStore } from "@/stores/cart-store";
 import { logout } from "@/lib/fetchers/auth";
 
 export interface HeaderMessages {
@@ -49,11 +50,17 @@ export function Header({ messages }: Props) {
   const authUser = useAuthStore((state) => state.user);
   const clearAuth = useAuthStore((state) => state.clear);
   const isAuthenticated = authStatus === "authenticated";
+  const cartItemCount = useCartStore(selectItemCount);
 
   async function handleSignOut(): Promise<void> {
     await logout();
     clearAuth();
     useWishlistStore.getState().clear();
+    // Logging out swaps identity server-side (the merged account cart is
+    // no longer reachable without the accessToken cookie; a fresh
+    // request now resolves to a brand-new guest cart) -- force a refetch
+    // so the badge/page don't keep showing the just-logged-out cart.
+    void useCartStore.getState().load({ force: true });
   }
 
   return (
@@ -126,10 +133,18 @@ export function Header({ messages }: Props) {
           </button>
           <Link
             href="/cart"
-            aria-label="سبد خرید"
-            className="h-9 w-9 inline-flex items-center justify-center rounded-md text-text hover:bg-surface-raised"
+            aria-label={cartItemCount > 0 ? `سبد خرید، ${cartItemCount} قلم` : "سبد خرید"}
+            className="h-9 w-9 relative inline-flex items-center justify-center rounded-md text-text hover:bg-surface-raised"
           >
             <CartIcon />
+            {cartItemCount > 0 ? (
+              <span
+                aria-hidden="true"
+                className="absolute -end-1 -top-1 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-cta px-1 font-mono text-[10px] leading-none text-cta-fg"
+              >
+                {cartItemCount > 99 ? "99+" : cartItemCount}
+              </span>
+            ) : null}
           </Link>
           {isAuthenticated ? (
             <>
@@ -207,7 +222,7 @@ export function Header({ messages }: Props) {
             className="rounded-md px-3 py-2 text-body text-text hover:bg-surface-raised"
             onClick={() => setMobileMenuOpen(false)}
           >
-            سبد خرید
+            {cartItemCount > 0 ? `سبد خرید (${cartItemCount})` : "سبد خرید"}
           </Link>
         </nav>
       </Drawer>

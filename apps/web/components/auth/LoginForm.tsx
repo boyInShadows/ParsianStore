@@ -7,6 +7,7 @@ import { useRouter } from "@/i18n/navigation";
 import { Button, Input } from "@/components/primitives";
 import { requestOtp, verifyOtp } from "@/lib/fetchers/auth";
 import { useAuthStore } from "@/stores/auth-store";
+import { useCartStore } from "@/stores/cart-store";
 
 export interface LoginFormMessages {
   phoneLabel: string;
@@ -71,6 +72,11 @@ export function LoginForm({ messages }: Props) {
     }
 
     setUser(result.data);
+    // The server just merged any guest cart into this account
+    // (cart.controller.ts's getCartHandler, triggered by the anonId
+    // cookie this browser still carries) -- force a refetch so the
+    // client sees the merged result, not the stale pre-login cart.
+    void useCartStore.getState().load({ force: true });
     const next = searchParams.get("next");
     router.push(next && next.startsWith("/") ? next : "/");
   }

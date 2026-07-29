@@ -1,0 +1,105 @@
+import type { NextFunction, Request, Response } from "express";
+import { nanoid } from "nanoid";
+import { env } from "../../config/env.js";
+import * as cartService from "./cart.service.js";
+import type { AddItemInput, CartItemIdParam, UpdateItemInput } from "./cart.schema.js";
+
+const ANON_COOKIE_MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000;
+
+// Cookie read/write lives ONLY here, never in cart.service.ts (a
+// plan-review finding: a service touching req/res would violate CLAUDE.md
+// rule 12 -- "a service never touches req/res" -- every existing service
+// in this codebase takes plain primitives). Mirrors
+// auth.controller.ts's setSessionCookies pattern; anonId doesn't need to
+// be secret, but httpOnly keeps it simple and consistent with the
+// existing session cookies, and means no client-side cookie code is
+// needed at all -- lib/fetchers/cart.ts just needs credentials:"include".
+function resolveIdentity(req: Request, res: Response): cartService.CartIdentity {
+  if (req.user) {
+    return { userId: req.user.sub };
+  }
+  let anonId = req.cookies?.anonId as string | undefined;
+  if (!anonId) {
+    anonId = nanoid();
+    res.cookie("anonId", anonId, {
+      httpOnly: true,
+      sameSite: "lax",
+      secure: env.NODE_ENV === "production",
+      maxAge: ANON_COOKIE_MAX_AGE_MS,
+    });
+  }
+  return { anonId };
+}
+
+export async function getCartHandler(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  try {
+    // Guest -> auth merge happens here, lazily, on the first GET /cart
+    // after login -- LoginForm.tsx force-reloads the cart right after
+    // verifyOtp succeeds, so this is always reached promptly. Doing it
+    // here (not in auth.controller.ts) keeps modules/auth entirely
+    // ignorant that modules/cart exists.
+    const anonId = req.cookies?.anonId as string | undefined;
+    if (req.user && anonId) {
+      await cartService.mergeGuestCartIntoUser(anonId, req.user.sub);
+      res.clearCookie("anonId");
+    }
+    const identity = resolveIdentity(req, res);
+    const cart = await cartService.getCart(identity);
+    res.json({ ok: true, data: cart });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function addItemHandler(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  try {
+    const identity = resolveIdentity(req, res);
+    const { productId, qty } = req.body as AddItemInput;
+    await cartService.addItem(identity, productId, qty);
+    const cart = await cartService.getCart(identity);
+    res.json({ ok: true, data: cart });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function updateItemHandler(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  try {
+    const identity = resolveIdentity(req, res);
+    const { id } = req.params as unknown as CartItemIdParam;
+    const { qty } = req.body as UpdateItemInput;
+    await cartService.updateItemQty(identity, id, qty);
+    const cart = await cartService.getCart(identity);
+    res.json({ ok: true, data: cart });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function removeItemHandler(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  try {
+    const identity = resolveIdentity(req, res);
+    const { id } = req.params as unknown as CartItemIdParam;
+    await cartService.removeItem(identity, id);
+    const cart = await cartService.getCart(identity);
+    res.json({ ok: true, data: cart });
+  } catch (err) {
+    next(err);
+  }
+}

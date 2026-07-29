@@ -5,6 +5,7 @@ import { Footer } from "@/components/layout/Footer";
 import { MobileNav } from "@/components/layout/MobileNav";
 import { GarageUrlSync } from "@/components/garage";
 import { AuthSession } from "@/components/auth";
+import { CartSession } from "@/components/cart";
 import { Toaster } from "@/components/primitives";
 
 export default async function ShopLayout({ children }: { children: ReactNode }) {
@@ -28,6 +29,7 @@ export default async function ShopLayout({ children }: { children: ReactNode }) 
         <GarageUrlSync />
       </Suspense>
       <AuthSession />
+      <CartSession />
       <Header messages={headerMessages} />
       {/* pb reserves space for MobileNav's fixed bottom bar on mobile only. */}
       <div className="flex-1 pb-16 md:pb-0">{children}</div>

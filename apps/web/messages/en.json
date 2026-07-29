@@ -165,6 +165,13 @@
         "add": "Add to wishlist",
         "remove": "Remove from wishlist",
         "error": "Couldn't update your wishlist, try again"
+      },
+      "addToCart": {
+        "qtyLabel": "Quantity",
+        "addButton": "Add to cart",
+        "addingButton": "Adding...",
+        "addedToast": "Added to cart",
+        "errorToast": "Couldn't add to cart, try again"
       }
     },
     "pdp": {
@@ -238,5 +245,20 @@
       "verifyingButton": "Verifying...",
       "changePhone": "Change mobile number"
     }
+  },
+  "Cart": {
+    "title": "Cart",
+    "noPhoto": "No photo",
+    "emptyTitle": "Your cart is empty",
+    "emptyDescription": "You haven't added any products to your cart yet.",
+    "browseCta": "Browse products",
+    "decreaseAria": "Decrease quantity",
+    "increaseAria": "Increase quantity",
+    "removeAria": "Remove from cart",
+    "stockIssue": "Only {count} available",
+    "priceChanged": "This product's price has changed since you added it",
+    "subtotalLabel": "Subtotal",
+    "continueToCheckout": "Continue to checkout",
+    "mutationError": "Couldn't update your cart, try again"
   }
 }

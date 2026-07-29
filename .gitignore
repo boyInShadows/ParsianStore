@@ -58,3 +58,4 @@ next-env.d.ts
 # and docs/audit.md are real product docs and stay tracked; these aren't.
 /CLAUDE.md
 /docs/decisions/
+/screenshots/

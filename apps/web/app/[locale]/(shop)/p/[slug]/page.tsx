@@ -14,6 +14,7 @@ import { OemTable } from "@/components/pdp/OemTable";
 import { FitmentBanner } from "@/components/pdp/FitmentBanner";
 import { RelatedProducts } from "@/components/pdp/RelatedProducts";
 import { WishlistButton } from "@/components/wishlist/WishlistButton";
+import { AddToCartForm } from "@/components/cart/AddToCartForm";
 
 type Props = {
   params: Promise<{ locale: (typeof routing.locales)[number]; slug: string }>;
@@ -41,6 +42,13 @@ interface CatalogMessages {
     outOfStock: string;
     noPhoto: string;
     wishlist: { add: string; remove: string; error: string };
+    addToCart: {
+      qtyLabel: string;
+      addButton: string;
+      addingButton: string;
+      addedToast: string;
+      errorToast: string;
+    };
   };
   pdp: {
     notFound: { title: string; description: string; backHome: string };
@@ -144,6 +152,12 @@ export default async function ProductPage({ params }: Props) {
               ? catalogMessages.product.inStock
               : catalogMessages.product.outOfStock}
           </p>
+
+          <AddToCartForm
+            productId={product.id}
+            inStock={product.stock > 0}
+            messages={catalogMessages.product.addToCart}
+          />
 
           <FitmentBanner productId={product.id} messages={catalogMessages.pdp.fitment} />
 

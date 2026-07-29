@@ -14,6 +14,7 @@ import { requestId } from "./middleware/requestId.js";
 import { sanitizeRequest } from "./middleware/sanitize.js";
 import { authenticityRouter } from "./modules/authenticity/authenticity.routes.js";
 import { authRouter } from "./modules/auth/auth.routes.js";
+import { cartRouter } from "./modules/cart/cart.routes.js";
 import { adminCatalogRouter } from "./modules/catalog/catalog.admin.routes.js";
 import { catalogRouter } from "./modules/catalog/catalog.routes.js";
 import { fitmentRouter } from "./modules/fitment/fitment.routes.js";
@@ -45,6 +46,10 @@ app.use("/api/v1", apiRateLimiter);
 
 app.get("/api/v1/health", healthHandler);
 app.use("/api/v1/auth", authRouter);
+// optionalAuth is applied inside cartRouter itself -- unlike every
+// requireAuth-gated router, cart must work for a real guest per §9's own
+// route shape (/cart, not /me/cart).
+app.use("/api/v1/cart", cartRouter);
 app.use("/api/v1/vehicles", vehiclesRouter);
 app.use("/api/v1/geo", geoRouter);
 app.use("/api/v1/catalog", catalogRouter);
