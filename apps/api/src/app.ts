@@ -13,6 +13,7 @@ import { apiRateLimiter } from "./middleware/rateLimit.js";
 import { requestId } from "./middleware/requestId.js";
 import { sanitizeRequest } from "./middleware/sanitize.js";
 import { authenticityRouter } from "./modules/authenticity/authenticity.routes.js";
+import { addressesRouter } from "./modules/addresses/addresses.routes.js";
 import { authRouter } from "./modules/auth/auth.routes.js";
 import { cartRouter } from "./modules/cart/cart.routes.js";
 import { adminCatalogRouter } from "./modules/catalog/catalog.admin.routes.js";
@@ -62,6 +63,10 @@ app.use("/api/v1/admin/inventory", adminInventoryRouter);
 // chain internally) -- no shared `/me` parent router yet, this is the
 // first `/me/*` resource; app.ts's own style is flat per-resource mounts.
 app.use("/api/v1/me/wishlist", wishlistRouter);
+// requireAuth is applied inside addressesRouter itself, same style as
+// wishlistRouter above -- P6.S2's address book, checkout's first real
+// dependency (auth-only per the owner's own decision, no guest identity).
+app.use("/api/v1/me/addresses", addressesRouter);
 // LocalDiskStorageProvider's saved variants (P2.S8) — served directly, no
 // auth: product/category imagery is public by nature. P2.S9 security
 // header audit: helmet()'s default Cross-Origin-Resource-Policy is

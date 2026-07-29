@@ -80,6 +80,15 @@ export function normalizePhone(input: string): string {
   return `+98${national}`;
 }
 
+/**
+ * → 10-digit ASCII string. Same input-sanitization shape as
+ * `normalizePhone` (§7.5) -- an Iranian postal code typed on a Persian
+ * keyboard commonly comes through in Persian/Arabic-Indic digits.
+ */
+export function normalizePostalCode(input: string): string {
+  return toEnglishDigits(input).replace(/\D/g, "");
+}
+
 const TOMAN_SUFFIX = " تومان";
 
 /**

@@ -11,3 +11,4 @@ export * from "./fitment.js";
 export * from "./auth.js";
 export * from "./wishlist.js";
 export * from "./cart.js";
+export * from "./address.js";
