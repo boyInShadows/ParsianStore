@@ -47,7 +47,11 @@ async function issueSession(
   user: HydratedDocument<User>,
   userAgent?: string,
 ): Promise<AuthSession> {
-  const accessToken = signAccessToken({ sub: user.id as string, role: user.role });
+  const accessToken = signAccessToken({
+    sub: user.id as string,
+    role: user.role,
+    accountType: user.accountType,
+  });
 
   const rawRefreshToken = nanoid(48);
   await RefreshTokenModel.create({

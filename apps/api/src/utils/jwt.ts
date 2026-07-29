@@ -1,10 +1,14 @@
 import jwt, { type SignOptions } from "jsonwebtoken";
 import { env } from "../config/env.js";
-import type { UserRole } from "../models/User.js";
+import type { AccountType, UserRole } from "../models/User.js";
 
 export interface AccessTokenPayload {
   sub: string;
   role: UserRole;
+  // P6.S1: embedded at issue time, same staleness tradeoff `role` already
+  // has -- an accountType change doesn't take effect until the token
+  // refreshes. Avoids a DB lookup on every price-serving request.
+  accountType: AccountType;
 }
 
 export function signAccessToken(payload: AccessTokenPayload): string {

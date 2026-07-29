@@ -70,8 +70,8 @@ function extractCookie(headers: Headers, name: string): string {
   return match.split(";")[0]!;
 }
 
-function customerCookie(userId: string): string {
-  const token = signAccessToken({ sub: userId, role: "customer" });
+function customerCookie(userId: string, accountType: "retail" | "wholesale" = "retail"): string {
+  const token = signAccessToken({ sub: userId, role: "customer", accountType });
   return `accessToken=${token}`;
 }
 
@@ -272,5 +272,78 @@ describe("guest -> auth cart merge", () => {
     const mergedBody = (await mergedRes.json()) as Envelope<CartDto>;
     expect(mergedBody.data.items).toHaveLength(1);
     expect(mergedBody.data.items[0]!.qty).toBe(4);
+  });
+});
+
+interface WholesaleCartItemDto extends CartItemDto {
+  priceRialSnapshot: number;
+  product: { id: string; priceRial: number; isWholesalePrice: boolean };
+}
+
+describe("P6.S1: wholesale pricing in the cart", () => {
+  it("a wholesale account's addItem/getCart resolve the wholesale price, snapshotted and re-read consistently", async () => {
+    const product = await seedProduct({ priceRial: 1_000_000, wholesalePriceRial: 850_000 });
+    const userId = new mongoose.Types.ObjectId().toString();
+    const wholesaleCookie = customerCookie(userId, "wholesale");
+
+    const addRes = await fetch(`${baseUrl}/api/v1/cart/items`, {
+      method: "POST",
+      headers: { "content-type": "application/json", cookie: wholesaleCookie },
+      body: JSON.stringify({ productId: product._id.toString(), qty: 2 }),
+    });
+    const addBody = (await addRes.json()) as Envelope<{ items: WholesaleCartItemDto[] }>;
+    const item = addBody.data.items[0]!;
+    expect(item.priceRialSnapshot).toBe(850_000);
+    expect(item.product.priceRial).toBe(850_000);
+    expect(item.product.isWholesalePrice).toBe(true);
+    expect(item.lineTotalRial).toBe(1_700_000);
+
+    const getRes = await fetch(`${baseUrl}/api/v1/cart`, {
+      headers: { cookie: wholesaleCookie },
+    });
+    const getBody = (await getRes.json()) as Envelope<{ items: WholesaleCartItemDto[] }>;
+    expect(getBody.data.items[0]!.product.priceRial).toBe(850_000);
+    // Wholesale price didn't change since add-time, so no drift flag.
+    expect((getBody.data.items[0] as unknown as { priceChanged: boolean }).priceChanged).toBe(
+      false,
+    );
+  });
+
+  it("a guest and a retail account both see the retail price for the same product", async () => {
+    const product = await seedProduct({ priceRial: 1_000_000, wholesalePriceRial: 850_000 });
+
+    const guestRes = await fetch(`${baseUrl}/api/v1/cart/items`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ productId: product._id.toString(), qty: 1 }),
+    });
+    const guestBody = (await guestRes.json()) as Envelope<{ items: WholesaleCartItemDto[] }>;
+    expect(guestBody.data.items[0]!.product.priceRial).toBe(1_000_000);
+    expect(guestBody.data.items[0]!.product.isWholesalePrice).toBe(false);
+
+    const retailUserId = new mongoose.Types.ObjectId().toString();
+    const retailRes = await fetch(`${baseUrl}/api/v1/cart/items`, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        cookie: customerCookie(retailUserId, "retail"),
+      },
+      body: JSON.stringify({ productId: product._id.toString(), qty: 1 }),
+    });
+    const retailBody = (await retailRes.json()) as Envelope<{ items: WholesaleCartItemDto[] }>;
+    expect(retailBody.data.items[0]!.product.priceRial).toBe(1_000_000);
+    expect(retailBody.data.items[0]!.product.isWholesalePrice).toBe(false);
+  });
+
+  it("never leaks the raw wholesalePriceRial field in the cart response, for any viewer", async () => {
+    const product = await seedProduct({ priceRial: 1_000_000, wholesalePriceRial: 850_000 });
+    const userId = new mongoose.Types.ObjectId().toString();
+
+    const res = await fetch(`${baseUrl}/api/v1/cart/items`, {
+      method: "POST",
+      headers: { "content-type": "application/json", cookie: customerCookie(userId, "wholesale") },
+      body: JSON.stringify({ productId: product._id.toString(), qty: 1 }),
+    });
+    expect(await res.text()).not.toContain("wholesalePriceRial");
   });
 });

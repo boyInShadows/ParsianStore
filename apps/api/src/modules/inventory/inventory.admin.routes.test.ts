@@ -40,7 +40,11 @@ afterAll(async () => {
 });
 
 function staffCookie(role: UserRole = "admin"): Record<string, string> {
-  const token = signAccessToken({ sub: new mongoose.Types.ObjectId().toString(), role });
+  const token = signAccessToken({
+    sub: new mongoose.Types.ObjectId().toString(),
+    role,
+    accountType: "retail",
+  });
   return { cookie: `accessToken=${token}` };
 }
 

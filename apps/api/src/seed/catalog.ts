@@ -99,6 +99,13 @@ export async function seedCatalog(): Promise<void> {
           Math.round(
             ((template.priceMaxRial - template.priceMinRial) * i) / (VARIANTS_PER_TEMPLATE - 1),
           );
+        // P6.S1: dev/test data for wholesale pricing -- 15% off retail
+        // (a real, defensible trade-discount figure, not an arbitrary
+        // number), rounded to the nearest 1,000 Rial the same way an
+        // admin would actually round a price. Real wholesale prices are
+        // set per-product via the (still nonexistent) admin CRUD later;
+        // this is only the seed/dev fixture.
+        const wholesalePriceRial = Math.round((priceRial * 0.85) / 1000) * 1000;
         const slug = `${template.slugBase}-${vehicle.modelSlug}`;
         const sku = `SKU-${group.categorySlug}-${template.slugBase}-${vehicle.modelSlug}`
           .toUpperCase()
@@ -131,6 +138,7 @@ export async function seedCatalog(): Promise<void> {
             attributes: [],
             media: [],
             priceRial,
+            wholesalePriceRial,
             taxRate: 9,
             stock: 5 + (productCount % 20),
             lowStockAt: 5,

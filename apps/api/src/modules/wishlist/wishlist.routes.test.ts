@@ -47,7 +47,7 @@ interface Envelope<T> {
 }
 
 function customerCookie(userId: string): Record<string, string> {
-  const token = signAccessToken({ sub: userId, role: "customer" });
+  const token = signAccessToken({ sub: userId, role: "customer", accountType: "retail" });
   return { cookie: `accessToken=${token}` };
 }
 

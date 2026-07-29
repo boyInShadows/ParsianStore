@@ -122,6 +122,19 @@ describe("seedCatalog", () => {
     expect(withEmptySearchText).toBe(0);
   }, 60_000);
 
+  // P6.S1: dev/test fixture for wholesale pricing -- every seeded product
+  // gets a computed wholesalePriceRial, always <= its own priceRial (the
+  // Product schema's own validator would reject the opposite).
+  it("populates wholesalePriceRial for every seeded product, always <= priceRial", async () => {
+    await seedCatalog();
+    const products = await ProductModel.find({}).select("+wholesalePriceRial");
+    expect(products.length).toBeGreaterThan(0);
+    for (const product of products) {
+      expect(product.wholesalePriceRial).not.toBeUndefined();
+      expect(product.wholesalePriceRial!).toBeLessThanOrEqual(product.priceRial);
+    }
+  }, 60_000);
+
   it("is actually findable through MongoSearchProvider.searchProducts by a real Persian substring", async () => {
     await seedCatalog();
     const brakePad = await ProductModel.findOne({ "name.fa": /ترمز/ });

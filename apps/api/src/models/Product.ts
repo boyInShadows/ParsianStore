@@ -67,6 +67,13 @@ export interface Product extends WithTimestamps, WithSoftDelete {
   media: string[];
   priceRial: number;
   compareAtRial?: number;
+  // P6.S1: account-type-based wholesale pricing (§3.2, added ahead of
+  // Phase 6 checkout). `select: false` below (same defense-in-depth
+  // pattern as User.passwordHash) -- never present on a document unless a
+  // query explicitly opts in, and never spread into an API response raw;
+  // only the resolved effective price + an isWholesalePrice flag ever
+  // leave modules/catalog/pricing.ts's toPublicProductJson.
+  wholesalePriceRial?: number;
   // Percentage points (9 = 9%), not a 0-1 fraction — matches how an admin
   // would actually type a tax rate into a form field.
   taxRate: number;
@@ -107,6 +114,17 @@ const productSchema = new Schema<Product, ProductModelType, SoftDeleteMethods>({
   media: { type: [String], default: [] },
   priceRial: { type: Number, required: true, min: 0 },
   compareAtRial: { type: Number, min: 0 },
+  wholesalePriceRial: {
+    type: Number,
+    min: 0,
+    select: false,
+    validate: {
+      validator(this: Product, value: number | undefined) {
+        return value == null || value <= this.priceRial;
+      },
+      message: "قیمت عمده نمی‌تواند بیشتر از قیمت خرده‌فروشی باشد",
+    },
+  },
   taxRate: { type: Number, required: true, min: 0, default: 0 },
   stock: { type: Number, required: true, min: 0, default: 0 },
   lowStockAt: { type: Number, required: true, min: 0, default: 5 },

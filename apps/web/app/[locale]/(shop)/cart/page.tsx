@@ -24,6 +24,7 @@ export default async function CartPage() {
     removeAria: t("removeAria"),
     stockIssue: t("stockIssue"),
     priceChanged: t("priceChanged"),
+    wholesalePriceBadge: t("wholesalePriceBadge"),
     subtotalLabel: t("subtotalLabel"),
     continueToCheckout: t("continueToCheckout"),
     mutationError: t("mutationError"),

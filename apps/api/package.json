@@ -10,7 +10,8 @@
     "seed:staff": "tsx src/seed/staff.ts",
     "seed:vehicles": "tsx src/seed/vehicles.ts",
     "seed:geo": "tsx src/seed/geo.ts",
-    "seed:catalog": "tsx src/seed/catalog.ts"
+    "seed:catalog": "tsx src/seed/catalog.ts",
+    "set-account-type": "tsx src/scripts/setAccountType.ts"
   },
   "dependencies": {
     "argon2": "^0.41.1",

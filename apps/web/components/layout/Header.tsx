@@ -149,6 +149,7 @@ export function Header({ messages }: Props) {
           {isAuthenticated ? (
             <>
               <span
+                role="img"
                 aria-label={
                   authUser ? `${messages.signedInAria} ${authUser.phone}` : messages.signedInAria
                 }

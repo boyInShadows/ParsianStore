@@ -22,8 +22,16 @@ export const productListItemSchema = z.object({
   id: z.string(),
   name: localizedNameSchema,
   slug: z.string(),
+  // priceRial is always the resolved EFFECTIVE price for the requesting
+  // viewer (P6.S1) -- apps/api's modules/catalog/pricing.ts already
+  // substitutes the wholesale price server-side for a wholesale account,
+  // never a raw retail/wholesale pair. isWholesalePrice tells the client
+  // whether to show the wholesale badge without re-deriving business
+  // logic from two numbers. The raw wholesale price itself is never sent
+  // over the wire -- this schema has no field for it, by design.
   priceRial: z.number(),
   compareAtRial: z.number().optional(),
+  isWholesalePrice: z.boolean(),
   stock: z.number(),
   media: z.array(z.string()),
   authenticity: authenticitySchema,

@@ -28,6 +28,14 @@ describe("UserModel", () => {
     expect(user.garage).toEqual([]);
   });
 
+  // P6.S1: accountType is a separate pricing-tier concept from role -- a
+  // wholesale customer is still role: "customer". No self-service signup
+  // path sets this to "wholesale"; every real user starts retail.
+  it("defaults accountType to retail", async () => {
+    const user = await UserModel.create({ phone: "+989120000006", name: "Retail By Default" });
+    expect(user.accountType).toBe("retail");
+  });
+
   it("enforces a unique phone number", async () => {
     await UserModel.create({ phone: "+989120000002", name: "First" });
     await expect(UserModel.create({ phone: "+989120000002", name: "Second" })).rejects.toThrow();

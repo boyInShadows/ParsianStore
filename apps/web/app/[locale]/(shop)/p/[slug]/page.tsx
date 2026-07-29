@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
+import { cookies } from "next/headers";
 import { getMessages, getTranslations } from "next-intl/server";
 import { formatToman } from "schemas";
 import { routing } from "@/i18n/routing";
@@ -41,6 +42,7 @@ interface CatalogMessages {
     inStock: string;
     outOfStock: string;
     noPhoto: string;
+    wholesalePriceBadge: string;
     wishlist: { add: string; remove: string; error: string };
     addToCart: {
       qtyLabel: string;
@@ -72,7 +74,12 @@ interface CatalogMessages {
 export default async function ProductPage({ params }: Props) {
   const { locale, slug } = await params;
 
-  const result = await fetchProductDetailBySlug(slug);
+  // P6.S1: forwards this request's own cookies to the API so optionalAuth
+  // can resolve a real wholesale account's price server-side -- a plain
+  // Server Component fetch() has no browser cookie jar to attach
+  // automatically, unlike a client-side fetch with credentials:"include".
+  const cookieHeader = (await cookies()).toString();
+  const result = await fetchProductDetailBySlug(slug, cookieHeader);
 
   const t = await getTranslations("Catalog");
   const messages = await getMessages();
@@ -92,7 +99,7 @@ export default async function ProductPage({ params }: Props) {
   }
 
   const product = result.data;
-  const related = await fetchRelatedProducts(slug);
+  const related = await fetchRelatedProducts(slug, 8, cookieHeader);
 
   const breadcrumbItems = [
     { label: catalogMessages.breadcrumbHome, href: localizedPath(locale, "/") },
@@ -138,6 +145,11 @@ export default async function ProductPage({ params }: Props) {
             {product.compareAtRial ? (
               <span className="font-mono text-body-sm text-text-muted line-through">
                 {formatToman(product.compareAtRial)}
+              </span>
+            ) : null}
+            {product.isWholesalePrice ? (
+              <span className="bg-brand/10 py-0.5 rounded-full px-2 text-caption font-medium text-brand">
+                {catalogMessages.product.wholesalePriceBadge}
               </span>
             ) : null}
             <WishlistButton

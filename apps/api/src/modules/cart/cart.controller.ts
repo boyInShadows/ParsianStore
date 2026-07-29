@@ -48,7 +48,7 @@ export async function getCartHandler(
       res.clearCookie("anonId");
     }
     const identity = resolveIdentity(req, res);
-    const cart = await cartService.getCart(identity);
+    const cart = await cartService.getCart(identity, req.user?.accountType);
     res.json({ ok: true, data: cart });
   } catch (err) {
     next(err);
@@ -63,8 +63,8 @@ export async function addItemHandler(
   try {
     const identity = resolveIdentity(req, res);
     const { productId, qty } = req.body as AddItemInput;
-    await cartService.addItem(identity, productId, qty);
-    const cart = await cartService.getCart(identity);
+    await cartService.addItem(identity, productId, qty, req.user?.accountType);
+    const cart = await cartService.getCart(identity, req.user?.accountType);
     res.json({ ok: true, data: cart });
   } catch (err) {
     next(err);
@@ -81,7 +81,7 @@ export async function updateItemHandler(
     const { id } = req.params as unknown as CartItemIdParam;
     const { qty } = req.body as UpdateItemInput;
     await cartService.updateItemQty(identity, id, qty);
-    const cart = await cartService.getCart(identity);
+    const cart = await cartService.getCart(identity, req.user?.accountType);
     res.json({ ok: true, data: cart });
   } catch (err) {
     next(err);
@@ -97,7 +97,7 @@ export async function removeItemHandler(
     const identity = resolveIdentity(req, res);
     const { id } = req.params as unknown as CartItemIdParam;
     await cartService.removeItem(identity, id);
-    const cart = await cartService.getCart(identity);
+    const cart = await cartService.getCart(identity, req.user?.accountType);
     res.json({ ok: true, data: cart });
   } catch (err) {
     next(err);

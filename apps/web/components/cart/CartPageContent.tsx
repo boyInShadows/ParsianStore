@@ -17,6 +17,7 @@ export interface CartPageMessages {
   removeAria: string;
   stockIssue: string;
   priceChanged: string;
+  wholesalePriceBadge: string;
   subtotalLabel: string;
   continueToCheckout: string;
   mutationError: string;
@@ -88,8 +89,15 @@ export function CartPageContent({ messages }: Props) {
               >
                 {item.product.name.fa}
               </Link>
-              <span className="font-mono text-data text-text">
-                {formatToman(item.product.priceRial)}
+              <span className="gap-1.5 flex items-center">
+                <span className="font-mono text-data text-text">
+                  {formatToman(item.product.priceRial)}
+                </span>
+                {item.product.isWholesalePrice ? (
+                  <span className="bg-brand/10 px-1.5 py-0.5 rounded-full text-[10px] font-medium leading-none text-brand">
+                    {messages.wholesalePriceBadge}
+                  </span>
+                ) : null}
               </span>
               {item.priceChanged ? (
                 <span className="text-caption text-warning">{messages.priceChanged}</span>

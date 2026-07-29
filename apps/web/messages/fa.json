@@ -161,6 +161,7 @@
       "inStock": "موجود",
       "outOfStock": "ناموجود",
       "noPhoto": "بدون تصویر",
+      "wholesalePriceBadge": "قیمت عمده‌فروشی",
       "wishlist": {
         "add": "افزودن به علاقه‌مندی‌ها",
         "remove": "حذف از علاقه‌مندی‌ها",
@@ -257,6 +258,7 @@
     "removeAria": "حذف از سبد خرید",
     "stockIssue": "تنها {count} عدد موجود است",
     "priceChanged": "قیمت این محصول از زمان افزودن تغییر کرده است",
+    "wholesalePriceBadge": "قیمت عمده‌فروشی",
     "subtotalLabel": "جمع جزء",
     "continueToCheckout": "ادامه به تسویه‌حساب",
     "mutationError": "خطا در به‌روزرسانی سبد خرید، دوباره تلاش کنید"

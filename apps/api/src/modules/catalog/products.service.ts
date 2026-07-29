@@ -35,11 +35,18 @@ export async function listProducts(
     direction,
     cursor,
     limit,
+    // P6.S1: needed so products.controller.ts can resolve each viewer's
+    // effective price via pricing.ts. Sort/filter above still operate on
+    // the plain (retail) `priceRial` field, unchanged -- see pricing.ts's
+    // own doc comment for why that's an accepted limitation, not a bug.
+    select: "+wholesalePriceRial",
   });
 }
 
 export async function getProductBySlug(slug: string): Promise<HydratedDocument<Product>> {
-  const product = await ProductModel.findOne({ slug, status: "active" });
+  const product = await ProductModel.findOne({ slug, status: "active" }).select(
+    "+wholesalePriceRial",
+  );
   if (!product) {
     throw new ApiError(404, "محصول یافت نشد");
   }
@@ -108,5 +115,6 @@ export async function getRelatedProducts(
     ProductModel,
     { categoryId: product.categoryId, status: "active", _id: { $ne: product._id } },
     { page: 1, limit },
+    { select: "+wholesalePriceRial" },
   );
 }

@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
+import { cookies } from "next/headers";
 import { getMessages, getTranslations } from "next-intl/server";
 import { routing } from "@/i18n/routing";
 import { absoluteUrl, hreflangAlternates, localizedPath } from "@/lib/seo";
@@ -110,6 +111,7 @@ export default async function CategoryPage({ params, searchParams }: Props) {
       inStock: string;
       outOfStock: string;
       noPhoto: string;
+      wholesalePriceBadge: string;
       wishlist: { add: string; remove: string; error: string };
     };
   };
@@ -136,10 +138,16 @@ export default async function CategoryPage({ params, searchParams }: Props) {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars -- destructured only to drop this key
   const { cursor: _cursorForGrid, ...gridFilters } = filters;
 
+  // P6.S1: forwarded so optionalAuth can resolve a real wholesale
+  // account's price server-side -- see fetchProductDetailBySlug's own doc
+  // comment in lib/fetchers/catalog.ts for why a plain Server Component
+  // fetch() needs this explicitly. Facets stay retail-only by design (see
+  // pricing.ts), so fetchCatalogFacets doesn't need it.
+  const cookieHeader = (await cookies()).toString();
   const [ancestors, childCategories, productsResult, facets] = await Promise.all([
     fetchCategoryAncestors(category.data.path),
     fetchChildCategories(category.data.id),
-    fetchCatalogProducts(filters),
+    fetchCatalogProducts(filters, cookieHeader),
     fetchCatalogFacets(facetFilters),
   ]);
 

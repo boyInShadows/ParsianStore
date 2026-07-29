@@ -1,4 +1,5 @@
 import type { NextFunction, Request, Response } from "express";
+import { toPublicProductJson } from "./pricing.js";
 import * as productsService from "./products.service.js";
 import type { ListProductsQuery, RelatedProductsQuery } from "./products.schema.js";
 
@@ -10,7 +11,11 @@ export async function listProductsHandler(
   try {
     const { sort, cursor, limit, ...filters } = req.validatedQuery as ListProductsQuery;
     const { data, meta } = await productsService.listProducts(filters, sort, cursor, limit);
-    res.json({ ok: true, data, meta });
+    res.json({
+      ok: true,
+      data: data.map((product) => toPublicProductJson(product, req.user?.accountType)),
+      meta,
+    });
   } catch (err) {
     next(err);
   }
@@ -28,7 +33,7 @@ export async function getProductBySlugHandler(
     res.json({
       ok: true,
       data: {
-        ...product.toJSON(),
+        ...toPublicProductJson(product, req.user?.accountType),
         attributes,
         brand: brand?.toJSON() ?? null,
         category: category?.toJSON() ?? null,
@@ -50,7 +55,11 @@ export async function getRelatedProductsHandler(
       req.params.slug as string,
       limit,
     );
-    res.json({ ok: true, data, meta });
+    res.json({
+      ok: true,
+      data: data.map((product) => toPublicProductJson(product, req.user?.accountType)),
+      meta,
+    });
   } catch (err) {
     next(err);
   }

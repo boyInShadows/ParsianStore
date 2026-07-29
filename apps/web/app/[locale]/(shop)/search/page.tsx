@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { cookies } from "next/headers";
 import { getTranslations } from "next-intl/server";
 import { routing } from "@/i18n/routing";
 import { absoluteUrl, localizedPath } from "@/lib/seo";
@@ -51,7 +52,12 @@ export default async function SearchPage({ searchParams }: Props) {
     );
   }
 
-  const result = await fetchSearchResults(q, page, RESULTS_PER_PAGE);
+  // P6.S1: see fetchProductDetailBySlug's doc comment in
+  // lib/fetchers/catalog.ts -- a Server Component fetch() needs the
+  // incoming request's cookies forwarded explicitly for optionalAuth to
+  // resolve a real wholesale account's price.
+  const cookieHeader = (await cookies()).toString();
+  const result = await fetchSearchResults(q, page, RESULTS_PER_PAGE, cookieHeader);
 
   if (!result.ok) {
     return (
@@ -71,6 +77,7 @@ export default async function SearchPage({ searchParams }: Props) {
     inStock: t("product.inStock"),
     outOfStock: t("product.outOfStock"),
     noPhoto: t("product.noPhoto"),
+    wholesalePriceBadge: t("product.wholesalePriceBadge"),
     wishlist: {
       add: t("product.wishlist.add"),
       remove: t("product.wishlist.remove"),

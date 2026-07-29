@@ -10,6 +10,7 @@ const validProduct = {
   name: { fa: "لنت ترمز", en: "Brake pad" },
   slug: "brake-pad",
   priceRial: 1500000,
+  isWholesalePrice: false,
   stock: 12,
   media: [],
   authenticity: {

@@ -161,6 +161,7 @@
       "inStock": "In stock",
       "outOfStock": "Out of stock",
       "noPhoto": "No photo",
+      "wholesalePriceBadge": "Wholesale price",
       "wishlist": {
         "add": "Add to wishlist",
         "remove": "Remove from wishlist",
@@ -257,6 +258,7 @@
     "removeAria": "Remove from cart",
     "stockIssue": "Only {count} available",
     "priceChanged": "This product's price has changed since you added it",
+    "wholesalePriceBadge": "Wholesale price",
     "subtotalLabel": "Subtotal",
     "continueToCheckout": "Continue to checkout",
     "mutationError": "Couldn't update your cart, try again"

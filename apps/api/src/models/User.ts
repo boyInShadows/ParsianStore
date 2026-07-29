@@ -9,6 +9,13 @@ import {
 export const USER_ROLES = ["customer", "support", "operator", "admin", "superadmin"] as const;
 export type UserRole = (typeof USER_ROLES)[number];
 
+// P6.S1: a pricing-tier concept, deliberately separate from `role` (RBAC/
+// staff permission level) -- a wholesale customer is still `role:
+// "customer"`. No self-service application flow exists yet (owner's
+// explicit choice) -- an admin flips this via scripts/setAccountType.ts.
+export const ACCOUNT_TYPES = ["retail", "wholesale"] as const;
+export type AccountType = (typeof ACCOUNT_TYPES)[number];
+
 // §3.2 Address: embedded, not a top-level collection.
 export interface Address {
   province: string;
@@ -43,6 +50,7 @@ export interface User extends WithTimestamps, WithSoftDelete {
   // can't leak into an API response by accident.
   passwordHash?: string;
   role: UserRole;
+  accountType: AccountType;
   addresses: Address[];
   garage: GarageEntry[];
   walletBalanceRial: number;
@@ -84,6 +92,7 @@ const userSchema = new Schema<User, UserModelType, SoftDeleteMethods>({
   email: { type: String },
   passwordHash: { type: String, select: false },
   role: { type: String, enum: USER_ROLES, default: "customer", required: true },
+  accountType: { type: String, enum: ACCOUNT_TYPES, default: "retail", required: true },
   addresses: { type: [addressSchema], default: [] },
   garage: { type: [garageEntrySchema], default: [] },
   walletBalanceRial: { type: Number, default: 0 },

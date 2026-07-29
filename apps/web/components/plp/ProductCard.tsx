@@ -11,6 +11,7 @@ export interface ProductCardMessages {
   inStock: string;
   outOfStock: string;
   noPhoto: string;
+  wholesalePriceBadge: string;
   wishlist: WishlistButtonMessages;
 }
 
@@ -48,7 +49,14 @@ export function ProductCard({ product, messages }: Props) {
       </div>
       <div className="flex flex-1 flex-col gap-1">
         <span className="line-clamp-2 text-body-sm text-text">{product.name.fa}</span>
-        <span className="font-mono text-data text-text">{formatToman(product.priceRial)}</span>
+        <span className="gap-1.5 flex items-center">
+          <span className="font-mono text-data text-text">{formatToman(product.priceRial)}</span>
+          {product.isWholesalePrice ? (
+            <span className="bg-brand/10 px-1.5 py-0.5 rounded-full text-[10px] font-medium leading-none text-brand">
+              {messages.wholesalePriceBadge}
+            </span>
+          ) : null}
+        </span>
         {/* text-success on white fails WCAG AA at caption size (3.3:1, needs
             4.5:1) -- caught by axe building this component (P5.S1). Status
             is conveyed by the word itself, not color, so this stays

@@ -1,6 +1,8 @@
 import type { FilterQuery, HydratedDocument } from "mongoose";
+import { resolveEffectivePriceRial, toPublicProductJson } from "../catalog/pricing.js";
 import { CartModel, nextCartExpiry, type Cart, type CartItem } from "../../models/Cart.js";
-import { ProductModel, type Product } from "../../models/Product.js";
+import { ProductModel } from "../../models/Product.js";
+import type { AccountType } from "../../models/User.js";
 import { ApiError } from "../../utils/ApiError.js";
 
 export type CartIdentity = { userId: string } | { anonId: string };
@@ -57,8 +59,9 @@ export async function addItem(
   identity: CartIdentity,
   productId: string,
   qty: number,
+  accountType: AccountType | undefined,
 ): Promise<void> {
-  const product = await ProductModel.findById(productId);
+  const product = await ProductModel.findById(productId).select("+wholesalePriceRial");
   if (!product) {
     throw new ApiError(404, "محصول یافت نشد");
   }
@@ -66,7 +69,12 @@ export async function addItem(
   await incrementOrPushItem(identityFilter(identity), {
     productId: product._id,
     qty,
-    priceRialSnapshot: product.priceRial,
+    // Snapshots the EFFECTIVE (tier-resolved) price this identity saw at
+    // add-time, not always retail -- priceRialSnapshot's only purpose is
+    // the "price changed since you added it" UI hint, and it must compare
+    // apples to apples against whichever price getCart resolves later for
+    // the same accountType.
+    priceRialSnapshot: resolveEffectivePriceRial(product, accountType),
   });
 }
 
@@ -123,7 +131,10 @@ export interface CartItemView {
   productId: string;
   qty: number;
   priceRialSnapshot: number;
-  product: HydratedDocument<Product>;
+  // Already shaped via toPublicProductJson -- never the raw Mongoose
+  // document, so a wholesale-selected wholesalePriceRial can't leak into
+  // the cart response either.
+  product: Record<string, unknown>;
   availableQty: number;
   stockOk: boolean;
   priceChanged: boolean;
@@ -145,14 +156,19 @@ export interface CartView {
  * only; the stored qty is never silently clamped -- the UI shows the
  * problem, the shopper decides. `totalRial === subtotalRial` for now:
  * shipping/tax/coupon are Phase 6 scope (§13 P5.S8), not this step's. */
-export async function getCart(identity: CartIdentity): Promise<CartView> {
+export async function getCart(
+  identity: CartIdentity,
+  accountType: AccountType | undefined,
+): Promise<CartView> {
   const cart = await findOrCreateCart(identity);
   if (cart.items.length === 0) {
     return { id: cart._id.toString(), items: [], subtotalRial: 0, totalRial: 0 };
   }
 
   const productIds = cart.items.map((item) => item.productId);
-  const products = await ProductModel.find({ _id: { $in: productIds } });
+  const products = await ProductModel.find({ _id: { $in: productIds } }).select(
+    "+wholesalePriceRial",
+  );
   const productById = new Map(products.map((product) => [product._id.toString(), product]));
 
   const items: CartItemView[] = [];
@@ -165,17 +181,18 @@ export async function getCart(identity: CartIdentity): Promise<CartView> {
 
     const availableQty = product.backorderable ? item.qty : Math.min(item.qty, product.stock);
     const stockOk = product.backorderable || product.stock >= item.qty;
-    const lineTotalRial = product.priceRial * item.qty;
+    const effectivePriceRial = resolveEffectivePriceRial(product, accountType);
+    const lineTotalRial = effectivePriceRial * item.qty;
 
     items.push({
       id: item._id!.toString(),
       productId: item.productId.toString(),
       qty: item.qty,
       priceRialSnapshot: item.priceRialSnapshot,
-      product,
+      product: toPublicProductJson(product, accountType),
       availableQty,
       stockOk,
-      priceChanged: product.priceRial !== item.priceRialSnapshot,
+      priceChanged: effectivePriceRial !== item.priceRialSnapshot,
       lineTotalRial,
     });
   }

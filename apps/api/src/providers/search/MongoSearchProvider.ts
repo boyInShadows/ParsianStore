@@ -121,13 +121,17 @@ export class MongoSearchProvider implements SearchProvider {
     const filter = await baseFilter(filters);
     const matchedIds = await matchingProductIds(filter, query);
 
+    // P6.S1: selected here so search.controller.ts can resolve each
+    // viewer's effective price via modules/catalog/pricing.ts, same as
+    // every other product-list read path.
+    const priceSelect = { select: "+wholesalePriceRial" };
     if (matchedIds === null) {
-      return paginate(ProductModel, filter, pagination);
+      return paginate(ProductModel, filter, pagination, priceSelect);
     }
     if (matchedIds.length === 0) {
       return { data: [], meta: { total: 0, page: pagination.page, limit: pagination.limit } };
     }
-    return paginate(ProductModel, { _id: { $in: matchedIds } }, pagination);
+    return paginate(ProductModel, { _id: { $in: matchedIds } }, pagination, priceSelect);
   }
 
   // Each dimension's bucket counts are computed against every filter

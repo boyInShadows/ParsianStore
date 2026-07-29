@@ -53,7 +53,7 @@ afterAll(async () => {
 });
 
 function authHeader(userId: string): Record<string, string> {
-  const token = signAccessToken({ sub: userId, role: "admin" });
+  const token = signAccessToken({ sub: userId, role: "admin", accountType: "retail" });
   return { cookie: `accessToken=${token}` };
 }
 
