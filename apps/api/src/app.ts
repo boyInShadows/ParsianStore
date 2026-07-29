@@ -20,6 +20,7 @@ import { fitmentRouter } from "./modules/fitment/fitment.routes.js";
 import { geoRouter } from "./modules/geo/geo.routes.js";
 import { adminInventoryRouter } from "./modules/inventory/inventory.admin.routes.js";
 import { vehiclesRouter } from "./modules/vehicles/vehicles.routes.js";
+import { wishlistRouter } from "./modules/wishlist/wishlist.routes.js";
 import { uploadsDir } from "./providers/storage/index.js";
 
 export function healthHandler(_req: Request, res: Response): void {
@@ -51,6 +52,11 @@ app.use("/api/v1/admin/catalog", adminCatalogRouter);
 app.use("/api/v1/authenticity", authenticityRouter);
 app.use("/api/v1/fitment", fitmentRouter);
 app.use("/api/v1/admin/inventory", adminInventoryRouter);
+// requireAuth is applied inside wishlistRouter itself (matches how
+// catalog.admin.routes.ts's entity routers apply their own middleware
+// chain internally) -- no shared `/me` parent router yet, this is the
+// first `/me/*` resource; app.ts's own style is flat per-resource mounts.
+app.use("/api/v1/me/wishlist", wishlistRouter);
 // LocalDiskStorageProvider's saved variants (P2.S8) — served directly, no
 // auth: product/category imagery is public by nature. P2.S9 security
 // header audit: helmet()'s default Cross-Origin-Resource-Policy is

@@ -106,7 +106,12 @@ export default async function CategoryPage({ params, searchParams }: Props) {
       emptyDescription: string;
       clearFilters: string;
     };
-    product: { inStock: string; outOfStock: string; noPhoto: string };
+    product: {
+      inStock: string;
+      outOfStock: string;
+      noPhoto: string;
+      wishlist: { add: string; remove: string; error: string };
+    };
   };
 
   if (!category.ok) {

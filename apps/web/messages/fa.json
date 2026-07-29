@@ -160,7 +160,12 @@
     "product": {
       "inStock": "موجود",
       "outOfStock": "ناموجود",
-      "noPhoto": "بدون تصویر"
+      "noPhoto": "بدون تصویر",
+      "wishlist": {
+        "add": "افزودن به علاقه‌مندی‌ها",
+        "remove": "حذف از علاقه‌مندی‌ها",
+        "error": "خطا در به‌روزرسانی علاقه‌مندی‌ها، دوباره تلاش کنید"
+      }
     },
     "pdp": {
       "notFound": {
@@ -212,6 +217,26 @@
       "prev": "قبلی",
       "next": "بعدی",
       "pageOf": "صفحه {page} از {pageCount}"
+    }
+  },
+  "Header": {
+    "signInAria": "ورود",
+    "signedInAria": "حساب کاربری",
+    "signOutAria": "خروج از حساب"
+  },
+  "Auth": {
+    "login": {
+      "title": "ورود",
+      "phoneLabel": "شماره موبایل",
+      "phonePlaceholder": "09121234567",
+      "phoneError": "شماره موبایل معتبر نیست",
+      "requestCodeButton": "ارسال کد تایید",
+      "requestingCodeButton": "در حال ارسال...",
+      "codeLabel": "کد تایید",
+      "codeHelper": "کد ۶ رقمی ارسال‌شده به {phone} را وارد کنید",
+      "verifyButton": "تایید و ورود",
+      "verifyingButton": "در حال بررسی...",
+      "changePhone": "تغییر شماره موبایل"
     }
   }
 }

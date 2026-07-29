@@ -8,3 +8,5 @@ export * from "./products.js";
 export * from "./brands.js";
 export * from "./categories.js";
 export * from "./fitment.js";
+export * from "./auth.js";
+export * from "./wishlist.js";

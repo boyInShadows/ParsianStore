@@ -71,6 +71,11 @@ export default async function SearchPage({ searchParams }: Props) {
     inStock: t("product.inStock"),
     outOfStock: t("product.outOfStock"),
     noPhoto: t("product.noPhoto"),
+    wishlist: {
+      add: t("product.wishlist.add"),
+      remove: t("product.wishlist.remove"),
+      error: t("product.wishlist.error"),
+    },
   };
 
   return (

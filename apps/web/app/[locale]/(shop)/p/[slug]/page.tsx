@@ -13,6 +13,7 @@ import { SpecsTable } from "@/components/pdp/SpecsTable";
 import { OemTable } from "@/components/pdp/OemTable";
 import { FitmentBanner } from "@/components/pdp/FitmentBanner";
 import { RelatedProducts } from "@/components/pdp/RelatedProducts";
+import { WishlistButton } from "@/components/wishlist/WishlistButton";
 
 type Props = {
   params: Promise<{ locale: (typeof routing.locales)[number]; slug: string }>;
@@ -35,7 +36,12 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 interface CatalogMessages {
   breadcrumbHome: string;
   apiDown: { title: string; description: string };
-  product: { inStock: string; outOfStock: string; noPhoto: string };
+  product: {
+    inStock: string;
+    outOfStock: string;
+    noPhoto: string;
+    wishlist: { add: string; remove: string; error: string };
+  };
   pdp: {
     notFound: { title: string; description: string; backHome: string };
     authenticity: {
@@ -126,6 +132,11 @@ export default async function ProductPage({ params }: Props) {
                 {formatToman(product.compareAtRial)}
               </span>
             ) : null}
+            <WishlistButton
+              productId={product.id}
+              messages={catalogMessages.product.wishlist}
+              className="ms-auto"
+            />
           </div>
 
           <p className="text-body-sm text-text-muted">

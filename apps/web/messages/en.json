@@ -160,7 +160,12 @@
     "product": {
       "inStock": "In stock",
       "outOfStock": "Out of stock",
-      "noPhoto": "No photo"
+      "noPhoto": "No photo",
+      "wishlist": {
+        "add": "Add to wishlist",
+        "remove": "Remove from wishlist",
+        "error": "Couldn't update your wishlist, try again"
+      }
     },
     "pdp": {
       "notFound": {
@@ -212,6 +217,26 @@
       "prev": "Previous",
       "next": "Next",
       "pageOf": "Page {page} of {pageCount}"
+    }
+  },
+  "Header": {
+    "signInAria": "Sign in",
+    "signedInAria": "Account",
+    "signOutAria": "Sign out"
+  },
+  "Auth": {
+    "login": {
+      "title": "Sign in",
+      "phoneLabel": "Mobile number",
+      "phonePlaceholder": "09121234567",
+      "phoneError": "That mobile number isn't valid",
+      "requestCodeButton": "Send code",
+      "requestingCodeButton": "Sending...",
+      "codeLabel": "Verification code",
+      "codeHelper": "Enter the 6-digit code sent to {phone}",
+      "verifyButton": "Verify & sign in",
+      "verifyingButton": "Verifying...",
+      "changePhone": "Change mobile number"
     }
   }
 }
