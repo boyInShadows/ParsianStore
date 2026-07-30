@@ -323,5 +323,42 @@
       "orderCodeLabel": "شماره سفارش",
       "continueShoppingCta": "بازگشت به فروشگاه"
     }
+  },
+  "Orders": {
+    "title": "سفارش‌های من",
+    "apiDownTitle": "مشکلی در ارتباط با سرور پیش آمد",
+    "apiDownDescription": "لطفاً کمی بعد دوباره تلاش کنید.",
+    "emptyTitle": "هنوز سفارشی ثبت نکرده‌اید",
+    "emptyDescription": "سفارش‌های شما پس از خرید در همین صفحه نمایش داده می‌شوند.",
+    "browseCta": "مشاهده محصولات",
+    "itemCount": "{count} قلم",
+    "prev": "قبلی",
+    "next": "بعدی",
+    "pageOf": "صفحه {page} از {pageCount}",
+    "status": {
+      "pending": "در انتظار پرداخت",
+      "paid": "پرداخت‌شده",
+      "processing": "در حال آماده‌سازی",
+      "shipped": "ارسال‌شده",
+      "delivered": "تحویل داده‌شده",
+      "cancelled": "لغوشده",
+      "refunded": "بازپرداخت‌شده"
+    },
+    "detail": {
+      "title": "سفارش {code}",
+      "notFoundTitle": "سفارش یافت نشد",
+      "notFoundDescription": "این سفارش وجود ندارد یا متعلق به شما نیست.",
+      "itemsTitle": "اقلام سفارش",
+      "qtyAtPrice": "{qty} عدد × {price}",
+      "subtotalLabel": "جمع جزء",
+      "discountLabel": "تخفیف",
+      "discountWithCode": "تخفیف ({code})",
+      "shippingLabel": "هزینه ارسال",
+      "totalLabel": "مبلغ نهایی",
+      "addressTitle": "آدرس گیرنده",
+      "shippingMethodTitle": "روش ارسال",
+      "trackingCode": "کد رهگیری: {code}",
+      "timelineTitle": "روند سفارش"
+    }
   }
 }

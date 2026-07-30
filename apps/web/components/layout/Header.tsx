@@ -148,16 +148,20 @@ export function Header({ messages }: Props) {
           </Link>
           {isAuthenticated ? (
             <>
-              <span
-                role="img"
+              {/* P7.S1: the account icon is now a real link into the
+                  account area -- /orders is Phase 7's first (and so far
+                  only) page, so it's the direct target rather than a
+                  dropdown hub with nothing else to list yet. */}
+              <Link
+                href="/orders"
                 aria-label={
                   authUser ? `${messages.signedInAria} ${authUser.phone}` : messages.signedInAria
                 }
                 title={authUser?.phone}
-                className="h-9 w-9 inline-flex items-center justify-center rounded-md text-brand"
+                className="h-9 w-9 inline-flex items-center justify-center rounded-md text-brand hover:bg-surface-raised"
               >
                 <AccountIcon />
-              </span>
+              </Link>
               <button
                 type="button"
                 onClick={() => void handleSignOut()}

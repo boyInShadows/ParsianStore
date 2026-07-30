@@ -22,6 +22,7 @@ import { checkoutRouter } from "./modules/checkout/checkout.routes.js";
 import { fitmentRouter } from "./modules/fitment/fitment.routes.js";
 import { geoRouter } from "./modules/geo/geo.routes.js";
 import { adminInventoryRouter } from "./modules/inventory/inventory.admin.routes.js";
+import { ordersRouter } from "./modules/orders/orders.routes.js";
 import { paymentsRouter } from "./modules/payments/payments.routes.js";
 import { vehiclesRouter } from "./modules/vehicles/vehicles.routes.js";
 import { wishlistRouter } from "./modules/wishlist/wishlist.routes.js";
@@ -72,6 +73,9 @@ app.use("/api/v1/me/addresses", addressesRouter);
 // P6.S5. requireAuth is applied inside checkoutRouter itself, same style
 // as wishlistRouter/addressesRouter above.
 app.use("/api/v1/checkout", checkoutRouter);
+// P7.S1. requireAuth inside ordersRouter itself, same style as every
+// other /me/* router above.
+app.use("/api/v1/me/orders", ordersRouter);
 // No auth on paymentsRouter -- see payments.routes.ts, this is the
 // gateway's own redirect target, not a client-called resource.
 app.use("/api/v1/payments", paymentsRouter);

@@ -323,5 +323,42 @@
       "orderCodeLabel": "Order number",
       "continueShoppingCta": "Back to shop"
     }
+  },
+  "Orders": {
+    "title": "My Orders",
+    "apiDownTitle": "Couldn't reach the server",
+    "apiDownDescription": "Please try again in a moment.",
+    "emptyTitle": "You haven't placed an order yet",
+    "emptyDescription": "Your orders will show up here after you check out.",
+    "browseCta": "Browse products",
+    "itemCount": "{count, plural, one {# item} other {# items}}",
+    "prev": "Previous",
+    "next": "Next",
+    "pageOf": "Page {page} of {pageCount}",
+    "status": {
+      "pending": "Awaiting payment",
+      "paid": "Paid",
+      "processing": "Processing",
+      "shipped": "Shipped",
+      "delivered": "Delivered",
+      "cancelled": "Cancelled",
+      "refunded": "Refunded"
+    },
+    "detail": {
+      "title": "Order {code}",
+      "notFoundTitle": "Order not found",
+      "notFoundDescription": "This order doesn't exist or doesn't belong to you.",
+      "itemsTitle": "Order items",
+      "qtyAtPrice": "{qty} × {price}",
+      "subtotalLabel": "Subtotal",
+      "discountLabel": "Discount",
+      "discountWithCode": "Discount ({code})",
+      "shippingLabel": "Shipping",
+      "totalLabel": "Total",
+      "addressTitle": "Recipient address",
+      "shippingMethodTitle": "Shipping method",
+      "trackingCode": "Tracking code: {code}",
+      "timelineTitle": "Order timeline"
+    }
   }
 }
