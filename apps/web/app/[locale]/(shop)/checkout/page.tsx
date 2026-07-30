@@ -52,6 +52,7 @@ export default async function CheckoutPage() {
     summary: {
       title: t("summary.title"),
       subtotalLabel: t("summary.subtotalLabel"),
+      discountLabel: t("summary.discountLabel"),
       shippingLabel: t("summary.shippingLabel"),
       shippingPending: t("summary.shippingPending"),
       totalLabel: t("summary.totalLabel"),

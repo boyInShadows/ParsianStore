@@ -1,8 +1,9 @@
-"use client"; // reads the client-only cart store, drives qty/remove mutations
+"use client"; // reads the client-only cart store, drives qty/remove/coupon mutations
 
+import { useState, type FormEvent } from "react";
 import { formatToman } from "schemas";
 import { Link } from "@/i18n/navigation";
-import { EmptyState, Button } from "@/components/primitives";
+import { EmptyState, Button, Input } from "@/components/primitives";
 import { useCartStore } from "@/stores/cart-store";
 import { useToastStore } from "@/stores/toast-store";
 
@@ -19,11 +20,74 @@ export interface CartPageMessages {
   priceChanged: string;
   wholesalePriceBadge: string;
   subtotalLabel: string;
+  discountLabel: string;
+  totalLabel: string;
+  couponPlaceholder: string;
+  couponApplyButton: string;
+  couponApplyingButton: string;
+  couponRemoveButton: string;
   continueToCheckout: string;
   mutationError: string;
 }
 
 type Props = { messages: CartPageMessages };
+
+function CouponSection({ messages }: { messages: CartPageMessages }) {
+  const cart = useCartStore((state) => state.cart);
+  const applyCoupon = useCartStore((state) => state.applyCoupon);
+  const removeCoupon = useCartStore((state) => state.removeCoupon);
+  const showToast = useToastStore((state) => state.show);
+  const [code, setCode] = useState("");
+  const [pending, setPending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function handleApply(event: FormEvent<HTMLFormElement>): Promise<void> {
+    event.preventDefault();
+    setError(null);
+    setPending(true);
+    const result = await applyCoupon(code);
+    setPending(false);
+    if (!result.ok) {
+      setError(result.message ?? null);
+      return;
+    }
+    setCode("");
+  }
+
+  async function handleRemove(): Promise<void> {
+    const ok = await removeCoupon();
+    if (!ok) showToast(messages.mutationError, "danger");
+  }
+
+  if (cart?.couponCode) {
+    return (
+      <div className="flex flex-col gap-1">
+        <div className="flex items-center justify-between gap-2">
+          <span className="font-mono text-body-sm text-text">{cart.couponCode}</span>
+          <Button type="button" variant="ghost" onClick={() => void handleRemove()}>
+            {messages.couponRemoveButton}
+          </Button>
+        </div>
+        {cart.couponIssue ? <p className="text-caption text-warning">{cart.couponIssue}</p> : null}
+      </div>
+    );
+  }
+
+  return (
+    <form onSubmit={(event) => void handleApply(event)} className="flex items-end gap-2" noValidate>
+      <Input
+        label={messages.couponPlaceholder}
+        value={code}
+        onChange={(event) => setCode(event.target.value)}
+        error={error ?? undefined}
+        className="flex-1"
+      />
+      <Button type="submit" variant="outline" disabled={pending || code.trim() === ""}>
+        {pending ? messages.couponApplyingButton : messages.couponApplyButton}
+      </Button>
+    </form>
+  );
+}
 
 export function CartPageContent({ messages }: Props) {
   const cart = useCartStore((state) => state.cart);
@@ -148,9 +212,30 @@ export function CartPageContent({ messages }: Props) {
         ))}
       </ul>
 
-      <div className="flex items-center justify-between border-t border-border pt-4">
-        <span className="text-body font-medium text-text">{messages.subtotalLabel}</span>
-        <span className="font-mono text-h3 text-text">{formatToman(cart.subtotalRial)}</span>
+      <div className="flex flex-col gap-3 border-t border-border pt-4">
+        <CouponSection messages={messages} />
+
+        <div className="flex items-center justify-between">
+          <span className="text-body-sm text-text-muted">{messages.subtotalLabel}</span>
+          <span className="font-mono text-body-sm text-text">{formatToman(cart.subtotalRial)}</span>
+        </div>
+        {cart.discountRial > 0 ? (
+          // text-success fails WCAG AA at this text size (2.9:1, needs
+          // 4.5:1) -- same bug class already documented/fixed in
+          // ProductCard.tsx (P5.S1). The leading minus sign already
+          // conveys "discount," so this stays the default text color
+          // rather than reaching for an unverified darker green.
+          <div className="flex items-center justify-between">
+            <span className="text-body-sm text-text-muted">{messages.discountLabel}</span>
+            <span className="font-mono text-body-sm text-text">
+              -{formatToman(cart.discountRial)}
+            </span>
+          </div>
+        ) : null}
+        <div className="flex items-center justify-between">
+          <span className="text-body font-medium text-text">{messages.totalLabel}</span>
+          <span className="font-mono text-h3 text-text">{formatToman(cart.totalRial)}</span>
+        </div>
       </div>
 
       <Link

@@ -26,6 +26,12 @@ export default async function CartPage() {
     priceChanged: t("priceChanged"),
     wholesalePriceBadge: t("wholesalePriceBadge"),
     subtotalLabel: t("subtotalLabel"),
+    discountLabel: t("discountLabel"),
+    totalLabel: t("totalLabel"),
+    couponPlaceholder: t("couponPlaceholder"),
+    couponApplyButton: t("couponApplyButton"),
+    couponApplyingButton: t("couponApplyingButton"),
+    couponRemoveButton: t("couponRemoveButton"),
     continueToCheckout: t("continueToCheckout"),
     mutationError: t("mutationError"),
   };

@@ -27,6 +27,15 @@ export const cartResponseSchema = z.object({
     id: z.string(),
     items: z.array(cartItemSchema),
     subtotalRial: z.number(),
+    // P6.S7: discountRial/couponCode are already live-resolved server-side
+    // (cart.service.ts's getCart()) -- totalRial already has the discount
+    // subtracted, never re-derived on the client. couponIssue is a soft
+    // hint (an attached code that's currently not applying, e.g. expired)
+    // -- distinct from an apply-time hard error, which surfaces through
+    // the POST /cart/coupon call's own error response instead.
+    discountRial: z.number(),
+    couponCode: z.string().optional(),
+    couponIssue: z.string().optional(),
     totalRial: z.number(),
   }),
 });

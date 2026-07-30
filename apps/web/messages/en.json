@@ -260,6 +260,12 @@
     "priceChanged": "This product's price has changed since you added it",
     "wholesalePriceBadge": "Wholesale price",
     "subtotalLabel": "Subtotal",
+    "discountLabel": "Discount",
+    "totalLabel": "Total due",
+    "couponPlaceholder": "Coupon code",
+    "couponApplyButton": "Apply",
+    "couponApplyingButton": "Checking…",
+    "couponRemoveButton": "Remove coupon",
     "continueToCheckout": "Continue to checkout",
     "mutationError": "Couldn't update your cart, try again"
   },
@@ -298,6 +304,7 @@
     "summary": {
       "title": "Order summary",
       "subtotalLabel": "Subtotal",
+      "discountLabel": "Discount",
       "shippingLabel": "Shipping",
       "shippingPending": "—",
       "totalLabel": "Total due",

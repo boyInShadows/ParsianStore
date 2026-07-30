@@ -260,6 +260,12 @@
     "priceChanged": "قیمت این محصول از زمان افزودن تغییر کرده است",
     "wholesalePriceBadge": "قیمت عمده‌فروشی",
     "subtotalLabel": "جمع جزء",
+    "discountLabel": "تخفیف",
+    "totalLabel": "مبلغ قابل پرداخت",
+    "couponPlaceholder": "کد تخفیف",
+    "couponApplyButton": "اعمال کد",
+    "couponApplyingButton": "در حال بررسی…",
+    "couponRemoveButton": "حذف کد تخفیف",
     "continueToCheckout": "ادامه به تسویه‌حساب",
     "mutationError": "خطا در به‌روزرسانی سبد خرید، دوباره تلاش کنید"
   },
@@ -298,6 +304,7 @@
     "summary": {
       "title": "خلاصه سفارش",
       "subtotalLabel": "جمع جزء",
+      "discountLabel": "تخفیف",
       "shippingLabel": "هزینه ارسال",
       "shippingPending": "—",
       "totalLabel": "مبلغ قابل پرداخت",

@@ -7,6 +7,8 @@ import { BrandModel } from "../../models/Brand.js";
 import { CartModel } from "../../models/Cart.js";
 import { CategoryModel } from "../../models/Category.js";
 import { CityModel } from "../../models/City.js";
+import { CouponModel } from "../../models/Coupon.js";
+import { OrderModel } from "../../models/Order.js";
 import { ProductModel } from "../../models/Product.js";
 import { ProvinceModel } from "../../models/Province.js";
 import { ShippingRateModel } from "../../models/ShippingRate.js";
@@ -39,6 +41,8 @@ beforeEach(async () => {
     ProvinceModel.deleteMany({}),
     ShippingRateModel.deleteMany({}),
     UserModel.deleteMany({}),
+    CouponModel.deleteMany({}),
+    OrderModel.deleteMany({}),
   ]);
 });
 
@@ -556,6 +560,206 @@ describe("POST /cart/estimate-shipping", () => {
       method: "POST",
       headers: { cookie: strangerCookie, "content-type": "application/json" },
       body: JSON.stringify({ addressId: owner.addressId }),
+    });
+    expect(res.status).toBe(400);
+  });
+});
+
+interface CouponCartDto {
+  subtotalRial: number;
+  discountRial: number;
+  totalRial: number;
+  couponCode?: string;
+  couponIssue?: string;
+}
+
+describe("POST/DELETE /cart/coupon", () => {
+  it("404s for an unknown code", async () => {
+    const product = await seedProduct({ priceRial: 1_000_000 });
+    const addRes = await fetch(`${baseUrl}/api/v1/cart/items`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ productId: product._id.toString(), qty: 1 }),
+    });
+    const anonCookie = extractCookie(addRes.headers, "anonId");
+
+    const res = await fetch(`${baseUrl}/api/v1/cart/coupon`, {
+      method: "POST",
+      headers: { cookie: anonCookie, "content-type": "application/json" },
+      body: JSON.stringify({ code: "NOPE" }),
+    });
+    expect(res.status).toBe(404);
+  });
+
+  it("400s when the cart subtotal is below the coupon's minSubtotalRial", async () => {
+    await CouponModel.create({
+      code: "BIGONLY",
+      type: "fixed",
+      value: 100_000,
+      minSubtotalRial: 5_000_000,
+    });
+    const product = await seedProduct({ priceRial: 1_000_000 });
+    const addRes = await fetch(`${baseUrl}/api/v1/cart/items`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ productId: product._id.toString(), qty: 1 }),
+    });
+    const anonCookie = extractCookie(addRes.headers, "anonId");
+
+    const res = await fetch(`${baseUrl}/api/v1/cart/coupon`, {
+      method: "POST",
+      headers: { cookie: anonCookie, "content-type": "application/json" },
+      body: JSON.stringify({ code: "bigonly" }),
+    });
+    expect(res.status).toBe(400);
+  });
+
+  it("400s for an expired coupon", async () => {
+    await CouponModel.create({
+      code: "OLD10",
+      type: "percent",
+      value: 10,
+      endsAt: new Date(Date.now() - 86_400_000),
+    });
+    const product = await seedProduct({ priceRial: 1_000_000 });
+    const addRes = await fetch(`${baseUrl}/api/v1/cart/items`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ productId: product._id.toString(), qty: 1 }),
+    });
+    const anonCookie = extractCookie(addRes.headers, "anonId");
+
+    const res = await fetch(`${baseUrl}/api/v1/cart/coupon`, {
+      method: "POST",
+      headers: { cookie: anonCookie, "content-type": "application/json" },
+      body: JSON.stringify({ code: "OLD10" }),
+    });
+    expect(res.status).toBe(400);
+  });
+
+  it("applies a percent coupon (case-insensitive), caps it at maxDiscountRial, and DELETE removes it", async () => {
+    await CouponModel.create({
+      code: "SAVE10",
+      type: "percent",
+      value: 10,
+      maxDiscountRial: 50_000,
+    });
+    const product = await seedProduct({ priceRial: 1_000_000 });
+    const addRes = await fetch(`${baseUrl}/api/v1/cart/items`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ productId: product._id.toString(), qty: 1 }),
+    });
+    const anonCookie = extractCookie(addRes.headers, "anonId");
+
+    // 10% of 1,000,000 = 100,000, but capped at maxDiscountRial 50,000.
+    const applyRes = await fetch(`${baseUrl}/api/v1/cart/coupon`, {
+      method: "POST",
+      headers: { cookie: anonCookie, "content-type": "application/json" },
+      body: JSON.stringify({ code: "save10" }),
+    });
+    expect(applyRes.status).toBe(200);
+    const applyBody = (await applyRes.json()) as Envelope<CouponCartDto>;
+    expect(applyBody.data.couponCode).toBe("SAVE10");
+    expect(applyBody.data.discountRial).toBe(50_000);
+    expect(applyBody.data.totalRial).toBe(950_000);
+
+    const removeRes = await fetch(`${baseUrl}/api/v1/cart/coupon`, {
+      method: "DELETE",
+      headers: { cookie: anonCookie },
+    });
+    const removeBody = (await removeRes.json()) as Envelope<CouponCartDto>;
+    expect(removeBody.data.couponCode).toBeUndefined();
+    expect(removeBody.data.discountRial).toBe(0);
+    expect(removeBody.data.totalRial).toBe(1_000_000);
+  });
+
+  it("a fixed coupon never discounts past the subtotal itself", async () => {
+    await CouponModel.create({ code: "HUGE", type: "fixed", value: 5_000_000 });
+    const product = await seedProduct({ priceRial: 200_000 });
+    const addRes = await fetch(`${baseUrl}/api/v1/cart/items`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ productId: product._id.toString(), qty: 1 }),
+    });
+    const anonCookie = extractCookie(addRes.headers, "anonId");
+
+    const res = await fetch(`${baseUrl}/api/v1/cart/coupon`, {
+      method: "POST",
+      headers: { cookie: anonCookie, "content-type": "application/json" },
+      body: JSON.stringify({ code: "HUGE" }),
+    });
+    const body = (await res.json()) as Envelope<CouponCartDto>;
+    expect(body.data.discountRial).toBe(200_000);
+    expect(body.data.totalRial).toBe(0);
+  });
+
+  it("400s once usageLimit is exhausted", async () => {
+    await CouponModel.create({
+      code: "ONEUSE",
+      type: "fixed",
+      value: 10_000,
+      usageLimit: 1,
+      usedCount: 1,
+    });
+    const product = await seedProduct({ priceRial: 1_000_000 });
+    const addRes = await fetch(`${baseUrl}/api/v1/cart/items`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ productId: product._id.toString(), qty: 1 }),
+    });
+    const anonCookie = extractCookie(addRes.headers, "anonId");
+
+    const res = await fetch(`${baseUrl}/api/v1/cart/coupon`, {
+      method: "POST",
+      headers: { cookie: anonCookie, "content-type": "application/json" },
+      body: JSON.stringify({ code: "ONEUSE" }),
+    });
+    expect(res.status).toBe(400);
+  });
+
+  it("400s once a signed-in user has already redeemed perUserLimit times", async () => {
+    await CouponModel.create({ code: "ONCE", type: "fixed", value: 10_000, perUserLimit: 1 });
+    const user = await UserModel.create({
+      phone: `+989${Math.floor(100000000 + Math.random() * 800000000)}`,
+      name: "Repeat Shopper",
+    });
+    // A prior real (paid) order that already redeemed this code.
+    await OrderModel.create({
+      code: "PS-1404-00001",
+      userId: user._id,
+      items: [],
+      subtotalRial: 1_000_000,
+      discountRial: 10_000,
+      couponCode: "ONCE",
+      shippingRial: 0,
+      taxRial: 0,
+      totalRial: 990_000,
+      address: {
+        province: { fa: "تهران", en: "Tehran" },
+        city: { fa: "تهران", en: "Tehran" },
+        line: "x",
+        postalCode: "1234567890",
+        receiverName: "x",
+        receiverPhone: "09121234567",
+      },
+      shippingMethod: { code: "intracity", name: { fa: "پیک", en: "Courier" }, priceRial: 0 },
+      status: "paid",
+      statusHistory: [{ status: "paid", at: new Date() }],
+    });
+
+    const cookie = customerCookie(user.id as string);
+    const product = await seedProduct({ priceRial: 1_000_000 });
+    await fetch(`${baseUrl}/api/v1/cart/items`, {
+      method: "POST",
+      headers: { cookie, "content-type": "application/json" },
+      body: JSON.stringify({ productId: product._id.toString(), qty: 1 }),
+    });
+
+    const res = await fetch(`${baseUrl}/api/v1/cart/coupon`, {
+      method: "POST",
+      headers: { cookie, "content-type": "application/json" },
+      body: JSON.stringify({ code: "ONCE" }),
     });
     expect(res.status).toBe(400);
   });

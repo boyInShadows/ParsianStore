@@ -5,6 +5,7 @@ import * as shippingService from "../shipping/shipping.service.js";
 import * as cartService from "./cart.service.js";
 import type {
   AddItemInput,
+  ApplyCouponInput,
   CartItemIdParam,
   EstimateShippingInput,
   UpdateItemInput,
@@ -104,6 +105,40 @@ export async function removeItemHandler(
     const { id } = req.params as unknown as CartItemIdParam;
     await cartService.removeItem(identity, id);
     const cart = await cartService.getCart(identity, req.user?.accountType);
+    res.json({ ok: true, data: cart });
+  } catch (err) {
+    next(err);
+  }
+}
+
+// P6.S7. optionalAuth is enough here (matches every other cart handler)
+// -- perUserLimit simply doesn't apply to a guest's anonId identity
+// (coupon.service.ts's validateCoupon only checks it when a userId is
+// present), it's re-validated authoritatively at checkout initiation
+// once the shopper is definitely signed in anyway.
+export async function applyCouponHandler(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  try {
+    const identity = resolveIdentity(req, res);
+    const { code } = req.body as ApplyCouponInput;
+    const cart = await cartService.applyCoupon(identity, code, req.user?.accountType);
+    res.json({ ok: true, data: cart });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function removeCouponHandler(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  try {
+    const identity = resolveIdentity(req, res);
+    const cart = await cartService.removeCoupon(identity, req.user?.accountType);
     res.json({ ok: true, data: cart });
   } catch (err) {
     next(err);

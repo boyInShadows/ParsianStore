@@ -4,6 +4,7 @@ import { validate, validateParams } from "../../middleware/validate.js";
 import * as cartController from "./cart.controller.js";
 import {
   addItemSchema,
+  applyCouponSchema,
   cartItemIdParamSchema,
   estimateShippingSchema,
   updateItemSchema,
@@ -29,6 +30,10 @@ cartRouter.delete(
   validateParams(cartItemIdParamSchema),
   cartController.removeItemHandler,
 );
+
+// P6.S7
+cartRouter.post("/coupon", validate(applyCouponSchema), cartController.applyCouponHandler);
+cartRouter.delete("/coupon", cartController.removeCouponHandler);
 
 // P6.S4: requireAuth stacked on top of the router's own optionalAuth --
 // checkout is auth-only (P6.S2's decision), and this needs one of the

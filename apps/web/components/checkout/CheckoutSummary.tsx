@@ -7,6 +7,7 @@ import { useCartStore } from "@/stores/cart-store";
 export interface CheckoutSummaryMessages {
   title: string;
   subtotalLabel: string;
+  discountLabel: string;
   shippingLabel: string;
   shippingPending: string;
   totalLabel: string;
@@ -35,7 +36,11 @@ export function CheckoutSummary({
 }: Props) {
   const cart = useCartStore((state) => state.cart);
   const subtotalRial = cart?.subtotalRial ?? 0;
-  const totalRial = subtotalRial + (shippingRial ?? 0);
+  const discountRial = cart?.discountRial ?? 0;
+  // checkout.service.ts's own formula: subtotal - discount + shipping.
+  // cart.totalRial (from cart.service.ts's getCart()) already has the
+  // discount subtracted -- shipping is the only piece added here.
+  const totalRial = (cart?.totalRial ?? subtotalRial) + (shippingRial ?? 0);
 
   return (
     <section className="flex flex-col gap-3 rounded-lg border border-border bg-surface p-4">
@@ -44,6 +49,15 @@ export function CheckoutSummary({
         <span>{messages.subtotalLabel}</span>
         <span className="font-mono">{formatToman(subtotalRial)}</span>
       </div>
+      {discountRial > 0 ? (
+        // text-success fails WCAG AA at this text size (same bug class
+        // already documented/fixed in ProductCard.tsx, P5.S1) -- the
+        // leading minus sign already conveys "discount."
+        <div className="flex items-center justify-between text-body-sm text-text">
+          <span className="text-text-muted">{messages.discountLabel}</span>
+          <span className="font-mono">-{formatToman(discountRial)}</span>
+        </div>
+      ) : null}
       <div className="flex items-center justify-between text-body-sm text-text">
         <span>{messages.shippingLabel}</span>
         <span className="font-mono">

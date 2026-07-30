@@ -12,7 +12,8 @@
     "seed:geo": "tsx src/seed/geo.ts",
     "seed:catalog": "tsx src/seed/catalog.ts",
     "seed:shipping": "tsx src/seed/shipping.ts",
-    "set-account-type": "tsx src/scripts/setAccountType.ts"
+    "set-account-type": "tsx src/scripts/setAccountType.ts",
+    "create-coupon": "tsx src/scripts/createCoupon.ts"
   },
   "dependencies": {
     "argon2": "^0.41.1",

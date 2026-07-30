@@ -7,6 +7,7 @@ import { BrandModel } from "../../models/Brand.js";
 import { CartModel } from "../../models/Cart.js";
 import { CategoryModel } from "../../models/Category.js";
 import { CityModel } from "../../models/City.js";
+import { CouponModel } from "../../models/Coupon.js";
 import { InventoryMoveModel } from "../../models/InventoryMove.js";
 import { OrderModel } from "../../models/Order.js";
 import { PaymentModel } from "../../models/Payment.js";
@@ -47,6 +48,7 @@ beforeEach(async () => {
     PaymentModel.deleteMany({}),
     StockReservationModel.deleteMany({}),
     InventoryMoveModel.deleteMany({}),
+    CouponModel.deleteMany({}),
   ]);
 });
 
@@ -403,5 +405,72 @@ describe("GET /payments/callback", () => {
     await expect(StockReservationModel.countDocuments({ refId: orderId })).resolves.toBe(0);
     const updatedProduct = await ProductModel.findById(product._id);
     expect(updatedProduct!.stock).toBe(5);
+  });
+});
+
+describe("P6.S7: coupon discount through checkout + payment", () => {
+  it("snapshots the applied coupon's discount onto the Order, and increments usedCount only on real payment success", async () => {
+    await CouponModel.create({ code: "SAVE10", type: "percent", value: 10 });
+    const product = await seedProduct({ stock: 5, priceRial: 1_500_000 });
+    const { cookie, addressId } = await createUserWithAddress();
+    await addToCart(cookie, product._id.toString(), 2);
+    await fetch(`${baseUrl}/api/v1/cart/coupon`, {
+      method: "POST",
+      headers: { cookie, "content-type": "application/json" },
+      body: JSON.stringify({ code: "save10" }),
+    });
+
+    const res = await fetch(`${baseUrl}/api/v1/checkout/initiate`, {
+      method: "POST",
+      headers: { cookie, "content-type": "application/json" },
+      body: JSON.stringify({ addressId, shippingMethodCode: "intracity" }),
+    });
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as Envelope<CheckoutInitiateDto>;
+
+    // subtotal 3,000,000 - 10% (300,000) + shipping 150,000 = 2,850,000
+    const order = await OrderModel.findById(body.data.orderId);
+    expect(order!.discountRial).toBe(300_000);
+    expect(order!.couponCode).toBe("SAVE10");
+    expect(order!.totalRial).toBe(2_850_000);
+
+    const couponBeforePayment = await CouponModel.findOne({ code: "SAVE10" });
+    expect(couponBeforePayment!.usedCount).toBe(0);
+
+    const payment = await PaymentModel.findOne({ orderId: order!._id });
+    const callbackRes = await fetch(
+      `${baseUrl}/api/v1/payments/callback?orderId=${order!._id.toString()}&Authority=${payment!.authority}&Status=OK`,
+    );
+    expect(callbackRes.status).toBe(200);
+
+    const couponAfterPayment = await CouponModel.findOne({ code: "SAVE10" });
+    expect(couponAfterPayment!.usedCount).toBe(1);
+  });
+
+  it("does not increment usedCount when the payment is cancelled (Status=NOK)", async () => {
+    await CouponModel.create({ code: "SAVE10", type: "percent", value: 10 });
+    const product = await seedProduct({ stock: 5, priceRial: 1_500_000 });
+    const { cookie, addressId } = await createUserWithAddress();
+    await addToCart(cookie, product._id.toString(), 1);
+    await fetch(`${baseUrl}/api/v1/cart/coupon`, {
+      method: "POST",
+      headers: { cookie, "content-type": "application/json" },
+      body: JSON.stringify({ code: "SAVE10" }),
+    });
+
+    const res = await fetch(`${baseUrl}/api/v1/checkout/initiate`, {
+      method: "POST",
+      headers: { cookie, "content-type": "application/json" },
+      body: JSON.stringify({ addressId, shippingMethodCode: "intracity" }),
+    });
+    const body = (await res.json()) as Envelope<CheckoutInitiateDto>;
+    const payment = await PaymentModel.findOne({ orderId: body.data.orderId });
+
+    await fetch(
+      `${baseUrl}/api/v1/payments/callback?orderId=${body.data.orderId}&Authority=${payment!.authority}&Status=NOK`,
+    );
+
+    const coupon = await CouponModel.findOne({ code: "SAVE10" });
+    expect(coupon!.usedCount).toBe(0);
   });
 });

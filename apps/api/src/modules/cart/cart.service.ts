@@ -4,6 +4,12 @@ import { CartModel, nextCartExpiry, type Cart, type CartItem } from "../../model
 import { ProductModel } from "../../models/Product.js";
 import type { AccountType } from "../../models/User.js";
 import { ApiError } from "../../utils/ApiError.js";
+import {
+  computeDiscountRial,
+  findCouponByCode,
+  normalizeCouponCode,
+  validateCoupon,
+} from "../coupons/coupon.service.js";
 
 export type CartIdentity = { userId: string } | { anonId: string };
 
@@ -155,7 +161,15 @@ export interface CartView {
   id: string;
   items: CartItemView[];
   subtotalRial: number;
+  discountRial: number;
   totalRial: number;
+  couponCode?: string;
+  // Set when Cart.couponCode is attached but no longer actually applies
+  // (expired, exhausted, subtotal dropped below the minimum, ...) --
+  // never auto-cleared from the stored cart (see applyCoupon/removeCoupon
+  // below), so a shopper who adds more items and crosses a minSubtotal
+  // threshold again sees the same code silently reactivate.
+  couponIssue?: string;
 }
 
 /** Separate-query hydration, not `.populate()` (same convention as
@@ -164,15 +178,16 @@ export interface CartView {
  * snapshot -- §3.6 "cart totals recomputed server-side at every step."
  * Live stock re-validation surfaces mismatches in the read-time view
  * only; the stored qty is never silently clamped -- the UI shows the
- * problem, the shopper decides. `totalRial === subtotalRial` for now:
- * shipping/tax/coupon are Phase 6 scope (§13 P5.S8), not this step's. */
+ * problem, the shopper decides. Shipping/tax are still not part of this
+ * total (§13 P6.S4/checkout resolve those separately); the coupon
+ * discount (P6.S7) is, since it's a property of the cart itself. */
 export async function getCart(
   identity: CartIdentity,
   accountType: AccountType | undefined,
 ): Promise<CartView> {
   const cart = await findOrCreateCart(identity);
   if (cart.items.length === 0) {
-    return { id: cart._id.toString(), items: [], subtotalRial: 0, totalRial: 0 };
+    return { id: cart._id.toString(), items: [], subtotalRial: 0, discountRial: 0, totalRial: 0 };
   }
 
   const productIds = cart.items.map((item) => item.productId);
@@ -208,5 +223,70 @@ export async function getCart(
   }
 
   const subtotalRial = items.reduce((sum, item) => sum + item.lineTotalRial, 0);
-  return { id: cart._id.toString(), items, subtotalRial, totalRial: subtotalRial };
+
+  let discountRial = 0;
+  let couponCode: string | undefined;
+  let couponIssue: string | undefined;
+  if (cart.couponCode) {
+    const coupon = await findCouponByCode(cart.couponCode);
+    if (!coupon) {
+      couponIssue = "این کد تخفیف دیگر معتبر نیست";
+    } else {
+      const userId = "userId" in identity ? identity.userId : undefined;
+      const issue = await validateCoupon(coupon, subtotalRial, userId);
+      if (issue) {
+        couponIssue = issue;
+      } else {
+        discountRial = computeDiscountRial(coupon, subtotalRial);
+        couponCode = coupon.code;
+      }
+    }
+  }
+
+  return {
+    id: cart._id.toString(),
+    items,
+    subtotalRial,
+    discountRial,
+    totalRial: subtotalRial - discountRial,
+    couponCode,
+    couponIssue,
+  };
+}
+
+/** Looks the code up, validates it against the cart's own live subtotal,
+ * and only then writes it onto Cart.couponCode -- a shopper never sees
+ * "applied" for a code that wouldn't actually discount anything.
+ * Re-validated again on every subsequent getCart() read (and once more,
+ * authoritatively, at checkout initiation) rather than trusted from this
+ * one-time check. */
+export async function applyCoupon(
+  identity: CartIdentity,
+  rawCode: string,
+  accountType: AccountType | undefined,
+): Promise<CartView> {
+  const coupon = await findCouponByCode(rawCode);
+  if (!coupon) {
+    throw new ApiError(404, "کد تخفیف یافت نشد");
+  }
+
+  const current = await getCart(identity, accountType);
+  const userId = "userId" in identity ? identity.userId : undefined;
+  const issue = await validateCoupon(coupon, current.subtotalRial, userId);
+  if (issue) {
+    throw new ApiError(400, issue);
+  }
+
+  await CartModel.updateOne(identityFilter(identity), {
+    $set: { couponCode: normalizeCouponCode(rawCode) },
+  });
+  return getCart(identity, accountType);
+}
+
+export async function removeCoupon(
+  identity: CartIdentity,
+  accountType: AccountType | undefined,
+): Promise<CartView> {
+  await CartModel.updateOne(identityFilter(identity), { $unset: { couponCode: "" } });
+  return getCart(identity, accountType);
 }

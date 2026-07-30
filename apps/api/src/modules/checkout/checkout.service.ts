@@ -143,9 +143,15 @@ export async function initiateCheckout(
     };
   });
 
+  // cartService.getCart({ userId }, ...) above already re-validated
+  // whatever coupon is attached against this cart's own live subtotal --
+  // including the real perUserLimit check, since checkout always has a
+  // real userId (§3.6 "recomputed server-side at every step" is already
+  // satisfied by that call; no separate re-derivation needed here).
   const subtotalRial = cart.subtotalRial;
+  const discountRial = cart.discountRial;
   const shippingRial = shippingOption.priceRial;
-  const totalRial = subtotalRial + shippingRial;
+  const totalRial = subtotalRial - discountRial + shippingRial;
   const code = await generateOrderCode();
   const now = new Date();
 
@@ -155,7 +161,8 @@ export async function initiateCheckout(
     userId: new Types.ObjectId(userId),
     items: orderItems,
     subtotalRial,
-    discountRial: 0,
+    discountRial,
+    couponCode: cart.couponCode,
     shippingRial,
     taxRial: 0,
     totalRial,

@@ -23,3 +23,9 @@ export const estimateShippingSchema = z.object({
   addressId: objectId,
 });
 export type EstimateShippingInput = z.infer<typeof estimateShippingSchema>;
+
+// P6.S7
+export const applyCouponSchema = z.object({
+  code: z.string().min(1, "کد تخفیف را وارد کنید"),
+});
+export type ApplyCouponInput = z.infer<typeof applyCouponSchema>;

@@ -13,6 +13,20 @@ async function parseCart(res: Response): Promise<CartDto | null> {
   return parsed.success ? parsed.data.data : null;
 }
 
+export type CouponActionResult = { ok: true; data: CartDto } | { ok: false; message: string };
+
+const GENERIC_ERROR = "خطایی رخ داد، دوباره تلاش کنید";
+
+async function readErrorMessage(res: Response): Promise<string> {
+  try {
+    const json = (await res.json()) as { error?: { message?: string } };
+    if (typeof json.error?.message === "string") return json.error.message;
+  } catch {
+    // fall through to the generic message
+  }
+  return GENERIC_ERROR;
+}
+
 export async function fetchCart(): Promise<CartDto | null> {
   try {
     const res = await fetch(`${API_URL}/api/v1/cart`, { credentials: "include" });
@@ -53,6 +67,42 @@ export async function updateCartItem(itemId: string, qty: number): Promise<CartD
 export async function removeCartItem(itemId: string): Promise<CartDto | null> {
   try {
     const res = await fetch(`${API_URL}/api/v1/cart/items/${itemId}`, {
+      method: "DELETE",
+      credentials: "include",
+    });
+    return await parseCart(res);
+  } catch {
+    return null;
+  }
+}
+
+// P6.S7. Real error surfacing (unlike the plain-null pattern above) --
+// a rejected coupon code needs to tell the shopper *why* ("this code has
+// expired," "your cart doesn't meet the minimum") rather than a generic
+// toast, same reasoning lib/fetchers/checkout.ts's own ActionResult
+// pattern already established.
+export async function applyCartCoupon(code: string): Promise<CouponActionResult> {
+  try {
+    const res = await fetch(`${API_URL}/api/v1/cart/coupon`, {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ code }),
+    });
+    if (!res.ok) return { ok: false, message: await readErrorMessage(res) };
+    const json = await res.json();
+    const parsed = cartResponseSchema.safeParse(json);
+    return parsed.success
+      ? { ok: true, data: parsed.data.data }
+      : { ok: false, message: GENERIC_ERROR };
+  } catch {
+    return { ok: false, message: GENERIC_ERROR };
+  }
+}
+
+export async function removeCartCoupon(): Promise<CartDto | null> {
+  try {
+    const res = await fetch(`${API_URL}/api/v1/cart/coupon`, {
       method: "DELETE",
       credentials: "include",
     });

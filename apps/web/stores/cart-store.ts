@@ -1,6 +1,13 @@
 import { create } from "zustand";
 import type { CartDto } from "schemas";
-import { addCartItem, fetchCart, removeCartItem, updateCartItem } from "@/lib/fetchers/cart";
+import {
+  addCartItem,
+  applyCartCoupon,
+  fetchCart,
+  removeCartCoupon,
+  removeCartItem,
+  updateCartItem,
+} from "@/lib/fetchers/cart";
 
 // Holds the FULL cart object (unlike wishlist-store's id-only Set) since
 // the cart page/badge render line items directly. Always re-fetched from
@@ -16,6 +23,8 @@ type CartState = {
   addItem: (productId: string, qty?: number) => Promise<boolean>;
   updateItem: (itemId: string, qty: number) => Promise<boolean>;
   removeItem: (itemId: string) => Promise<boolean>;
+  applyCoupon: (code: string) => Promise<{ ok: boolean; message?: string }>;
+  removeCoupon: () => Promise<boolean>;
   clear: () => void;
 };
 
@@ -42,6 +51,18 @@ export const useCartStore = create<CartState>((set, get) => ({
   },
   removeItem: async (itemId) => {
     const cart = await removeCartItem(itemId);
+    if (!cart) return false;
+    set({ cart, status: "loaded" });
+    return true;
+  },
+  applyCoupon: async (code) => {
+    const result = await applyCartCoupon(code);
+    if (!result.ok) return { ok: false, message: result.message };
+    set({ cart: result.data, status: "loaded" });
+    return { ok: true };
+  },
+  removeCoupon: async () => {
+    const cart = await removeCartCoupon();
     if (!cart) return false;
     set({ cart, status: "loaded" });
     return true;

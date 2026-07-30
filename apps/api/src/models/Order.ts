@@ -66,6 +66,11 @@ export interface Order extends WithTimestamps, WithSoftDelete {
   items: OrderItem[];
   subtotalRial: number;
   discountRial: number;
+  // P6.S7: the coupon actually redeemed onto this order, if any -- a
+  // snapshot, same reasoning nameSnapshot/skuSnapshot already established
+  // (the Coupon document itself can outlive, expire past, or be edited
+  // after this specific order was placed).
+  couponCode?: string;
   shippingRial: number;
   taxRial: number;
   totalRial: number;
@@ -134,6 +139,7 @@ const orderSchema = new Schema<Order, OrderModelType, SoftDeleteMethods>({
   items: { type: [orderItemSchema], required: true },
   subtotalRial: { type: Number, required: true, min: 0 },
   discountRial: { type: Number, required: true, min: 0, default: 0 },
+  couponCode: { type: String },
   shippingRial: { type: Number, required: true, min: 0 },
   taxRial: { type: Number, required: true, min: 0, default: 0 },
   totalRial: { type: Number, required: true, min: 0 },

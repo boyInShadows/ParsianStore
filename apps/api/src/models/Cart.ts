@@ -34,8 +34,9 @@ export interface Cart extends WithTimestamps, WithSoftDelete {
   userId?: Types.ObjectId;
   anonId?: string;
   items: CartItem[];
-  // Reserved per §3.2's model spec; unused until Phase 6's Coupon model
-  // exists.
+  // P6.S7: the code a shopper applied, if any. Never trusted as-is --
+  // cart.service.ts's getCart() re-validates it live against the
+  // Coupon model and the cart's own current subtotal on every read.
   couponCode?: string;
   expiresAt: Date;
 }

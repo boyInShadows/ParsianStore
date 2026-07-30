@@ -3,6 +3,7 @@ import { PaymentModel } from "../../models/Payment.js";
 import { paymentProvider, type PaymentVerifyResult } from "../../providers/payment/index.js";
 import { ApiError } from "../../utils/ApiError.js";
 import * as cartService from "../cart/cart.service.js";
+import { incrementCouponUsage } from "../coupons/coupon.service.js";
 import * as inventoryService from "../inventory/inventory.service.js";
 
 export interface FinalizePaymentResult {
@@ -76,6 +77,12 @@ export async function finalizePayment(
     // effect in this step already follows.
     await inventoryService.confirmReservationsByRefId(orderId);
     await cartService.clearCart({ userId: order.userId.toString() });
+    // Only a genuinely paid order consumes a redemption -- a cancelled/
+    // failed attempt (the else branch below) never reaches this, so an
+    // abandoned checkout doesn't permanently burn a limited-use code.
+    if (order.couponCode) {
+      await incrementCouponUsage(order.couponCode);
+    }
   } else {
     payment.status = "failed";
     payment.raw = verifyResult?.raw;
