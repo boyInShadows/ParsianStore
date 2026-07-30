@@ -112,12 +112,37 @@ describe("POST/DELETE/GET /me/wishlist", () => {
       headers: customerCookie(userId),
     });
     const listBody = (await listRes.json()) as Envelope<
-      { productId: string; product: { id: string } }[]
+      { productId: string; product: { id: string; isWholesalePrice: boolean } }[]
     >;
     expect(listBody.meta).toEqual({ total: 1, page: 1, limit: 20 });
     expect(listBody.data).toHaveLength(1);
     expect(listBody.data[0]!.productId).toBe(product._id.toString());
     expect(listBody.data[0]!.product.id).toBe(product._id.toString());
+    // P7.S3: the list endpoint originally returned the raw Product doc
+    // (isWholesalePrice missing, wholesalePriceRial leaked) -- it must go
+    // through the same account-aware shaping every other product-serving
+    // list uses (pricing.ts's toPublicProductJson).
+    expect(listBody.data[0]!.product.isWholesalePrice).toBe(false);
+    expect(listBody.data[0]!.product).not.toHaveProperty("wholesalePriceRial");
+  });
+
+  it("resolves the wholesale price for a wholesale account, same as the catalog list", async () => {
+    const userId = new mongoose.Types.ObjectId().toString();
+    const product = await seedProduct({ wholesalePriceRial: 1_200_000 });
+    const token = signAccessToken({ sub: userId, role: "customer", accountType: "wholesale" });
+
+    await fetch(`${baseUrl}/api/v1/me/wishlist/${product._id.toString()}`, {
+      method: "POST",
+      headers: { cookie: `accessToken=${token}` },
+    });
+    const listRes = await fetch(`${baseUrl}/api/v1/me/wishlist`, {
+      headers: { cookie: `accessToken=${token}` },
+    });
+    const listBody = (await listRes.json()) as Envelope<
+      { product: { priceRial: number; isWholesalePrice: boolean } }[]
+    >;
+    expect(listBody.data[0]!.product.isWholesalePrice).toBe(true);
+    expect(listBody.data[0]!.product.priceRial).toBe(1_200_000);
   });
 
   it("is idempotent on a repeat add — no duplicate entries, no error", async () => {

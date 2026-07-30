@@ -48,6 +48,7 @@ export default async function OrdersPage({ params, searchParams }: Props) {
   const t = await getTranslations("Orders");
   const tStatus = await getTranslations("Orders.status");
   const tAddresses = await getTranslations("Addresses");
+  const tWishlist = await getTranslations("Wishlist");
 
   // Server-side auth gate -- this page needs no client interactivity at
   // all (plain prev/next links, same shape /search already uses), so
@@ -73,7 +74,12 @@ export default async function OrdersPage({ params, searchParams }: Props) {
 
   return (
     <main className="mx-auto max-w-container px-4 py-8">
-      <AccountNav active="orders" ordersLabel={t("title")} addressesLabel={tAddresses("title")} />
+      <AccountNav
+        active="orders"
+        ordersLabel={t("title")}
+        addressesLabel={tAddresses("title")}
+        wishlistLabel={tWishlist("title")}
+      />
       <h1 className="mt-6 font-display text-h2 font-black text-text">{t("title")}</h1>
 
       {orders.length === 0 ? (

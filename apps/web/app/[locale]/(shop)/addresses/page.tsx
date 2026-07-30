@@ -19,6 +19,7 @@ export async function generateMetadata(): Promise<Metadata> {
 export default async function AddressesPage() {
   const t = await getTranslations("Addresses");
   const tOrders = await getTranslations("Orders");
+  const tWishlist = await getTranslations("Wishlist");
   const messages: AddressBookMessages = {
     title: t("title"),
     loading: t("loading"),
@@ -44,7 +45,12 @@ export default async function AddressesPage() {
 
   return (
     <main className="mx-auto max-w-3xl px-4 py-8">
-      <AccountNav active="addresses" ordersLabel={tOrders("title")} addressesLabel={t("title")} />
+      <AccountNav
+        active="addresses"
+        ordersLabel={tOrders("title")}
+        addressesLabel={t("title")}
+        wishlistLabel={tWishlist("title")}
+      />
       <div className="mt-6">
         <AddressBookContent messages={messages} />
       </div>

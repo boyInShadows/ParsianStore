@@ -64,7 +64,12 @@ export async function listWishlist(
   }
 
   const productIds = entries.map((entry) => entry.productId);
-  const products = await ProductModel.find({ _id: { $in: productIds } });
+  // `+wholesalePriceRial` -- same unconditional select products.service.ts
+  // uses (P6.S1's pricing.ts is the one place effective price is decided,
+  // regardless of whether this particular viewer turns out to be retail).
+  const products = await ProductModel.find({ _id: { $in: productIds } }).select(
+    "+wholesalePriceRial",
+  );
   const productById = new Map(products.map((product) => [product._id.toString(), product]));
 
   const data = entries.flatMap((entry): WishlistEntry[] => {
