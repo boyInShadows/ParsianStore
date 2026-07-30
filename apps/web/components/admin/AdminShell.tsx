@@ -25,11 +25,14 @@ import {
 } from "@mui/material";
 import { Link } from "@/i18n/navigation";
 type Props = {
-  active: "orders";
+  active: "orders" | "products";
   children: ReactNode;
 };
 
-const NAV_ITEMS = [{ key: "orders" as const, href: "/admin/orders", label: "سفارش‌ها" }];
+const NAV_ITEMS = [
+  { key: "orders" as const, href: "/admin/orders", label: "سفارش‌ها" },
+  { key: "products" as const, href: "/admin/products", label: "محصولات" },
+];
 
 export function AdminShell({ active, children }: Props) {
   return (
