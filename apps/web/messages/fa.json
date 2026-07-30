@@ -360,5 +360,29 @@
       "trackingCode": "کد رهگیری: {code}",
       "timelineTitle": "روند سفارش"
     }
+  },
+  "Addresses": {
+    "title": "آدرس‌های من",
+    "loading": "در حال بارگذاری آدرس‌ها…",
+    "emptyTitle": "هنوز آدرسی ثبت نکرده‌اید",
+    "emptyDescription": "آدرس‌هایی که هنگام خرید ثبت می‌کنید، در همین‌جا نمایش داده می‌شوند.",
+    "addNew": "افزودن آدرس جدید",
+    "editAria": "ویرایش",
+    "deleteAria": "حذف",
+    "deleteError": "حذف آدرس با خطا مواجه شد، دوباره تلاش کنید",
+    "form": {
+      "cancel": "انصراف",
+      "provinceLabel": "استان",
+      "cityLabel": "شهر",
+      "selectPlaceholder": "انتخاب کنید",
+      "lineLabel": "آدرس کامل",
+      "postalCodeLabel": "کد پستی",
+      "plateLabel": "پلاک",
+      "unitLabel": "واحد",
+      "receiverNameLabel": "نام گیرنده",
+      "receiverPhoneLabel": "شماره تماس گیرنده",
+      "saveButton": "ذخیره آدرس",
+      "savingButton": "در حال ذخیره…"
+    }
   }
 }

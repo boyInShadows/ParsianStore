@@ -69,3 +69,41 @@ export async function createAddress(
     return { ok: false, message: GENERIC_ERROR };
   }
 }
+
+// P7.S2 -- the address book page is the first real consumer of
+// PATCH/DELETE; checkout's own picker (P6.S6) only ever needed
+// list+create.
+export async function updateAddress(
+  id: string,
+  input: CreateAddressInput,
+): Promise<AddressActionResult<AddressDto>> {
+  try {
+    const res = await fetch(`${API_URL}/api/v1/me/addresses/${id}`, {
+      method: "PATCH",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(input),
+    });
+    if (!res.ok) return { ok: false, message: await readErrorMessage(res) };
+    const json = await res.json();
+    const parsed = addressResponseSchema.safeParse(json);
+    return parsed.success
+      ? { ok: true, data: parsed.data.data }
+      : { ok: false, message: GENERIC_ERROR };
+  } catch {
+    return { ok: false, message: GENERIC_ERROR };
+  }
+}
+
+export async function deleteAddress(id: string): Promise<AddressActionResult<{ id: string }>> {
+  try {
+    const res = await fetch(`${API_URL}/api/v1/me/addresses/${id}`, {
+      method: "DELETE",
+      credentials: "include",
+    });
+    if (!res.ok) return { ok: false, message: await readErrorMessage(res) };
+    return { ok: true, data: { id } };
+  } catch {
+    return { ok: false, message: GENERIC_ERROR };
+  }
+}

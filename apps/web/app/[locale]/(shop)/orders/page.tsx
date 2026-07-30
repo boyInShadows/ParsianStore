@@ -4,6 +4,7 @@ import { getTranslations } from "next-intl/server";
 import { formatJalali, formatToman } from "schemas";
 import { redirect, Link } from "@/i18n/navigation";
 import { EmptyState, Badge } from "@/components/primitives";
+import { AccountNav } from "@/components/account/AccountNav";
 import { fetchOrders } from "@/lib/fetchers/orders";
 import type { OrderStatusDto } from "schemas";
 
@@ -46,6 +47,7 @@ export default async function OrdersPage({ params, searchParams }: Props) {
 
   const t = await getTranslations("Orders");
   const tStatus = await getTranslations("Orders.status");
+  const tAddresses = await getTranslations("Addresses");
 
   // Server-side auth gate -- this page needs no client interactivity at
   // all (plain prev/next links, same shape /search already uses), so
@@ -71,7 +73,8 @@ export default async function OrdersPage({ params, searchParams }: Props) {
 
   return (
     <main className="mx-auto max-w-container px-4 py-8">
-      <h1 className="font-display text-h2 font-black text-text">{t("title")}</h1>
+      <AccountNav active="orders" ordersLabel={t("title")} addressesLabel={tAddresses("title")} />
+      <h1 className="mt-6 font-display text-h2 font-black text-text">{t("title")}</h1>
 
       {orders.length === 0 ? (
         <div className="mt-6">
