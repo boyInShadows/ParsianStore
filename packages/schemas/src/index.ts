@@ -13,3 +13,4 @@ export * from "./wishlist.js";
 export * from "./cart.js";
 export * from "./address.js";
 export * from "./shipping.js";
+export * from "./order.js";

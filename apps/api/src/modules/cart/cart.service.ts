@@ -126,6 +126,16 @@ export async function mergeGuestCartIntoUser(anonId: string, userId: string): Pr
   }
 }
 
+/** Called by modules/payments once a checkout's payment actually
+ * verifies -- the order now owns a snapshot of every line, so the cart
+ * that produced it is emptied rather than left stale for the shopper to
+ * clear by hand. */
+export async function clearCart(identity: CartIdentity): Promise<void> {
+  await CartModel.updateOne(identityFilter(identity), {
+    $set: { items: [], expiresAt: nextCartExpiry() },
+  });
+}
+
 export interface CartItemView {
   id: string;
   productId: string;

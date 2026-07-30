@@ -18,9 +18,11 @@ import { authRouter } from "./modules/auth/auth.routes.js";
 import { cartRouter } from "./modules/cart/cart.routes.js";
 import { adminCatalogRouter } from "./modules/catalog/catalog.admin.routes.js";
 import { catalogRouter } from "./modules/catalog/catalog.routes.js";
+import { checkoutRouter } from "./modules/checkout/checkout.routes.js";
 import { fitmentRouter } from "./modules/fitment/fitment.routes.js";
 import { geoRouter } from "./modules/geo/geo.routes.js";
 import { adminInventoryRouter } from "./modules/inventory/inventory.admin.routes.js";
+import { paymentsRouter } from "./modules/payments/payments.routes.js";
 import { vehiclesRouter } from "./modules/vehicles/vehicles.routes.js";
 import { wishlistRouter } from "./modules/wishlist/wishlist.routes.js";
 import { uploadsDir } from "./providers/storage/index.js";
@@ -67,6 +69,12 @@ app.use("/api/v1/me/wishlist", wishlistRouter);
 // wishlistRouter above -- P6.S2's address book, checkout's first real
 // dependency (auth-only per the owner's own decision, no guest identity).
 app.use("/api/v1/me/addresses", addressesRouter);
+// P6.S5. requireAuth is applied inside checkoutRouter itself, same style
+// as wishlistRouter/addressesRouter above.
+app.use("/api/v1/checkout", checkoutRouter);
+// No auth on paymentsRouter -- see payments.routes.ts, this is the
+// gateway's own redirect target, not a client-called resource.
+app.use("/api/v1/payments", paymentsRouter);
 // LocalDiskStorageProvider's saved variants (P2.S8) — served directly, no
 // auth: product/category imagery is public by nature. P2.S9 security
 // header audit: helmet()'s default Cross-Origin-Resource-Policy is

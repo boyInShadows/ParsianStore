@@ -112,6 +112,28 @@ export async function confirmReservation(reservationId: string): Promise<void> {
   await StockReservationModel.deleteOne({ _id: reservationId });
 }
 
+/** P6.S5 -- modules/checkout reserves stock per cart line with `refId` set
+ * to the future Order's own _id (opaque to this module, per
+ * StockReservation's own "caller decides what refId means" contract).
+ * These two batch helpers let checkout (rollback on a failed payment
+ * initiation) and payments (the real success/failure outcome from a
+ * gateway callback) resolve every reservation tied to one order without
+ * either module reaching into StockReservationModel directly -- this
+ * module stays the single place that touches it. */
+export async function releaseReservationsByRefId(refId: string): Promise<void> {
+  const reservations = await StockReservationModel.find({ refId });
+  for (const reservation of reservations) {
+    await releaseReservation(reservation.id as string);
+  }
+}
+
+export async function confirmReservationsByRefId(refId: string): Promise<void> {
+  const reservations = await StockReservationModel.find({ refId });
+  for (const reservation of reservations) {
+    await confirmReservation(reservation.id as string);
+  }
+}
+
 /**
  * The node-cron half of "reservation with TTL" (docs/db-indexes.md):
  * StockReservation's TTL index alone only deletes the document — nothing

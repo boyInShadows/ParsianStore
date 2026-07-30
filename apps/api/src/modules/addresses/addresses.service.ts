@@ -97,6 +97,20 @@ export async function getOwnAddressProvinceId(
   return address.provinceId;
 }
 
+/** Used by modules/checkout to snapshot the caller's chosen address into
+ * a new Order -- same "find an address that belongs to this user" query
+ * shape as getOwnAddressProvinceId above, but returns the full hydrated
+ * view since the order needs the whole address, not just its province. */
+export async function getOwnAddress(userId: string, addressId: string): Promise<AddressView> {
+  const user = await UserModel.findById(userId);
+  const address = user?.addresses.find((a) => a._id!.toString() === addressId);
+  if (!address) {
+    throw new ApiError(400, "آدرس یافت نشد یا متعلق به شما نیست");
+  }
+  const [view] = await hydrateAddresses([address]);
+  return view!;
+}
+
 export async function listAddresses(userId: string): Promise<AddressView[]> {
   const user = await UserModel.findById(userId);
   if (!user) {
