@@ -57,6 +57,10 @@ export interface CursorPaginateOptions {
   direction: 1 | -1;
   cursor: string | undefined;
   limit: number;
+  // P6.S1: e.g. "+wholesalePriceRial" to opt into a `select: false` field
+  // for this query only — an internal server concern, not part of the
+  // client-facing cursor contract above.
+  select?: string;
 }
 
 /**
@@ -71,7 +75,7 @@ export interface CursorPaginateOptions {
 export async function cursorPaginate<T>(
   model: Model<T>,
   filter: FilterQuery<T>,
-  { sortField, valueType, direction, cursor, limit }: CursorPaginateOptions,
+  { sortField, valueType, direction, cursor, limit, select }: CursorPaginateOptions,
 ): Promise<CursorPageResult<HydratedDocument<T>>> {
   // Built as a plain untyped object rather than FilterQuery<T> directly:
   // `sortField` is a runtime string, not a `keyof T` literal, so its use
@@ -92,6 +96,10 @@ export async function cursorPaginate<T>(
 
   const docs = await model
     .find(cursorFilter as FilterQuery<T>)
+    // "" is a real Mongoose no-op select, same as omitting .select()
+    // entirely -- avoids the `string | undefined` overload TS otherwise
+    // rejects here for an absent `select`.
+    .select(select ?? "")
     .sort({ [sortField]: direction, _id: direction })
     .limit(limit + 1);
 

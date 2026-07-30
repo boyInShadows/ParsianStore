@@ -6,6 +6,18 @@ import { Drawer, Modal } from "@/components/primitives";
 import { ThemeToggle } from "@/components/theme/theme-toggle";
 import { VehicleSelectorLazy } from "@/components/garage";
 import { selectActiveVehicle, useGarageStore } from "@/stores/garage-store";
+import { useAuthStore } from "@/stores/auth-store";
+import { useWishlistStore } from "@/stores/wishlist-store";
+import { selectItemCount, useCartStore } from "@/stores/cart-store";
+import { logout } from "@/lib/fetchers/auth";
+
+export interface HeaderMessages {
+  signInAria: string;
+  signedInAria: string;
+  signOutAria: string;
+}
+
+type Props = { messages: HeaderMessages };
 
 // Real system-category vocabulary from masterPlan.md §1.2 / §3.1 -- the
 // mechanic persona's own terms, not invented labels.
@@ -17,7 +29,7 @@ const CATEGORIES = [
   { label: "ترمز", slug: "brake" },
 ];
 
-export function Header() {
+export function Header({ messages }: Props) {
   const [categoriesOpen, setCategoriesOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [vehicleModalOpen, setVehicleModalOpen] = useState(false);
@@ -28,6 +40,28 @@ export function Header() {
   // accepted-tradeoff category as any cart/wishlist badge that flashes
   // empty before hydration; not attempting an SSR-cookie-read here.
   const activeVehicle = useGarageStore(selectActiveVehicle);
+  // auth-store starts "idle" on both the server render and the first
+  // client paint (no httpOnly cookie read during SSR, by design -- see
+  // P5.S7's plan) -- "idle"/"loading"/"guest" all render the same
+  // signed-out affordance below, so there's no hydration mismatch, only
+  // the same accepted post-hydration flash as the garage chip above once
+  // GET /auth/me actually resolves.
+  const authStatus = useAuthStore((state) => state.status);
+  const authUser = useAuthStore((state) => state.user);
+  const clearAuth = useAuthStore((state) => state.clear);
+  const isAuthenticated = authStatus === "authenticated";
+  const cartItemCount = useCartStore(selectItemCount);
+
+  async function handleSignOut(): Promise<void> {
+    await logout();
+    clearAuth();
+    useWishlistStore.getState().clear();
+    // Logging out swaps identity server-side (the merged account cart is
+    // no longer reachable without the accessToken cookie; a fresh
+    // request now resolves to a brand-new guest cart) -- force a refetch
+    // so the badge/page don't keep showing the just-logged-out cart.
+    void useCartStore.getState().load({ force: true });
+  }
 
   return (
     <header className="sticky top-0 z-40 border-b border-border bg-surface">
@@ -99,18 +133,53 @@ export function Header() {
           </button>
           <Link
             href="/cart"
-            aria-label="سبد خرید"
-            className="h-9 w-9 inline-flex items-center justify-center rounded-md text-text hover:bg-surface-raised"
+            aria-label={cartItemCount > 0 ? `سبد خرید، ${cartItemCount} قلم` : "سبد خرید"}
+            className="h-9 w-9 relative inline-flex items-center justify-center rounded-md text-text hover:bg-surface-raised"
           >
             <CartIcon />
+            {cartItemCount > 0 ? (
+              <span
+                aria-hidden="true"
+                className="absolute -end-1 -top-1 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-cta px-1 font-mono text-[10px] leading-none text-cta-fg"
+              >
+                {cartItemCount > 99 ? "99+" : cartItemCount}
+              </span>
+            ) : null}
           </Link>
-          <Link
-            href="/account"
-            aria-label="حساب کاربری"
-            className="h-9 w-9 inline-flex items-center justify-center rounded-md text-text hover:bg-surface-raised"
-          >
-            <AccountIcon />
-          </Link>
+          {isAuthenticated ? (
+            <>
+              {/* P7.S1: the account icon is now a real link into the
+                  account area -- /orders is Phase 7's first (and so far
+                  only) page, so it's the direct target rather than a
+                  dropdown hub with nothing else to list yet. */}
+              <Link
+                href="/orders"
+                aria-label={
+                  authUser ? `${messages.signedInAria} ${authUser.phone}` : messages.signedInAria
+                }
+                title={authUser?.phone}
+                className="h-9 w-9 inline-flex items-center justify-center rounded-md text-brand hover:bg-surface-raised"
+              >
+                <AccountIcon />
+              </Link>
+              <button
+                type="button"
+                onClick={() => void handleSignOut()}
+                aria-label={messages.signOutAria}
+                className="h-9 w-9 inline-flex items-center justify-center rounded-md text-text hover:bg-surface-raised"
+              >
+                <SignOutIcon />
+              </button>
+            </>
+          ) : (
+            <Link
+              href="/auth/login"
+              aria-label={messages.signInAria}
+              className="h-9 w-9 inline-flex items-center justify-center rounded-md text-text hover:bg-surface-raised"
+            >
+              <AccountIcon />
+            </Link>
+          )}
           <ThemeToggle />
         </div>
       </div>
@@ -133,19 +202,32 @@ export function Header() {
             </Link>
           ))}
           <hr className="my-2 border-border" />
-          <Link
-            href="/account"
-            className="rounded-md px-3 py-2 text-body text-text hover:bg-surface-raised"
-            onClick={() => setMobileMenuOpen(false)}
-          >
-            حساب کاربری
-          </Link>
+          {isAuthenticated ? (
+            <button
+              type="button"
+              onClick={() => {
+                setMobileMenuOpen(false);
+                void handleSignOut();
+              }}
+              className="rounded-md px-3 py-2 text-start text-body text-text hover:bg-surface-raised"
+            >
+              {messages.signOutAria}
+            </button>
+          ) : (
+            <Link
+              href="/auth/login"
+              className="rounded-md px-3 py-2 text-body text-text hover:bg-surface-raised"
+              onClick={() => setMobileMenuOpen(false)}
+            >
+              {messages.signInAria}
+            </Link>
+          )}
           <Link
             href="/cart"
             className="rounded-md px-3 py-2 text-body text-text hover:bg-surface-raised"
             onClick={() => setMobileMenuOpen(false)}
           >
-            سبد خرید
+            {cartItemCount > 0 ? `سبد خرید (${cartItemCount})` : "سبد خرید"}
           </Link>
         </nav>
       </Drawer>
@@ -209,6 +291,20 @@ function CartIcon() {
       />
       <circle cx="9" cy="20" r="1" fill="currentColor" />
       <circle cx="17" cy="20" r="1" fill="currentColor" />
+    </svg>
+  );
+}
+
+function SignOutIcon() {
+  return (
+    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" aria-hidden="true">
+      <path
+        stroke="currentColor"
+        strokeWidth="1.75"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M15 17l5-5-5-5M20 12H9M13 4H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h7"
+      />
     </svg>
   );
 }

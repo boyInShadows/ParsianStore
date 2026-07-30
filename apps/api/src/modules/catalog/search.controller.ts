@@ -1,4 +1,5 @@
 import type { NextFunction, Request, Response } from "express";
+import { toPublicProductJson } from "./pricing.js";
 import * as searchService from "./search.service.js";
 import type { FacetsQuery, SearchProductsQuery } from "./search.schema.js";
 
@@ -10,7 +11,11 @@ export async function searchProductsHandler(
   try {
     const { q, vehicle, ...pagination } = req.validatedQuery as SearchProductsQuery;
     const { data, meta } = await searchService.searchProducts(q, vehicle, pagination);
-    res.json({ ok: true, data, meta });
+    res.json({
+      ok: true,
+      data: data.map((product) => toPublicProductJson(product, req.user?.accountType)),
+      meta,
+    });
   } catch (err) {
     next(err);
   }

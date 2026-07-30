@@ -2,9 +2,13 @@ import {
   categoriesResponseSchema,
   categoryResponseSchema,
   facetsResponseSchema,
+  productDetailResponseSchema,
   productsResponseSchema,
+  relatedProductsResponseSchema,
+  searchProductsResponseSchema,
   type CategoryDto,
   type FacetsResponse,
+  type ProductDetailDto,
   type ProductListItemDto,
 } from "schemas";
 
@@ -90,16 +94,109 @@ export interface CatalogProductsPage {
   nextCursor: string | null;
 }
 
+// `cookieHeader` (P6.S1): a Server Component's own `fetch()` has no
+// browser cookie jar to attach automatically -- unlike the client-side
+// callers of this same function (LoadMoreProducts.tsx), which get
+// `credentials: "include"` below for free. PDP/PLP/search's page.tsx
+// files pass `(await cookies()).toString()` here so `optionalAuth` on the
+// API side can resolve the viewer's real accountType (wholesale pricing)
+// instead of always seeing an anonymous request. Omitted entirely by
+// client-side callers, who rely on the browser's own cookie jar instead.
 export async function fetchCatalogProducts(
   filters: CatalogProductFilters,
+  cookieHeader?: string,
 ): Promise<FetchResult<CatalogProductsPage>> {
   try {
-    const res = await fetch(`${API_URL}/api/v1/catalog/products?${buildQueryString(filters)}`);
+    const res = await fetch(`${API_URL}/api/v1/catalog/products?${buildQueryString(filters)}`, {
+      credentials: "include",
+      headers: cookieHeader ? { cookie: cookieHeader } : undefined,
+    });
     if (!res.ok) return { ok: false, reason: "down" };
     const json = await res.json();
     const parsed = productsResponseSchema.safeParse(json);
     if (!parsed.success) return { ok: false, reason: "down" };
     return { ok: true, data: { data: parsed.data.data, nextCursor: parsed.data.meta.nextCursor } };
+  } catch {
+    return { ok: false, reason: "down" };
+  }
+}
+
+export async function fetchProductDetailBySlug(
+  slug: string,
+  cookieHeader?: string,
+): Promise<FetchResult<ProductDetailDto>> {
+  try {
+    const res = await fetch(`${API_URL}/api/v1/catalog/products/${slug}`, {
+      credentials: "include",
+      headers: cookieHeader ? { cookie: cookieHeader } : undefined,
+    });
+    if (res.status === 404) return { ok: false, reason: "not-found" };
+    if (!res.ok) return { ok: false, reason: "down" };
+    const json = await res.json();
+    const parsed = productDetailResponseSchema.safeParse(json);
+    return parsed.success ? { ok: true, data: parsed.data.data } : { ok: false, reason: "down" };
+  } catch {
+    return { ok: false, reason: "down" };
+  }
+}
+
+// Bounded widget (masterPlan §5's "related & alternative parts"), not
+// primary page content -- degrades to [] on failure rather than a
+// FetchResult, same reasoning as fetchChildCategories.
+export async function fetchRelatedProducts(
+  slug: string,
+  limit = 8,
+  cookieHeader?: string,
+): Promise<ProductListItemDto[]> {
+  try {
+    const res = await fetch(`${API_URL}/api/v1/catalog/products/${slug}/related?limit=${limit}`, {
+      credentials: "include",
+      headers: cookieHeader ? { cookie: cookieHeader } : undefined,
+    });
+    if (!res.ok) return [];
+    const json = await res.json();
+    const parsed = relatedProductsResponseSchema.safeParse(json);
+    return parsed.success ? parsed.data.data : [];
+  } catch {
+    return [];
+  }
+}
+
+export interface SearchResultsPage {
+  data: ProductListItemDto[];
+  total: number;
+  page: number;
+  limit: number;
+}
+
+// Primary page content (a real search results page, not a secondary
+// widget) -- FetchResult, same reasoning as fetchCatalogProducts: "zero
+// matches" and "API unreachable" need different UI, not one falsy value.
+export async function fetchSearchResults(
+  q: string,
+  page = 1,
+  limit = 20,
+  cookieHeader?: string,
+): Promise<FetchResult<SearchResultsPage>> {
+  try {
+    const params = new URLSearchParams({ q, page: String(page), limit: String(limit) });
+    const res = await fetch(`${API_URL}/api/v1/catalog/search?${params.toString()}`, {
+      credentials: "include",
+      headers: cookieHeader ? { cookie: cookieHeader } : undefined,
+    });
+    if (!res.ok) return { ok: false, reason: "down" };
+    const json = await res.json();
+    const parsed = searchProductsResponseSchema.safeParse(json);
+    if (!parsed.success) return { ok: false, reason: "down" };
+    return {
+      ok: true,
+      data: {
+        data: parsed.data.data,
+        total: parsed.data.meta.total,
+        page: parsed.data.meta.page,
+        limit: parsed.data.meta.limit,
+      },
+    };
   } catch {
     return { ok: false, reason: "down" };
   }

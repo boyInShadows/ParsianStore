@@ -1,11 +1,18 @@
 import { formatToman } from "schemas";
 import type { ProductListItemDto } from "schemas";
 import { Link } from "@/i18n/navigation";
+// Direct file-path import, not the components/wishlist barrel -- P4.S5's
+// documented lesson: a barrel-exported client component forces every
+// consumer of that barrel to eat its module-level cost, and ProductCard
+// is used on PLP, search, and PDP's related-products all at once.
+import { WishlistButton, type WishlistButtonMessages } from "@/components/wishlist/WishlistButton";
 
 export interface ProductCardMessages {
   inStock: string;
   outOfStock: string;
   noPhoto: string;
+  wholesalePriceBadge: string;
+  wishlist: WishlistButtonMessages;
 }
 
 type Props = {
@@ -24,16 +31,32 @@ export function ProductCard({ product, messages }: Props) {
       href={`/p/${product.slug}`}
       className="flex h-full flex-col gap-3 rounded-lg border border-border bg-surface p-3 transition-colors hover:border-brand motion-reduce:transition-none"
     >
-      <div
-        role="img"
-        aria-label={messages.noPhoto}
-        className="flex aspect-square items-center justify-center rounded-md border border-dashed border-border bg-surface-raised text-caption text-text-muted"
-      >
-        {messages.noPhoto}
+      <div className="relative">
+        <div
+          role="img"
+          aria-label={messages.noPhoto}
+          className="flex aspect-square items-center justify-center rounded-md border border-dashed border-border bg-surface-raised text-caption text-text-muted"
+        >
+          {messages.noPhoto}
+        </div>
+        {/* WishlistButton stops its own click from bubbling into this
+            card's <Link> navigation -- see its own doc comment. */}
+        <WishlistButton
+          productId={product.id}
+          messages={messages.wishlist}
+          className="bg-surface/90 absolute end-2 top-2 backdrop-blur-sm"
+        />
       </div>
       <div className="flex flex-1 flex-col gap-1">
         <span className="line-clamp-2 text-body-sm text-text">{product.name.fa}</span>
-        <span className="font-mono text-data text-text">{formatToman(product.priceRial)}</span>
+        <span className="gap-1.5 flex items-center">
+          <span className="font-mono text-data text-text">{formatToman(product.priceRial)}</span>
+          {product.isWholesalePrice ? (
+            <span className="bg-brand/10 px-1.5 py-0.5 rounded-full text-[10px] font-medium leading-none text-brand">
+              {messages.wholesalePriceBadge}
+            </span>
+          ) : null}
+        </span>
         {/* text-success on white fails WCAG AA at caption size (3.3:1, needs
             4.5:1) -- caught by axe building this component (P5.S1). Status
             is conveyed by the word itself, not color, so this stays

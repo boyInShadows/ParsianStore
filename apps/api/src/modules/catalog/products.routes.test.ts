@@ -8,6 +8,7 @@ import { BrandModel } from "../../models/Brand.js";
 import { CategoryModel } from "../../models/Category.js";
 import { FitmentModel } from "../../models/Fitment.js";
 import { ProductModel, type Product } from "../../models/Product.js";
+import { signAccessToken } from "../../utils/jwt.js";
 
 const TEST_URI = testDbUri("parsian-store-test-products-routes");
 let server: Server;
@@ -78,6 +79,95 @@ function productInput(overrides: Partial<Product> & Record<string, unknown>) {
     sku,
   };
 }
+
+function accountCookie(accountType: "retail" | "wholesale"): string {
+  const token = signAccessToken({
+    sub: new mongoose.Types.ObjectId().toString(),
+    role: "customer",
+    accountType,
+  });
+  return `accessToken=${token}`;
+}
+
+describe("GET /catalog/products -- wholesale pricing (P6.S1)", () => {
+  it("a wholesale account sees the wholesale price and isWholesalePrice: true", async () => {
+    const { brand, category } = await seedCatalog();
+    await ProductModel.create(
+      productInput({
+        name: { fa: "لنت ترمز", en: "Brake pad" },
+        slug: "brake-pad",
+        brandId: brand._id,
+        categoryId: category._id,
+        priceRial: 1_000_000,
+        wholesalePriceRial: 850_000,
+      }),
+    );
+
+    const res = await fetch(`${baseUrl}/api/v1/catalog/products`, {
+      headers: { cookie: accountCookie("wholesale") },
+    });
+    const body = (await res.json()) as Envelope<{ priceRial: number; isWholesalePrice: boolean }[]>;
+    expect(body.data[0]!.priceRial).toBe(850_000);
+    expect(body.data[0]!.isWholesalePrice).toBe(true);
+  });
+
+  it("a retail account and a guest both see the retail price and isWholesalePrice: false", async () => {
+    const { brand, category } = await seedCatalog();
+    await ProductModel.create(
+      productInput({
+        name: { fa: "لنت ترمز", en: "Brake pad" },
+        slug: "brake-pad",
+        brandId: brand._id,
+        categoryId: category._id,
+        priceRial: 1_000_000,
+        wholesalePriceRial: 850_000,
+      }),
+    );
+
+    const retailRes = await fetch(`${baseUrl}/api/v1/catalog/products`, {
+      headers: { cookie: accountCookie("retail") },
+    });
+    const retailBody = (await retailRes.json()) as Envelope<
+      { priceRial: number; isWholesalePrice: boolean }[]
+    >;
+    expect(retailBody.data[0]!.priceRial).toBe(1_000_000);
+    expect(retailBody.data[0]!.isWholesalePrice).toBe(false);
+
+    const guestRes = await fetch(`${baseUrl}/api/v1/catalog/products`);
+    const guestBody = (await guestRes.json()) as Envelope<
+      { priceRial: number; isWholesalePrice: boolean }[]
+    >;
+    expect(guestBody.data[0]!.priceRial).toBe(1_000_000);
+    expect(guestBody.data[0]!.isWholesalePrice).toBe(false);
+  });
+
+  it("never leaks the raw wholesalePriceRial field in the response body, for any viewer", async () => {
+    const { brand, category } = await seedCatalog();
+    await ProductModel.create(
+      productInput({
+        name: { fa: "لنت ترمز", en: "Brake pad" },
+        slug: "brake-pad",
+        brandId: brand._id,
+        categoryId: category._id,
+        priceRial: 1_000_000,
+        wholesalePriceRial: 850_000,
+      }),
+    );
+
+    const headerVariants: Record<string, string>[] = [
+      { cookie: accountCookie("wholesale") },
+      { cookie: accountCookie("retail") },
+      {},
+    ];
+    for (const headers of headerVariants) {
+      const listRes = await fetch(`${baseUrl}/api/v1/catalog/products`, { headers });
+      expect(await listRes.text()).not.toContain("wholesalePriceRial");
+
+      const detailRes = await fetch(`${baseUrl}/api/v1/catalog/products/brake-pad`, { headers });
+      expect(await detailRes.text()).not.toContain("wholesalePriceRial");
+    }
+  });
+});
 
 describe("GET /catalog/products", () => {
   it("pages through results via cursor without skipping or duplicating", async () => {
@@ -293,6 +383,13 @@ describe("GET /catalog/products/:slug", () => {
 
     const res = await fetch(`${baseUrl}/api/v1/catalog/products/brake-pad`);
     expect(res.status).toBe(200);
+    const body = (await res.json()) as Envelope<{
+      slug: string;
+      brand: { slug: string } | null;
+      category: { slug: string } | null;
+    }>;
+    expect(body.data.brand?.slug).toBe(brand.slug);
+    expect(body.data.category?.slug).toBe(category.slug);
   });
 
   it("returns 404 for a draft product (not publicly visible)", async () => {

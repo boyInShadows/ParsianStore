@@ -160,7 +160,205 @@
     "product": {
       "inStock": "In stock",
       "outOfStock": "Out of stock",
-      "noPhoto": "No photo"
+      "noPhoto": "No photo",
+      "wholesalePriceBadge": "Wholesale price",
+      "wishlist": {
+        "add": "Add to wishlist",
+        "remove": "Remove from wishlist",
+        "error": "Couldn't update your wishlist, try again"
+      },
+      "addToCart": {
+        "qtyLabel": "Quantity",
+        "addButton": "Add to cart",
+        "addingButton": "Adding...",
+        "addedToast": "Added to cart",
+        "errorToast": "Couldn't add to cart, try again"
+      }
+    },
+    "pdp": {
+      "notFound": {
+        "title": "Product not found",
+        "description": "This product doesn't exist or has been removed.",
+        "backHome": "Back to home"
+      },
+      "authenticity": {
+        "title": "Authenticity",
+        "supplyRouteLabel": "Supply route",
+        "supplyRoute": {
+          "oem": "OEM",
+          "genuine-imported": "Genuine imported",
+          "domestic": "Domestic",
+          "grade1-aftermarket": "Grade 1 aftermarket"
+        },
+        "sourceBrandLabel": "Manufacturer",
+        "countryLabel": "Country of manufacture",
+        "verificationCodeLabel": "Authenticity verification code",
+        "guideLink": "Authenticity guide"
+      },
+      "specs": {
+        "title": "Specifications",
+        "weight": "Weight (g)",
+        "dimensions": "Dimensions (mm)",
+        "warranty": "Warranty"
+      },
+      "oemTable": {
+        "title": "OEM code & cross-reference numbers",
+        "oemNumbers": "OEM number",
+        "crossRefNumbers": "Cross-reference numbers"
+      },
+      "fitment": {
+        "exact": "This part is an exact fit for your vehicle.",
+        "likely": "This part is likely to fit your vehicle.",
+        "check": "Fitment for your vehicle isn't confirmed — check with a specialist before buying.",
+        "checkVehicle": "Pick a vehicle in your garage to check fitment."
+      },
+      "related": {
+        "title": "Related parts"
+      },
+      "brandLink": "View all {brand} products"
+    },
+    "search": {
+      "title": "Search results",
+      "heading": "Search results for “{query}”",
+      "prompt": "Enter a search term at the top of the page.",
+      "emptyHint": "Check the spelling, or try a system name instead (e.g. “brakes”).",
+      "prev": "Previous",
+      "next": "Next",
+      "pageOf": "Page {page} of {pageCount}"
+    }
+  },
+  "Header": {
+    "signInAria": "Sign in",
+    "signedInAria": "Account",
+    "signOutAria": "Sign out"
+  },
+  "Auth": {
+    "login": {
+      "title": "Sign in",
+      "phoneLabel": "Mobile number",
+      "phonePlaceholder": "09121234567",
+      "phoneError": "That mobile number isn't valid",
+      "requestCodeButton": "Send code",
+      "requestingCodeButton": "Sending...",
+      "codeLabel": "Verification code",
+      "codeHelper": "Enter the 6-digit code sent to '{phone}'",
+      "verifyButton": "Verify & sign in",
+      "verifyingButton": "Verifying...",
+      "changePhone": "Change mobile number"
+    }
+  },
+  "Cart": {
+    "title": "Cart",
+    "noPhoto": "No photo",
+    "emptyTitle": "Your cart is empty",
+    "emptyDescription": "You haven't added any products to your cart yet.",
+    "browseCta": "Browse products",
+    "decreaseAria": "Decrease quantity",
+    "increaseAria": "Increase quantity",
+    "removeAria": "Remove from cart",
+    "stockIssue": "Only '{count}' available",
+    "priceChanged": "This product's price has changed since you added it",
+    "wholesalePriceBadge": "Wholesale price",
+    "subtotalLabel": "Subtotal",
+    "discountLabel": "Discount",
+    "totalLabel": "Total due",
+    "couponPlaceholder": "Coupon code",
+    "couponApplyButton": "Apply",
+    "couponApplyingButton": "Checking…",
+    "couponRemoveButton": "Remove coupon",
+    "continueToCheckout": "Continue to checkout",
+    "mutationError": "Couldn't update your cart, try again"
+  },
+  "Checkout": {
+    "title": "Checkout",
+    "emptyCartTitle": "Your cart is empty",
+    "emptyCartDescription": "Add a product to your cart before checking out.",
+    "browseCta": "Browse products",
+    "submitError": "Couldn't place your order, try again",
+    "address": {
+      "title": "Recipient address",
+      "loading": "Loading addresses…",
+      "emptyHint": "You haven't saved an address yet.",
+      "addNew": "Add a new address",
+      "cancel": "Cancel",
+      "provinceLabel": "Province",
+      "cityLabel": "City",
+      "selectPlaceholder": "Select",
+      "lineLabel": "Full address",
+      "postalCodeLabel": "Postal code",
+      "plateLabel": "Plate",
+      "unitLabel": "Unit",
+      "receiverNameLabel": "Recipient name",
+      "receiverPhoneLabel": "Recipient phone",
+      "saveButton": "Save address",
+      "savingButton": "Saving…",
+      "radioGroupLabel": "Choose a recipient address"
+    },
+    "shipping": {
+      "title": "Shipping method",
+      "loading": "Calculating shipping cost…",
+      "emptyHint": "No shipping method is available for this address",
+      "errorHint": "Couldn't calculate shipping cost",
+      "radioGroupLabel": "Choose a shipping method"
+    },
+    "summary": {
+      "title": "Order summary",
+      "subtotalLabel": "Subtotal",
+      "discountLabel": "Discount",
+      "shippingLabel": "Shipping",
+      "shippingPending": "—",
+      "totalLabel": "Total due",
+      "placeOrderButton": "Place order & pay",
+      "placingOrderButton": "Placing order…",
+      "incompleteHint": "Choose an address and shipping method to continue"
+    },
+    "result": {
+      "loading": "Checking your payment result…",
+      "successTitle": "Your payment was successful",
+      "successDescription": "Your order has been placed and will be processed soon.",
+      "failureTitle": "Payment failed",
+      "failureDescription": "This order's payment didn't go through. You can try again.",
+      "invalidTitle": "Invalid payment result",
+      "invalidDescription": "This payment link's details aren't valid.",
+      "orderCodeLabel": "Order number",
+      "continueShoppingCta": "Back to shop"
+    }
+  },
+  "Orders": {
+    "title": "My Orders",
+    "apiDownTitle": "Couldn't reach the server",
+    "apiDownDescription": "Please try again in a moment.",
+    "emptyTitle": "You haven't placed an order yet",
+    "emptyDescription": "Your orders will show up here after you check out.",
+    "browseCta": "Browse products",
+    "itemCount": "{count, plural, one {# item} other {# items}}",
+    "prev": "Previous",
+    "next": "Next",
+    "pageOf": "Page {page} of {pageCount}",
+    "status": {
+      "pending": "Awaiting payment",
+      "paid": "Paid",
+      "processing": "Processing",
+      "shipped": "Shipped",
+      "delivered": "Delivered",
+      "cancelled": "Cancelled",
+      "refunded": "Refunded"
+    },
+    "detail": {
+      "title": "Order {code}",
+      "notFoundTitle": "Order not found",
+      "notFoundDescription": "This order doesn't exist or doesn't belong to you.",
+      "itemsTitle": "Order items",
+      "qtyAtPrice": "{qty} × {price}",
+      "subtotalLabel": "Subtotal",
+      "discountLabel": "Discount",
+      "discountWithCode": "Discount ({code})",
+      "shippingLabel": "Shipping",
+      "totalLabel": "Total",
+      "addressTitle": "Recipient address",
+      "shippingMethodTitle": "Shipping method",
+      "trackingCode": "Tracking code: {code}",
+      "timelineTitle": "Order timeline"
     }
   }
 }

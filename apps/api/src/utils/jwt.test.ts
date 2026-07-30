@@ -5,10 +5,11 @@ import { signAccessToken, verifyAccessToken } from "./jwt.js";
 
 describe("signAccessToken / verifyAccessToken", () => {
   it("round-trips the payload", () => {
-    const token = signAccessToken({ sub: "user-1", role: "customer" });
+    const token = signAccessToken({ sub: "user-1", role: "customer", accountType: "wholesale" });
     const payload = verifyAccessToken(token);
     expect(payload.sub).toBe("user-1");
     expect(payload.role).toBe("customer");
+    expect(payload.accountType).toBe("wholesale");
   });
 
   it("rejects a token signed with a different secret", () => {

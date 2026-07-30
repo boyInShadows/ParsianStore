@@ -6,6 +6,7 @@ import { testDbUri } from "../../config/testDbUri.js";
 import { BrandModel } from "../../models/Brand.js";
 import { CategoryModel } from "../../models/Category.js";
 import { ProductModel } from "../../models/Product.js";
+import { signAccessToken } from "../../utils/jwt.js";
 
 const TEST_URI = testDbUri("parsian-store-test-search-routes");
 let server: Server;
@@ -48,7 +49,7 @@ interface Envelope<T> {
   meta?: { total: number };
 }
 
-async function seedProduct() {
+async function seedProduct(overrides: Record<string, unknown> = {}) {
   const brand = await BrandModel.create({
     name: { fa: "بوش", en: "Bosch" },
     slug: "bosch",
@@ -76,7 +77,17 @@ async function seedProduct() {
       countryOfManufacture: "Germany",
       verificationCode: "VER-SEARCH-1",
     },
+    ...overrides,
   });
+}
+
+function accountCookie(accountType: "retail" | "wholesale"): string {
+  const token = signAccessToken({
+    sub: new mongoose.Types.ObjectId().toString(),
+    role: "customer",
+    accountType,
+  });
+  return `accessToken=${token}`;
 }
 
 describe("GET /catalog/search", () => {
@@ -99,6 +110,23 @@ describe("GET /catalog/search", () => {
   it("rejects a malformed vehicle key with 400", async () => {
     const res = await fetch(`${baseUrl}/api/v1/catalog/search?vehicle=not-a-key`);
     expect(res.status).toBe(400);
+  });
+
+  it("P6.S1: resolves the wholesale price for a wholesale account and never leaks the raw field", async () => {
+    await seedProduct({ priceRial: 1_500_000, wholesalePriceRial: 1_275_000 });
+    const url = `${baseUrl}/api/v1/catalog/search?q=${encodeURIComponent("ترمز")}`;
+
+    const wholesaleRes = await fetch(url, { headers: { cookie: accountCookie("wholesale") } });
+    const wholesaleText = await wholesaleRes.text();
+    expect(wholesaleText).not.toContain("wholesalePriceRial");
+    const wholesaleBody = JSON.parse(wholesaleText) as Envelope<
+      { priceRial: number; isWholesalePrice: boolean }[]
+    >;
+    expect(wholesaleBody.data[0]!.priceRial).toBe(1_275_000);
+    expect(wholesaleBody.data[0]!.isWholesalePrice).toBe(true);
+
+    const guestRes = await fetch(url);
+    expect(await guestRes.text()).not.toContain("wholesalePriceRial");
   });
 });
 

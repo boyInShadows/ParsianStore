@@ -51,6 +51,19 @@ const envSchema = z.object({
   // a Meilisearch driver via MEILI_HOST/MEILI_KEY later, same enum-of-one
   // pattern as STORAGE_DRIVER above until that second driver actually exists).
   SEARCH_DRIVER: z.enum(["mongo"]).default("mongo"),
+
+  // P6.S3 — payment. ZARINPAL_MERCHANT_ID stays optional here (same
+  // "required-if-selected" split as KAVENEGAR_API_KEY above) -- enforced
+  // in providers/payment/index.ts's factory instead, not here.
+  PAYMENT_PROVIDER: z.enum(["mock", "zarinpal"]).default("mock"),
+  ZARINPAL_MERCHANT_ID: z.string().optional(),
+  // z.coerce.boolean() is a real footgun for an env var: Boolean("false")
+  // is true in JS, so it would silently treat ZARINPAL_SANDBOX=false as
+  // true. An explicit string-literal parse avoids that.
+  ZARINPAL_SANDBOX: z
+    .enum(["true", "false"])
+    .default("true")
+    .transform((value) => value === "true"),
 });
 
 export type Env = z.infer<typeof envSchema>;

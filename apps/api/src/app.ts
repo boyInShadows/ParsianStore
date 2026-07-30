@@ -13,13 +13,19 @@ import { apiRateLimiter } from "./middleware/rateLimit.js";
 import { requestId } from "./middleware/requestId.js";
 import { sanitizeRequest } from "./middleware/sanitize.js";
 import { authenticityRouter } from "./modules/authenticity/authenticity.routes.js";
+import { addressesRouter } from "./modules/addresses/addresses.routes.js";
 import { authRouter } from "./modules/auth/auth.routes.js";
+import { cartRouter } from "./modules/cart/cart.routes.js";
 import { adminCatalogRouter } from "./modules/catalog/catalog.admin.routes.js";
 import { catalogRouter } from "./modules/catalog/catalog.routes.js";
+import { checkoutRouter } from "./modules/checkout/checkout.routes.js";
 import { fitmentRouter } from "./modules/fitment/fitment.routes.js";
 import { geoRouter } from "./modules/geo/geo.routes.js";
 import { adminInventoryRouter } from "./modules/inventory/inventory.admin.routes.js";
+import { ordersRouter } from "./modules/orders/orders.routes.js";
+import { paymentsRouter } from "./modules/payments/payments.routes.js";
 import { vehiclesRouter } from "./modules/vehicles/vehicles.routes.js";
+import { wishlistRouter } from "./modules/wishlist/wishlist.routes.js";
 import { uploadsDir } from "./providers/storage/index.js";
 
 export function healthHandler(_req: Request, res: Response): void {
@@ -44,6 +50,10 @@ app.use("/api/v1", apiRateLimiter);
 
 app.get("/api/v1/health", healthHandler);
 app.use("/api/v1/auth", authRouter);
+// optionalAuth is applied inside cartRouter itself -- unlike every
+// requireAuth-gated router, cart must work for a real guest per §9's own
+// route shape (/cart, not /me/cart).
+app.use("/api/v1/cart", cartRouter);
 app.use("/api/v1/vehicles", vehiclesRouter);
 app.use("/api/v1/geo", geoRouter);
 app.use("/api/v1/catalog", catalogRouter);
@@ -51,6 +61,24 @@ app.use("/api/v1/admin/catalog", adminCatalogRouter);
 app.use("/api/v1/authenticity", authenticityRouter);
 app.use("/api/v1/fitment", fitmentRouter);
 app.use("/api/v1/admin/inventory", adminInventoryRouter);
+// requireAuth is applied inside wishlistRouter itself (matches how
+// catalog.admin.routes.ts's entity routers apply their own middleware
+// chain internally) -- no shared `/me` parent router yet, this is the
+// first `/me/*` resource; app.ts's own style is flat per-resource mounts.
+app.use("/api/v1/me/wishlist", wishlistRouter);
+// requireAuth is applied inside addressesRouter itself, same style as
+// wishlistRouter above -- P6.S2's address book, checkout's first real
+// dependency (auth-only per the owner's own decision, no guest identity).
+app.use("/api/v1/me/addresses", addressesRouter);
+// P6.S5. requireAuth is applied inside checkoutRouter itself, same style
+// as wishlistRouter/addressesRouter above.
+app.use("/api/v1/checkout", checkoutRouter);
+// P7.S1. requireAuth inside ordersRouter itself, same style as every
+// other /me/* router above.
+app.use("/api/v1/me/orders", ordersRouter);
+// No auth on paymentsRouter -- see payments.routes.ts, this is the
+// gateway's own redirect target, not a client-called resource.
+app.use("/api/v1/payments", paymentsRouter);
 // LocalDiskStorageProvider's saved variants (P2.S8) — served directly, no
 // auth: product/category imagery is public by nature. P2.S9 security
 // header audit: helmet()'s default Cross-Origin-Resource-Policy is

@@ -5,7 +5,7 @@ import { logger } from "../config/logger.js";
 import { BrandModel } from "../models/Brand.js";
 import { CategoryModel } from "../models/Category.js";
 import { FitmentModel } from "../models/Fitment.js";
-import { ProductModel } from "../models/Product.js";
+import { computeProductSearchText, ProductModel } from "../models/Product.js";
 import { VehicleGenModel } from "../models/VehicleGen.js";
 import { VehicleModelModel } from "../models/VehicleModel.js";
 import { BRAND_SEED_DATA, CATEGORY_TEMPLATES, SUPPLY_ROUTE_ROTATION } from "./catalog.data.js";
@@ -99,10 +99,20 @@ export async function seedCatalog(): Promise<void> {
           Math.round(
             ((template.priceMaxRial - template.priceMinRial) * i) / (VARIANTS_PER_TEMPLATE - 1),
           );
+        // P6.S1: dev/test data for wholesale pricing -- 15% off retail
+        // (a real, defensible trade-discount figure, not an arbitrary
+        // number), rounded to the nearest 1,000 Rial the same way an
+        // admin would actually round a price. Real wholesale prices are
+        // set per-product via the (still nonexistent) admin CRUD later;
+        // this is only the seed/dev fixture.
+        const wholesalePriceRial = Math.round((priceRial * 0.85) / 1000) * 1000;
         const slug = `${template.slugBase}-${vehicle.modelSlug}`;
         const sku = `SKU-${group.categorySlug}-${template.slugBase}-${vehicle.modelSlug}`
           .toUpperCase()
           .replace(/[^A-Z0-9]+/g, "-");
+
+        const oemNumbers = [`${template.oemPrefix}-${vehicle.modelSlug.toUpperCase()}`];
+        const crossRefNumbers = [`XREF-${sku}`];
 
         const product = await ProductModel.findOneAndUpdate(
           { slug },
@@ -110,13 +120,25 @@ export async function seedCatalog(): Promise<void> {
             name: template.name,
             slug,
             sku,
-            oemNumbers: [`${template.oemPrefix}-${vehicle.modelSlug.toUpperCase()}`],
-            crossRefNumbers: [`XREF-${sku}`],
+            oemNumbers,
+            crossRefNumbers,
+            // findOneAndUpdate is query middleware -- Product's `pre("save")`
+            // hook (document middleware) never fires here, so searchText
+            // must be computed explicitly or it silently stays empty (see
+            // computeProductSearchText's own doc comment for the real bug
+            // this was: search against the seeded catalog was non-functional).
+            searchText: computeProductSearchText({
+              name: template.name,
+              sku,
+              oemNumbers,
+              crossRefNumbers,
+            }),
             brandId: brandDoc!._id,
             categoryId: category._id,
             attributes: [],
             media: [],
             priceRial,
+            wholesalePriceRial,
             taxRate: 9,
             stock: 5 + (productCount % 20),
             lowStockAt: 5,

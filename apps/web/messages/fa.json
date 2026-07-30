@@ -160,7 +160,241 @@
     "product": {
       "inStock": "موجود",
       "outOfStock": "ناموجود",
-      "noPhoto": "بدون تصویر"
+      "noPhoto": "بدون تصویر",
+      "wholesalePriceBadge": "قیمت عمده‌فروشی",
+      "wishlist": {
+        "add": "افزودن به علاقه‌مندی‌ها",
+        "remove": "حذف از علاقه‌مندی‌ها",
+        "error": "خطا در به‌روزرسانی علاقه‌مندی‌ها، دوباره تلاش کنید"
+      },
+      "addToCart": {
+        "qtyLabel": "تعداد",
+        "addButton": "افزودن به سبد خرید",
+        "addingButton": "در حال افزودن...",
+        "addedToast": "به سبد خرید افزوده شد",
+        "errorToast": "خطا در افزودن به سبد خرید، دوباره تلاش کنید"
+      }
+    },
+    "pdp": {
+      "notFound": {
+        "title": "کالا یافت نشد",
+        "description": "این کالا وجود ندارد یا حذف شده است.",
+        "backHome": "بازگشت به صفحه اصلی"
+      },
+      "authenticity": {
+        "title": "اصالت کالا",
+        "supplyRouteLabel": "منبع تأمین",
+        "supplyRoute": {
+          "oem": "OEM",
+          "genuine-imported": "اصلی وارداتی",
+          "domestic": "تولید داخل",
+          "grade1-aftermarket": "درجه ۱ بازار"
+        },
+        "sourceBrandLabel": "برند سازنده",
+        "countryLabel": "کشور تولید",
+        "verificationCodeLabel": "کد استعلام اصالت",
+        "guideLink": "راهنمای تشخیص اصالت"
+      },
+      "specs": {
+        "title": "مشخصات فنی",
+        "weight": "وزن (گرم)",
+        "dimensions": "ابعاد (میلی‌متر)",
+        "warranty": "گارانتی"
+      },
+      "oemTable": {
+        "title": "کد فنی و شماره‌های معادل",
+        "oemNumbers": "شماره اصلی (OEM)",
+        "crossRefNumbers": "شماره‌های معادل"
+      },
+      "fitment": {
+        "exact": "این قطعه دقیقاً با خودروی شما سازگار است.",
+        "likely": "این قطعه احتمالاً با خودروی شما سازگار است.",
+        "check": "سازگاری این قطعه با خودروی شما تأیید نشده — پیش از خرید با کارشناس تماس بگیرید.",
+        "checkVehicle": "برای بررسی سازگاری، ابتدا یک خودرو در گاراژ خود انتخاب کنید."
+      },
+      "related": {
+        "title": "قطعات مرتبط"
+      },
+      "brandLink": "مشاهده همه محصولات {brand}"
+    },
+    "search": {
+      "title": "نتایج جستجو",
+      "heading": "نتایج جستجو برای «{query}»",
+      "prompt": "برای جستجو، عبارتی را در بالای صفحه وارد کنید.",
+      "emptyHint": "املای عبارت را بررسی کنید یا از نام سیستم خودرو (مثلاً «ترمز») استفاده کنید.",
+      "prev": "قبلی",
+      "next": "بعدی",
+      "pageOf": "صفحه {page} از {pageCount}"
     }
+  },
+  "Header": {
+    "signInAria": "ورود",
+    "signedInAria": "حساب کاربری",
+    "signOutAria": "خروج از حساب"
+  },
+  "Auth": {
+    "login": {
+      "title": "ورود",
+      "phoneLabel": "شماره موبایل",
+      "phonePlaceholder": "09121234567",
+      "phoneError": "شماره موبایل معتبر نیست",
+      "requestCodeButton": "ارسال کد تایید",
+      "requestingCodeButton": "در حال ارسال...",
+      "codeLabel": "کد تایید",
+      "codeHelper": "کد ۶ رقمی ارسال‌شده به '{phone}' را وارد کنید",
+      "verifyButton": "تایید و ورود",
+      "verifyingButton": "در حال بررسی...",
+      "changePhone": "تغییر شماره موبایل"
+    }
+  },
+  "Cart": {
+    "title": "سبد خرید",
+    "noPhoto": "بدون تصویر",
+    "emptyTitle": "سبد خرید شما خالی است",
+    "emptyDescription": "هنوز محصولی به سبد خرید خود اضافه نکرده‌اید.",
+    "browseCta": "مشاهده محصولات",
+    "decreaseAria": "کاهش تعداد",
+    "increaseAria": "افزایش تعداد",
+    "removeAria": "حذف از سبد خرید",
+    "stockIssue": "تنها '{count}' عدد موجود است",
+    "priceChanged": "قیمت این محصول از زمان افزودن تغییر کرده است",
+    "wholesalePriceBadge": "قیمت عمده‌فروشی",
+    "subtotalLabel": "جمع جزء",
+    "discountLabel": "تخفیف",
+    "totalLabel": "مبلغ قابل پرداخت",
+    "couponPlaceholder": "کد تخفیف",
+    "couponApplyButton": "اعمال کد",
+    "couponApplyingButton": "در حال بررسی…",
+    "couponRemoveButton": "حذف کد تخفیف",
+    "continueToCheckout": "ادامه به تسویه‌حساب",
+    "mutationError": "خطا در به‌روزرسانی سبد خرید، دوباره تلاش کنید"
+  },
+  "Checkout": {
+    "title": "تسویه‌حساب",
+    "emptyCartTitle": "سبد خرید شما خالی است",
+    "emptyCartDescription": "برای تسویه‌حساب، ابتدا محصولی به سبد خرید خود اضافه کنید.",
+    "browseCta": "مشاهده محصولات",
+    "submitError": "ثبت سفارش با خطا مواجه شد، دوباره تلاش کنید",
+    "address": {
+      "title": "آدرس گیرنده",
+      "loading": "در حال بارگذاری آدرس‌ها…",
+      "emptyHint": "هنوز آدرسی ثبت نکرده‌اید.",
+      "addNew": "افزودن آدرس جدید",
+      "cancel": "انصراف",
+      "provinceLabel": "استان",
+      "cityLabel": "شهر",
+      "selectPlaceholder": "انتخاب کنید",
+      "lineLabel": "آدرس کامل",
+      "postalCodeLabel": "کد پستی",
+      "plateLabel": "پلاک",
+      "unitLabel": "واحد",
+      "receiverNameLabel": "نام گیرنده",
+      "receiverPhoneLabel": "شماره تماس گیرنده",
+      "saveButton": "ذخیره آدرس",
+      "savingButton": "در حال ذخیره…",
+      "radioGroupLabel": "انتخاب آدرس گیرنده"
+    },
+    "shipping": {
+      "title": "روش ارسال",
+      "loading": "در حال محاسبه هزینه ارسال…",
+      "emptyHint": "روش ارسالی برای این آدرس در دسترس نیست",
+      "errorHint": "محاسبه هزینه ارسال با خطا مواجه شد",
+      "radioGroupLabel": "انتخاب روش ارسال"
+    },
+    "summary": {
+      "title": "خلاصه سفارش",
+      "subtotalLabel": "جمع جزء",
+      "discountLabel": "تخفیف",
+      "shippingLabel": "هزینه ارسال",
+      "shippingPending": "—",
+      "totalLabel": "مبلغ قابل پرداخت",
+      "placeOrderButton": "ثبت سفارش و پرداخت",
+      "placingOrderButton": "در حال ثبت سفارش…",
+      "incompleteHint": "برای ادامه، آدرس و روش ارسال را انتخاب کنید"
+    },
+    "result": {
+      "loading": "در حال بررسی نتیجه پرداخت…",
+      "successTitle": "پرداخت شما موفق بود",
+      "successDescription": "سفارش شما ثبت شد و به‌زودی پردازش می‌شود.",
+      "failureTitle": "پرداخت ناموفق بود",
+      "failureDescription": "پرداخت این سفارش انجام نشد. می‌توانید دوباره تلاش کنید.",
+      "invalidTitle": "نتیجه پرداخت نامعتبر است",
+      "invalidDescription": "اطلاعات این لینک پرداخت معتبر نیست.",
+      "orderCodeLabel": "شماره سفارش",
+      "continueShoppingCta": "بازگشت به فروشگاه"
+    }
+  },
+  "Orders": {
+    "title": "سفارش‌های من",
+    "apiDownTitle": "مشکلی در ارتباط با سرور پیش آمد",
+    "apiDownDescription": "لطفاً کمی بعد دوباره تلاش کنید.",
+    "emptyTitle": "هنوز سفارشی ثبت نکرده‌اید",
+    "emptyDescription": "سفارش‌های شما پس از خرید در همین صفحه نمایش داده می‌شوند.",
+    "browseCta": "مشاهده محصولات",
+    "itemCount": "{count} قلم",
+    "prev": "قبلی",
+    "next": "بعدی",
+    "pageOf": "صفحه {page} از {pageCount}",
+    "status": {
+      "pending": "در انتظار پرداخت",
+      "paid": "پرداخت‌شده",
+      "processing": "در حال آماده‌سازی",
+      "shipped": "ارسال‌شده",
+      "delivered": "تحویل داده‌شده",
+      "cancelled": "لغوشده",
+      "refunded": "بازپرداخت‌شده"
+    },
+    "detail": {
+      "title": "سفارش {code}",
+      "notFoundTitle": "سفارش یافت نشد",
+      "notFoundDescription": "این سفارش وجود ندارد یا متعلق به شما نیست.",
+      "itemsTitle": "اقلام سفارش",
+      "qtyAtPrice": "{qty} عدد × {price}",
+      "subtotalLabel": "جمع جزء",
+      "discountLabel": "تخفیف",
+      "discountWithCode": "تخفیف ({code})",
+      "shippingLabel": "هزینه ارسال",
+      "totalLabel": "مبلغ نهایی",
+      "addressTitle": "آدرس گیرنده",
+      "shippingMethodTitle": "روش ارسال",
+      "trackingCode": "کد رهگیری: {code}",
+      "timelineTitle": "روند سفارش"
+    }
+  },
+  "Addresses": {
+    "title": "آدرس‌های من",
+    "loading": "در حال بارگذاری آدرس‌ها…",
+    "emptyTitle": "هنوز آدرسی ثبت نکرده‌اید",
+    "emptyDescription": "آدرس‌هایی که هنگام خرید ثبت می‌کنید، در همین‌جا نمایش داده می‌شوند.",
+    "addNew": "افزودن آدرس جدید",
+    "editAria": "ویرایش",
+    "deleteAria": "حذف",
+    "deleteError": "حذف آدرس با خطا مواجه شد، دوباره تلاش کنید",
+    "form": {
+      "cancel": "انصراف",
+      "provinceLabel": "استان",
+      "cityLabel": "شهر",
+      "selectPlaceholder": "انتخاب کنید",
+      "lineLabel": "آدرس کامل",
+      "postalCodeLabel": "کد پستی",
+      "plateLabel": "پلاک",
+      "unitLabel": "واحد",
+      "receiverNameLabel": "نام گیرنده",
+      "receiverPhoneLabel": "شماره تماس گیرنده",
+      "saveButton": "ذخیره آدرس",
+      "savingButton": "در حال ذخیره…"
+    }
+  },
+  "Wishlist": {
+    "title": "علاقه‌مندی‌های من",
+    "itemCount": "{count} کالا",
+    "apiDownTitle": "مشکلی در ارتباط با سرور پیش آمد",
+    "apiDownDescription": "لطفاً کمی بعد دوباره تلاش کنید.",
+    "emptyTitle": "هنوز کالایی به علاقه‌مندی‌ها اضافه نکرده‌اید",
+    "emptyDescription": "با زدن آیکون قلب روی هر کالا، آن را همین‌جا ذخیره کنید تا بعداً راحت پیدایش کنید.",
+    "browseCta": "مشاهده محصولات",
+    "prev": "قبلی",
+    "next": "بعدی",
+    "pageOf": "صفحه {page} از {pageCount}"
   }
 }

@@ -9,10 +9,25 @@ import {
 export const USER_ROLES = ["customer", "support", "operator", "admin", "superadmin"] as const;
 export type UserRole = (typeof USER_ROLES)[number];
 
-// §3.2 Address: embedded, not a top-level collection.
+// P6.S1: a pricing-tier concept, deliberately separate from `role` (RBAC/
+// staff permission level) -- a wholesale customer is still `role:
+// "customer"`. No self-service application flow exists yet (owner's
+// explicit choice) -- an admin flips this via scripts/setAccountType.ts.
+export const ACCOUNT_TYPES = ["retail", "wholesale"] as const;
+export type AccountType = (typeof ACCOUNT_TYPES)[number];
+
+// §3.2 Address: embedded, not a top-level collection. `provinceId`/
+// `cityId` reference the real Province/City collections (P2.S7) --
+// P6.S2's own migration off plain province/city strings, so this reuses
+// the existing /geo/provinces and /geo/cities?provinceId cascade
+// endpoints directly rather than persisting disconnected display names.
+// `_id` is declared here (unlike GarageEntry) because P6.S2's own
+// /me/addresses routes need to address a specific entry via PATCH/DELETE
+// /me/addresses/:id -- same reasoning CartItem's own `_id` comment gives.
 export interface Address {
-  province: string;
-  city: string;
+  _id?: Types.ObjectId;
+  provinceId: Types.ObjectId;
+  cityId: Types.ObjectId;
   line: string;
   postalCode: string;
   plate?: string;
@@ -43,6 +58,7 @@ export interface User extends WithTimestamps, WithSoftDelete {
   // can't leak into an API response by accident.
   passwordHash?: string;
   role: UserRole;
+  accountType: AccountType;
   addresses: Address[];
   garage: GarageEntry[];
   walletBalanceRial: number;
@@ -54,8 +70,8 @@ type UserModelType = Model<User, object, SoftDeleteMethods>;
 
 const addressSchema = new Schema<Address>(
   {
-    province: { type: String, required: true },
-    city: { type: String, required: true },
+    provinceId: { type: Schema.Types.ObjectId, ref: "Province", required: true },
+    cityId: { type: Schema.Types.ObjectId, ref: "City", required: true },
     line: { type: String, required: true },
     postalCode: { type: String, required: true },
     plate: String,
@@ -84,6 +100,7 @@ const userSchema = new Schema<User, UserModelType, SoftDeleteMethods>({
   email: { type: String },
   passwordHash: { type: String, select: false },
   role: { type: String, enum: USER_ROLES, default: "customer", required: true },
+  accountType: { type: String, enum: ACCOUNT_TYPES, default: "retail", required: true },
   addresses: { type: [addressSchema], default: [] },
   garage: { type: [garageEntrySchema], default: [] },
   walletBalanceRial: { type: Number, default: 0 },

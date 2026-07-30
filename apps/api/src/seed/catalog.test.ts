@@ -8,6 +8,7 @@ import { CategoryModel } from "../models/Category.js";
 import { FitmentModel } from "../models/Fitment.js";
 import { ProductModel } from "../models/Product.js";
 import { VehicleMakeModel } from "../models/VehicleMake.js";
+import { MongoSearchProvider } from "../providers/search/MongoSearchProvider.js";
 import { CATEGORY_TEMPLATES } from "./catalog.data.js";
 import { seedCatalog } from "./catalog.js";
 
@@ -106,4 +107,41 @@ describe("seedCatalog", () => {
     expect(bosch?.name.fa).toBe("بوش");
     expect(bosch?.country).toBe("Germany");
   });
+
+  // Real regression: seedCatalog upserts via findOneAndUpdate, which is
+  // Mongoose query middleware -- Product's pre("save") hook (document
+  // middleware) never fires for it, so searchText silently stayed empty
+  // for every seeded product until this was caught building P5.S3's
+  // search results page (search against the real seeded catalog was
+  // non-functional -- both the $text and substring-regex legs of
+  // MongoSearchProvider depend on searchText). Asserts the fix at both
+  // the data level and through the actual search path a shopper uses.
+  it("populates searchText for every seeded product (not left empty by the upsert path)", async () => {
+    await seedCatalog();
+    const withEmptySearchText = await ProductModel.countDocuments({ searchText: "" });
+    expect(withEmptySearchText).toBe(0);
+  }, 60_000);
+
+  // P6.S1: dev/test fixture for wholesale pricing -- every seeded product
+  // gets a computed wholesalePriceRial, always <= its own priceRial (the
+  // Product schema's own validator would reject the opposite).
+  it("populates wholesalePriceRial for every seeded product, always <= priceRial", async () => {
+    await seedCatalog();
+    const products = await ProductModel.find({}).select("+wholesalePriceRial");
+    expect(products.length).toBeGreaterThan(0);
+    for (const product of products) {
+      expect(product.wholesalePriceRial).not.toBeUndefined();
+      expect(product.wholesalePriceRial!).toBeLessThanOrEqual(product.priceRial);
+    }
+  }, 60_000);
+
+  it("is actually findable through MongoSearchProvider.searchProducts by a real Persian substring", async () => {
+    await seedCatalog();
+    const brakePad = await ProductModel.findOne({ "name.fa": /ترمز/ });
+    expect(brakePad).not.toBeNull();
+
+    const provider = new MongoSearchProvider();
+    const { data } = await provider.searchProducts("ترمز", {}, { page: 1, limit: 20 });
+    expect(data.map((p) => p.id)).toContain(brakePad!.id as string);
+  }, 60_000);
 });
