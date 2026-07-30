@@ -22,6 +22,7 @@ import { checkoutRouter } from "./modules/checkout/checkout.routes.js";
 import { fitmentRouter } from "./modules/fitment/fitment.routes.js";
 import { geoRouter } from "./modules/geo/geo.routes.js";
 import { adminInventoryRouter } from "./modules/inventory/inventory.admin.routes.js";
+import { adminOrdersRouter } from "./modules/orders/orders.admin.routes.js";
 import { ordersRouter } from "./modules/orders/orders.routes.js";
 import { paymentsRouter } from "./modules/payments/payments.routes.js";
 import { vehiclesRouter } from "./modules/vehicles/vehicles.routes.js";
@@ -76,6 +77,9 @@ app.use("/api/v1/checkout", checkoutRouter);
 // P7.S1. requireAuth inside ordersRouter itself, same style as every
 // other /me/* router above.
 app.use("/api/v1/me/orders", ordersRouter);
+// P8.S1. requireAuth+requireStaff() applied inside adminOrdersRouter
+// itself, same style as adminCatalogRouter/adminInventoryRouter above.
+app.use("/api/v1/admin/orders", adminOrdersRouter);
 // No auth on paymentsRouter -- see payments.routes.ts, this is the
 // gateway's own redirect target, not a client-called resource.
 app.use("/api/v1/payments", paymentsRouter);

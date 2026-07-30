@@ -112,7 +112,10 @@ export const orderDetailSchema = z.object({
 });
 export type OrderDetailDto = z.infer<typeof orderDetailSchema>;
 
-const paginationMetaSchema = z.object({
+// Exported (not module-private) so admin-order.ts can build its own
+// list-response envelopes against the identical {total,page,limit} shape
+// without redefining it.
+export const paginationMetaSchema = z.object({
   total: z.number(),
   page: z.number(),
   limit: z.number(),
