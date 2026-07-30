@@ -1,8 +1,14 @@
 import type { NextFunction, Request, Response } from "express";
 import { nanoid } from "nanoid";
 import { env } from "../../config/env.js";
+import * as shippingService from "../shipping/shipping.service.js";
 import * as cartService from "./cart.service.js";
-import type { AddItemInput, CartItemIdParam, UpdateItemInput } from "./cart.schema.js";
+import type {
+  AddItemInput,
+  CartItemIdParam,
+  EstimateShippingInput,
+  UpdateItemInput,
+} from "./cart.schema.js";
 
 const ANON_COOKIE_MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000;
 
@@ -99,6 +105,27 @@ export async function removeItemHandler(
     await cartService.removeItem(identity, id);
     const cart = await cartService.getCart(identity, req.user?.accountType);
     res.json({ ok: true, data: cart });
+  } catch (err) {
+    next(err);
+  }
+}
+
+// P6.S4 -- requireAuth is applied on this one route specifically (see
+// cart.routes.ts), so req.user is always populated here, unlike every
+// other handler in this file.
+export async function estimateShippingHandler(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  try {
+    const { addressId } = req.body as EstimateShippingInput;
+    const data = await shippingService.estimateShipping(
+      req.user!.sub,
+      addressId,
+      req.user!.accountType,
+    );
+    res.json({ ok: true, data });
   } catch (err) {
     next(err);
   }

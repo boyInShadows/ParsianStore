@@ -6,7 +6,11 @@ import { testDbUri } from "../../config/testDbUri.js";
 import { BrandModel } from "../../models/Brand.js";
 import { CartModel } from "../../models/Cart.js";
 import { CategoryModel } from "../../models/Category.js";
+import { CityModel } from "../../models/City.js";
 import { ProductModel } from "../../models/Product.js";
+import { ProvinceModel } from "../../models/Province.js";
+import { ShippingRateModel } from "../../models/ShippingRate.js";
+import { UserModel } from "../../models/User.js";
 import { signAccessToken } from "../../utils/jwt.js";
 
 const TEST_URI = testDbUri("parsian-store-test-cart-routes");
@@ -31,6 +35,10 @@ beforeEach(async () => {
     ProductModel.deleteMany({}),
     CategoryModel.deleteMany({}),
     BrandModel.deleteMany({}),
+    CityModel.deleteMany({}),
+    ProvinceModel.deleteMany({}),
+    ShippingRateModel.deleteMany({}),
+    UserModel.deleteMany({}),
   ]);
 });
 
@@ -345,5 +353,210 @@ describe("P6.S1: wholesale pricing in the cart", () => {
       body: JSON.stringify({ productId: product._id.toString(), qty: 1 }),
     });
     expect(await res.text()).not.toContain("wholesalePriceRial");
+  });
+});
+
+interface ShippingOptionDto {
+  methodCode: string;
+  name: { fa: string; en: string };
+  priceRial: number;
+}
+
+interface EstimateShippingDto {
+  totalWeightGram: number;
+  options: ShippingOptionDto[];
+}
+
+async function seedGeo() {
+  const tehran = await ProvinceModel.create({
+    name: { fa: "تهران", en: "Tehran" },
+    slug: "tehran",
+  });
+  const fars = await ProvinceModel.create({ name: { fa: "فارس", en: "Fars" }, slug: "fars" });
+  const tehranCity = await CityModel.create({
+    provinceId: tehran._id,
+    name: { fa: "تهران", en: "Tehran" },
+    slug: "tehran-city",
+  });
+  const shiraz = await CityModel.create({
+    provinceId: fars._id,
+    name: { fa: "شیراز", en: "Shiraz" },
+    slug: "shiraz",
+  });
+  return { tehran, fars, tehranCity, shiraz };
+}
+
+async function seedShippingRates() {
+  await ShippingRateModel.insertMany([
+    {
+      methodCode: "post-pishtaz",
+      zone: "tehran",
+      minWeightGram: 0,
+      maxWeightGram: 1000,
+      priceRial: 250_000,
+    },
+    {
+      methodCode: "post-pishtaz",
+      zone: "tehran",
+      minWeightGram: 1000,
+      maxWeightGram: null,
+      priceRial: 400_000,
+    },
+    {
+      methodCode: "post-pishtaz",
+      zone: "other",
+      minWeightGram: 0,
+      maxWeightGram: 1000,
+      priceRial: 350_000,
+    },
+    {
+      methodCode: "post-pishtaz",
+      zone: "other",
+      minWeightGram: 1000,
+      maxWeightGram: null,
+      priceRial: 550_000,
+    },
+    {
+      methodCode: "intracity",
+      zone: "tehran",
+      minWeightGram: 0,
+      maxWeightGram: null,
+      priceRial: 150_000,
+    },
+  ]);
+}
+
+async function createUserWithAddress(
+  provinceId: string,
+  cityId: string,
+): Promise<{ userId: string; addressId: string; cookie: string }> {
+  const user = await UserModel.create({
+    phone: `+989${Math.floor(100000000 + Math.random() * 800000000)}`,
+    name: "Checkout Test User",
+  });
+  const userId = user.id as string;
+  const cookie = customerCookie(userId);
+
+  const res = await fetch(`${baseUrl}/api/v1/me/addresses`, {
+    method: "POST",
+    headers: { cookie, "content-type": "application/json" },
+    body: JSON.stringify({
+      provinceId,
+      cityId,
+      line: "خیابان آزادی",
+      postalCode: "1234567890",
+      receiverName: "کاربر تست",
+      receiverPhone: "09121234567",
+    }),
+  });
+  const body = (await res.json()) as Envelope<{ id: string }>;
+  return { userId, addressId: body.data.id, cookie };
+}
+
+describe("POST /cart/estimate-shipping", () => {
+  it("rejects with no session", async () => {
+    const res = await fetch(`${baseUrl}/api/v1/cart/estimate-shipping`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ addressId: new mongoose.Types.ObjectId().toString() }),
+    });
+    expect(res.status).toBe(401);
+  });
+
+  it("includes intracity for a Tehran address and picks the right weight bracket", async () => {
+    const { tehran, tehranCity } = await seedGeo();
+    await seedShippingRates();
+    const product = await seedProduct({ weightGram: 500 });
+    const { addressId, cookie } = await createUserWithAddress(
+      tehran._id.toString(),
+      tehranCity._id.toString(),
+    );
+
+    await fetch(`${baseUrl}/api/v1/cart/items`, {
+      method: "POST",
+      headers: { cookie, "content-type": "application/json" },
+      body: JSON.stringify({ productId: product._id.toString(), qty: 1 }),
+    });
+
+    const res = await fetch(`${baseUrl}/api/v1/cart/estimate-shipping`, {
+      method: "POST",
+      headers: { cookie, "content-type": "application/json" },
+      body: JSON.stringify({ addressId }),
+    });
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as Envelope<EstimateShippingDto>;
+    expect(body.data.totalWeightGram).toBe(500);
+    const codes = body.data.options.map((o) => o.methodCode);
+    expect(codes).toContain("intracity");
+    const postPishtaz = body.data.options.find((o) => o.methodCode === "post-pishtaz");
+    expect(postPishtaz?.priceRial).toBe(250_000); // 500g falls in the 0-1000g Tehran bracket
+  });
+
+  it("excludes intracity for a non-Tehran address and uses the 'other' zone rate", async () => {
+    const { fars, shiraz } = await seedGeo();
+    await seedShippingRates();
+    const product = await seedProduct({ weightGram: 1500 });
+    const { addressId, cookie } = await createUserWithAddress(
+      fars._id.toString(),
+      shiraz._id.toString(),
+    );
+
+    await fetch(`${baseUrl}/api/v1/cart/items`, {
+      method: "POST",
+      headers: { cookie, "content-type": "application/json" },
+      body: JSON.stringify({ productId: product._id.toString(), qty: 1 }),
+    });
+
+    const res = await fetch(`${baseUrl}/api/v1/cart/estimate-shipping`, {
+      method: "POST",
+      headers: { cookie, "content-type": "application/json" },
+      body: JSON.stringify({ addressId }),
+    });
+    const body = (await res.json()) as Envelope<EstimateShippingDto>;
+    const codes = body.data.options.map((o) => o.methodCode);
+    expect(codes).not.toContain("intracity");
+    const postPishtaz = body.data.options.find((o) => o.methodCode === "post-pishtaz");
+    expect(postPishtaz?.priceRial).toBe(550_000); // 1500g falls in the 1000g+ "other" bracket
+  });
+
+  it("400s for an empty cart", async () => {
+    const { tehran, tehranCity } = await seedGeo();
+    await seedShippingRates();
+    const { addressId, cookie } = await createUserWithAddress(
+      tehran._id.toString(),
+      tehranCity._id.toString(),
+    );
+
+    const res = await fetch(`${baseUrl}/api/v1/cart/estimate-shipping`, {
+      method: "POST",
+      headers: { cookie, "content-type": "application/json" },
+      body: JSON.stringify({ addressId }),
+    });
+    expect(res.status).toBe(400);
+  });
+
+  it("400s for an address that belongs to a different user", async () => {
+    const { tehran, tehranCity } = await seedGeo();
+    await seedShippingRates();
+    const product = await seedProduct({ weightGram: 500 });
+    const owner = await createUserWithAddress(tehran._id.toString(), tehranCity._id.toString());
+    const strangerUser = await UserModel.create({
+      phone: `+989${Math.floor(100000000 + Math.random() * 800000000)}`,
+      name: "Stranger",
+    });
+    const strangerCookie = customerCookie(strangerUser.id as string);
+
+    await fetch(`${baseUrl}/api/v1/cart/items`, {
+      method: "POST",
+      headers: { cookie: strangerCookie, "content-type": "application/json" },
+      body: JSON.stringify({ productId: product._id.toString(), qty: 1 }),
+    });
+
+    const res = await fetch(`${baseUrl}/api/v1/cart/estimate-shipping`, {
+      method: "POST",
+      headers: { cookie: strangerCookie, "content-type": "application/json" },
+      body: JSON.stringify({ addressId: owner.addressId }),
+    });
+    expect(res.status).toBe(400);
   });
 });

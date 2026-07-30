@@ -81,6 +81,22 @@ async function hydrateAddresses(addresses: Address[]): Promise<AddressView[]> {
   });
 }
 
+/** Used by modules/shipping's estimate-shipping to resolve a zone from
+ * one of the caller's own addresses, without duplicating the "find an
+ * address that belongs to this user" query shape update/deleteAddress
+ * already have. Throws the same 404 an owned-resource lookup would. */
+export async function getOwnAddressProvinceId(
+  userId: string,
+  addressId: string,
+): Promise<Types.ObjectId> {
+  const user = await UserModel.findById(userId);
+  const address = user?.addresses.find((a) => a._id!.toString() === addressId);
+  if (!address) {
+    throw new ApiError(400, "آدرس یافت نشد یا متعلق به شما نیست");
+  }
+  return address.provinceId;
+}
+
 export async function listAddresses(userId: string): Promise<AddressView[]> {
   const user = await UserModel.findById(userId);
   if (!user) {

@@ -17,3 +17,9 @@ export const cartItemIdParamSchema = z.object({
   id: objectId,
 });
 export type CartItemIdParam = z.infer<typeof cartItemIdParamSchema>;
+
+// P6.S4
+export const estimateShippingSchema = z.object({
+  addressId: objectId,
+});
+export type EstimateShippingInput = z.infer<typeof estimateShippingSchema>;
