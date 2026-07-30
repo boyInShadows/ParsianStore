@@ -39,8 +39,20 @@ async function generateOrderCode(): Promise<string> {
   throw new ApiError(500, "امکان تولید کد سفارش منحصربه‌فرد وجود ندارد");
 }
 
-function buildPaymentCallbackUrl(orderId: string): string {
-  return `${env.PUBLIC_URL}/api/v1/payments/callback?orderId=${orderId}`;
+/**
+ * P6.S6: this is what the payment gateway redirects the real shopper's
+ * browser to after they leave the payment page -- so it must be a real
+ * page, not the API's own JSON `GET /payments/callback` (P6.S5's own
+ * scope note already anticipated this: "the real /checkout frontend page
+ * is this endpoint's real first consumer"). The result page's client JS
+ * is the one that actually calls `GET /payments/callback` (unchanged,
+ * still the one authoritative verify path) via fetch once it lands.
+ * Reuses `env.CORS_ORIGINS[0]` as "the web app's own primary origin" --
+ * the same value already trusted to talk to this API, so no new env var.
+ */
+function buildPaymentResultUrl(orderId: string): string {
+  const webBaseUrl = env.CORS_ORIGINS[0];
+  return `${webBaseUrl}/fa/checkout/result?orderId=${orderId}`;
 }
 
 export interface InitiateCheckoutResult {
@@ -179,7 +191,7 @@ export async function initiateCheckout(
   try {
     const result = await paymentProvider.initiate({
       amountRial: totalRial,
-      callbackUrl: buildPaymentCallbackUrl(orderId.toString()),
+      callbackUrl: buildPaymentResultUrl(orderId.toString()),
       description: `پرداخت سفارش ${code}`,
       mobile: user.phone,
       orderId: orderId.toString(),

@@ -241,7 +241,7 @@
       "requestCodeButton": "Send code",
       "requestingCodeButton": "Sending...",
       "codeLabel": "Verification code",
-      "codeHelper": "Enter the 6-digit code sent to {phone}",
+      "codeHelper": "Enter the 6-digit code sent to '{phone}'",
       "verifyButton": "Verify & sign in",
       "verifyingButton": "Verifying...",
       "changePhone": "Change mobile number"
@@ -256,11 +256,65 @@
     "decreaseAria": "Decrease quantity",
     "increaseAria": "Increase quantity",
     "removeAria": "Remove from cart",
-    "stockIssue": "Only {count} available",
+    "stockIssue": "Only '{count}' available",
     "priceChanged": "This product's price has changed since you added it",
     "wholesalePriceBadge": "Wholesale price",
     "subtotalLabel": "Subtotal",
     "continueToCheckout": "Continue to checkout",
     "mutationError": "Couldn't update your cart, try again"
+  },
+  "Checkout": {
+    "title": "Checkout",
+    "emptyCartTitle": "Your cart is empty",
+    "emptyCartDescription": "Add a product to your cart before checking out.",
+    "browseCta": "Browse products",
+    "submitError": "Couldn't place your order, try again",
+    "address": {
+      "title": "Recipient address",
+      "loading": "Loading addresses…",
+      "emptyHint": "You haven't saved an address yet.",
+      "addNew": "Add a new address",
+      "cancel": "Cancel",
+      "provinceLabel": "Province",
+      "cityLabel": "City",
+      "selectPlaceholder": "Select",
+      "lineLabel": "Full address",
+      "postalCodeLabel": "Postal code",
+      "plateLabel": "Plate",
+      "unitLabel": "Unit",
+      "receiverNameLabel": "Recipient name",
+      "receiverPhoneLabel": "Recipient phone",
+      "saveButton": "Save address",
+      "savingButton": "Saving…",
+      "radioGroupLabel": "Choose a recipient address"
+    },
+    "shipping": {
+      "title": "Shipping method",
+      "loading": "Calculating shipping cost…",
+      "emptyHint": "No shipping method is available for this address",
+      "errorHint": "Couldn't calculate shipping cost",
+      "radioGroupLabel": "Choose a shipping method"
+    },
+    "summary": {
+      "title": "Order summary",
+      "subtotalLabel": "Subtotal",
+      "shippingLabel": "Shipping",
+      "shippingPending": "—",
+      "totalLabel": "Total due",
+      "placeOrderButton": "Place order & pay",
+      "placingOrderButton": "Placing order…",
+      "incompleteHint": "Choose an address and shipping method to continue"
+    },
+    "result": {
+      "loading": "Checking your payment result…",
+      "successTitle": "Your payment was successful",
+      "successDescription": "Your order has been placed and will be processed soon.",
+      "failureTitle": "Payment failed",
+      "failureDescription": "This order's payment didn't go through. You can try again.",
+      "invalidTitle": "Invalid payment result",
+      "invalidDescription": "This payment link's details aren't valid.",
+      "orderCodeLabel": "Order number",
+      "continueShoppingCta": "Back to shop"
+    }
   }
 }

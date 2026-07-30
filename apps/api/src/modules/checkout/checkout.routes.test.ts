@@ -174,19 +174,6 @@ async function createUserWithAddress(): Promise<{
   return { userId, cookie, addressId: addrBody.data.id };
 }
 
-/** MockPaymentProvider builds its redirectUrl from env.PUBLIC_URL
- * (checkout.service.ts's buildPaymentCallbackUrl), which in production
- * is the API's own real address -- but this test server binds to a fresh
- * ephemeral port (`app.listen(0)`) precisely so parallel test files never
- * collide, so PUBLIC_URL's fixed default port won't actually match it.
- * Replays the same path + query against the real `baseUrl` instead --
- * this is a test-environment seam, not a behavior the product code
- * should special-case for. */
-function callbackUrlOnTestServer(redirectUrl: string): string {
-  const { pathname, search } = new URL(redirectUrl);
-  return `${baseUrl}${pathname}${search}`;
-}
-
 async function addToCart(cookie: string, productId: string, qty: number): Promise<void> {
   await fetch(`${baseUrl}/api/v1/cart/items`, {
     method: "POST",
@@ -274,7 +261,9 @@ describe("POST /checkout/initiate", () => {
     expect(res.status).toBe(200);
     const body = (await res.json()) as Envelope<CheckoutInitiateDto>;
     expect(body.data.orderCode).toMatch(/^PS-\d{4}-\d{5}$/);
-    expect(body.data.redirectUrl).toContain("/api/v1/payments/callback");
+    // Points at the web app's own result page, not the API's JSON
+    // endpoint -- this is what the gateway redirects a real browser to.
+    expect(body.data.redirectUrl).toContain("/checkout/result");
 
     const order = await OrderModel.findById(body.data.orderId);
     expect(order).not.toBeNull();
@@ -302,11 +291,18 @@ describe("POST /checkout/initiate", () => {
 });
 
 describe("GET /payments/callback", () => {
+  // The gateway callback the browser actually lands on now points at the
+  // web app's own /checkout/result page (see checkout.service.ts's
+  // buildPaymentResultUrl), not this API -- so these tests build the
+  // real API callback URL directly from orderId + the Payment's own
+  // authority (fetched from the DB), the same way the NOK test below
+  // already had to, rather than trying to fetch a redirectUrl that no
+  // longer points here at all.
   async function initiate(): Promise<{
     userId: string;
     cookie: string;
     orderId: string;
-    redirectUrl: string;
+    callbackUrl: string;
     product: Awaited<ReturnType<typeof seedProduct>>;
   }> {
     const product = await seedProduct({ stock: 5, priceRial: 1_500_000 });
@@ -318,13 +314,10 @@ describe("GET /payments/callback", () => {
       body: JSON.stringify({ addressId, shippingMethodCode: "intracity" }),
     });
     const body = (await res.json()) as Envelope<CheckoutInitiateDto>;
-    return {
-      userId,
-      cookie,
-      orderId: body.data.orderId,
-      redirectUrl: body.data.redirectUrl,
-      product,
-    };
+    const orderId = body.data.orderId;
+    const payment = await PaymentModel.findOne({ orderId });
+    const callbackUrl = `${baseUrl}/api/v1/payments/callback?orderId=${orderId}&Authority=${payment!.authority}&Status=OK`;
+    return { userId, cookie, orderId, callbackUrl, product };
   }
 
   it("404s for an unknown order/authority pair", async () => {
@@ -335,11 +328,9 @@ describe("GET /payments/callback", () => {
   });
 
   it("on Status=OK, verifies, marks the order paid, confirms stock, and clears the cart", async () => {
-    const { cookie, orderId, redirectUrl, product } = await initiate();
+    const { cookie, orderId, callbackUrl, product } = await initiate();
 
-    // MockPaymentProvider's own redirectUrl already carries a real
-    // Authority + Status=OK for this exact payment (see checkout.service.ts).
-    const res = await fetch(callbackUrlOnTestServer(redirectUrl));
+    const res = await fetch(callbackUrl);
     expect(res.status).toBe(200);
     const body = (await res.json()) as Envelope<{ orderCode: string; status: string }>;
     expect(body.data.status).toBe("paid");
@@ -369,8 +360,7 @@ describe("GET /payments/callback", () => {
   });
 
   it("is idempotent -- a repeat callback for the same payment doesn't double-process", async () => {
-    const { redirectUrl, orderId, product } = await initiate();
-    const callbackUrl = callbackUrlOnTestServer(redirectUrl);
+    const { callbackUrl, orderId, product } = await initiate();
 
     await fetch(callbackUrl);
     const second = await fetch(callbackUrl);

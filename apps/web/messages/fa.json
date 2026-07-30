@@ -241,7 +241,7 @@
       "requestCodeButton": "ارسال کد تایید",
       "requestingCodeButton": "در حال ارسال...",
       "codeLabel": "کد تایید",
-      "codeHelper": "کد ۶ رقمی ارسال‌شده به {phone} را وارد کنید",
+      "codeHelper": "کد ۶ رقمی ارسال‌شده به '{phone}' را وارد کنید",
       "verifyButton": "تایید و ورود",
       "verifyingButton": "در حال بررسی...",
       "changePhone": "تغییر شماره موبایل"
@@ -256,11 +256,65 @@
     "decreaseAria": "کاهش تعداد",
     "increaseAria": "افزایش تعداد",
     "removeAria": "حذف از سبد خرید",
-    "stockIssue": "تنها {count} عدد موجود است",
+    "stockIssue": "تنها '{count}' عدد موجود است",
     "priceChanged": "قیمت این محصول از زمان افزودن تغییر کرده است",
     "wholesalePriceBadge": "قیمت عمده‌فروشی",
     "subtotalLabel": "جمع جزء",
     "continueToCheckout": "ادامه به تسویه‌حساب",
     "mutationError": "خطا در به‌روزرسانی سبد خرید، دوباره تلاش کنید"
+  },
+  "Checkout": {
+    "title": "تسویه‌حساب",
+    "emptyCartTitle": "سبد خرید شما خالی است",
+    "emptyCartDescription": "برای تسویه‌حساب، ابتدا محصولی به سبد خرید خود اضافه کنید.",
+    "browseCta": "مشاهده محصولات",
+    "submitError": "ثبت سفارش با خطا مواجه شد، دوباره تلاش کنید",
+    "address": {
+      "title": "آدرس گیرنده",
+      "loading": "در حال بارگذاری آدرس‌ها…",
+      "emptyHint": "هنوز آدرسی ثبت نکرده‌اید.",
+      "addNew": "افزودن آدرس جدید",
+      "cancel": "انصراف",
+      "provinceLabel": "استان",
+      "cityLabel": "شهر",
+      "selectPlaceholder": "انتخاب کنید",
+      "lineLabel": "آدرس کامل",
+      "postalCodeLabel": "کد پستی",
+      "plateLabel": "پلاک",
+      "unitLabel": "واحد",
+      "receiverNameLabel": "نام گیرنده",
+      "receiverPhoneLabel": "شماره تماس گیرنده",
+      "saveButton": "ذخیره آدرس",
+      "savingButton": "در حال ذخیره…",
+      "radioGroupLabel": "انتخاب آدرس گیرنده"
+    },
+    "shipping": {
+      "title": "روش ارسال",
+      "loading": "در حال محاسبه هزینه ارسال…",
+      "emptyHint": "روش ارسالی برای این آدرس در دسترس نیست",
+      "errorHint": "محاسبه هزینه ارسال با خطا مواجه شد",
+      "radioGroupLabel": "انتخاب روش ارسال"
+    },
+    "summary": {
+      "title": "خلاصه سفارش",
+      "subtotalLabel": "جمع جزء",
+      "shippingLabel": "هزینه ارسال",
+      "shippingPending": "—",
+      "totalLabel": "مبلغ قابل پرداخت",
+      "placeOrderButton": "ثبت سفارش و پرداخت",
+      "placingOrderButton": "در حال ثبت سفارش…",
+      "incompleteHint": "برای ادامه، آدرس و روش ارسال را انتخاب کنید"
+    },
+    "result": {
+      "loading": "در حال بررسی نتیجه پرداخت…",
+      "successTitle": "پرداخت شما موفق بود",
+      "successDescription": "سفارش شما ثبت شد و به‌زودی پردازش می‌شود.",
+      "failureTitle": "پرداخت ناموفق بود",
+      "failureDescription": "پرداخت این سفارش انجام نشد. می‌توانید دوباره تلاش کنید.",
+      "invalidTitle": "نتیجه پرداخت نامعتبر است",
+      "invalidDescription": "اطلاعات این لینک پرداخت معتبر نیست.",
+      "orderCodeLabel": "شماره سفارش",
+      "continueShoppingCta": "بازگشت به فروشگاه"
+    }
   }
 }
