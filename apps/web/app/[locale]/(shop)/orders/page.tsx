@@ -49,6 +49,7 @@ export default async function OrdersPage({ params, searchParams }: Props) {
   const tStatus = await getTranslations("Orders.status");
   const tAddresses = await getTranslations("Addresses");
   const tWishlist = await getTranslations("Wishlist");
+  const tGarage = await getTranslations("Garage");
 
   // Server-side auth gate -- this page needs no client interactivity at
   // all (plain prev/next links, same shape /search already uses), so
@@ -79,6 +80,7 @@ export default async function OrdersPage({ params, searchParams }: Props) {
         ordersLabel={t("title")}
         addressesLabel={tAddresses("title")}
         wishlistLabel={tWishlist("title")}
+        garageLabel={tGarage("title")}
       />
       <h1 className="mt-6 font-display text-h2 font-black text-text">{t("title")}</h1>
 

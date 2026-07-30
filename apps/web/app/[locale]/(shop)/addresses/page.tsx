@@ -20,6 +20,7 @@ export default async function AddressesPage() {
   const t = await getTranslations("Addresses");
   const tOrders = await getTranslations("Orders");
   const tWishlist = await getTranslations("Wishlist");
+  const tGarage = await getTranslations("Garage");
   const messages: AddressBookMessages = {
     title: t("title"),
     loading: t("loading"),
@@ -50,6 +51,7 @@ export default async function AddressesPage() {
         ordersLabel={tOrders("title")}
         addressesLabel={t("title")}
         wishlistLabel={tWishlist("title")}
+        garageLabel={tGarage("title")}
       />
       <div className="mt-6">
         <AddressBookContent messages={messages} />
