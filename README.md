@@ -7,6 +7,22 @@ imported vehicles. Owned by Ash Tech Group.
 [`masterPlan.md`](./masterPlan.md).** Read it before touching this repo.
 Always-on coding rules for agents/contributors live in [`CLAUDE.md`](./CLAUDE.md).
 
+## Status
+
+Phases 0–6 complete, Phases 7–8 in progress on `development`.
+
+A shopper can browse categories, open a product page, search, save to a
+wishlist, fill a cart, and check out to a paid order — with B2B wholesale
+pricing, an address book, shipping zones/rates, coupons, and a pluggable
+`PaymentProvider` (mock + Zarinpal sandbox). Signed-in users get My Orders,
+addresses, wishlist, and My Garage; staff get admin order management and
+product CRUD with inventory adjust.
+
+Known-open by design, not oversight: brand/vehicle landing pages and product
+compare (deferred out of Phase 5), wallet and pay-on-delivery, and the rest of
+the admin dashboard. The English locale is suspended — `fa` is the shipping
+locale; `en` routing stays in place but is not maintained.
+
 ## Stack
 
 TypeScript (strict) + Zod · Next.js 15 (App Router) · Express 5 ·
@@ -22,7 +38,7 @@ apps/
   web/       Next.js storefront + admin (Tailwind + MUI, route-group split)
   api/       Express 5 API
 packages/
-  schemas/   Zod schemas + shared Persian-text utilities (fa.js)
+  schemas/   Zod schemas + shared Persian-text utilities (src/fa.ts)
   config/    Shared ESLint/Prettier/Tailwind config
 docs/        Audit notes, ADRs, generated API docs
 legacy/      Pre-monorepo Create Next App prototype, kept for reference only
