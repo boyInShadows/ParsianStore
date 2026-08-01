@@ -25,13 +25,17 @@ import {
 } from "@mui/material";
 import { Link } from "@/i18n/navigation";
 type Props = {
-  active: "orders" | "products";
+  active: "orders" | "products" | "discounts" | "customers";
   children: ReactNode;
 };
 
 const NAV_ITEMS = [
   { key: "orders" as const, href: "/admin/orders", label: "سفارش‌ها" },
   { key: "products" as const, href: "/admin/products", label: "محصولات" },
+  // P8.S3. /admin/discounts, not /admin/coupons -- masterPlan §5's own
+  // admin route map already names this surface "coupons & campaigns".
+  { key: "discounts" as const, href: "/admin/discounts", label: "تخفیف‌ها" },
+  { key: "customers" as const, href: "/admin/customers", label: "مشتریان" },
 ];
 
 export function AdminShell({ active, children }: Props) {
