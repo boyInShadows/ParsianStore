@@ -1,5 +1,12 @@
 {
   "$schema": "https://turbo.build/schema.json",
+  // Turbo 2's default UI is "tui" -- a full-screen pane switcher that hides
+  // each task's output behind an arrow-key-selected pane, with limited
+  // scrollback, and that swallows a plain `>` redirect of the dev command.
+  // "stream" interleaves every task's stdout into the normal terminal,
+  // prefixed `api:dev:` / `web:dev:`, so logs are visible, scrollable,
+  // greppable and pipeable.
+  "ui": "stream",
   "tasks": {
     "build": {
       "dependsOn": ["^build"],

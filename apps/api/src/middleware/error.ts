@@ -23,18 +23,29 @@ function isDuplicateKeyError(err: unknown): err is MongoDuplicateKeyError {
 // arity, so `next` must stay declared even though it's unused.
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 export const errorHandler: ErrorRequestHandler = (err, req, res, _next) => {
+  // Every branch below returns a *handled* response, so pino-http records
+  // only the status code -- without these lines a 400/404/409 is a bare
+  // number in the terminal with no way to tell why it happened. Bodies are
+  // unchanged; this only adds the reason to the log.
   if (err instanceof ApiError) {
+    const level = err.statusCode >= 500 ? "error" : "warn";
+    logger[level](
+      { statusCode: err.statusCode, path: req.originalUrl },
+      `ApiError: ${err.message}`,
+    );
     res.status(err.statusCode).json({ ok: false, error: { message: err.message } });
     return;
   }
 
   if (err instanceof ZodError) {
+    logger.warn({ path: req.originalUrl, issues: err.issues }, "Invalid request");
     res.status(400).json({ ok: false, error: { message: "Invalid request", issues: err.issues } });
     return;
   }
 
   if (isDuplicateKeyError(err)) {
     const field = err.keyValue ? Object.keys(err.keyValue)[0] : undefined;
+    logger.warn({ path: req.originalUrl, field }, "Duplicate key");
     res.status(400).json({
       ok: false,
       error: {
