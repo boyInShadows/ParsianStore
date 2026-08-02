@@ -18,4 +18,7 @@ export * from "./admin-order.js";
 export * from "./admin-product.js";
 export * from "./admin-coupon.js";
 export * from "./admin-customer.js";
+export * from "./admin-category.js";
+export * from "./admin-brand.js";
+export * from "./admin-attribute.js";
 export * from "./geo.js";

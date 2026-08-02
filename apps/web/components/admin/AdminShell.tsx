@@ -25,13 +25,19 @@ import {
 } from "@mui/material";
 import { Link } from "@/i18n/navigation";
 type Props = {
-  active: "orders" | "products" | "discounts" | "customers";
+  active: "orders" | "products" | "catalog" | "discounts" | "customers";
   children: ReactNode;
 };
 
 const NAV_ITEMS = [
   { key: "orders" as const, href: "/admin/orders", label: "سفارش‌ها" },
   { key: "products" as const, href: "/admin/products", label: "محصولات" },
+  // P8.S4. One entry, not three: masterPlan §5's map names /admin/categories,
+  // /admin/brands and /admin/attributes as separate routes (and they are --
+  // each keeps its own page/search state in its own URL), but seven top-level
+  // sidebar items would bury the ones staff use daily. The three share an
+  // in-page tab bar instead; `catalog` stays highlighted across all of them.
+  { key: "catalog" as const, href: "/admin/categories", label: "کاتالوگ" },
   // P8.S3. /admin/discounts, not /admin/coupons -- masterPlan §5's own
   // admin route map already names this surface "coupons & campaigns".
   { key: "discounts" as const, href: "/admin/discounts", label: "تخفیف‌ها" },

@@ -4,6 +4,7 @@ import { CategoryModel } from "../../models/Category.js";
 import { ProductModel, type Product } from "../../models/Product.js";
 import { ApiError } from "../../utils/ApiError.js";
 import { paginate, type PaginatedResult, type PaginationQuery } from "../../utils/pagination.js";
+import { validateProductAttributes } from "./attributes.service.js";
 import type { CreateProductInput, UpdateProductInput } from "./products.admin.schema.js";
 
 // Real, honest defaults for the fields P8.S2's own create form deliberately
@@ -49,6 +50,12 @@ export async function getAdminProductById(id: string): Promise<HydratedDocument<
  * middleware (`.save()`/`.create()`), never on query middleware. */
 export async function createProduct(input: CreateProductInput): Promise<HydratedDocument<Product>> {
   await assertBrandAndCategoryExist(input.brandId, input.categoryId);
+  // P8.S4: every attribute key/value is checked against the real Attribute
+  // dictionary before it is stored, so a typo can never create a phantom
+  // PLP facet bucket that no attribute definition can ever label.
+  if (input.attributes) {
+    await validateProductAttributes(input.attributes);
+  }
   return ProductModel.create({
     ...input,
     dimensions: DEFAULT_DIMENSIONS,
@@ -73,6 +80,9 @@ export async function updateProduct(
       input.brandId ?? product.brandId.toString(),
       input.categoryId ?? product.categoryId.toString(),
     );
+  }
+  if (input.attributes) {
+    await validateProductAttributes(input.attributes);
   }
   Object.assign(product, input);
   await product.save();

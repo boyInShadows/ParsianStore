@@ -6,6 +6,7 @@ import { CategoryModel, type Category } from "../../models/Category.js";
 import { ProductModel, type Product } from "../../models/Product.js";
 import { buildProductFilter } from "../../modules/catalog/productFilter.js";
 import { paginate, type PaginatedResult, type PaginationQuery } from "../../utils/pagination.js";
+import { escapeRegExp } from "../../utils/regex.js";
 import type { HydratedDocument } from "mongoose";
 import type {
   AttributeFacetBucket,
@@ -14,10 +15,6 @@ import type {
   ProductSearchFilters,
   SearchProvider,
 } from "./SearchProvider.js";
-
-function escapeRegExp(value: string): string {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-}
 
 // searchProducts (free-text search) only ever filters by vehicle today —
 // buildProductFilter's other fields (category/brand/price/attributes/

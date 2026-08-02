@@ -46,10 +46,20 @@ export function timestampsPlugin(schema: Schema): void {
 // query doesn't already mention `deletedAt` — this lets a caller who
 // explicitly wants deleted documents (e.g. an admin "trash" view) query
 // `{ deletedAt: { $ne: null } }` without the plugin fighting them.
+//
+// `countDocuments` is matched explicitly: it is its own Mongoose
+// query-middleware name, NOT covered by /^find/, so before P8.S4 every
+// paginated endpoint's `meta.total` (utils/pagination.ts pairs `find` with
+// `countDocuments` over the same filter) counted soft-deleted documents
+// that the `data` array itself had already excluded.
+// Deliberately not /^count/: `estimatedDocumentCount` accepts no filter,
+// so calling `this.where()` on it throws. `aggregate` is never covered by
+// query middleware at all — any pipeline over a soft-deletable collection
+// has to `$match: { deletedAt: null }` for itself.
 export function softDeletePlugin(schema: Schema): void {
   schema.add({ deletedAt: { type: Date, default: null, index: true } });
 
-  schema.pre(/^find/, function (this: Query<unknown, unknown>, next) {
+  schema.pre(/^(find|countDocuments)/, function (this: Query<unknown, unknown>, next) {
     const filter = this.getFilter();
     if (filter.deletedAt === undefined) {
       this.where({ deletedAt: null });

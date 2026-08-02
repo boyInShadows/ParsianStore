@@ -4,7 +4,9 @@ import type { Server } from "node:http";
 import { app } from "../../app.js";
 import { testDbUri } from "../../config/testDbUri.js";
 import { AuditLogModel } from "../../models/AuditLog.js";
+import { BrandModel } from "../../models/Brand.js";
 import { CategoryModel } from "../../models/Category.js";
+import { ProductModel } from "../../models/Product.js";
 import type { UserRole } from "../../models/User.js";
 import { signAccessToken } from "../../utils/jwt.js";
 
@@ -25,7 +27,14 @@ beforeAll(async () => {
 });
 
 beforeEach(async () => {
-  await Promise.all([CategoryModel.deleteMany({}), AuditLogModel.deleteMany({})]);
+  await Promise.all([
+    CategoryModel.deleteMany({}),
+    AuditLogModel.deleteMany({}),
+    // P8.S4's delete guard counts real products, so a leftover fixture would
+    // otherwise make an unrelated delete 409.
+    ProductModel.deleteMany({}),
+    BrandModel.deleteMany({}),
+  ]);
 });
 
 afterAll(async () => {
@@ -210,5 +219,253 @@ describe("POST/PATCH/DELETE /admin/catalog/categories", () => {
     const listRes = await fetch(`${baseUrl}/api/v1/catalog/categories`);
     const listBody = (await listRes.json()) as Envelope<unknown[]>;
     expect(listBody.data).toHaveLength(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// P8.S4 — admin reads with derived hierarchy, the delete guard, the
+// re-parent/cycle rules, the slug cascade, and restore.
+// ---------------------------------------------------------------------------
+
+function productFixture(brandId: string, categoryId: string) {
+  const suffix = Math.floor(10_000 + Math.random() * 90_000);
+  return {
+    name: { fa: "لنت ترمز جلو", en: "Front brake pad" },
+    slug: `front-brake-pad-${suffix}`,
+    sku: `SKU-${suffix}`,
+    brandId,
+    categoryId,
+    priceRial: 1_500_000,
+    taxRate: 9,
+    stock: 20,
+    weightGram: 800,
+    dimensions: { lengthMm: 100, widthMm: 100, heightMm: 100 },
+    warranty: { months: 12, text: "۱۲ ماه ضمانت" },
+    authenticity: {
+      supplyRoute: "oem",
+      sourceBrand: "Bosch",
+      countryOfManufacture: "Germany",
+      verificationCode: `VER-${suffix}`,
+    },
+  };
+}
+
+async function seedBrandForProduct() {
+  return BrandModel.create({
+    name: { fa: "بوش", en: "Bosch" },
+    slug: `bosch-${Math.floor(Math.random() * 100_000)}`,
+    country: "Germany",
+  });
+}
+
+/** parent → child → grandchild, with real materialized paths. */
+async function seedThreeLevels() {
+  const parent = await seedCategory({ slug: "engine", name: { fa: "موتور", en: "Engine" } });
+  const child = await seedCategory({
+    slug: "fuel-system",
+    name: { fa: "سیستم سوخت", en: "Fuel system" },
+    parentId: parent._id,
+    path: [parent.slug],
+  });
+  const grandchild = await seedCategory({
+    slug: "injectors",
+    name: { fa: "انژکتور", en: "Injectors" },
+    parentId: child._id,
+    path: [parent.slug, child.slug],
+  });
+  return { parent, child, grandchild };
+}
+
+describe("GET /admin/catalog/categories", () => {
+  it("rejects with no session", async () => {
+    const res = await fetch(`${baseUrl}/api/v1/admin/catalog/categories`);
+    expect(res.status).toBe(401);
+  });
+
+  it("rejects a customer role with 403", async () => {
+    const res = await fetch(`${baseUrl}/api/v1/admin/catalog/categories`, {
+      headers: staffCookie("customer"),
+    });
+    expect(res.status).toBe(403);
+  });
+
+  it("returns admin-only fields the public category DTO omits", async () => {
+    await seedCategory({ order: 3, seo: { title: "ترمز" } });
+    const res = await fetch(`${baseUrl}/api/v1/admin/catalog/categories`, {
+      headers: staffCookie(),
+    });
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as Envelope<
+      { systemCode: string; order: number; seo?: { title?: string } }[]
+    >;
+    expect(body.data[0]?.systemCode).toBe("SYS-04");
+    expect(body.data[0]?.order).toBe(3);
+    expect(body.data[0]?.seo?.title).toBe("ترمز");
+  });
+
+  it("resolves ancestor slugs to real Persian names for a two-level path", async () => {
+    await seedThreeLevels();
+    const res = await fetch(`${baseUrl}/api/v1/admin/catalog/categories?q=injectors`, {
+      headers: staffCookie(),
+    });
+    const body = (await res.json()) as Envelope<
+      { depth: number; ancestorNames: string[]; path: string[] }[]
+    >;
+    expect(body.data[0]?.depth).toBe(2);
+    // The stored path is slugs; the admin table needs names.
+    expect(body.data[0]?.path).toEqual(["engine", "fuel-system"]);
+    expect(body.data[0]?.ancestorNames).toEqual(["موتور", "سیستم سوخت"]);
+  });
+
+  it("reports childCount and productCount, excluding soft-deleted rows", async () => {
+    const { parent } = await seedThreeLevels();
+    const brand = await seedBrandForProduct();
+    await ProductModel.create(productFixture(brand.id, parent.id));
+    const doomed = await seedCategory({ slug: "gone", parentId: parent._id, path: [parent.slug] });
+    await doomed.softDelete();
+
+    const res = await fetch(`${baseUrl}/api/v1/admin/catalog/categories?q=engine`, {
+      headers: staffCookie(),
+    });
+    const body = (await res.json()) as Envelope<{ childCount: number; productCount: number }[]>;
+    expect(body.data[0]?.childCount).toBe(1);
+    expect(body.data[0]?.productCount).toBe(1);
+  });
+
+  it("filters by systemCode and by parentId", async () => {
+    const { parent, child } = await seedThreeLevels();
+    await seedCategory({ slug: "suspension", systemCode: "SYS-05" });
+
+    const bySystem = await fetch(`${baseUrl}/api/v1/admin/catalog/categories?systemCode=SYS-05`, {
+      headers: staffCookie(),
+    });
+    const systemBody = (await bySystem.json()) as Envelope<{ slug: string }[]>;
+    expect(systemBody.data.map((entry) => entry.slug)).toEqual(["suspension"]);
+
+    const byParent = await fetch(
+      `${baseUrl}/api/v1/admin/catalog/categories?parentId=${parent._id.toString()}`,
+      { headers: staffCookie() },
+    );
+    const parentBody = (await byParent.json()) as Envelope<{ slug: string }[]>;
+    expect(parentBody.data.map((entry) => entry.slug)).toEqual([child.slug]);
+  });
+});
+
+describe("GET /admin/catalog/categories/:id", () => {
+  it("404s for a well-formed but unknown id", async () => {
+    const res = await fetch(
+      `${baseUrl}/api/v1/admin/catalog/categories/${new mongoose.Types.ObjectId().toString()}`,
+      { headers: staffCookie() },
+    );
+    expect(res.status).toBe(404);
+  });
+});
+
+describe("DELETE /admin/catalog/categories/:id — referential guard", () => {
+  it("refuses to delete a category that still has children", async () => {
+    const { parent } = await seedThreeLevels();
+    const res = await fetch(`${baseUrl}/api/v1/admin/catalog/categories/${parent._id.toString()}`, {
+      method: "DELETE",
+      headers: staffCookie(),
+    });
+    expect(res.status).toBe(409);
+    const body = (await res.json()) as Envelope<null>;
+    expect(body.error?.message).toContain("زیرمجموعه");
+    expect(await CategoryModel.findById(parent._id)).not.toBeNull();
+  });
+
+  it("refuses to delete a category that still holds products", async () => {
+    const category = await seedCategory();
+    const brand = await seedBrandForProduct();
+    await ProductModel.create(productFixture(brand.id, category.id));
+
+    const res = await fetch(
+      `${baseUrl}/api/v1/admin/catalog/categories/${category._id.toString()}`,
+      { method: "DELETE", headers: staffCookie() },
+    );
+    expect(res.status).toBe(409);
+    const body = (await res.json()) as Envelope<null>;
+    expect(body.error?.message).toContain("محصول");
+  });
+});
+
+describe("PATCH /admin/catalog/categories/:id — hierarchy rules", () => {
+  it("rejects making a category its own parent", async () => {
+    const category = await seedCategory();
+    const res = await fetch(
+      `${baseUrl}/api/v1/admin/catalog/categories/${category._id.toString()}`,
+      {
+        method: "PATCH",
+        headers: { "content-type": "application/json", ...staffCookie() },
+        body: JSON.stringify({ parentId: category._id.toString() }),
+      },
+    );
+    expect(res.status).toBe(400);
+  });
+
+  it("rejects re-parenting a category under one of its own descendants", async () => {
+    const { parent, grandchild } = await seedThreeLevels();
+    const res = await fetch(`${baseUrl}/api/v1/admin/catalog/categories/${parent._id.toString()}`, {
+      method: "PATCH",
+      headers: { "content-type": "application/json", ...staffCookie() },
+      body: JSON.stringify({ parentId: grandchild._id.toString() }),
+    });
+    // The cycle check runs before the has-children check, so this is a 400
+    // for the real reason (a cycle) rather than the incidental one.
+    expect(res.status).toBe(400);
+    expect((await CategoryModel.findById(parent._id))?.parentId).toBeNull();
+  });
+
+  it("refuses to re-parent a category that still has children", async () => {
+    const { child } = await seedThreeLevels();
+    const standalone = await seedCategory({ slug: "standalone" });
+
+    const res = await fetch(`${baseUrl}/api/v1/admin/catalog/categories/${child._id.toString()}`, {
+      method: "PATCH",
+      headers: { "content-type": "application/json", ...staffCookie() },
+      body: JSON.stringify({ parentId: standalone._id.toString() }),
+    });
+    expect(res.status).toBe(409);
+  });
+
+  it("cascades a slug rename into every descendant's materialized path", async () => {
+    const { parent, child, grandchild } = await seedThreeLevels();
+
+    const res = await fetch(`${baseUrl}/api/v1/admin/catalog/categories/${parent._id.toString()}`, {
+      method: "PATCH",
+      headers: { "content-type": "application/json", ...staffCookie() },
+      body: JSON.stringify({ slug: "powertrain" }),
+    });
+    expect(res.status).toBe(200);
+
+    // Without the cascade both of these would still say "engine" and every
+    // descendant breadcrumb would point at a slug that no longer resolves.
+    expect((await CategoryModel.findById(child._id))?.path).toEqual(["powertrain"]);
+    expect((await CategoryModel.findById(grandchild._id))?.path).toEqual([
+      "powertrain",
+      "fuel-system",
+    ]);
+  });
+});
+
+describe("POST /admin/catalog/categories/:id/restore", () => {
+  it("brings a soft-deleted category back and records an audit entry", async () => {
+    const category = await seedCategory();
+    await fetch(`${baseUrl}/api/v1/admin/catalog/categories/${category._id.toString()}`, {
+      method: "DELETE",
+      headers: staffCookie(),
+    });
+    await AuditLogModel.deleteMany({});
+
+    const res = await fetch(
+      `${baseUrl}/api/v1/admin/catalog/categories/${category._id.toString()}/restore`,
+      { method: "POST", headers: staffCookie() },
+    );
+    expect(res.status).toBe(200);
+    await waitForAuditEntry("category");
+
+    const publicRes = await fetch(`${baseUrl}/api/v1/catalog/categories`);
+    const publicBody = (await publicRes.json()) as Envelope<unknown[]>;
+    expect(publicBody.data).toHaveLength(1);
   });
 });

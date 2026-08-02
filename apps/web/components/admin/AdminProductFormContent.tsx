@@ -23,6 +23,7 @@ import {
   updateAdminProduct,
 } from "@/lib/fetchers/admin-products";
 import { useToastStore } from "@/stores/toast-store";
+import { AdminProductAttributesField, type AttributePair } from "./AdminProductAttributesField";
 
 const SUPPLY_ROUTE_LABEL: Record<SupplyRouteDto, string> = {
   oem: "OEM",
@@ -49,6 +50,7 @@ interface FormState {
   sourceBrand: string;
   countryOfManufacture: string;
   verificationCode: string;
+  attributes: AttributePair[];
 }
 
 function initialState(product?: AdminProductDetailDto): FormState {
@@ -69,6 +71,7 @@ function initialState(product?: AdminProductDetailDto): FormState {
       sourceBrand: "",
       countryOfManufacture: "",
       verificationCode: "",
+      attributes: [],
     };
   }
   return {
@@ -87,6 +90,7 @@ function initialState(product?: AdminProductDetailDto): FormState {
     sourceBrand: product.authenticity.sourceBrand,
     countryOfManufacture: product.authenticity.countryOfManufacture,
     verificationCode: product.authenticity.verificationCode,
+    attributes: product.attributes.map((pair) => ({ key: pair.key, value: pair.value })),
   };
 }
 
@@ -129,6 +133,7 @@ export function AdminProductFormContent(props: Props) {
         countryOfManufacture: form.countryOfManufacture,
         verificationCode: form.verificationCode,
       },
+      attributes: form.attributes,
     };
 
     const result =
@@ -330,6 +335,11 @@ export function AdminProductFormContent(props: Props) {
                 />
               </Grid>
             </Grid>
+
+            <AdminProductAttributesField
+              value={form.attributes}
+              onChange={(next) => set("attributes", next)}
+            />
 
             <Box sx={{ display: "flex", gap: 2 }}>
               <Button type="submit" variant="contained" disabled={saving}>

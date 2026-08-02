@@ -190,6 +190,13 @@ describe("POST /admin/catalog/products", () => {
     // resolves only once index building is actually done (a real,
     // reproducible flake under `pnpm test`'s full parallel run, not present
     // when this file runs alone -- confirmed, not assumed).
+    //
+    // P8.S4 raised this test's own timeout from the 5s default: the brands,
+    // categories and attributes suites now seed real products too (the new
+    // delete guards count them), so four separate test databases build
+    // Product's index set -- including its $text index -- concurrently
+    // against one mongod. `init()` legitimately takes longer now; the wait is
+    // still a real wait-for-completion, not a sleep.
     await ProductModel.init();
     const { brand, category } = await seedBrandAndCategory();
     const input = validProductInput(brand.id, category.id);
@@ -204,7 +211,7 @@ describe("POST /admin/catalog/products", () => {
       body: JSON.stringify({ ...input, sku: "SKU-DIFFERENT" }),
     });
     expect(second.status).toBe(400);
-  });
+  }, 30_000);
 });
 
 describe("PATCH /admin/catalog/products/:id", () => {

@@ -77,4 +77,42 @@ describe("softDeletePlugin", () => {
     expect(found).not.toBeNull();
     expect(found?.deletedAt).toBeInstanceOf(Date);
   });
+
+  // P8.S4. `countDocuments` is its own Mongoose query-middleware name — it
+  // is NOT matched by /^find/, so for three phases every paginated list
+  // endpoint's `meta.total` (utils/pagination.ts runs find + countDocuments
+  // against the same filter) silently counted soft-deleted documents the
+  // accompanying `data` array had already excluded. Found while building
+  // the first admin UI with a real delete button; fixed once here rather
+  // than per-endpoint, same as P8.S2's duplicate-key handling.
+  it("excludes soft-deleted documents from countDocuments, not just find", async () => {
+    const tag = "count-scope";
+    await Widget.create({ name: `${tag} live` });
+    const doomed = await Widget.create({ name: `${tag} doomed` });
+    await doomed.softDelete();
+
+    const found = await Widget.find({ name: { $regex: tag } });
+    const counted = await Widget.countDocuments({ name: { $regex: tag } });
+
+    expect(found).toHaveLength(1);
+    expect(counted).toBe(found.length);
+  });
+
+  it("still counts a soft-deleted document when the caller asks for deletedAt explicitly", async () => {
+    const tag = "count-explicit";
+    const doomed = await Widget.create({ name: `${tag} doomed` });
+    await doomed.softDelete();
+
+    const counted = await Widget.countDocuments({
+      name: { $regex: tag },
+      deletedAt: { $ne: null },
+    });
+    expect(counted).toBe(1);
+  });
+
+  // Guards the regex above from over-matching: estimatedDocumentCount takes
+  // no filter at all, so a hook calling this.where() on it would throw.
+  it("leaves estimatedDocumentCount working", async () => {
+    await expect(Widget.estimatedDocumentCount()).resolves.toBeTypeOf("number");
+  });
 });

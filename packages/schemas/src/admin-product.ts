@@ -43,6 +43,14 @@ export const adminCreateProductInputSchema = z.object({
     verificationCode: z.string().min(1, "کد راستی‌آزمایی الزامی است"),
   }),
   status: productStatusSchema.optional(),
+  // P8.S4. Added when the attribute dictionary got its own admin UI:
+  // defining an attribute was inert until a product could carry a value for
+  // it, which is what the PLP facets and PDP specs table have been reading
+  // (and finding empty) since P5.S1. `key` must match a defined Attribute
+  // and, for a select attribute, `value` must be one of its own options —
+  // both enforced server-side in attributes.service.ts, which is the only
+  // place that can see the dictionary.
+  attributes: z.array(z.object({ key: z.string().min(1), value: z.string().min(1) })).optional(),
 });
 export type AdminCreateProductInput = z.infer<typeof adminCreateProductInputSchema>;
 
@@ -82,6 +90,7 @@ export const adminProductDetailSchema = adminProductSummarySchema.extend({
   brandId: z.string(),
   categoryId: z.string(),
   authenticity: adminAuthenticitySchema,
+  attributes: z.array(z.object({ key: z.string(), value: z.string() })),
 });
 export type AdminProductDetailDto = z.infer<typeof adminProductDetailSchema>;
 

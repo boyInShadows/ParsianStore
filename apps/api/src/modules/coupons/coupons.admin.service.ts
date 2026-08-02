@@ -8,6 +8,7 @@ import {
 import { CouponModel, type Coupon } from "../../models/Coupon.js";
 import { ApiError } from "../../utils/ApiError.js";
 import { paginate, type PaginatedResult, type PaginationQuery } from "../../utils/pagination.js";
+import { escapeRegExp } from "../../utils/regex.js";
 import { normalizeCouponCode } from "./coupon.service.js";
 import type { CreateCouponInput, UpdateCouponInput } from "./coupons.admin.schema.js";
 
@@ -43,7 +44,7 @@ function buildListFilter(
     // Escaped before it reaches the regex: an admin typing "10%-OFF(" must
     // not be able to hand MongoDB a malformed or catastrophically
     // backtracking pattern.
-    const escaped = normalizeCouponCode(filters.code).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const escaped = escapeRegExp(normalizeCouponCode(filters.code));
     filter.code = { $regex: `^${escaped}` };
   }
   if (filters.active === "true") {
