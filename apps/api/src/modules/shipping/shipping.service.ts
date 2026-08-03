@@ -62,6 +62,13 @@ export async function estimateShipping(
     if (!zones.includes(zone)) continue;
     const bracket = rates
       .filter((rate) => rate.methodCode === method.code)
+      // P8.S9: sorted, not left in whatever order Mongo returned. Adjacent
+      // brackets conventionally share an endpoint ("۰ تا ۱۰۰۰" then
+      // "۱۰۰۰ تا ۲۰۰۰", which is what seed/shipping.ts writes and what
+      // /admin/shipping accepts), so a cart landing exactly on a boundary
+      // matches two rows. Ascending order makes the cheaper, lower bracket
+      // win every time instead of that depending on insertion order.
+      .sort((a, b) => a.minWeightGram - b.minWeightGram)
       .find(
         (rate) =>
           rate.minWeightGram <= totalWeightGram &&

@@ -26,7 +26,15 @@ import {
 import { Link } from "@/i18n/navigation";
 import { useAdminRole } from "./AdminRoleProvider";
 type Props = {
-  active: "dashboard" | "orders" | "products" | "catalog" | "discounts" | "customers" | "audit";
+  active:
+    | "dashboard"
+    | "orders"
+    | "products"
+    | "catalog"
+    | "discounts"
+    | "customers"
+    | "shipping"
+    | "audit";
   children: ReactNode;
 };
 
@@ -52,6 +60,9 @@ const NAV_ITEMS = [
   // admin route map already names this surface "coupons & campaigns".
   { key: "discounts" as const, href: "/admin/discounts", label: "تخفیف‌ها" },
   { key: "customers" as const, href: "/admin/customers", label: "مشتریان" },
+  // P8.S9. The courier method list itself is a static const; this route
+  // configures the weight/price ladder behind it.
+  { key: "shipping" as const, href: "/admin/shipping", label: "ارسال" },
   { key: "audit" as const, href: "/admin/audit", label: "گزارش رویدادها" },
 ];
 
