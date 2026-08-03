@@ -26,6 +26,67 @@ export const adminSetAccountTypeInputSchema = z.object({
 });
 export type AdminSetAccountTypeInput = z.infer<typeof adminSetAccountTypeInputSchema>;
 
+// P8.S7: the detail half of the customers surface the P8.S3 note above
+// said would extend this file rather than replace it.
+
+const adminCustomerAddressSchema = z.object({
+  id: z.string(),
+  // Resolved display names, not the stored provinceId/cityId -- staff read
+  // "تهران / تهران", and making the browser do a second geo lookup per
+  // address would be a request waterfall for nothing.
+  province: z.string(),
+  city: z.string(),
+  line: z.string(),
+  postalCode: z.string(),
+  plate: z.string().optional(),
+  unit: z.string().optional(),
+  receiverName: z.string(),
+  receiverPhone: z.string(),
+});
+
+const adminCustomerVehicleSchema = z.object({
+  id: z.string(),
+  make: z.string(),
+  model: z.string(),
+  generation: z.string(),
+  year: z.number(),
+  nickname: z.string().optional(),
+});
+
+const adminCustomerOrderSchema = z.object({
+  id: z.string(),
+  code: z.string(),
+  status: z.string(),
+  totalRial: z.number(),
+  createdAt: z.string(),
+});
+
+export const adminCustomerDetailViewSchema = adminCustomerSchema.extend({
+  email: z.string().optional(),
+  isActive: z.boolean(),
+  lastLoginAt: z.string().nullable(),
+  walletBalanceRial: z.number(),
+  stats: z.object({
+    // Paid-through-delivered only, matching the dashboard's own definition
+    // of revenue -- a customer's "value" must not count orders they never
+    // paid for or had refunded.
+    orderCount: z.number(),
+    lifetimeValueRial: z.number(),
+    averageOrderRial: z.number(),
+    lastOrderAt: z.string().nullable(),
+    openOrderCount: z.number(),
+  }),
+  addresses: z.array(adminCustomerAddressSchema),
+  garage: z.array(adminCustomerVehicleSchema),
+  recentOrders: z.array(adminCustomerOrderSchema),
+});
+export type AdminCustomerDetailDto = z.infer<typeof adminCustomerDetailViewSchema>;
+
+export const adminCustomerDetailViewResponseSchema = z.object({
+  ok: z.literal(true),
+  data: adminCustomerDetailViewSchema,
+});
+
 const paginationMetaSchema = z.object({
   total: z.number(),
   page: z.number(),

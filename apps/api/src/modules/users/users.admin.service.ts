@@ -1,6 +1,12 @@
-import type { FilterQuery, HydratedDocument } from "mongoose";
-import { toEnglishDigits } from "schemas";
+import type { FilterQuery, HydratedDocument, Types } from "mongoose";
+import { REVENUE_ORDER_STATUSES, toEnglishDigits, type AdminCustomerDetailDto } from "schemas";
+import { CityModel } from "../../models/City.js";
+import { OrderModel } from "../../models/Order.js";
+import { ProvinceModel } from "../../models/Province.js";
 import { UserModel, type User } from "../../models/User.js";
+import { VehicleGenModel } from "../../models/VehicleGen.js";
+import { VehicleMakeModel } from "../../models/VehicleMake.js";
+import { VehicleModelModel } from "../../models/VehicleModel.js";
 import { ApiError } from "../../utils/ApiError.js";
 import { paginate, type PaginatedResult, type PaginationQuery } from "../../utils/pagination.js";
 import type { SetAccountTypeInput } from "./users.admin.schema.js";
@@ -71,6 +77,149 @@ export async function getAdminCustomerById(id: string): Promise<HydratedDocument
     throw new ApiError(404, "کاربر یافت نشد");
   }
   return user;
+}
+
+// P8.S7 -- the detail view. --------------------------------------------
+
+const RECENT_ORDER_LIMIT = 10;
+
+/**
+ * One query per referenced collection rather than `.populate()` per
+ * address: a customer with eight addresses in the same province would
+ * otherwise fetch that province eight times.
+ */
+async function nameMap(
+  model: { find: (filter: object) => { select: (fields: string) => Promise<NamedDoc[]> } },
+  ids: Types.ObjectId[],
+): Promise<Map<string, string>> {
+  if (ids.length === 0) return new Map();
+  const docs = await model.find({ _id: { $in: ids } }).select("name");
+  return new Map(docs.map((doc) => [String(doc._id), doc.name.fa]));
+}
+
+interface NamedDoc {
+  _id: unknown;
+  name: { fa: string };
+}
+
+async function orderStatsFor(userId: Types.ObjectId): Promise<{
+  stats: AdminCustomerDetailDto["stats"];
+  recentOrders: AdminCustomerDetailDto["recentOrders"];
+}> {
+  const [totals] = await OrderModel.aggregate<{
+    orderCount: number;
+    lifetimeValueRial: number;
+    lastOrderAt: Date;
+  }>([
+    // Aggregation bypasses the soft-delete middleware entirely
+    // (models/plugins.ts), so `deletedAt` is matched explicitly here.
+    {
+      $match: { userId, deletedAt: null, status: { $in: [...REVENUE_ORDER_STATUSES] } },
+    },
+    {
+      $group: {
+        _id: null,
+        orderCount: { $sum: 1 },
+        lifetimeValueRial: { $sum: "$totalRial" },
+        lastOrderAt: { $max: "$createdAt" },
+      },
+    },
+  ]);
+
+  const [openOrderCount, recent] = await Promise.all([
+    OrderModel.countDocuments({ userId, status: { $in: ["pending", "processing"] } }),
+    OrderModel.find({ userId })
+      .select("code status totalRial createdAt")
+      .sort({ createdAt: -1 })
+      .limit(RECENT_ORDER_LIMIT),
+  ]);
+
+  const orderCount = totals?.orderCount ?? 0;
+  const lifetimeValueRial = totals?.lifetimeValueRial ?? 0;
+  return {
+    stats: {
+      orderCount,
+      lifetimeValueRial,
+      averageOrderRial: orderCount === 0 ? 0 : Math.round(lifetimeValueRial / orderCount),
+      lastOrderAt: totals?.lastOrderAt ? totals.lastOrderAt.toISOString() : null,
+      openOrderCount,
+    },
+    recentOrders: recent.map((doc) => ({
+      id: String(doc._id),
+      code: doc.code,
+      status: doc.status,
+      totalRial: doc.totalRial,
+      createdAt: doc.createdAt.toISOString(),
+    })),
+  };
+}
+
+export async function getAdminCustomerDetail(id: string): Promise<AdminCustomerDetailDto> {
+  const user = await getAdminCustomerById(id);
+
+  const [provinces, cities, makes, models, generations, orderData] = await Promise.all([
+    nameMap(
+      ProvinceModel,
+      user.addresses.map((address) => address.provinceId),
+    ),
+    nameMap(
+      CityModel,
+      user.addresses.map((address) => address.cityId),
+    ),
+    nameMap(
+      VehicleMakeModel,
+      user.garage.map((entry) => entry.makeId),
+    ),
+    nameMap(
+      VehicleModelModel,
+      user.garage.map((entry) => entry.modelId),
+    ),
+    nameMap(
+      VehicleGenModel,
+      user.garage.map((entry) => entry.genId),
+    ),
+    orderStatsFor(user._id),
+  ]);
+
+  // A referenced province/vehicle that no longer resolves must not blank
+  // out the whole row -- staff still need the rest of the address.
+  const UNKNOWN = "—";
+
+  return {
+    id: String(user._id),
+    phone: user.phone,
+    name: user.name,
+    role: user.role,
+    accountType: user.accountType,
+    createdAt: user.createdAt.toISOString(),
+    ...(user.email ? { email: user.email } : {}),
+    isActive: user.isActive,
+    lastLoginAt: user.lastLoginAt ? user.lastLoginAt.toISOString() : null,
+    walletBalanceRial: user.walletBalanceRial,
+    stats: orderData.stats,
+    addresses: user.addresses.map((address) => ({
+      id: String(address._id),
+      province: provinces.get(String(address.provinceId)) ?? UNKNOWN,
+      city: cities.get(String(address.cityId)) ?? UNKNOWN,
+      line: address.line,
+      postalCode: address.postalCode,
+      ...(address.plate ? { plate: address.plate } : {}),
+      ...(address.unit ? { unit: address.unit } : {}),
+      receiverName: address.receiverName,
+      receiverPhone: address.receiverPhone,
+    })),
+    garage: user.garage.map((entry, index) => ({
+      // GarageEntry declares no `_id` in its interface even though the
+      // sub-schema creates one, so the index is the stable key here.
+      id: `${String(user._id)}-${index}`,
+      make: makes.get(String(entry.makeId)) ?? UNKNOWN,
+      model: models.get(String(entry.modelId)) ?? UNKNOWN,
+      generation: generations.get(String(entry.genId)) ?? UNKNOWN,
+      year: entry.year,
+      ...(entry.nickname ? { nickname: entry.nickname } : {}),
+    })),
+    recentOrders: orderData.recentOrders,
+  };
 }
 
 /**

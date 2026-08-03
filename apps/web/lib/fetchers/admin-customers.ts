@@ -1,7 +1,9 @@
 import {
   adminCustomerDetailResponseSchema,
+  adminCustomerDetailViewResponseSchema,
   adminCustomerListResponseSchema,
   type AccountTypeDto,
+  type AdminCustomerDetailDto,
   type AdminCustomerDto,
 } from "schemas";
 
@@ -50,6 +52,20 @@ export async function fetchAdminCustomers(
       page: parsed.data.meta.page,
       limit: parsed.data.meta.limit,
     };
+  } catch {
+    return null;
+  }
+}
+
+export async function fetchAdminCustomerDetail(id: string): Promise<AdminCustomerDetailDto | null> {
+  try {
+    const res = await fetch(`${API_URL}/api/v1/admin/customers/${id}`, {
+      credentials: "include",
+    });
+    if (!res.ok) return null;
+    const parsed = adminCustomerDetailViewResponseSchema.safeParse(await res.json());
+    if (!parsed.success) return null;
+    return parsed.data.data;
   } catch {
     return null;
   }

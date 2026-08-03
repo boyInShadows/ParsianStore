@@ -2,9 +2,10 @@
 // toggle -- all interactive, same reasoning as the other admin lists.
 
 import { useCallback, useEffect, useState } from "react";
-import { Alert, Box, MenuItem, Select, Stack, TextField, Typography } from "@mui/material";
+import { Alert, Box, Button, MenuItem, Select, Stack, TextField, Typography } from "@mui/material";
 import { DataGrid, type GridColDef, type GridPaginationModel } from "@mui/x-data-grid";
 import { toPersianDigits, type AccountTypeDto, type AdminCustomerDto } from "schemas";
+import { Link } from "@/i18n/navigation";
 import {
   fetchAdminCustomers,
   setAdminCustomerAccountType,
@@ -93,6 +94,20 @@ export function AdminCustomersListContent() {
           <MenuItem value="retail">خرده‌فروشی</MenuItem>
           <MenuItem value="wholesale">عمده‌فروشی</MenuItem>
         </Select>
+      ),
+    },
+    {
+      // P8.S7. An explicit link, not row-click navigation like the orders
+      // grid uses: this grid's account-type cell is an interactive Select,
+      // and a whole-row click target would fight with opening that menu.
+      field: "actions",
+      headerName: "عملیات",
+      width: 120,
+      sortable: false,
+      renderCell: ({ row }) => (
+        <Button size="small" component={Link} href={`/admin/customers/${row.id}`}>
+          مشاهده
+        </Button>
       ),
     },
   ];

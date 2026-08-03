@@ -30,7 +30,11 @@ export async function getAdminCustomerHandler(
 ): Promise<void> {
   try {
     const { id } = req.params as unknown as AdminUserIdParam;
-    const data = await usersAdminService.getAdminCustomerById(id);
+    // P8.S7: the detail projection, not the raw user document -- the
+    // screen needs resolved province/city names, garage vehicle names and
+    // order stats, and shipping the whole document would leak fields
+    // (wallet history, garage ids) the screen never renders.
+    const data = await usersAdminService.getAdminCustomerDetail(id);
     res.json({ ok: true, data });
   } catch (err) {
     next(err);
