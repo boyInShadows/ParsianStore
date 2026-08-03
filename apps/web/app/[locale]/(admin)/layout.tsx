@@ -3,6 +3,7 @@ import { cookies } from "next/headers";
 import { redirect } from "@/i18n/navigation";
 import { MuiProviders } from "@/components/admin/mui-providers";
 import { AdminToaster } from "@/components/admin/AdminToaster";
+import { AdminRoleProvider } from "@/components/admin/AdminRoleProvider";
 import { fetchMeServer } from "@/lib/fetchers/auth";
 
 /**
@@ -41,8 +42,15 @@ export default async function AdminLayout({
 
   return (
     <MuiProviders>
-      {children}
-      <AdminToaster />
+      {/* P8.S8: the role the gate above already resolved, carried down so
+          AdminShell can hide nav entries this role cannot open. The API
+          enforces the same restriction independently -- see
+          audit.admin.routes.ts. `redirect()` above never returns, so
+          `user` is non-null here despite TypeScript not knowing it. */}
+      <AdminRoleProvider role={user?.role ?? ""}>
+        {children}
+        <AdminToaster />
+      </AdminRoleProvider>
     </MuiProviders>
   );
 }

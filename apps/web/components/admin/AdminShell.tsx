@@ -24,10 +24,17 @@ import {
   ListItemText,
 } from "@mui/material";
 import { Link } from "@/i18n/navigation";
+import { useAdminRole } from "./AdminRoleProvider";
 type Props = {
-  active: "dashboard" | "orders" | "products" | "catalog" | "discounts" | "customers";
+  active: "dashboard" | "orders" | "products" | "catalog" | "discounts" | "customers" | "audit";
   children: ReactNode;
 };
+
+// P8.S8. Roles the audit trail is readable by -- it records what staff
+// did, so support/operator accounts must not be able to review it. Kept
+// byte-identical to requireRole("admin", "superadmin") in
+// audit.admin.routes.ts, which is what actually enforces this.
+const AUDIT_ROLES = new Set(["admin", "superadmin"]);
 
 const NAV_ITEMS = [
   // P8.S5. First entry, not appended: /admin is now a real overview page
@@ -45,9 +52,17 @@ const NAV_ITEMS = [
   // admin route map already names this surface "coupons & campaigns".
   { key: "discounts" as const, href: "/admin/discounts", label: "تخفیف‌ها" },
   { key: "customers" as const, href: "/admin/customers", label: "مشتریان" },
+  { key: "audit" as const, href: "/admin/audit", label: "گزارش رویدادها" },
 ];
 
 export function AdminShell({ active, children }: Props) {
+  const role = useAdminRole();
+  // Hidden rather than shown-and-403: a nav entry that always fails for
+  // half the staff roles is worse than no entry at all.
+  const navItems = NAV_ITEMS.filter(
+    (item) => item.key !== "audit" || (role !== null && AUDIT_ROLES.has(role)),
+  );
+
   return (
     <Box sx={{ minHeight: "100vh", display: "flex", flexDirection: "column" }}>
       <AppBar
@@ -65,7 +80,7 @@ export function AdminShell({ active, children }: Props) {
       <Box sx={{ display: "flex", flex: 1 }}>
         <Box component="nav" sx={{ width: 220, borderInlineEnd: 1, borderColor: "divider", py: 2 }}>
           <List>
-            {NAV_ITEMS.map((item) => (
+            {navItems.map((item) => (
               <ListItem key={item.key} disablePadding>
                 <ListItemButton component={Link} href={item.href} selected={item.key === active}>
                   <ListItemText primary={item.label} />

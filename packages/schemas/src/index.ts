@@ -22,4 +22,5 @@ export * from "./admin-category.js";
 export * from "./admin-brand.js";
 export * from "./admin-attribute.js";
 export * from "./admin-dashboard.js";
+export * from "./admin-audit.js";
 export * from "./geo.js";
