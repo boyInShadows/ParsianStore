@@ -1,8 +1,21 @@
 /* Cascade layer order (masterPlan.md §7.4) -- must be the first statement in
    this file. MUI's `enableCssLayer: true` (P1.S6) emits into `mui`; Tailwind
-   is wrapped in `tailwind` below. Tailwind wins where the two overlap, and
-   MUI's own styles never bleed into the storefront's Preflight reset. */
-@layer mui, tailwind;
+   is wrapped in `tailwind` below.
+
+   P8.S5 REVERSED this order, which used to be `mui, tailwind`. The original
+   rule ("Tailwind wins where the two overlap") described an overlap that
+   never actually happens -- tailwind.config.js's content glob excludes
+   app/(admin)/** and MUI is imported only under (admin), so no page ever
+   renders both libraries' component styles. What DOES reach both is
+   Tailwind's Preflight: it is global, it loads on admin routes too, and
+   `button { padding: 0; background-color: transparent }` plus
+   `*, ::before, ::after { border-width: 0 }` silently flattened EVERY MUI
+   button, ToggleButton and outlined control in the admin panel -- measured
+   in the browser, not guessed (contained Button: background transparent,
+   padding 0). Ordering `mui` last restores MUI's own styling inside the
+   admin group; the storefront is unaffected because MUI emits no CSS at
+   all on a page that never mounts it. */
+@layer tailwind, mui;
 
 @import "./tokens.css";
 

@@ -21,4 +21,5 @@ export * from "./admin-customer.js";
 export * from "./admin-category.js";
 export * from "./admin-brand.js";
 export * from "./admin-attribute.js";
+export * from "./admin-dashboard.js";
 export * from "./geo.js";

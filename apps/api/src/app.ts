@@ -20,6 +20,7 @@ import { catalogRouter } from "./modules/catalog/catalog.routes.js";
 import { checkoutRouter } from "./modules/checkout/checkout.routes.js";
 import { adminCouponsRouter } from "./modules/coupons/coupons.admin.routes.js";
 import { adminCustomersRouter } from "./modules/users/users.admin.routes.js";
+import { adminDashboardRouter } from "./modules/dashboard/dashboard.admin.routes.js";
 import { fitmentRouter } from "./modules/fitment/fitment.routes.js";
 import { geoRouter } from "./modules/geo/geo.routes.js";
 import { adminInventoryRouter } from "./modules/inventory/inventory.admin.routes.js";
@@ -87,6 +88,9 @@ app.use("/api/v1/admin/orders", adminOrdersRouter);
 // from /admin/catalog.
 app.use("/api/v1/admin/coupons", adminCouponsRouter);
 app.use("/api/v1/admin/customers", adminCustomersRouter);
+// P8.S5. Read-only aggregate over orders/products/users -- its own mount
+// rather than a leaf under any one of them, since it belongs to none.
+app.use("/api/v1/admin/dashboard", adminDashboardRouter);
 // No auth on paymentsRouter -- see payments.routes.ts, this is the
 // gateway's own redirect target, not a client-called resource.
 app.use("/api/v1/payments", paymentsRouter);

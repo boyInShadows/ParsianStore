@@ -25,11 +25,14 @@ import {
 } from "@mui/material";
 import { Link } from "@/i18n/navigation";
 type Props = {
-  active: "orders" | "products" | "catalog" | "discounts" | "customers";
+  active: "dashboard" | "orders" | "products" | "catalog" | "discounts" | "customers";
   children: ReactNode;
 };
 
 const NAV_ITEMS = [
+  // P8.S5. First entry, not appended: /admin is now a real overview page
+  // and the place staff land after signing in.
+  { key: "dashboard" as const, href: "/admin", label: "داشبورد" },
   { key: "orders" as const, href: "/admin/orders", label: "سفارش‌ها" },
   { key: "products" as const, href: "/admin/products", label: "محصولات" },
   // P8.S4. One entry, not three: masterPlan §5's map names /admin/categories,

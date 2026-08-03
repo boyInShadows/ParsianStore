@@ -1,14 +1,13 @@
-import { redirect } from "@/i18n/navigation";
+import { AdminShell } from "@/components/admin/AdminShell";
+import { AdminDashboardContent } from "@/components/admin/AdminDashboardContent";
 
-type Props = { params: Promise<{ locale: string }> };
-
-// P8.S1: the P1.S6 demo page (fake DataGrid/chart proving the RTL/MUI
-// wiring) is replaced now that a real admin page exists to prove that
-// same wiring with real data instead -- CLAUDE.md rule 4, no placeholder
-// content once the real thing exists. /admin/orders is the only real
-// destination so far; this becomes a real nav hub once more Phase 8
-// pieces land.
-export default async function AdminIndexPage({ params }: Props) {
-  const { locale } = await params;
-  redirect({ href: "/admin/orders", locale });
+// P8.S5: /admin was a redirect to /admin/orders because no real overview
+// existed to send staff to. It does now -- this is the nav hub the P8.S1
+// comment said this route would become once enough of Phase 8 landed.
+export default function AdminIndexPage() {
+  return (
+    <AdminShell active="dashboard">
+      <AdminDashboardContent />
+    </AdminShell>
+  );
 }

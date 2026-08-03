@@ -34,7 +34,7 @@ export default async function AdminLayout({
   const user = await fetchMeServer(cookieHeader);
 
   if (!user) {
-    redirect({ href: "/auth/login?next=/admin/orders", locale });
+    redirect({ href: "/auth/login?next=/admin", locale });
   } else if (user.role === "customer") {
     redirect({ href: "/", locale });
   }
