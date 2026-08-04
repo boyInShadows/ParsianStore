@@ -6,9 +6,12 @@ drift; it's a review artifact for the owner, not a second source of truth.
 
 ## Blockers / quick wins
 
-- [ ] **`packages/schemas` compiled build-output gap** — `apps/api`'s
-      compiled `pnpm start` can't resolve the package's `.ts` source
-      without `tsx`. Blocks a real production start; never yet exercised.
+- [x] **`packages/schemas` compiled build-output gap** — fixed 2026-08-04.
+      The package now emits `dist/` (`tsconfig.build.json`, NodeNext) and its
+      `main`/`types`/`exports` point there; `turbo`'s `dev` task gained
+      `dependsOn: ["^build"]`, and vitest keeps resolving `src/` so tests
+      never run against a stale artifact. `node dist/server.js` verified
+      live against real MongoDB. See `docs/decisions/0024-schemas-build-output.md`.
 - [x] **Seed a superadmin account** — done; `ADMIN_SEED_PHONE` is set in
       `apps/api/.env` and a superadmin exists.
 - [ ] **Design-quality pass on shipped Phase 5-7 pages** — owner rated

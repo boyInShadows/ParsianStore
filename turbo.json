@@ -12,7 +12,14 @@
       "dependsOn": ["^build"],
       "outputs": [".next/**", "!.next/cache/**", "dist/**"]
     },
+    // `packages/schemas` now emits real JS to dist/ (its `main`/`exports` point
+    // there, so plain Node can load it in production). Dev therefore has to
+    // build it once up front, or `next dev` / `tsx watch` start against a
+    // missing dist on a fresh clone. Turbo caches it, so this costs nothing on
+    // a warm repo; schemas' own `dev` task then keeps it in sync via tsc
+    // --watch for the rest of the session.
     "dev": {
+      "dependsOn": ["^build"],
       "cache": false,
       "persistent": true
     }

@@ -1,0 +1,20 @@
+{
+  // Emit config, separate from tsconfig.json (which stays `noEmit` for the
+  // editor and for a plain type-check). `apps/api` runs production as
+  // `node dist/server.js` -- plain Node, no tsx -- so a bare `import ... from
+  // "schemas"` has to land on real JavaScript. NodeNext (not Bundler) because
+  // the consumer is Node's own ESM resolver, and it is what makes the `.js`
+  // specifiers already written throughout src/ resolve correctly once emitted.
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "noEmit": false,
+    "declaration": true,
+    "declarationMap": true,
+    "outDir": "dist",
+    "rootDir": "src"
+  },
+  "include": ["src"],
+  "exclude": ["src/**/*.test.ts"]
+}
