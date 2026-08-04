@@ -69,7 +69,7 @@ function AuthenticityField({
   mono?: boolean;
 }) {
   return (
-    <div className="gap-0.5 flex flex-col">
+    <div className="flex flex-col gap-1">
       <dt className="text-caption text-text-muted">{label}</dt>
       <dd className={`text-body-sm text-text ${mono ? "font-mono" : ""}`}>{value}</dd>
     </div>

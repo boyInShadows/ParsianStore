@@ -70,7 +70,7 @@ export function Header({ messages }: Props) {
           type="button"
           onClick={() => setMobileMenuOpen(true)}
           aria-label="باز کردن منو"
-          className="h-9 w-9 inline-flex items-center justify-center rounded-md text-text md:hidden"
+          className="inline-flex h-12 w-12 items-center justify-center rounded-md text-text md:hidden"
         >
           <MenuIcon />
         </button>
@@ -89,7 +89,7 @@ export function Header({ messages }: Props) {
             دسته‌بندی‌ها
           </button>
           {categoriesOpen ? (
-            <ul className="w-48 absolute top-full z-10 mt-1 rounded-md border border-border bg-surface p-2 shadow-md">
+            <ul className="w-64 absolute top-full z-10 mt-1 rounded-md border border-border bg-surface p-2 shadow-md">
               {CATEGORIES.map((category) => (
                 <li key={category.slug}>
                   <Link
@@ -134,13 +134,13 @@ export function Header({ messages }: Props) {
           <Link
             href="/cart"
             aria-label={cartItemCount > 0 ? `سبد خرید، ${cartItemCount} قلم` : "سبد خرید"}
-            className="h-9 w-9 relative inline-flex items-center justify-center rounded-md text-text hover:bg-surface-raised"
+            className="relative inline-flex h-12 w-12 items-center justify-center rounded-md text-text hover:bg-surface-raised"
           >
             <CartIcon />
             {cartItemCount > 0 ? (
               <span
                 aria-hidden="true"
-                className="absolute -end-1 -top-1 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-cta px-1 font-mono text-[10px] leading-none text-cta-fg"
+                className="absolute -end-1 -top-1 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-cta px-1 font-mono text-caption leading-none text-cta-fg"
               >
                 {cartItemCount > 99 ? "99+" : cartItemCount}
               </span>
@@ -158,7 +158,7 @@ export function Header({ messages }: Props) {
                   authUser ? `${messages.signedInAria} ${authUser.phone}` : messages.signedInAria
                 }
                 title={authUser?.phone}
-                className="h-9 w-9 inline-flex items-center justify-center rounded-md text-brand hover:bg-surface-raised"
+                className="inline-flex h-12 w-12 items-center justify-center rounded-md text-brand hover:bg-surface-raised"
               >
                 <AccountIcon />
               </Link>
@@ -166,7 +166,7 @@ export function Header({ messages }: Props) {
                 type="button"
                 onClick={() => void handleSignOut()}
                 aria-label={messages.signOutAria}
-                className="h-9 w-9 inline-flex items-center justify-center rounded-md text-text hover:bg-surface-raised"
+                className="inline-flex h-12 w-12 items-center justify-center rounded-md text-text hover:bg-surface-raised"
               >
                 <SignOutIcon />
               </button>
@@ -175,7 +175,7 @@ export function Header({ messages }: Props) {
             <Link
               href="/auth/login"
               aria-label={messages.signInAria}
-              className="h-9 w-9 inline-flex items-center justify-center rounded-md text-text hover:bg-surface-raised"
+              className="inline-flex h-12 w-12 items-center justify-center rounded-md text-text hover:bg-surface-raised"
             >
               <AccountIcon />
             </Link>

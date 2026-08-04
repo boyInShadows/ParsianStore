@@ -148,7 +148,7 @@ export default async function ProductPage({ params }: Props) {
               </span>
             ) : null}
             {product.isWholesalePrice ? (
-              <span className="bg-brand/10 py-0.5 rounded-full px-2 text-caption font-medium text-brand">
+              <span className="rounded-full bg-brand-subtle px-2 py-1 text-caption font-medium text-brand">
                 {catalogMessages.product.wholesalePriceBadge}
               </span>
             ) : null}

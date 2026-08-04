@@ -148,7 +148,7 @@ export default async function OrderDetailPage({ params }: Props) {
         <ol className="flex flex-col gap-4">
           {order.statusHistory.map((entry, index) => (
             <li key={index} className="flex gap-3 border-s-2 border-border ps-3">
-              <div className="gap-0.5 flex flex-col">
+              <div className="flex flex-col gap-1">
                 <span className="text-body-sm font-medium text-text">
                   {tStatus(entry.status as OrderStatusDto)}
                 </span>

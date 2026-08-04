@@ -11,6 +11,14 @@
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
     },
+    "./fa": {
+      "types": "./dist/fa.d.ts",
+      "default": "./dist/fa.js"
+    },
+    "./fa-text": {
+      "types": "./dist/faText.d.ts",
+      "default": "./dist/faText.js"
+    },
     "./package.json": "./package.json"
   },
   "files": [

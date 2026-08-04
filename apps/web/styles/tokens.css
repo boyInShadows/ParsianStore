@@ -89,6 +89,18 @@
   --color-danger: #c81e4a;
   --color-info: #1e52d6;
 
+  /* Text ON a filled status chip. --brand-fg (white) was used for all three
+     and two of them failed WCAG AA -- caught by a real axe run in dark mode
+     on /styleguide, then confirmed by relative-luminance calculation:
+       success + white = 3.30 light / 2.27 dark  (FAIL, both themes, since P1)
+       danger  + white = 5.61 light / 3.38 dark  (FAIL in dark)
+       info    + white = 6.50 light / 4.70 dark  (passes, kept)
+     Dark ink fixes both: success 5.96/8.63, danger-in-dark 5.80. Same
+     "a bright fill needs dark text" conclusion --cta reached in ADR 0005. */
+  --success-fg: #080c0f;
+  --danger-fg: #ffffff;
+  --info-fg: #ffffff;
+
   /* ---- Contrast-safe pairs, light values (§6.4, WCAG AA verified via a
      real relative-luminance calculation, not eyeballed -- see the ADR). ---- */
   --bg: #eef1f4;
@@ -103,6 +115,43 @@
   --cta: #e2a91d;
   --cta-fg: #141b21;
   --focus: #2e6bef;
+
+  /* ---- Document tokens (§6.8) -----------------------------------------
+     Added for the account/commerce design pass. §6.1's vernacular is
+     "hairline rules" and ruled document surfaces, but the system had
+     exactly one line weight (--border) and one direction of elevation
+     (--surface-raised), which is why every list rendered as N identical
+     bordered boxes instead of one sheet with ruled rows.
+
+     --rule is a DIVIDER inside a surface, always lighter than --border,
+     which stays the container edge. Decorative and non-text, so no
+     contrast floor applies; never use it on --bg, where it disappears.
+
+     --surface-sunken is the missing counterpart to --surface-raised: a
+     recessed well for a money/receipt block. Same value as --bg in both
+     themes -- a semantic alias, not a new color.
+
+     --price implements §6.3's "Marigold owns prices", which had never
+     been built because --cta itself fails as text (2.12:1 on --surface).
+     Verified by real relative-luminance calculation, not eyeballed, per
+     ADR 0005's own precedent: marigold-800 is 6.77:1 on --surface and
+     5.97:1 on --bg/--surface-sunken; marigold-300 is 9.18:1 on the dark
+     --surface and 7.98:1 on --surface-raised. Both pass AA at every size.
+     (marigold-700 was the first candidate and misses at 4.47:1.)
+
+     --brand-subtle is the tinted ground for a selected row, a brand chip, or
+     the status rail's halo. It exists because `bg-brand/10` -- used in three
+     places in this codebase since P5.S1 -- generates NO CSS AT ALL: Tailwind
+     3.4 can only apply an opacity modifier to a color it can decompose, and
+     every color here is an opaque `var(--...)`. Verified against the real
+     generated stylesheet, where `.bg-brand\/10` simply does not exist, so
+     the wholesale-price chip has been rendering with no background since the
+     day it shipped. Never use `/NN` opacity on these tokens; add a real
+     token instead. --brand on --brand-subtle is 7.98:1 light, 7.39:1 dark. */
+  --rule: #e2e7ec;
+  --surface-sunken: #eef1f4;
+  --price: #78550c;
+  --brand-subtle: #eaf1ff;
 
   /* ---- Radius (§6.6) ---- */
   --radius-sm: 6px;
@@ -164,6 +213,10 @@
   --color-danger: #f0527d;
   --color-info: #2e6bef;
 
+  /* Dark-mode danger is bright enough that white text drops to 3.38:1;
+     dark ink on it is 5.80:1. success/info keep their light-mode pairing. */
+  --danger-fg: #080c0f;
+
   --bg: #0e1418;
   --surface: #1a222a;
   --surface-raised: #242d36;
@@ -180,6 +233,14 @@
   --cta: #e8b032;
   --cta-fg: #0e1418;
   --focus: #7ba6ff;
+
+  /* Document tokens (§6.8). --rule stays one step lighter than --border
+     in both themes; --price flips to marigold-300, the same one-step-
+     brighter move --cta already makes for dark mode. */
+  --rule: #242d36;
+  --surface-sunken: #0e1418;
+  --price: #efbc55;
+  --brand-subtle: #0a1733;
 
   /* Dark mode uses NO shadows -- elevation comes from --surface-raised
      + --border instead (§6.6). */

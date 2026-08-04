@@ -37,7 +37,7 @@ export function ThemeToggle() {
       disabled={!mounted}
       onClick={() => setTheme(isDark ? "light" : "dark")}
       aria-label={isDark ? "Switch to light theme" : "Switch to dark theme"}
-      className="h-9 w-9 inline-flex items-center justify-center rounded-full border border-border text-text-muted transition-colors duration-fast hover:text-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2 focus-visible:ring-offset-bg disabled:opacity-0"
+      className="inline-flex h-12 w-12 items-center justify-center rounded-full border border-border text-text-muted transition-colors duration-fast hover:text-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2 focus-visible:ring-offset-bg disabled:opacity-0"
     >
       {isDark ? <SunIcon /> : <MoonIcon />}
     </button>

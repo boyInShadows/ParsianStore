@@ -99,7 +99,7 @@ export default async function WishlistPage({ params, searchParams }: Props) {
       <div className="mt-6 flex flex-wrap items-center gap-3">
         <h1 className="font-display text-h2 font-black text-text">{t("title")}</h1>
         {total > 0 ? (
-          <span className="gap-1.5 bg-danger/10 inline-flex items-center rounded-full px-3 py-1 text-body-sm font-medium text-danger">
+          <span className="inline-flex items-center gap-2 rounded-full border border-danger bg-surface px-3 py-1 text-body-sm font-medium text-danger">
             {t("itemCount", { count: total })}
           </span>
         ) : null}

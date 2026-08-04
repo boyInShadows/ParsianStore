@@ -8,14 +8,23 @@ type Props = {
 
 export function Chip({ children, onRemove, removeLabel = "Remove" }: Props) {
   return (
-    <span className="inline-flex items-center gap-1 rounded-full border border-border bg-surface-raised px-3 py-1 text-body-sm text-text">
+    <span
+      className={`inline-flex items-center gap-1 rounded-full border border-border bg-surface-raised text-body-sm text-text ${
+        // A chip carrying a remove button is an interactive control on the
+        // PLP filter bar, so it has to clear masterPlan §10's 44px floor.
+        // The glyph stays 12px; the button's own box is what grows, and the
+        // chip drops its inline-end padding so the target does not just add
+        // width. A decorative chip keeps the original compact shape.
+        onRemove ? "min-h-12 pe-0 ps-3" : "px-3 py-1"
+      }`}
+    >
       {children}
       {onRemove ? (
         <button
           type="button"
           onClick={onRemove}
           aria-label={removeLabel}
-          className="-me-1 inline-flex h-4 w-4 items-center justify-center rounded-full text-text-muted hover:text-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus"
+          className="inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-full text-text-muted transition-colors duration-fast hover:text-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus motion-reduce:transition-none"
         >
           <CloseIcon />
         </button>

@@ -16,7 +16,7 @@ export function RelatedProducts({ title, products, messages }: Props) {
   if (products.length === 0) return null;
 
   return (
-    <section aria-labelledby="related-products-heading" className="mt-10">
+    <section aria-labelledby="related-products-heading" className="mt-12">
       <h2 id="related-products-heading" className="text-h3 font-semibold text-text">
         {title}
       </h2>

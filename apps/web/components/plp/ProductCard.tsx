@@ -49,10 +49,10 @@ export function ProductCard({ product, messages }: Props) {
       </div>
       <div className="flex flex-1 flex-col gap-1">
         <span className="line-clamp-2 text-body-sm text-text">{product.name.fa}</span>
-        <span className="gap-1.5 flex items-center">
+        <span className="flex items-center gap-2">
           <span className="font-mono text-data text-text">{formatToman(product.priceRial)}</span>
           {product.isWholesalePrice ? (
-            <span className="bg-brand/10 px-1.5 py-0.5 rounded-full text-[10px] font-medium leading-none text-brand">
+            <span className="rounded-full bg-brand-subtle px-2 py-1 text-caption font-medium leading-none text-brand">
               {messages.wholesalePriceBadge}
             </span>
           ) : null}
