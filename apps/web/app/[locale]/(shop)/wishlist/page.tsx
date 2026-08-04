@@ -51,6 +51,7 @@ export default async function WishlistPage({ params, searchParams }: Props) {
   const t = await getTranslations("Wishlist");
   const tOrders = await getTranslations("Orders");
   const tAddresses = await getTranslations("Addresses");
+  const tGarage = await getTranslations("Garage");
   const tCatalog = await getTranslations("Catalog");
 
   // Server-side auth gate, same reasoning as /orders (P7.S1): this page's
@@ -92,6 +93,7 @@ export default async function WishlistPage({ params, searchParams }: Props) {
         ordersLabel={tOrders("title")}
         addressesLabel={tAddresses("title")}
         wishlistLabel={t("title")}
+        garageLabel={tGarage("title")}
       />
 
       <div className="mt-6 flex flex-wrap items-center gap-3">

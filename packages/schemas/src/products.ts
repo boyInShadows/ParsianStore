@@ -8,6 +8,7 @@ import { z } from "zod";
 const localizedNameSchema = z.object({ fa: z.string(), en: z.string() });
 
 export const SUPPLY_ROUTES = ["oem", "genuine-imported", "domestic", "grade1-aftermarket"] as const;
+export type SupplyRouteDto = (typeof SUPPLY_ROUTES)[number];
 
 const authenticitySchema = z.object({
   supplyRoute: z.enum(SUPPLY_ROUTES),

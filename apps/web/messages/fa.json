@@ -396,5 +396,20 @@
     "prev": "قبلی",
     "next": "بعدی",
     "pageOf": "صفحه {page} از {pageCount}"
+  },
+  "Garage": {
+    "title": "گاراژ من",
+    "itemCount": "'{count}' خودرو",
+    "emptyTitle": "هنوز خودرویی به گاراژ اضافه نکرده‌اید",
+    "emptyDescription": "خودروی خود را اضافه کنید تا سازگاری قطعات به‌طور خودکار بررسی شود.",
+    "activeBadge": "فعال",
+    "setActiveButton": "انتخاب به‌عنوان فعال",
+    "removeAria": "حذف خودرو",
+    "addVehicleButton": "افزودن خودرو",
+    "cancel": "انصراف",
+    "makeLabel": "خودرو",
+    "modelLabel": "مدل",
+    "yearLabel": "سال تولید",
+    "selectPlaceholder": "انتخاب کنید"
   }
 }

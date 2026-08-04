@@ -61,6 +61,41 @@ pnpm dev     # runs every app in the workspace via Turborepo
 
 Other workspace-wide scripts: `pnpm lint`, `pnpm test`, `pnpm build`.
 
+The API needs MongoDB reachable at the `MONGODB_URI` in `apps/api/.env` before
+it will serve anything — if it is down, `pnpm dev` logs a
+`MongooseServerSelectionError` and the API process exits while the web app
+keeps running.
+
+### Reading the logs
+
+`turbo.json` sets `"ui": "stream"`, so every task's output is interleaved into
+the terminal you launched it from, prefixed by task:
+
+```
+api:dev: [23:50:11] INFO: api listening on http://localhost:4000
+api:dev: [23:50:19] INFO: GET /api/v1/catalog/products 200 12ms
+api:dev: [23:50:21] WARN: ApiError: Product not found
+web:dev:  ✓ Ready in 2.1s
+```
+
+Because it is an ordinary stream, it pipes and redirects normally —
+`pnpm dev 2>&1 | grep api:dev` to watch one app, or `pnpm dev > dev.log 2>&1`
+to capture a session. (Turbo's default `"tui"` would instead hide each task
+behind an arrow-key-selected pane and make both of those useless.)
+
+To watch a single app with no cross-talk: `pnpm dev:api` or `pnpm dev:web`.
+
+The API logs through [pino](https://getpino.io) (`apps/api/src/config/logger.ts`),
+prettified in development only — production emits JSON on stdout. Per-request
+lines come from `apps/api/src/middleware/httpLogger.ts`, which collapses each
+request to one line and stays quiet about `/api/v1/health` and `/uploads/*`.
+Failed requests log their reason from `apps/api/src/middleware/error.ts`: 4xx at
+`warn`, 5xx at `error`.
+
+Verbosity is `LOG_LEVEL` in `apps/api/.env` (`trace` `debug` `info` `warn`
+`error` `fatal` `silent`; defaults to `info` when unset). `LOG_LEVEL=warn`
+narrows the output to failing requests only.
+
 ## Branching & workflow
 
 ```

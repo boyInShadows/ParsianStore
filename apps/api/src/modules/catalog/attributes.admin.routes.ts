@@ -24,6 +24,11 @@ adminAttributesRouter.get(
   validateQuery(listAttributesQuerySchema),
   attributesController.listAttributesHandler,
 );
+adminAttributesRouter.get(
+  "/:id",
+  validateParams(attributeIdParamSchema),
+  attributesController.getAttributeHandler,
+);
 adminAttributesRouter.post(
   "/",
   validate(createAttributeSchema),
@@ -39,4 +44,10 @@ adminAttributesRouter.delete(
   "/:id",
   validateParams(attributeIdParamSchema),
   attributesController.deleteAttributeHandler,
+);
+// Named action, matching products/:id/archive and coupons/:id/deactivate.
+adminAttributesRouter.post(
+  "/:id/restore",
+  validateParams(attributeIdParamSchema),
+  attributesController.restoreAttributeHandler,
 );

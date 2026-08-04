@@ -8,6 +8,8 @@
   },
   "scripts": {
     "dev": "turbo run dev",
+    "dev:api": "turbo run dev --filter=api",
+    "dev:web": "turbo run dev --filter=web",
     "build": "turbo run build",
     "lint": "eslint .",
     "format": "prettier --write .",

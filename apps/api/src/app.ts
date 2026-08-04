@@ -3,10 +3,9 @@ import helmet from "helmet";
 import cors from "cors";
 import compression from "compression";
 import cookieParser from "cookie-parser";
-import { pinoHttp } from "pino-http";
 import { healthResponseSchema } from "schemas";
 import { env } from "./config/env.js";
-import { logger } from "./config/logger.js";
+import { httpLogger } from "./middleware/httpLogger.js";
 import { notFoundHandler } from "./middleware/notFound.js";
 import { errorHandler } from "./middleware/error.js";
 import { apiRateLimiter } from "./middleware/rateLimit.js";
@@ -19,9 +18,17 @@ import { cartRouter } from "./modules/cart/cart.routes.js";
 import { adminCatalogRouter } from "./modules/catalog/catalog.admin.routes.js";
 import { catalogRouter } from "./modules/catalog/catalog.routes.js";
 import { checkoutRouter } from "./modules/checkout/checkout.routes.js";
+import { adminCouponsRouter } from "./modules/coupons/coupons.admin.routes.js";
+import { adminCustomersRouter } from "./modules/users/users.admin.routes.js";
+import { adminDashboardRouter } from "./modules/dashboard/dashboard.admin.routes.js";
+import { adminAuditRouter } from "./modules/audit/audit.admin.routes.js";
+import { adminShippingRouter } from "./modules/shipping/shipping.admin.routes.js";
+import { adminVehiclesRouter } from "./modules/vehicles/vehicles.admin.routes.js";
+import { adminFitmentRouter } from "./modules/fitment/fitment.admin.routes.js";
 import { fitmentRouter } from "./modules/fitment/fitment.routes.js";
 import { geoRouter } from "./modules/geo/geo.routes.js";
 import { adminInventoryRouter } from "./modules/inventory/inventory.admin.routes.js";
+import { adminOrdersRouter } from "./modules/orders/orders.admin.routes.js";
 import { ordersRouter } from "./modules/orders/orders.routes.js";
 import { paymentsRouter } from "./modules/payments/payments.routes.js";
 import { vehiclesRouter } from "./modules/vehicles/vehicles.routes.js";
@@ -44,7 +51,7 @@ app.use(compression());
 app.use(cookieParser());
 app.use(express.json());
 app.use(requestId);
-app.use(pinoHttp({ logger }));
+app.use(httpLogger);
 app.use(sanitizeRequest);
 app.use("/api/v1", apiRateLimiter);
 
@@ -76,6 +83,29 @@ app.use("/api/v1/checkout", checkoutRouter);
 // P7.S1. requireAuth inside ordersRouter itself, same style as every
 // other /me/* router above.
 app.use("/api/v1/me/orders", ordersRouter);
+// P8.S1. requireAuth+requireStaff() applied inside adminOrdersRouter
+// itself, same style as adminCatalogRouter/adminInventoryRouter above.
+app.use("/api/v1/admin/orders", adminOrdersRouter);
+// P8.S3. Same requireStaff()+auditLog stack, applied inside each router.
+// Coupons and customers each get their own top-level admin mount --
+// neither is a catalog entity, matching how /admin/orders sits apart
+// from /admin/catalog.
+app.use("/api/v1/admin/coupons", adminCouponsRouter);
+app.use("/api/v1/admin/customers", adminCustomersRouter);
+// P8.S5. Read-only aggregate over orders/products/users -- its own mount
+// rather than a leaf under any one of them, since it belongs to none.
+app.use("/api/v1/admin/dashboard", adminDashboardRouter);
+// P8.S8. Reads back what auditLog() has been writing since P8.S1.
+// admin/superadmin only -- see audit.admin.routes.ts.
+app.use("/api/v1/admin/audit", adminAuditRouter);
+// P8.S9. The weight/price ladder behind /cart/estimate-shipping, which
+// until now could only be changed by re-running the seed script.
+app.use("/api/v1/admin/shipping", adminShippingRouter);
+// P8.S6 §3.7. The vehicle tree and the fitment records that reference it
+// -- both had public read endpoints since P2.S6 and no write path at all
+// outside a seed script.
+app.use("/api/v1/admin/vehicles", adminVehiclesRouter);
+app.use("/api/v1/admin/fitment", adminFitmentRouter);
 // No auth on paymentsRouter -- see payments.routes.ts, this is the
 // gateway's own redirect target, not a client-called resource.
 app.use("/api/v1/payments", paymentsRouter);

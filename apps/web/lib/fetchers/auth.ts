@@ -38,6 +38,25 @@ export async function fetchMe(): Promise<MeDto | null> {
   }
 }
 
+// Server-side only (P8.S1: the (admin) layout's own auth+role gate) --
+// same cookie-forwarding reasoning fetchOrders/fetchWishlist already
+// established: a Server Component fetch() has no browser cookie jar,
+// unlike fetchMe() above's client-context credentials:"include".
+export async function fetchMeServer(cookieHeader: string): Promise<MeDto | null> {
+  try {
+    const res = await fetch(`${API_URL}/api/v1/auth/me`, {
+      headers: { cookie: cookieHeader },
+      cache: "no-store",
+    });
+    if (!res.ok) return null;
+    const json = await res.json();
+    const parsed = meResponseSchema.safeParse(json);
+    return parsed.success ? parsed.data.data : null;
+  } catch {
+    return null;
+  }
+}
+
 export async function requestOtp(phone: string): Promise<AuthActionResult<{ message: string }>> {
   try {
     const res = await fetch(`${API_URL}/api/v1/auth/otp/request`, {
