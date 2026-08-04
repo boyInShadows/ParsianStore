@@ -43,10 +43,13 @@ export async function fetchAdminProducts(
   page: number,
   limit: number,
   status?: ProductStatusDto,
+  q?: string,
 ): Promise<AdminProductListPage | null> {
   try {
     const params = new URLSearchParams({ page: String(page), limit: String(limit) });
     if (status) params.set("status", status);
+    // P8.S6: name/SKU search, used by the Fitment Manager's product picker.
+    if (q) params.set("q", q);
     const res = await fetch(`${API_URL}/api/v1/admin/catalog/products?${params.toString()}`, {
       credentials: "include",
     });

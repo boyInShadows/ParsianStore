@@ -33,6 +33,7 @@ type Props = {
     | "catalog"
     | "discounts"
     | "customers"
+    | "vehicles"
     | "shipping"
     | "audit";
   children: ReactNode;
@@ -58,6 +59,10 @@ const NAV_ITEMS = [
   { key: "catalog" as const, href: "/admin/categories", label: "کاتالوگ" },
   // P8.S3. /admin/discounts, not /admin/coupons -- masterPlan §5's own
   // admin route map already names this surface "coupons & campaigns".
+  // P8.S6. One entry for both /admin/vehicles and /admin/fitment, sharing
+  // an in-page tab bar -- the same reasoning `catalog` above uses for its
+  // three routes.
+  { key: "vehicles" as const, href: "/admin/vehicles", label: "خودروها" },
   { key: "discounts" as const, href: "/admin/discounts", label: "تخفیف‌ها" },
   { key: "customers" as const, href: "/admin/customers", label: "مشتریان" },
   // P8.S9. The courier method list itself is a static const; this route

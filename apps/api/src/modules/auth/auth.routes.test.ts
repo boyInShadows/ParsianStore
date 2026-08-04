@@ -1,8 +1,9 @@
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import mongoose from "mongoose";
 import argon2 from "argon2";
 import type { Server } from "node:http";
 import { app } from "../../app.js";
+import { env } from "../../config/env.js";
 import { testDbUri } from "../../config/testDbUri.js";
 import { OtpTokenModel } from "../../models/OtpToken.js";
 import { RefreshTokenModel } from "../../models/RefreshToken.js";
@@ -161,5 +162,49 @@ describe("auth session flow (verify -> me -> refresh -> logout)", () => {
       body: JSON.stringify({ phone: "09121119002", code: "000000" }),
     });
     expect(res.status).toBe(400);
+  });
+});
+
+/**
+ * P8.S6. `authRateLimiter` used to be mounted with `authRouter.use(...)`,
+ * which also covered `GET /me`. The (admin) layout reads /me server-side
+ * on every page render, so the eleventh admin page view inside fifteen
+ * minutes 429'd and bounced a properly-signed-in staff member to the login
+ * screen. These two tests pin the split: credential endpoints stay
+ * limited, the session read does not.
+ */
+describe("auth rate limiting covers credentials, not the session read", () => {
+  const originalNodeEnv = env.NODE_ENV;
+
+  afterEach(() => {
+    env.NODE_ENV = originalNodeEnv;
+  });
+
+  it("does not rate limit repeated /me reads", async () => {
+    env.NODE_ENV = "production";
+    const statuses: number[] = [];
+    for (let i = 0; i < 15; i += 1) {
+      const res = await fetch(`${baseUrl}/api/v1/auth/me`);
+      statuses.push(res.status);
+    }
+    // 401 (no cookie) is the expected answer here -- what must never
+    // appear is 429.
+    expect(statuses).not.toContain(429);
+  });
+
+  it("still rate limits repeated OTP requests from one IP", async () => {
+    env.NODE_ENV = "production";
+    let blocked = false;
+    for (let i = 0; i < 12; i += 1) {
+      const res = await fetch(`${baseUrl}/api/v1/auth/otp/request`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        // A different phone each time, so this can only be the per-IP
+        // limiter and never the per-phone one.
+        body: JSON.stringify({ phone: `0912555${String(1000 + i)}` }),
+      });
+      if (res.status === 429) blocked = true;
+    }
+    expect(blocked).toBe(true);
   });
 });

@@ -13,6 +13,9 @@ export type AdminProductIdParam = z.infer<typeof adminProductIdParamSchema>;
 
 export const adminProductListQuerySchema = paginationQuerySchema.extend({
   status: productStatusSchema.optional(),
+  // P8.S6: name/SKU search, added for the Fitment Manager's product
+  // picker -- one product has to be findable out of the whole catalog.
+  q: z.string().trim().min(1).optional(),
 });
 export type AdminProductListQuery = z.infer<typeof adminProductListQuerySchema>;
 

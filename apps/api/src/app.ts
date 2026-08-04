@@ -23,6 +23,8 @@ import { adminCustomersRouter } from "./modules/users/users.admin.routes.js";
 import { adminDashboardRouter } from "./modules/dashboard/dashboard.admin.routes.js";
 import { adminAuditRouter } from "./modules/audit/audit.admin.routes.js";
 import { adminShippingRouter } from "./modules/shipping/shipping.admin.routes.js";
+import { adminVehiclesRouter } from "./modules/vehicles/vehicles.admin.routes.js";
+import { adminFitmentRouter } from "./modules/fitment/fitment.admin.routes.js";
 import { fitmentRouter } from "./modules/fitment/fitment.routes.js";
 import { geoRouter } from "./modules/geo/geo.routes.js";
 import { adminInventoryRouter } from "./modules/inventory/inventory.admin.routes.js";
@@ -99,6 +101,11 @@ app.use("/api/v1/admin/audit", adminAuditRouter);
 // P8.S9. The weight/price ladder behind /cart/estimate-shipping, which
 // until now could only be changed by re-running the seed script.
 app.use("/api/v1/admin/shipping", adminShippingRouter);
+// P8.S6 §3.7. The vehicle tree and the fitment records that reference it
+// -- both had public read endpoints since P2.S6 and no write path at all
+// outside a seed script.
+app.use("/api/v1/admin/vehicles", adminVehiclesRouter);
+app.use("/api/v1/admin/fitment", adminFitmentRouter);
 // No auth on paymentsRouter -- see payments.routes.ts, this is the
 // gateway's own redirect target, not a client-called resource.
 app.use("/api/v1/payments", paymentsRouter);

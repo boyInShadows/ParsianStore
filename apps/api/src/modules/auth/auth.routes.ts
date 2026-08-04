@@ -7,17 +7,35 @@ import { otpRequestSchema, otpVerifySchema } from "./auth.schema.js";
 
 export const authRouter = Router();
 
-// §10: "auth 10/15min/IP" applies to the whole surface, on top of the
-// otp/request-specific per-phone limit below.
-authRouter.use(authRateLimiter);
-
+/**
+ * §10: "auth 10/15min/IP", applied per credential-handling endpoint on top
+ * of the otp/request-specific per-phone limit below.
+ *
+ * P8.S6 stopped applying it as `authRouter.use(...)` across the whole
+ * surface. That also covered `GET /me`, which is a session READ with
+ * nothing to brute-force -- and the (admin) layout calls it server-side on
+ * EVERY admin page render. Eleven admin page views inside fifteen minutes
+ * therefore 429'd, `fetchMeServer` read that as "not signed in", and a
+ * perfectly authenticated staff member was redirected to the login screen.
+ * Behind one office IP, a few staff would lock each other out in under a
+ * minute. Found by hitting it while verifying this step's own screens.
+ *
+ * `/me` is still rate limited -- by the general 100/min/IP `apiRateLimiter`
+ * mounted on all of /api/v1 in app.ts.
+ */
 authRouter.post(
   "/otp/request",
+  authRateLimiter,
   validate(otpRequestSchema),
   otpRequestRateLimiter,
   authController.requestOtpHandler,
 );
-authRouter.post("/otp/verify", validate(otpVerifySchema), authController.verifyOtpHandler);
-authRouter.post("/refresh", authController.refreshHandler);
+authRouter.post(
+  "/otp/verify",
+  authRateLimiter,
+  validate(otpVerifySchema),
+  authController.verifyOtpHandler,
+);
+authRouter.post("/refresh", authRateLimiter, authController.refreshHandler);
 authRouter.post("/logout", authController.logoutHandler);
 authRouter.get("/me", requireAuth, authController.meHandler);

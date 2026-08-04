@@ -13,8 +13,8 @@ export async function listAdminProductsHandler(
   next: NextFunction,
 ): Promise<void> {
   try {
-    const { status, ...pagination } = req.validatedQuery as AdminProductListQuery;
-    const { data, meta } = await productsAdminService.listAdminProducts(pagination, { status });
+    const { status, q, ...pagination } = req.validatedQuery as AdminProductListQuery;
+    const { data, meta } = await productsAdminService.listAdminProducts(pagination, { status, q });
     res.json({ ok: true, data, meta });
   } catch (err) {
     next(err);

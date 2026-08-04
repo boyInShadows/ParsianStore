@@ -1,9 +1,11 @@
-import type { HydratedDocument } from "mongoose";
+import type { FilterQuery, HydratedDocument } from "mongoose";
+import { normalizeFa } from "schemas";
 import { BrandModel } from "../../models/Brand.js";
 import { CategoryModel } from "../../models/Category.js";
 import { ProductModel, type Product } from "../../models/Product.js";
 import { ApiError } from "../../utils/ApiError.js";
 import { paginate, type PaginatedResult, type PaginationQuery } from "../../utils/pagination.js";
+import { escapeRegExp } from "../../utils/regex.js";
 import { validateProductAttributes } from "./attributes.service.js";
 import type { CreateProductInput, UpdateProductInput } from "./products.admin.schema.js";
 
@@ -29,9 +31,23 @@ async function assertBrandAndCategoryExist(brandId: string, categoryId: string):
 
 export function listAdminProducts(
   pagination: PaginationQuery,
-  filters: { status?: string },
+  filters: { status?: string; q?: string },
 ): Promise<PaginatedResult<HydratedDocument<Product>>> {
-  const filter = filters.status ? { status: filters.status } : {};
+  const filter: FilterQuery<Product> = {};
+  if (filters.status) filter.status = filters.status;
+  // P8.S6 adds `q`: the Fitment Manager has to let staff pick one product
+  // out of the whole catalog, which a paged dropdown cannot do. Matches
+  // the Persian name and the SKU -- the two things staff have in front of
+  // them. `normalizeFa` is applied to the query for the same reason
+  // Product.searchText is normalized on write (§8.3): normalizing only
+  // one side is the single most common way Persian search breaks.
+  if (filters.q) {
+    const escaped = escapeRegExp(filters.q);
+    filter.$or = [
+      { searchText: { $regex: escapeRegExp(normalizeFa(filters.q)) } },
+      { sku: { $regex: escaped, $options: "i" } },
+    ];
+  }
   return paginate(ProductModel, filter, { ...pagination, sort: pagination.sort ?? "-createdAt" });
 }
 

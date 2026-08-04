@@ -24,4 +24,6 @@ export * from "./admin-attribute.js";
 export * from "./admin-dashboard.js";
 export * from "./admin-audit.js";
 export * from "./admin-shipping.js";
+export * from "./admin-vehicle.js";
+export * from "./admin-fitment.js";
 export * from "./geo.js";
