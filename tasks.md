@@ -1,6 +1,6 @@
 # ParsianStore — Remaining Work Checklist
 
-Snapshot as of 2026-07-30. Only what's left — shipped work lives in
+Snapshot as of 2026-08-04. Only what's left — shipped work lives in
 `masterPlan.md` §13. Regenerate/update this file rather than letting it
 drift; it's a review artifact for the owner, not a second source of truth.
 
@@ -50,24 +50,41 @@ drift; it's a review artifact for the owner, not a second source of truth.
       the PLP facets and PDP specs table have real data for the first time.
       Fixed a pre-existing app-wide bug on the way — `meta.total` counted
       soft-deleted rows on every paginated endpoint.
-- [ ] Admin: Vehicle manager + Fitment Manager (§3.7)
-- [ ] Admin: KPI overview / dashboard home (MUI X Charts)
+- [x] **P8.S5** Admin: KPI overview / dashboard home — shipped 2026-08-04
+      (`/admin`, replacing the redirect stub). Bento composition: revenue
+      hero + sparkline, order/AOV/new-customer tiles with period deltas,
+      needs-action strip, daily revenue chart + status donut, top
+      products / low stock / recent orders. Also fixed an app-wide bug:
+      the CSS cascade layer order (`mui, tailwind`) let Tailwind Preflight
+      flatten **every** MUI control in the admin panel.
+- [x] **P8.S6** Admin: Vehicle manager + Fitment Manager (§3.7) — shipped
+      2026-08-04 (`/admin/vehicles` four-column tree browser,
+      `/admin/fitment` grid + cascading picker). Delete guards for both
+      tree children and Fitment references; fitment writes validate the
+      whole make→model→gen→engine chain. Also fixed a real auth bug:
+      `GET /auth/me` sat behind the 10/15min credential limiter, so the
+      11th admin page view in 15 minutes logged staff out.
+- [x] **P8.S7** Admin: Customers list/detail — shipped 2026-08-04
+      (`/admin/customers/[id]`; the list half shipped at P8.S3).
+- [x] **P8.S8** Admin: Audit log viewer — shipped 2026-08-04
+      (`/admin/audit`, timeline + filters + before/after diff,
+      admin/superadmin only).
+- [x] **P8.S9** Admin: Shipping zones/rates config UI — shipped
+      2026-08-04 (`/admin/shipping`; ladder per courier+zone, overlap
+      guard, gap/open-ended warnings).
 - [ ] Admin: Product media manager + variants
 - [ ] Admin: CSV/Excel bulk import for products
 - [ ] Admin: Refunds + invoices (needs `PaymentProvider.refund()`,
       explicitly deferred at P8.S1)
-- [ ] Admin: Customers list/detail
 - [ ] Admin: Payments reconciliation view
-- [ ] Admin: Shipping zones/rates config UI (today: seed script only)
 - [ ] Admin: Content management (banners, sliders, menus, pages, blog)
 - [ ] Admin: Review/Q&A moderation queue
 - [ ] Admin: Support tickets (staff side)
 - [ ] Admin: Reports & exports
 - [ ] Admin: Staff RBAC (today: any staff role passes `requireStaff()`,
-      no per-role permission granularity)
+      no per-role permission granularity — P8.S8's audit viewer is the
+      first and only per-role gate)
 - [ ] Admin: Settings page
-- [ ] Admin: Audit log viewer (writes already happen via `auditLog`
-      middleware; no UI reads them back yet)
 
 ## Phase 9 — Content, SEO, hardening
 
