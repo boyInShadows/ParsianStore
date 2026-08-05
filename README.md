@@ -5,11 +5,17 @@ imported vehicles. Owned by Ash Tech Group.
 
 **Single source of truth for scope, architecture, and phased delivery:
 [`masterPlan.md`](./masterPlan.md).** Read it before touching this repo.
-Always-on coding rules for agents/contributors live in [`CLAUDE.md`](./CLAUDE.md).
+Shared coding rules for humans and AI collaborators live in
+[`CLAUDE.md`](./CLAUDE.md); Codex loads the matching repository entry point in
+[`AGENTS.md`](./AGENTS.md).
 
 ## Status
 
-Phases 0–6 complete, Phases 7–8 in progress on `development`.
+Core Phases 0–6 are shipped. Phase 7's main customer-account flows are live,
+and the admin dashboard is implemented through P8.S9. Remaining work spans the
+storefront backlog, account expansion, advanced admin tooling, hardening, and
+launch. See [`tasks.md`](./tasks.md) for the dated working snapshot and
+`masterPlan.md` for authoritative scope.
 
 A shopper can browse categories, open a product page, search, save to a
 wishlist, fill a cart, and check out to a paid order — with B2B wholesale
@@ -59,7 +65,8 @@ cp .env.example apps/api/.env
 pnpm dev     # runs every app in the workspace via Turborepo
 ```
 
-Other workspace-wide scripts: `pnpm lint`, `pnpm test`, `pnpm build`.
+Other workspace-wide scripts: `pnpm lint`, `pnpm test`, `pnpm build`, and
+`pnpm e2e`.
 
 The API needs MongoDB reachable at the `MONGODB_URI` in `apps/api/.env` before
 it will serve anything — if it is down, `pnpm dev` logs a
@@ -112,3 +119,15 @@ GitHub branch protection on `main` and `development` — require the CI
 workflow (`.github/workflows/ci.yml`) to pass and require PR review before
 merge to `main`. This needs to be done once in the repo's GitHub Settings →
 Branches by someone with admin access.
+
+## Claude + Codex collaboration
+
+Claude and Codex are peers working in the same checkout. Both follow
+`masterPlan.md`, `CLAUDE.md`, and `tasks.md`; `AGENTS.md` keeps Codex pointed at
+the same rules instead of maintaining a competing instruction set.
+
+Before editing, each collaborator must inspect `git status` and preserve work
+already present in the tree. Do not revert, reformat, stage, or commit another
+collaborator's changes unless the owner explicitly asks. Record durable project
+status in `tasks.md` (or the relevant ADR), not in private chat context, and
+leave the worktree buildable with the relevant checks reported.

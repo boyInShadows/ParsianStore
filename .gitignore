@@ -57,5 +57,6 @@ next-env.d.ts
 # Code sessions, deliberately not pushed to GitHub. masterPlan.md, README.md,
 # and docs/audit.md are real product docs and stay tracked; these aren't.
 /CLAUDE.md
+/AGENTS.md
 /docs/decisions/
 /screenshots/
