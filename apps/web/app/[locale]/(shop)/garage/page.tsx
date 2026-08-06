@@ -37,10 +37,12 @@ export default async function GaragePage() {
     <main className="mx-auto max-w-container px-4 py-8">
       <AccountNav
         active="garage"
-        ordersLabel={tOrders("title")}
-        addressesLabel={tAddresses("title")}
-        wishlistLabel={tWishlist("title")}
-        garageLabel={t("title")}
+        labels={{
+          orders: tOrders("title"),
+          addresses: tAddresses("title"),
+          wishlist: tWishlist("title"),
+          garage: t("title"),
+        }}
       />
       <div className="mt-6">
         <GarageContent messages={messages} />

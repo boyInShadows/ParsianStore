@@ -43,10 +43,14 @@ type SheetHeaderProps = {
   // for landing sections (`SYS-04`). Optional -- not every sheet is a record.
   code?: string;
   actions?: ReactNode;
+  // Defaults to h2: a Sheet is a section directly under the page's own h1,
+  // so h3 skips a level and axe's heading-order flags it for real (caught
+  // on the order detail page). Pass "h3" only when the sheet genuinely
+  // nests inside another h2 section.
   titleAs?: "h2" | "h3";
 };
 
-function SheetHeader({ title, code, actions, titleAs = "h3" }: SheetHeaderProps) {
+function SheetHeader({ title, code, actions, titleAs = "h2" }: SheetHeaderProps) {
   const TitleTag = titleAs;
   return (
     <div className="flex flex-wrap items-center justify-between gap-3 border-b border-rule px-4 py-3">

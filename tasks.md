@@ -1,6 +1,6 @@
 # ParsianStore — Remaining Work Checklist
 
-Snapshot as of 2026-08-04. Only what's left — shipped work lives in
+Snapshot as of 2026-08-06. Only what's left — shipped work lives in
 `masterPlan.md` §13. Regenerate/update this file rather than letting it
 drift; it's a review artifact for the owner, not a second source of truth.
 
@@ -14,9 +14,22 @@ drift; it's a review artifact for the owner, not a second source of truth.
       live against real MongoDB. See `docs/decisions/0024-schemas-build-output.md`.
 - [x] **Seed a superadmin account** — done; `ADMIN_SEED_PHONE` is set in
       `apps/api/.env` and a superadmin exists.
-- [ ] **Design-quality pass on shipped Phase 5-7 pages** — owner rated
-      recent UI 1/10; flagged backlog, never started as its own
-      dedicated pass (`web/design-quality.md` checklist).
+- [ ] **Design-quality pass on shipped Phase 5-7 pages** — started 2026-08-06.
+      The account-shell slice is shipped: `/orders`, `/orders/[code]`, and
+      `/addresses` now use the shared docket primitives and stronger responsive
+      hierarchy; the four account routes share a scroll-safe navigation shell.
+      Storefront, cart, and checkout pages still need their own pass before this
+      backlog item can be marked complete.
+
+## Cross-agent handoff — 2026-08-06
+
+Codex completed the first dedicated design-quality slice from Claude's staged
+work. Maintained changes are limited to the account pages/navigation, address
+cards, `Sheet` heading semantics, and Persian order-detail labels. Throwaway
+seed/session scripts and the ad hoc Playwright verifier were removed after use.
+Checks: `pnpm lint` passed; `pnpm test` passed 609/609 against an isolated local
+MongoDB; `pnpm build` passed. Continue the design backlog with the storefront,
+cart, and checkout as separate reviewable slices; do not redo this account slice.
 
 ## Phase 5 — Storefront backlog
 

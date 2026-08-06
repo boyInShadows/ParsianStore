@@ -90,10 +90,12 @@ export default async function WishlistPage({ params, searchParams }: Props) {
     <main className="mx-auto max-w-container px-4 py-8">
       <AccountNav
         active="wishlist"
-        ordersLabel={tOrders("title")}
-        addressesLabel={tAddresses("title")}
-        wishlistLabel={t("title")}
-        garageLabel={tGarage("title")}
+        labels={{
+          orders: tOrders("title"),
+          addresses: tAddresses("title"),
+          wishlist: t("title"),
+          garage: tGarage("title"),
+        }}
       />
 
       <div className="mt-6 flex flex-wrap items-center gap-3">

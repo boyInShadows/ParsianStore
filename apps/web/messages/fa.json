@@ -358,7 +358,15 @@
       "addressTitle": "آدرس گیرنده",
       "shippingMethodTitle": "روش ارسال",
       "trackingCode": "کد رهگیری: {code}",
-      "timelineTitle": "روند سفارش"
+      "timelineTitle": "روند سفارش",
+      "summaryTitle": "جمع سفارش",
+      "currentStatus": "وضعیت فعلی",
+      "receiverLabel": "تحویل‌گیرنده",
+      "phoneLabel": "شماره تماس",
+      "addressLabel": "نشانی",
+      "postalCodeLabel": "کد پستی",
+      "methodLabel": "روش ارسال",
+      "trackingLabel": "کد رهگیری"
     }
   },
   "Addresses": {
