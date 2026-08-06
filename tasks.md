@@ -33,8 +33,9 @@ cart, and checkout as separate reviewable slices; do not redo this account slice
 
 ## Phase 5 — Storefront backlog
 
-- [ ] **P5.S4** Brand pages (`/brand/[slug]`) — reuse PLP filter/grid
-      machinery scoped to one brand; decide facet scope for v1.
+- [x] **P5.S4** Brand pages (`/brand/[slug]`) — shipped 2026-08-06 with
+      category/price/availability facets, sorting, cursor pagination, real brand
+      trust fields, localized 404, and SEO metadata. See ADR 0026.
 - [ ] **P5.S5** Vehicle landing pages (`/vehicle/[make]/[model]/[gen]`)
       — real per-vehicle SEO content, not a thin filtered list; decide
       generate-all vs. only-covered-combinations.
@@ -120,8 +121,9 @@ cart, and checkout as separate reviewable slices; do not redo this account slice
 
 - [ ] Production infra (hosting target still open — Liara vs. ArvanCloud
       vs. own VPS, §15 Q7)
-- [ ] Live payment gateway + e-Namad seal (external legal paperwork not
-      yet started — see below)
+- [ ] Live payment gateway + e-Namad seal — explicitly deferred to the final
+      launch session by the owner on 2026-08-06; no production Zarinpal API
+      credentials are available, and external legal paperwork has not started.
 - [ ] SMS provider live — `KavenegarProvider` is already built and
       tested (P2.S4), just never activated (`SMS_PROVIDER` still
       defaults to `mock`); needs a real Kavenegar API key + template

@@ -123,15 +123,9 @@ export default async function ProductPage({ params }: Props) {
 
         <div className="flex flex-col gap-4">
           <div>
-            {/* Brand pages don't exist yet (their own separate Phase 5
-                item) -- this links to the brand's products within the
-                current category, the closest real destination available
-                today, rather than a dedicated /b/[slug] that doesn't
-                exist. Needs both brand and category since the PLP route
-                is category-scoped. */}
-            {product.brand && product.category ? (
+            {product.brand ? (
               <Link
-                href={`/c/${product.category.slug}?brand=${product.brand.slug}`}
+                href={`/brand/${product.brand.slug}`}
                 className="text-body-sm text-brand hover:underline"
               >
                 {t("pdp.brandLink", { brand: product.brand.name.fa })}

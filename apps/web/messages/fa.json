@@ -157,6 +157,27 @@
       "emptyDescription": "با این فیلترها کالایی پیدا نشد.",
       "clearFilters": "پاک‌کردن همه فیلترها"
     },
+    "brandPage": {
+      "productsTitle": "محصولات این برند",
+      "countryLabel": "کشور برند",
+      "oemBadge": "تأمین‌کننده OEM",
+      "aftermarketBadge": "برند بازار قطعات",
+      "notFound": {
+        "title": "برند یافت نشد",
+        "description": "این برند وجود ندارد یا حذف شده است.",
+        "backHome": "بازگشت به صفحه اصلی"
+      },
+      "countries": {
+        "Germany": "آلمان",
+        "France": "فرانسه",
+        "Sweden": "سوئد",
+        "Japan": "ژاپن",
+        "Iran": "ایران",
+        "United Kingdom": "بریتانیا",
+        "United States": "ایالات متحده",
+        "Italy": "ایتالیا"
+      }
+    },
     "product": {
       "inStock": "موجود",
       "outOfStock": "ناموجود",
