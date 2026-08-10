@@ -31,8 +31,9 @@ the lowest priority and production credentials/legal prerequisites are absent.
        Shipped 2026-08-10 at `/admin/payments`, detecting amount/status
        mismatches, missing payment rows, stale initiations, and missing
        authorities using only internal order/payment evidence.
-10. [ ] Admin reports and exports, followed by the full quality gate and push
-        to `development`.
+10. [x] Admin reports and exports, followed by the full quality gate and push
+        to `development`. Shipped 2026-08-10 at `/admin/reports`; final gate:
+        lint passed, 625/625 tests passed serially, and production build passed.
 
 Each item is a delivery gate: scoped tests, lint, and build must pass before
 starting the next item. Update the checkbox and shipped detail when an item is
