@@ -69,8 +69,8 @@ export async function addItemHandler(
 ): Promise<void> {
   try {
     const identity = resolveIdentity(req, res);
-    const { productId, qty } = req.body as AddItemInput;
-    await cartService.addItem(identity, productId, qty, req.user?.accountType);
+    const { productId, variantId, qty } = req.body as AddItemInput;
+    await cartService.addItem(identity, productId, qty, req.user?.accountType, variantId);
     const cart = await cartService.getCart(identity, req.user?.accountType);
     res.json({ ok: true, data: cart });
   } catch (err) {

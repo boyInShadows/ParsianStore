@@ -91,6 +91,16 @@ export const productDetailSchema = productListItemSchema.extend({
   rating: z.object({ avg: z.number(), count: z.number() }),
   brand: brandRefSchema.nullable(),
   category: categoryRefSchema.nullable(),
+  variants: z.array(
+    z.object({
+      id: z.string(),
+      name: localizedNameSchema,
+      sku: z.string(),
+      priceRial: z.number(),
+      isWholesalePrice: z.boolean(),
+      stock: z.number(),
+    }),
+  ),
 });
 export type ProductDetailDto = z.infer<typeof productDetailSchema>;
 

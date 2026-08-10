@@ -8,6 +8,10 @@ import { productListItemSchema } from "./products.js";
 export const cartItemSchema = z.object({
   id: z.string(),
   productId: z.string(),
+  variantId: z.string().optional(),
+  variant: z
+    .object({ name: z.object({ fa: z.string(), en: z.string() }), sku: z.string() })
+    .optional(),
   qty: z.number(),
   priceRialSnapshot: z.number(),
   product: productListItemSchema,

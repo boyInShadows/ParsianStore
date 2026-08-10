@@ -167,6 +167,7 @@ export default async function ProductPage({ params }: Props) {
           <AddToCartForm
             productId={product.id}
             inStock={product.stock > 0}
+            variants={product.variants}
             messages={catalogMessages.product.addToCart}
           />
 

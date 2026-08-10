@@ -144,6 +144,45 @@ export async function archiveAdminProduct(
   }
 }
 
+export async function uploadAdminProductMedia(
+  id: string,
+  file: File,
+): Promise<AdminProductActionResult<AdminProductDetailDto>> {
+  try {
+    const res = await fetch(`${API_URL}/api/v1/admin/catalog/products/${id}/media`, {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": file.type },
+      body: file,
+    });
+    if (!res.ok) return { ok: false, message: await readErrorMessage(res) };
+    const product = await fetchAdminProduct(id);
+    return product ? { ok: true, data: product } : { ok: false, message: GENERIC_ERROR };
+  } catch {
+    return { ok: false, message: GENERIC_ERROR };
+  }
+}
+export async function removeAdminProductMedia(
+  id: string,
+  url: string,
+): Promise<AdminProductActionResult<AdminProductDetailDto>> {
+  try {
+    const res = await fetch(`${API_URL}/api/v1/admin/catalog/products/${id}/media`, {
+      method: "DELETE",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ url }),
+    });
+    if (!res.ok) return { ok: false, message: await readErrorMessage(res) };
+    const parsed = adminProductDetailResponseSchema.safeParse(await res.json());
+    return parsed.success
+      ? { ok: true, data: parsed.data.data }
+      : { ok: false, message: GENERIC_ERROR };
+  } catch {
+    return { ok: false, message: GENERIC_ERROR };
+  }
+}
+
 // P3.S6's existing, previously-frontend-less endpoint -- see
 // docs/decisions/0021-p8s2-admin-products.md.
 export async function adjustAdminProductStock(

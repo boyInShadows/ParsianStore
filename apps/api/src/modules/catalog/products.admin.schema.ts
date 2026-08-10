@@ -24,3 +24,5 @@ export type CreateProductInput = z.infer<typeof createProductSchema>;
 
 export const updateProductSchema = adminUpdateProductInputSchema;
 export type UpdateProductInput = z.infer<typeof updateProductSchema>;
+export const removeProductMediaSchema = z.object({ url: z.string().url() });
+export type RemoveProductMediaInput = z.infer<typeof removeProductMediaSchema>;

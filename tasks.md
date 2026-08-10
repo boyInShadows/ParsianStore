@@ -19,7 +19,10 @@ the lowest priority and production credentials/legal prerequisites are absent.
 4. [x] **P5.S6** Compare up to four products with shareable URL state.
 5. [x] Customer reviews and product Q&A foundations plus PDP experience.
 6. [x] Admin review/Q&A moderation queue.
-7. [ ] Admin product media manager and product variants.
+7. [x] Admin product media manager and product variants. Shipped 2026-08-10:
+       optimized image upload/removal, independent variant SKU/price/stock
+       management, PDP selection, cart identity, order snapshots, and atomic
+       variant-aware stock reservation/release.
 8. [ ] Validated CSV product bulk import that preserves derived search fields.
 9. [ ] Admin payment reconciliation view without live-gateway activation.
 10. [ ] Admin reports and exports, followed by the full quality gate and push
@@ -129,7 +132,9 @@ cart, and checkout as separate reviewable slices; do not redo this account slice
 - [x] **P8.S9** Admin: Shipping zones/rates config UI — shipped
       2026-08-04 (`/admin/shipping`; ladder per courier+zone, overlap
       guard, gap/open-ended warnings).
-- [ ] Admin: Product media manager + variants
+- [x] Admin: Product media manager + variants â€” shipped 2026-08-10 with
+      optimized AVIF/WebP media generation and sellable variants propagated
+      through PDP, cart, checkout snapshots, and inventory reservations.
 - [ ] Admin: CSV/Excel bulk import for products
 - [ ] Admin: Refunds + invoices (needs `PaymentProvider.refund()`,
       explicitly deferred at P8.S1)

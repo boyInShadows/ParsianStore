@@ -4,6 +4,7 @@ const objectId = z.string().regex(/^[0-9a-fA-F]{24}$/, "شناسه معتبر ن
 
 export const addItemSchema = z.object({
   productId: objectId,
+  variantId: objectId.optional(),
   qty: z.coerce.number().int().positive().default(1),
 });
 export type AddItemInput = z.infer<typeof addItemSchema>;

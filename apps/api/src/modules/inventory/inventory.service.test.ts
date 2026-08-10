@@ -92,6 +92,57 @@ describe("adjustStock", () => {
 });
 
 describe("reserveStock / releaseReservation / confirmReservation", () => {
+  it("reserves and releases the selected variant and aggregate stock together", async () => {
+    const product = await ProductModel.create(
+      productInput({
+        stock: 5,
+        variants: [
+          { name: { fa: "بزرگ", en: "Large" }, sku: "VAR-L", priceRial: 1_200_000, stock: 5 },
+        ],
+      }),
+    );
+    const variantId = product.variants[0]!._id!.toString();
+    const reservation = await reserveStock(
+      product.id as string,
+      2,
+      60_000,
+      "order-variant",
+      variantId,
+    );
+    let reloaded = await ProductModel.findById(product._id);
+    expect(reloaded!.stock).toBe(3);
+    expect(reloaded!.variants[0]!.stock).toBe(3);
+    expect(reservation.variantId?.toString()).toBe(variantId);
+
+    await releaseReservation(reservation.id as string);
+    reloaded = await ProductModel.findById(product._id);
+    expect(reloaded!.stock).toBe(5);
+    expect(reloaded!.variants[0]!.stock).toBe(5);
+  });
+
+  it("rejects a variant reservation larger than that variant's stock", async () => {
+    const product = await ProductModel.create(
+      productInput({
+        stock: 10,
+        variants: [
+          { name: { fa: "کوچک", en: "Small" }, sku: "VAR-S", priceRial: 900_000, stock: 1 },
+        ],
+      }),
+    );
+    await expect(
+      reserveStock(
+        product.id as string,
+        2,
+        60_000,
+        undefined,
+        product.variants[0]!._id!.toString(),
+      ),
+    ).rejects.toThrow();
+    const reloaded = await ProductModel.findById(product._id);
+    expect(reloaded!.stock).toBe(10);
+    expect(reloaded!.variants[0]!.stock).toBe(1);
+  });
+
   it("reserving decrements stock immediately and creates a reservation", async () => {
     const product = await ProductModel.create(productInput({ stock: 10 }));
     const reservation = await reserveStock(product.id as string, 3, 60_000, "cart-1");

@@ -36,13 +36,17 @@ export async function fetchCart(): Promise<CartDto | null> {
   }
 }
 
-export async function addCartItem(productId: string, qty = 1): Promise<CartDto | null> {
+export async function addCartItem(
+  productId: string,
+  qty = 1,
+  variantId?: string,
+): Promise<CartDto | null> {
   try {
     const res = await fetch(`${API_URL}/api/v1/cart/items`, {
       method: "POST",
       credentials: "include",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ productId, qty }),
+      body: JSON.stringify({ productId, qty, variantId }),
     });
     return await parseCart(res);
   } catch {
