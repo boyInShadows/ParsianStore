@@ -16,6 +16,8 @@ import { FitmentBanner } from "@/components/pdp/FitmentBanner";
 import { RelatedProducts } from "@/components/pdp/RelatedProducts";
 import { WishlistButton } from "@/components/wishlist/WishlistButton";
 import { AddToCartForm } from "@/components/cart/AddToCartForm";
+import { ProductFeedback } from "@/components/pdp/ProductFeedback";
+import { fetchProductFeedback } from "@/lib/fetchers/feedback";
 
 type Props = {
   params: Promise<{ locale: (typeof routing.locales)[number]; slug: string }>;
@@ -69,6 +71,7 @@ interface CatalogMessages {
     fitment: { exact: string; likely: string; check: string; checkVehicle: string };
     related: { title: string };
     brandLink: string;
+    feedback: Parameters<typeof ProductFeedback>[0]["messages"];
   };
 }
 
@@ -101,6 +104,7 @@ export default async function ProductPage({ params }: Props) {
 
   const product = result.data;
   const related = await fetchRelatedProducts(slug, 8, cookieHeader);
+  const feedback = await fetchProductFeedback(product.id);
 
   const breadcrumbItems = [
     { label: catalogMessages.breadcrumbHome, href: localizedPath(locale, "/") },
@@ -194,6 +198,12 @@ export default async function ProductPage({ params }: Props) {
         title={catalogMessages.pdp.related.title}
         products={related}
         messages={catalogMessages.product}
+      />
+      <ProductFeedback
+        productId={product.id}
+        reviews={feedback.reviews}
+        questions={feedback.questions}
+        messages={catalogMessages.pdp.feedback}
       />
     </main>
   );

@@ -277,6 +277,23 @@
       "related": {
         "title": "قطعات مرتبط"
       },
+      "feedback": {
+        "reviewsTitle": "نظر خریداران",
+        "questionsTitle": "پرسش و پاسخ",
+        "noReviews": "هنوز نظر تاییدشده‌ای برای این کالا ثبت نشده است.",
+        "noQuestions": "هنوز پرسشی برای این کالا ثبت نشده است.",
+        "verified": "خرید تاییدشده",
+        "answer": "پاسخ فروشگاه",
+        "signIn": "برای ثبت نظر یا پرسش وارد شوید",
+        "pending": "درخواست شما ثبت شد و پس از بررسی نمایش داده می‌شود.",
+        "error": "ثبت درخواست انجام نشد. دوباره تلاش کنید.",
+        "ratingLabel": "امتیاز",
+        "titleLabel": "عنوان نظر",
+        "reviewBodyLabel": "متن نظر",
+        "reviewSubmit": "ثبت نظر",
+        "questionBodyLabel": "پرسش شما",
+        "questionSubmit": "ثبت پرسش"
+      },
       "brandLink": "مشاهده همه محصولات {brand}"
     },
     "search": {

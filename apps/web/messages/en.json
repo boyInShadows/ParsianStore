@@ -256,6 +256,23 @@
       "related": {
         "title": "Related parts"
       },
+      "feedback": {
+        "reviewsTitle": "Customer reviews",
+        "questionsTitle": "Questions and answers",
+        "noReviews": "No approved reviews yet.",
+        "noQuestions": "No questions yet.",
+        "verified": "Verified purchase",
+        "answer": "Store answer",
+        "signIn": "Sign in to review or ask a question",
+        "pending": "Submitted for moderation.",
+        "error": "Could not submit. Try again.",
+        "ratingLabel": "Rating",
+        "titleLabel": "Review title",
+        "reviewBodyLabel": "Review",
+        "reviewSubmit": "Submit review",
+        "questionBodyLabel": "Your question",
+        "questionSubmit": "Submit question"
+      },
       "brandLink": "View all {brand} products"
     },
     "search": {

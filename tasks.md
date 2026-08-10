@@ -17,8 +17,8 @@ the lowest priority and production credentials/legal prerequisites are absent.
 3. [x] **P5.S5** Vehicle landing pages with fitment-backed product discovery
        and useful per-vehicle SEO content.
 4. [x] **P5.S6** Compare up to four products with shareable URL state.
-5. [ ] Customer reviews and product Q&A foundations plus PDP experience.
-6. [ ] Admin review/Q&A moderation queue.
+5. [x] Customer reviews and product Q&A foundations plus PDP experience.
+6. [x] Admin review/Q&A moderation queue.
 7. [ ] Admin product media manager and product variants.
 8. [ ] Validated CSV product bulk import that preserves derived search fields.
 9. [ ] Admin payment reconciliation view without live-gateway activation.
@@ -80,8 +80,11 @@ cart, and checkout as separate reviewable slices; do not redo this account slice
       real order/address/wishlist counts, recent orders, profile completion
       guidance, authenticated SSR gating, and partial-data resilience.
 - [ ] Wallet (named Phase 7 scope, no model built yet)
-- [ ] Reviews / Q&A (no `Review`/`Question` model exists; `Product.rating`
-      is always 0/0 — zero trust signal on any PDP)
+- [x] Reviews / Q&A — shipped 2026-08-10. Reviews require a delivered
+      purchase and are unique per customer/product; questions require an
+      authenticated customer. Both enter moderation, only approved content is
+      public, and PDP forms/lists expose verified-purchase and staff-answer
+      evidence. Approved review changes recalculate `Product.rating`.
 - [ ] Support tickets (customer-facing)
 - [x] Profile page — shipped 2026-08-08 at `/profile`; customers can edit
       their name and optional email. Phone remains read-only because it is
@@ -132,7 +135,9 @@ cart, and checkout as separate reviewable slices; do not redo this account slice
       explicitly deferred at P8.S1)
 - [ ] Admin: Payments reconciliation view
 - [ ] Admin: Content management (banners, sliders, menus, pages, blog)
-- [ ] Admin: Review/Q&A moderation queue
+- [x] Admin: Review/Q&A moderation queue — shipped 2026-08-10 at
+      `/admin/feedback`, with status filters, approve/reject actions, question
+      answers, audit logging, and automatic product-rating recalculation.
 - [ ] Admin: Support tickets (staff side)
 - [ ] Admin: Reports & exports
 - [ ] Admin: Staff RBAC (today: any staff role passes `requireStaff()`,

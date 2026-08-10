@@ -26,6 +26,8 @@ import { adminShippingRouter } from "./modules/shipping/shipping.admin.routes.js
 import { adminVehiclesRouter } from "./modules/vehicles/vehicles.admin.routes.js";
 import { adminFitmentRouter } from "./modules/fitment/fitment.admin.routes.js";
 import { fitmentRouter } from "./modules/fitment/fitment.routes.js";
+import { feedbackRouter } from "./modules/feedback/feedback.routes.js";
+import { adminFeedbackRouter } from "./modules/feedback/feedback.admin.routes.js";
 import { geoRouter } from "./modules/geo/geo.routes.js";
 import { adminInventoryRouter } from "./modules/inventory/inventory.admin.routes.js";
 import { adminOrdersRouter } from "./modules/orders/orders.admin.routes.js";
@@ -67,6 +69,8 @@ app.use("/api/v1/catalog", catalogRouter);
 app.use("/api/v1/admin/catalog", adminCatalogRouter);
 app.use("/api/v1/authenticity", authenticityRouter);
 app.use("/api/v1/fitment", fitmentRouter);
+app.use("/api/v1/feedback", feedbackRouter);
+app.use("/api/v1/admin/feedback", adminFeedbackRouter);
 app.use("/api/v1/admin/inventory", adminInventoryRouter);
 // requireAuth is applied inside wishlistRouter itself (matches how
 // catalog.admin.routes.ts's entity routers apply their own middleware

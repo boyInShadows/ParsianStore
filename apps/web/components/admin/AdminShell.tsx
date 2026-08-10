@@ -35,6 +35,7 @@ type Props = {
     | "customers"
     | "vehicles"
     | "shipping"
+    | "feedback"
     | "audit";
   children: ReactNode;
 };
@@ -68,6 +69,7 @@ const NAV_ITEMS = [
   // P8.S9. The courier method list itself is a static const; this route
   // configures the weight/price ladder behind it.
   { key: "shipping" as const, href: "/admin/shipping", label: "ارسال" },
+  { key: "feedback" as const, href: "/admin/feedback", label: "نظرات و پرسش‌ها" },
   { key: "audit" as const, href: "/admin/audit", label: "گزارش رویدادها" },
 ];
 
