@@ -32,9 +32,6 @@ export default async function OrderDetailPage({ params }: Props) {
   const t = await getTranslations("Orders");
   const tDetail = await getTranslations("Orders.detail");
   const tStatus = await getTranslations("Orders.status");
-  const tAddresses = await getTranslations("Addresses");
-  const tWishlist = await getTranslations("Wishlist");
-  const tGarage = await getTranslations("Garage");
 
   const cookieHeader = (await cookies()).toString();
   const result = await fetchOrderByCode(code, cookieHeader);
@@ -71,15 +68,7 @@ export default async function OrderDetailPage({ params }: Props) {
 
   return (
     <main className="mx-auto flex max-w-container flex-col gap-6 px-4 py-8">
-      <AccountNav
-        active="orders"
-        labels={{
-          orders: t("title"),
-          addresses: tAddresses("title"),
-          wishlist: tWishlist("title"),
-          garage: tGarage("title"),
-        }}
-      />
+      <AccountNav active="orders" />
 
       {/* The order code IS this page's identity, so it becomes the mono
           eyebrow at real scale. Previously this page had no back link and

@@ -3,7 +3,7 @@ import { requireAuth } from "../../middleware/auth.js";
 import { authRateLimiter, otpRequestRateLimiter } from "../../middleware/rateLimit.js";
 import { validate } from "../../middleware/validate.js";
 import * as authController from "./auth.controller.js";
-import { otpRequestSchema, otpVerifySchema } from "./auth.schema.js";
+import { otpRequestSchema, otpVerifySchema, profileUpdateSchema } from "./auth.schema.js";
 
 export const authRouter = Router();
 
@@ -39,3 +39,9 @@ authRouter.post(
 authRouter.post("/refresh", authRateLimiter, authController.refreshHandler);
 authRouter.post("/logout", authController.logoutHandler);
 authRouter.get("/me", requireAuth, authController.meHandler);
+authRouter.patch(
+  "/me",
+  requireAuth,
+  validate(profileUpdateSchema),
+  authController.updateProfileHandler,
+);

@@ -42,16 +42,6 @@ export default async function OrdersPage({ params, searchParams }: Props) {
 
   const t = await getTranslations("Orders");
   const tStatus = await getTranslations("Orders.status");
-  const tAddresses = await getTranslations("Addresses");
-  const tWishlist = await getTranslations("Wishlist");
-  const tGarage = await getTranslations("Garage");
-
-  const navLabels = {
-    orders: t("title"),
-    addresses: tAddresses("title"),
-    wishlist: tWishlist("title"),
-    garage: tGarage("title"),
-  };
 
   // Server-side auth gate -- this page needs no client interactivity at
   // all (plain prev/next links, same shape /search already uses), so
@@ -77,7 +67,7 @@ export default async function OrdersPage({ params, searchParams }: Props) {
 
   return (
     <main className="mx-auto flex max-w-container flex-col gap-6 px-4 py-8">
-      <AccountNav active="orders" labels={navLabels} />
+      <AccountNav active="orders" />
       <PageHeader
         code="ORD"
         title={t("title")}

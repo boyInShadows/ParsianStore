@@ -1,9 +1,10 @@
 import { Link } from "@/i18n/navigation";
+import { getTranslations } from "next-intl/server";
 
 // Plain Server Component -- no "use client" needed, `active` is passed
 // statically by each page rather than computed via usePathname(), so
 // this adds zero client JS to /orders (P7.S1's own pure-SSR page).
-export type AccountNavKey = "orders" | "addresses" | "wishlist" | "garage";
+export type AccountNavKey = "overview" | "orders" | "addresses" | "wishlist" | "garage" | "profile";
 
 // One `labels` record rather than one prop per entry. The per-entry shape
 // meant every new account page (reviews, wallet, tickets are all named
@@ -11,17 +12,19 @@ export type AccountNavKey = "orders" | "addresses" | "wishlist" | "garage";
 // pass another label. Adding a key now touches this file and the new page.
 type Props = {
   active: AccountNavKey;
-  labels: Record<AccountNavKey, string>;
 };
 
 const ITEMS: { key: AccountNavKey; href: string }[] = [
+  { key: "overview", href: "/account" },
   { key: "orders", href: "/orders" },
   { key: "addresses", href: "/addresses" },
   { key: "wishlist", href: "/wishlist" },
   { key: "garage", href: "/garage" },
+  { key: "profile", href: "/profile" },
 ];
 
-export function AccountNav({ active, labels }: Props) {
+export async function AccountNav({ active }: Props) {
+  const t = await getTranslations("Account.nav");
   return (
     // Full-bleed horizontal scroll at 360px (the negative inline margin
     // cancels the page gutter) so a fifth or sixth tab never wraps into a
@@ -48,7 +51,7 @@ export function AccountNav({ active, labels }: Props) {
                     : "border-transparent text-text-muted hover:bg-surface-raised hover:text-text"
                 }`}
               >
-                {labels[item.key]}
+                {t(item.key)}
               </Link>
             </li>
           );

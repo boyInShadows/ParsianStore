@@ -49,9 +49,6 @@ export default async function WishlistPage({ params, searchParams }: Props) {
   const page = pageParam && /^\d+$/.test(pageParam) ? Number(pageParam) : 1;
 
   const t = await getTranslations("Wishlist");
-  const tOrders = await getTranslations("Orders");
-  const tAddresses = await getTranslations("Addresses");
-  const tGarage = await getTranslations("Garage");
   const tCatalog = await getTranslations("Catalog");
 
   // Server-side auth gate, same reasoning as /orders (P7.S1): this page's
@@ -88,15 +85,7 @@ export default async function WishlistPage({ params, searchParams }: Props) {
 
   return (
     <main className="mx-auto max-w-container px-4 py-8">
-      <AccountNav
-        active="wishlist"
-        labels={{
-          orders: tOrders("title"),
-          addresses: tAddresses("title"),
-          wishlist: t("title"),
-          garage: tGarage("title"),
-        }}
-      />
+      <AccountNav active="wishlist" />
 
       <div className="mt-6 flex flex-wrap items-center gap-3">
         <h1 className="font-display text-h2 font-black text-text">{t("title")}</h1>

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { updateProfileInputSchema } from "schemas";
 
 // §3.3: "validate /^(\+98|0098|0)?9\d{9}$/ → normalize to E.164". This
 // checks acceptance shape; normalizePhone() (packages/schemas) does the
@@ -15,3 +16,6 @@ export const otpVerifySchema = z.object({
   code: z.string().length(6, "کد تایید باید ۶ رقم باشد"),
 });
 export type OtpVerifyInput = z.infer<typeof otpVerifySchema>;
+
+export const profileUpdateSchema = updateProfileInputSchema;
+export type ProfileUpdateInput = z.infer<typeof profileUpdateSchema>;

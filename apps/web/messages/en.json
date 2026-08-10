@@ -324,6 +324,46 @@
       "continueShoppingCta": "Back to shop"
     }
   },
+  "Account": {
+    "nav": {
+      "overview": "Overview",
+      "orders": "My Orders",
+      "addresses": "My Addresses",
+      "wishlist": "Wishlist",
+      "garage": "My Garage",
+      "profile": "Profile"
+    },
+    "overview": {
+      "title": "My Account",
+      "greeting": "Hello, {name}",
+      "subtitle": "See your orders and account information in one place.",
+      "ordersLabel": "Orders",
+      "addressesLabel": "Addresses",
+      "wishlistLabel": "Wishlist",
+      "recentOrders": "Recent orders",
+      "viewAll": "View all",
+      "noOrders": "You have not placed an order yet.",
+      "profilePrompt": "Account information",
+      "profileDescription": "Complete your name and email to help us stay in touch.",
+      "editProfile": "Edit profile",
+      "apiDown": "Some account information is currently unavailable."
+    },
+    "profile": {
+      "title": "Profile",
+      "subtitle": "Manage your account name and email.",
+      "nameLabel": "Full name",
+      "emailLabel": "Email",
+      "emailOptional": "Optional",
+      "phoneLabel": "Mobile number",
+      "phoneHelper": "Your mobile number is your sign-in identity and cannot be changed here.",
+      "save": "Save changes",
+      "saving": "Saving…",
+      "success": "Your profile was saved.",
+      "error": "Could not save your profile. Try again.",
+      "nameError": "Name must be at least 2 characters.",
+      "emailError": "Enter a valid email address."
+    }
+  },
   "Orders": {
     "title": "My Orders",
     "apiDownTitle": "Couldn't reach the server",

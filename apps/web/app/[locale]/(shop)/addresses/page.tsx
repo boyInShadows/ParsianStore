@@ -18,9 +18,6 @@ export async function generateMetadata(): Promise<Metadata> {
 
 export default async function AddressesPage() {
   const t = await getTranslations("Addresses");
-  const tOrders = await getTranslations("Orders");
-  const tWishlist = await getTranslations("Wishlist");
-  const tGarage = await getTranslations("Garage");
   const messages: AddressBookMessages = {
     title: t("title"),
     loading: t("loading"),
@@ -46,15 +43,7 @@ export default async function AddressesPage() {
 
   return (
     <main className="mx-auto flex max-w-container flex-col gap-6 px-4 py-8">
-      <AccountNav
-        active="addresses"
-        labels={{
-          orders: tOrders("title"),
-          addresses: t("title"),
-          wishlist: tWishlist("title"),
-          garage: tGarage("title"),
-        }}
-      />
+      <AccountNav active="addresses" />
       {/* The page header stays inside AddressBookContent rather than being
           hoisted here: its primary action opens the add form, which is
           client state. Hoisting the <h1> alone would split one header

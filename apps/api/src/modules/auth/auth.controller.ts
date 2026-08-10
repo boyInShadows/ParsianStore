@@ -3,7 +3,7 @@ import { env } from "../../config/env.js";
 import { ApiError } from "../../utils/ApiError.js";
 import { parseDurationMs } from "../../utils/token.js";
 import * as authService from "./auth.service.js";
-import type { OtpRequestInput, OtpVerifyInput } from "./auth.schema.js";
+import type { OtpRequestInput, OtpVerifyInput, ProfileUpdateInput } from "./auth.schema.js";
 import type { AuthSession } from "./auth.service.js";
 
 const COOKIE_BASE = {
@@ -96,6 +96,19 @@ export async function logoutHandler(
 export async function meHandler(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     const user = await authService.getUserById(req.user!.sub);
+    res.json({ ok: true, data: user });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function updateProfileHandler(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  try {
+    const user = await authService.updateProfile(req.user!.sub, req.body as ProfileUpdateInput);
     res.json({ ok: true, data: user });
   } catch (err) {
     next(err);

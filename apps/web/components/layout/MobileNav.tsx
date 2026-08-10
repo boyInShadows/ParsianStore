@@ -3,7 +3,7 @@ import Link from "next/link";
 const ITEMS = [
   { label: "خانه", href: "/", icon: HomeIcon },
   { label: "جستجو", href: "/search", icon: SearchIcon },
-  { label: "گاراژ", href: "/account/garage", icon: CarIcon },
+  { label: "گاراژ", href: "/garage", icon: CarIcon },
   { label: "سبد خرید", href: "/cart", icon: CartIcon },
   { label: "حساب", href: "/account", icon: AccountIcon },
 ];

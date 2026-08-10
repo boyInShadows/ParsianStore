@@ -34,6 +34,20 @@ export async function fetchAddresses(): Promise<AddressDto[] | null> {
   }
 }
 
+export async function fetchAddressesServer(cookieHeader: string): Promise<AddressDto[] | null> {
+  try {
+    const res = await fetch(`${API_URL}/api/v1/me/addresses`, {
+      headers: { cookie: cookieHeader },
+      cache: "no-store",
+    });
+    if (!res.ok) return null;
+    const parsed = addressListResponseSchema.safeParse(await res.json());
+    return parsed.success ? parsed.data.data : null;
+  } catch {
+    return null;
+  }
+}
+
 // Matches addresses.schema.ts's addressInputSchema shape (server-side
 // only, per its own comment) -- the server is the real validator
 // (normalizePhone/normalizePostalCode transforms happen there), this is

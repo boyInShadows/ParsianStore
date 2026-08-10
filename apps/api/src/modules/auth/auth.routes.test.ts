@@ -115,6 +115,24 @@ describe("auth session flow (verify -> me -> refresh -> logout)", () => {
     const meBody = (await meRes.json()) as { data: { phone: string } };
     expect(meBody.data.phone).toBe("+989121119001");
 
+    const profileRes = await fetch(`${baseUrl}/api/v1/auth/me`, {
+      method: "PATCH",
+      headers: { cookie: accessCookie, "content-type": "application/json" },
+      body: JSON.stringify({ name: "کاربر پارسیان", email: "shopper@example.com" }),
+    });
+    expect(profileRes.status).toBe(200);
+    const profileBody = (await profileRes.json()) as {
+      data: { name: string; email?: string; phone: string };
+    };
+    expect(profileBody.data).toMatchObject({
+      name: "کاربر پارسیان",
+      email: "shopper@example.com",
+      phone: "+989121119001",
+    });
+    const updatedUser = await UserModel.findOne({ phone: "+989121119001" });
+    expect(updatedUser?.name).toBe("کاربر پارسیان");
+    expect(updatedUser?.email).toBe("shopper@example.com");
+
     const refreshRes = await fetch(`${baseUrl}/api/v1/auth/refresh`, {
       method: "POST",
       headers: { cookie: refreshCookie },
@@ -147,6 +165,15 @@ describe("auth session flow (verify -> me -> refresh -> logout)", () => {
   it("returns 401 for /me without a session cookie", async () => {
     const res = await fetch(`${baseUrl}/api/v1/auth/me`);
     expect(res.status).toBe(401);
+  });
+
+  it("validates profile updates and protects them with the session", async () => {
+    const unauthorized = await fetch(`${baseUrl}/api/v1/auth/me`, {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ name: "نام معتبر" }),
+    });
+    expect(unauthorized.status).toBe(401);
   });
 
   it("returns 401 for /refresh without a refresh cookie", async () => {

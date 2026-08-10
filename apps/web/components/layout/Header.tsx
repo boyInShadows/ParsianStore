@@ -148,12 +148,10 @@ export function Header({ messages }: Props) {
           </Link>
           {isAuthenticated ? (
             <>
-              {/* P7.S1: the account icon is now a real link into the
-                  account area -- /orders is Phase 7's first (and so far
-                  only) page, so it's the direct target rather than a
-                  dropdown hub with nothing else to list yet. */}
+              {/* The account overview is the stable entry point for every
+                  customer self-service page. */}
               <Link
-                href="/orders"
+                href="/account"
                 aria-label={
                   authUser ? `${messages.signedInAria} ${authUser.phone}` : messages.signedInAria
                 }
