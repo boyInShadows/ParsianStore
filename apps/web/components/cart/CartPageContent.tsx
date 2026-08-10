@@ -127,23 +127,36 @@ export function CartPageContent({ messages }: Props) {
   }
 
   return (
-    <div className="flex flex-col gap-6">
-      <h1 className="font-display text-h2 font-black text-text">{messages.title}</h1>
+    <div className="flex flex-col gap-8">
+      <header className="border-b border-rule pb-4">
+        <h1 className="font-display text-h1 font-black text-text">{messages.title}</h1>
+      </header>
 
-      <ul className="flex flex-col gap-4">
+      <ul className="divide-y divide-rule overflow-hidden rounded-xl border border-border bg-surface shadow-sm">
         {cart.items.map((item) => (
-          <li key={item.id} className="flex gap-4 rounded-lg border border-border bg-surface p-4">
+          <li
+            key={item.id}
+            className="grid grid-cols-[5rem_1fr] gap-4 p-4 sm:grid-cols-[6rem_1fr_auto] sm:p-6"
+          >
             <Link
               href={`/p/${item.product.slug}`}
-              className="flex h-20 w-20 shrink-0 items-center justify-center rounded-md border border-dashed border-border bg-surface-raised"
+              className="flex aspect-square w-20 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-border bg-surface-raised sm:w-24"
             >
-              <span
-                role="img"
-                aria-label={messages.noPhoto}
-                className="text-caption text-text-muted"
-              >
-                {messages.noPhoto}
-              </span>
+              {item.product.media[0] ? (
+                <img
+                  src={item.product.media[0]}
+                  alt={item.product.name.fa}
+                  className="h-full w-full object-contain"
+                />
+              ) : (
+                <span
+                  role="img"
+                  aria-label={messages.noPhoto}
+                  className="text-caption text-text-muted"
+                >
+                  {messages.noPhoto}
+                </span>
+              )}
             </Link>
 
             <div className="flex flex-1 flex-col gap-1">
@@ -205,14 +218,14 @@ export function CartPageContent({ messages }: Props) {
               </div>
             </div>
 
-            <span className="whitespace-nowrap font-mono text-data text-text">
+            <span className="col-start-2 whitespace-nowrap font-mono text-data font-bold text-price sm:col-start-3 sm:row-start-1">
               {formatToman(item.lineTotalRial)}
             </span>
           </li>
         ))}
       </ul>
 
-      <div className="flex flex-col gap-3 border-t border-border pt-4">
+      <section className="flex flex-col gap-4 rounded-xl border border-border bg-surface-sunken p-4 shadow-sm sm:p-6">
         <CouponSection messages={messages} />
 
         <div className="flex items-center justify-between">
@@ -234,16 +247,18 @@ export function CartPageContent({ messages }: Props) {
         ) : null}
         <div className="flex items-center justify-between">
           <span className="text-body font-medium text-text">{messages.totalLabel}</span>
-          <span className="font-mono text-h3 text-text">{formatToman(cart.totalRial)}</span>
+          <span className="font-mono text-h3 font-black text-price">
+            {formatToman(cart.totalRial)}
+          </span>
         </div>
-      </div>
 
-      <Link
-        href="/checkout"
-        className="inline-flex items-center justify-center rounded-md bg-cta px-4 py-2 text-body-sm font-medium text-cta-fg hover:opacity-90"
-      >
-        {messages.continueToCheckout}
-      </Link>
+        <Link
+          href="/checkout"
+          className="inline-flex min-h-12 items-center justify-center rounded-md bg-cta px-4 py-3 text-body font-bold text-cta-fg transition-opacity hover:opacity-90 motion-reduce:transition-none"
+        >
+          {messages.continueToCheckout}
+        </Link>
+      </section>
     </div>
   );
 }

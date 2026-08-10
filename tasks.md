@@ -1,8 +1,33 @@
 # ParsianStore — Remaining Work Checklist
 
-Snapshot as of 2026-08-06. Only what's left — shipped work lives in
+Snapshot as of 2026-08-10. Only what's left — shipped work lives in
 `masterPlan.md` §13. Regenerate/update this file rather than letting it
 drift; it's a review artifact for the owner, not a second source of truth.
+
+## Execution roadmap — 2026-08-10
+
+Ordered by customer value, operational leverage, and dependency risk. Live
+Zarinpal activation is intentionally excluded because the owner assigned it
+the lowest priority and production credentials/legal prerequisites are absent.
+
+1. [x] Stabilize and ship the in-progress account/profile, visual-catalog, and
+       local-development infrastructure work as separate auditable commits.
+2. [x] Finish the Phase 5–7 design-quality pass for storefront, cart, and
+       checkout.
+3. [ ] **P5.S5** Vehicle landing pages with fitment-backed product discovery
+       and useful per-vehicle SEO content.
+4. [ ] **P5.S6** Compare up to four products with shareable URL state.
+5. [ ] Customer reviews and product Q&A foundations plus PDP experience.
+6. [ ] Admin review/Q&A moderation queue.
+7. [ ] Admin product media manager and product variants.
+8. [ ] Validated CSV product bulk import that preserves derived search fields.
+9. [ ] Admin payment reconciliation view without live-gateway activation.
+10. [ ] Admin reports and exports, followed by the full quality gate and push
+        to `development`.
+
+Each item is a delivery gate: scoped tests, lint, and build must pass before
+starting the next item. Update the checkbox and shipped detail when an item is
+complete; do not silently reorder the roadmap around a failing gate.
 
 ## Blockers / quick wins
 
@@ -14,12 +39,13 @@ drift; it's a review artifact for the owner, not a second source of truth.
       live against real MongoDB. See `docs/decisions/0024-schemas-build-output.md`.
 - [x] **Seed a superadmin account** — done; `ADMIN_SEED_PHONE` is set in
       `apps/api/.env` and a superadmin exists.
-- [ ] **Design-quality pass on shipped Phase 5-7 pages** — started 2026-08-06.
+- [x] **Design-quality pass on shipped Phase 5-7 pages** — completed 2026-08-10.
       The account-shell slice is shipped: `/orders`, `/orders/[code]`, and
       `/addresses` now use the shared docket primitives and stronger responsive
-      hierarchy; the four account routes share a scroll-safe navigation shell.
-      Storefront, cart, and checkout pages still need their own pass before this
-      backlog item can be marked complete.
+      hierarchy; the account routes share a scroll-safe navigation shell.
+      Product cards and cart rows now surface real catalog media, while cart and
+      checkout use ruled commerce surfaces, stronger price hierarchy, selected
+      state treatments, responsive composition, and a sticky desktop summary.
 
 ## Cross-agent handoff — 2026-08-06
 
@@ -44,13 +70,18 @@ cart, and checkout as separate reviewable slices; do not redo this account slice
 
 ## Phase 7 — User dashboard (remaining)
 
-- [ ] Dashboard overview/home page (account landing, currently `/orders`
-      is the de facto entry point — no real overview exists)
+- [x] Dashboard overview/home page — shipped 2026-08-08 at `/account` with
+      real order/address/wishlist counts, recent orders, profile completion
+      guidance, authenticated SSR gating, and partial-data resilience.
 - [ ] Wallet (named Phase 7 scope, no model built yet)
 - [ ] Reviews / Q&A (no `Review`/`Question` model exists; `Product.rating`
       is always 0/0 — zero trust signal on any PDP)
 - [ ] Support tickets (customer-facing)
-- [ ] Profile page (edit name/phone, notification preferences)
+- [x] Profile page — shipped 2026-08-08 at `/profile`; customers can edit
+      their name and optional email. Phone remains read-only because it is
+      the OTP login identity; changing it needs a dedicated re-verification
+      flow. Notification preferences remain future scope because no
+      notification-preference model or provider contract exists yet.
 
 ## Phase 8 — Admin dashboard (remaining)
 

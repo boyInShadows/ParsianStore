@@ -89,10 +89,12 @@ export function CheckoutPageContent({ messages }: Props) {
 
   return (
     <div className="flex flex-col gap-8">
-      <h1 className="font-display text-h2 font-black text-text">{messages.title}</h1>
+      <header className="border-b border-rule pb-4">
+        <h1 className="font-display text-h1 font-black text-text">{messages.title}</h1>
+      </header>
 
       <div className="grid grid-cols-1 gap-8 lg:grid-cols-[2fr_1fr]">
-        <div className="flex flex-col gap-8">
+        <div className="flex flex-col gap-6">
           <AddressPicker
             selectedId={address?.id ?? null}
             onSelect={handleSelectAddress}
@@ -109,7 +111,7 @@ export function CheckoutPageContent({ messages }: Props) {
           ) : null}
         </div>
 
-        <div className="flex flex-col gap-3">
+        <div className="flex flex-col gap-3 lg:sticky lg:top-24 lg:self-start">
           <CheckoutSummary
             shippingRial={shippingOption?.priceRial ?? null}
             canSubmit={Boolean(address && shippingOption)}
