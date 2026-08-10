@@ -6,6 +6,7 @@ import { Link } from "@/i18n/navigation";
 // consumer of that barrel to eat its module-level cost, and ProductCard
 // is used on PLP, search, and PDP's related-products all at once.
 import { WishlistButton, type WishlistButtonMessages } from "@/components/wishlist/WishlistButton";
+import { CompareButton, type CompareButtonMessages } from "@/components/compare/CompareButton";
 
 export interface ProductCardMessages {
   inStock: string;
@@ -13,6 +14,7 @@ export interface ProductCardMessages {
   noPhoto: string;
   wholesalePriceBadge: string;
   wishlist: WishlistButtonMessages;
+  compare: CompareButtonMessages;
 }
 
 type Props = {
@@ -75,6 +77,7 @@ export function ProductCard({ product, messages }: Props) {
           {product.stock > 0 ? messages.inStock : messages.outOfStock}
         </span>
       </div>
+      <CompareButton slug={product.slug} messages={messages.compare} />
     </Link>
   );
 }

@@ -59,6 +59,7 @@ export default async function VehiclePage({ params }: Props) {
       noPhoto: string;
       wholesalePriceBadge: string;
       wishlist: { add: string; remove: string; error: string };
+      compare: { add: string; open: string; limit: string };
     };
   };
 

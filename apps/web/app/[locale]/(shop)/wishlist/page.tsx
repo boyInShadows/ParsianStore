@@ -81,6 +81,11 @@ export default async function WishlistPage({ params, searchParams }: Props) {
       remove: tCatalog("product.wishlist.remove"),
       error: tCatalog("product.wishlist.error"),
     },
+    compare: {
+      add: tCatalog("product.compare.add"),
+      open: tCatalog("product.compare.open"),
+      limit: tCatalog("product.compare.limit"),
+    },
   };
 
   return (

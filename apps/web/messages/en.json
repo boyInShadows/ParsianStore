@@ -133,6 +133,27 @@
     "emptyTitle": "No compatible parts recorded yet",
     "emptyDescription": "There are no active fitment records for this generation of {vehicle} yet."
   },
+  "Compare": {
+    "title": "Compare parts",
+    "description": "Compare {count} products using current catalog data.",
+    "emptyTitle": "No products selected",
+    "emptyDescription": "Add up to four parts from product cards to compare them.",
+    "browse": "Browse products",
+    "feature": "Feature",
+    "remove": "Remove",
+    "price": "Price",
+    "stock": "Availability",
+    "inStock": "In stock",
+    "outOfStock": "Out of stock",
+    "brand": "Brand",
+    "category": "Category",
+    "sku": "SKU",
+    "oem": "OEM number",
+    "warranty": "Warranty",
+    "weight": "Weight",
+    "weightValue": "{value} g",
+    "unknown": "Not recorded"
+  },
   "Catalog": {
     "breadcrumbHome": "Parsian",
     "notFound": {
@@ -181,6 +202,11 @@
         "add": "Add to wishlist",
         "remove": "Remove from wishlist",
         "error": "Couldn't update your wishlist, try again"
+      },
+      "compare": {
+        "add": "Add to compare",
+        "open": "View comparison",
+        "limit": "Maximum 4 products"
       },
       "addToCart": {
         "qtyLabel": "Quantity",

@@ -16,7 +16,7 @@ the lowest priority and production credentials/legal prerequisites are absent.
        checkout.
 3. [x] **P5.S5** Vehicle landing pages with fitment-backed product discovery
        and useful per-vehicle SEO content.
-4. [ ] **P5.S6** Compare up to four products with shareable URL state.
+4. [x] **P5.S6** Compare up to four products with shareable URL state.
 5. [ ] Customer reviews and product Q&A foundations plus PDP experience.
 6. [ ] Admin review/Q&A moderation queue.
 7. [ ] Admin product media manager and product variants.
@@ -68,8 +68,11 @@ cart, and checkout as separate reviewable slices; do not redo this account slice
       results remain strictly backed by active fitment records. Pages include
       canonical metadata, real make/model/generation evidence, graceful API
       failure and empty-fitment states, and the shared paginated product grid.
-- [ ] **P5.S6** Compare (up to 4 parts) — pure frontend, no backend
-      work needed; decide URL-encoded state vs. Zustand store.
+- [x] **P5.S6** Compare (up to 4 parts) — shipped 2026-08-10. Product cards
+      maintain a bounded four-item browser selection and open a shareable
+      `/compare?items=...` URL. The server-rendered comparison validates every
+      slug and shows real price, availability, identity, OEM, warranty, weight,
+      and dynamic catalog attributes in a responsive RTL table.
 
 ## Phase 7 — User dashboard (remaining)
 
