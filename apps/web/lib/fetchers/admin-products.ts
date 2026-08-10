@@ -39,6 +39,31 @@ export interface AdminProductListPage {
   limit: number;
 }
 
+export interface ProductImportResult {
+  total: number;
+  valid: number;
+  imported: number;
+  rows: Array<{ row: number; sku: string; ok: boolean; errors: string[] }>;
+}
+export async function importAdminProducts(
+  file: File,
+  commit = false,
+): Promise<{ ok: true; data: ProductImportResult } | { ok: false; message: string }> {
+  try {
+    const res = await fetch(`${API_URL}/api/v1/admin/catalog/products/import?commit=${commit}`, {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "text/csv" },
+      body: file,
+    });
+    if (!res.ok) return { ok: false, message: await readErrorMessage(res) };
+    const json = (await res.json()) as { data?: ProductImportResult };
+    return json.data ? { ok: true, data: json.data } : { ok: false, message: GENERIC_ERROR };
+  } catch {
+    return { ok: false, message: GENERIC_ERROR };
+  }
+}
+
 export async function fetchAdminProducts(
   page: number,
   limit: number,

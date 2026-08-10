@@ -23,7 +23,10 @@ the lowest priority and production credentials/legal prerequisites are absent.
        optimized image upload/removal, independent variant SKU/price/stock
        management, PDP selection, cart identity, order snapshots, and atomic
        variant-aware stock reservation/release.
-8. [ ] Validated CSV product bulk import that preserves derived search fields.
+8. [x] Validated CSV product bulk import that preserves derived search fields.
+       Shipped 2026-08-10 with quoted-field parsing, all-or-nothing preview,
+       reference/uniqueness checks, and normal model creation so search text is
+       derived by the authoritative hook.
 9. [ ] Admin payment reconciliation view without live-gateway activation.
 10. [ ] Admin reports and exports, followed by the full quality gate and push
         to `development`.
@@ -135,7 +138,9 @@ cart, and checkout as separate reviewable slices; do not redo this account slice
 - [x] Admin: Product media manager + variants â€” shipped 2026-08-10 with
       optimized AVIF/WebP media generation and sellable variants propagated
       through PDP, cart, checkout snapshots, and inventory reservations.
-- [ ] Admin: CSV/Excel bulk import for products
+- [x] Admin: CSV product bulk import â€” shipped 2026-08-10 with preview-first,
+      all-or-nothing validation and derived search-field preservation. Excel
+      files can be exported to CSV without adding a spreadsheet dependency.
 - [ ] Admin: Refunds + invoices (needs `PaymentProvider.refund()`,
       explicitly deferred at P8.S1)
 - [ ] Admin: Payments reconciliation view

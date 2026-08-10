@@ -13,7 +13,12 @@ import {
 import { DataGrid, type GridColDef } from "@mui/x-data-grid";
 import { formatToman, type ProductStatusDto } from "schemas";
 import { useRouter } from "@/i18n/navigation";
-import { fetchAdminProducts, type AdminProductListPage } from "@/lib/fetchers/admin-products";
+import {
+  fetchAdminProducts,
+  importAdminProducts,
+  type AdminProductListPage,
+  type ProductImportResult,
+} from "@/lib/fetchers/admin-products";
 
 const STATUS_LABEL: Record<ProductStatusDto, string> = {
   draft: "پیش‌نویس",
@@ -35,6 +40,23 @@ export function AdminProductsListContent() {
   const [page, setPage] = useState(0);
   const [result, setResult] = useState<AdminProductListPage | null>(null);
   const [loading, setLoading] = useState(true);
+  const [importFile, setImportFile] = useState<File>();
+  const [importResult, setImportResult] = useState<ProductImportResult>();
+  const [importing, setImporting] = useState(false);
+
+  async function runImport(commit: boolean) {
+    if (!importFile) return;
+    setImporting(true);
+    const response = await importAdminProducts(importFile, commit);
+    setImporting(false);
+    if (response.ok) {
+      setImportResult(response.data);
+      if (response.data.imported) {
+        setLoading(true);
+        setPage(0);
+      }
+    }
+  }
 
   useEffect(() => {
     let cancelled = false;
@@ -135,6 +157,58 @@ export function AdminProductsListContent() {
             افزودن محصول
           </Button>
         </Box>
+      </Box>
+      <Box sx={{ mb: 2, p: 2, border: 1, borderColor: "divider", borderRadius: 2 }}>
+        <Typography variant="subtitle1" fontWeight={700}>
+          ورود گروهی CSV
+        </Typography>
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+          ستون‌ها: nameFa, nameEn, slug, sku, brandId, categoryId, priceRial, stock, weightGram,
+          supplyRoute, sourceBrand, countryOfManufacture, verificationCode
+        </Typography>
+        <Button component="label" variant="outlined">
+          انتخاب CSV
+          <input
+            hidden
+            type="file"
+            accept=".csv,text/csv"
+            onChange={(event) => {
+              setImportFile(event.target.files?.[0]);
+              setImportResult(undefined);
+            }}
+          />
+        </Button>
+        <Button
+          sx={{ ml: 1 }}
+          disabled={!importFile || importing}
+          onClick={() => void runImport(false)}
+        >
+          اعتبارسنجی
+        </Button>
+        {importResult ? (
+          <Box sx={{ mt: 1 }}>
+            <Typography variant="body2">
+              {importResult.valid} از {importResult.total} ردیف معتبر؛ {importResult.imported} وارد
+              شد.
+            </Typography>
+            {importResult.rows.some((row) => !row.ok) ? (
+              <Typography variant="body2" color="error">
+                {importResult.rows
+                  .filter((row) => !row.ok)
+                  .map((row) => `ردیف ${row.row}: ${row.errors.join("، ")}`)
+                  .join(" | ")}
+              </Typography>
+            ) : (
+              <Button
+                variant="contained"
+                disabled={importing || importResult.imported > 0}
+                onClick={() => void runImport(true)}
+              >
+                ثبت همه ردیف‌ها
+              </Button>
+            )}
+          </Box>
+        ) : null}
       </Box>
       <DataGrid
         rows={result?.data ?? []}

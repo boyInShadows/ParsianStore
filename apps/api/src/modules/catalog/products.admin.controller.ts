@@ -1,6 +1,7 @@
 import type { NextFunction, Request, Response } from "express";
 import * as productsAdminService from "./products.admin.service.js";
 import { ApiError } from "../../utils/ApiError.js";
+import { importProductsCsv } from "./products.import.service.js";
 import type {
   AdminProductIdParam,
   AdminProductListQuery,
@@ -17,6 +18,27 @@ function adminProductJson(product: { toJSON(): Record<string, unknown> }) {
     ...json,
     variants: (json.variants ?? []).map(({ _id, ...variant }) => ({ ...variant, id: String(_id) })),
   };
+}
+
+export async function importProductsHandler(req: Request, res: Response, next: NextFunction) {
+  try {
+    if (!req.is("text/csv")) throw new ApiError(415, "فایل CSV الزامی است");
+    const chunks: Buffer[] = [];
+    let size = 0;
+    for await (const chunk of req) {
+      const buffer = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk as Uint8Array);
+      size += buffer.length;
+      if (size > 2 * 1024 * 1024) throw new ApiError(413, "حجم CSV بیشتر از ۲ مگابایت است");
+      chunks.push(buffer);
+    }
+    const data = await importProductsCsv(
+      Buffer.concat(chunks).toString("utf8"),
+      req.query.commit === "true",
+    );
+    res.json({ ok: true, data });
+  } catch (error) {
+    next(error);
+  }
 }
 
 export async function listAdminProductsHandler(

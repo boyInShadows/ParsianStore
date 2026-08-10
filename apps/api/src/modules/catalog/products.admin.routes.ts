@@ -22,6 +22,7 @@ adminProductsRouter.get(
   validateQuery(adminProductListQuerySchema),
   productsAdminController.listAdminProductsHandler,
 );
+adminProductsRouter.post("/import", productsAdminController.importProductsHandler);
 adminProductsRouter.get(
   "/:id",
   validateParams(adminProductIdParamSchema),
