@@ -62,3 +62,31 @@ export async function fetchMakesSafe(): Promise<VehicleMakeDto[]> {
     return [];
   }
 }
+
+export type VehicleRouteResult =
+  | { ok: true; data: { make: VehicleMakeDto; model: VehicleModelDto; generation: VehicleGenDto } }
+  | { ok: false; reason: "not-found" | "down" };
+
+// Generation documents do not have a slug in the current data model. The
+// stable, human-readable route segment is therefore their unique `yearFrom`
+// within a model (the same natural key used by the idempotent vehicle seed).
+export async function fetchVehicleRoute(
+  makeSlug: string,
+  modelSlug: string,
+  generationYear: string,
+): Promise<VehicleRouteResult> {
+  try {
+    const make = (await fetchMakes()).find((item) => item.slug === makeSlug);
+    if (!make) return { ok: false, reason: "not-found" };
+    const model = (await fetchModels(make.id)).find((item) => item.slug === modelSlug);
+    if (!model) return { ok: false, reason: "not-found" };
+    const generation = (await fetchGenerations(model.id)).find(
+      (item) => String(item.yearFrom) === generationYear,
+    );
+    return generation
+      ? { ok: true, data: { make, model, generation } }
+      : { ok: false, reason: "not-found" };
+  } catch {
+    return { ok: false, reason: "down" };
+  }
+}

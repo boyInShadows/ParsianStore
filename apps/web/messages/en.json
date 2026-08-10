@@ -118,6 +118,21 @@
       }
     }
   },
+  "VehiclePage": {
+    "metaTitle": "Compatible parts for {vehicle}",
+    "metaDescription": "Shop parts with recorded fitment for {vehicle} from {year}, with current pricing and availability.",
+    "title": "Compatible parts for {vehicle}",
+    "description": "This list only includes products recorded in the store's technical fitment data for {vehicle}, generation {generation}.",
+    "yearRange": "Model years {from}–{to}",
+    "yearFrom": "From model year {from}",
+    "makeLabel": "Make",
+    "modelLabel": "Model",
+    "generationLabel": "Generation",
+    "productsTitle": "Verified parts for this vehicle",
+    "productsHint": "Compatibility is based on fitment records maintained in the catalog.",
+    "emptyTitle": "No compatible parts recorded yet",
+    "emptyDescription": "There are no active fitment records for this generation of {vehicle} yet."
+  },
   "Catalog": {
     "breadcrumbHome": "Parsian",
     "notFound": {

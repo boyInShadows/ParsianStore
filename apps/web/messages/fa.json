@@ -118,6 +118,21 @@
       }
     }
   },
+  "VehiclePage": {
+    "metaTitle": "قطعات سازگار با {vehicle}",
+    "metaDescription": "خرید قطعات دارای رکورد سازگاری با {vehicle} از سال {year}، همراه با قیمت و موجودی به‌روز.",
+    "title": "قطعات سازگار با {vehicle}",
+    "description": "این فهرست فقط محصولاتی را نشان می‌دهد که در رکوردهای فنی فروشگاه برای {vehicle}، نسل {generation} ثبت شده‌اند.",
+    "yearRange": "سال‌های {from} تا {to}",
+    "yearFrom": "از سال {from}",
+    "makeLabel": "سازنده",
+    "modelLabel": "مدل",
+    "generationLabel": "نسل",
+    "productsTitle": "قطعات تاییدشده برای این خودرو",
+    "productsHint": "سازگاری بر اساس داده‌های فیتمنت ثبت‌شده در کاتالوگ بررسی شده است.",
+    "emptyTitle": "هنوز قطعه سازگاری ثبت نشده است",
+    "emptyDescription": "برای {vehicle} در این نسل هنوز رکورد فیتمنت فعالی وجود ندارد."
+  },
   "Catalog": {
     "breadcrumbHome": "پارسیان",
     "notFound": {

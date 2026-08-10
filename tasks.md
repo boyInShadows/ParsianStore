@@ -14,7 +14,7 @@ the lowest priority and production credentials/legal prerequisites are absent.
        local-development infrastructure work as separate auditable commits.
 2. [x] Finish the Phase 5–7 design-quality pass for storefront, cart, and
        checkout.
-3. [ ] **P5.S5** Vehicle landing pages with fitment-backed product discovery
+3. [x] **P5.S5** Vehicle landing pages with fitment-backed product discovery
        and useful per-vehicle SEO content.
 4. [ ] **P5.S6** Compare up to four products with shareable URL state.
 5. [ ] Customer reviews and product Q&A foundations plus PDP experience.
@@ -62,9 +62,12 @@ cart, and checkout as separate reviewable slices; do not redo this account slice
 - [x] **P5.S4** Brand pages (`/brand/[slug]`) — shipped 2026-08-06 with
       category/price/availability facets, sorting, cursor pagination, real brand
       trust fields, localized 404, and SEO metadata. See ADR 0026.
-- [ ] **P5.S5** Vehicle landing pages (`/vehicle/[make]/[model]/[gen]`)
-      — real per-vehicle SEO content, not a thin filtered list; decide
-      generate-all vs. only-covered-combinations.
+- [x] **P5.S5** Vehicle landing pages (`/vehicle/[make]/[model]/[gen]`)
+      — shipped 2026-08-10. Routes resolve every generation in the maintained
+      vehicle tree using its seed-natural `yearFrom` segment, while product
+      results remain strictly backed by active fitment records. Pages include
+      canonical metadata, real make/model/generation evidence, graceful API
+      failure and empty-fitment states, and the shared paginated product grid.
 - [ ] **P5.S6** Compare (up to 4 parts) — pure frontend, no backend
       work needed; decide URL-encoded state vs. Zustand store.
 
