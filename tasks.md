@@ -27,7 +27,10 @@ the lowest priority and production credentials/legal prerequisites are absent.
        Shipped 2026-08-10 with quoted-field parsing, all-or-nothing preview,
        reference/uniqueness checks, and normal model creation so search text is
        derived by the authoritative hook.
-9. [ ] Admin payment reconciliation view without live-gateway activation.
+9. [x] Admin payment reconciliation view without live-gateway activation.
+       Shipped 2026-08-10 at `/admin/payments`, detecting amount/status
+       mismatches, missing payment rows, stale initiations, and missing
+       authorities using only internal order/payment evidence.
 10. [ ] Admin reports and exports, followed by the full quality gate and push
         to `development`.
 
@@ -143,7 +146,8 @@ cart, and checkout as separate reviewable slices; do not redo this account slice
       files can be exported to CSV without adding a spreadsheet dependency.
 - [ ] Admin: Refunds + invoices (needs `PaymentProvider.refund()`,
       explicitly deferred at P8.S1)
-- [ ] Admin: Payments reconciliation view
+- [x] Admin: Payments reconciliation view â€” shipped 2026-08-10 at
+      `/admin/payments`; intentionally performs no live-gateway calls.
 - [ ] Admin: Content management (banners, sliders, menus, pages, blog)
 - [x] Admin: Review/Q&A moderation queue — shipped 2026-08-10 at
       `/admin/feedback`, with status filters, approve/reject actions, question

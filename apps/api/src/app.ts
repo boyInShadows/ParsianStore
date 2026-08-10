@@ -33,6 +33,7 @@ import { adminInventoryRouter } from "./modules/inventory/inventory.admin.routes
 import { adminOrdersRouter } from "./modules/orders/orders.admin.routes.js";
 import { ordersRouter } from "./modules/orders/orders.routes.js";
 import { paymentsRouter } from "./modules/payments/payments.routes.js";
+import { adminPaymentsRouter } from "./modules/payments/payments.admin.routes.js";
 import { vehiclesRouter } from "./modules/vehicles/vehicles.routes.js";
 import { wishlistRouter } from "./modules/wishlist/wishlist.routes.js";
 import { uploadsDir } from "./providers/storage/index.js";
@@ -113,6 +114,7 @@ app.use("/api/v1/admin/fitment", adminFitmentRouter);
 // No auth on paymentsRouter -- see payments.routes.ts, this is the
 // gateway's own redirect target, not a client-called resource.
 app.use("/api/v1/payments", paymentsRouter);
+app.use("/api/v1/admin/payments", adminPaymentsRouter);
 // LocalDiskStorageProvider's saved variants (P2.S8) — served directly, no
 // auth: product/category imagery is public by nature. P2.S9 security
 // header audit: helmet()'s default Cross-Origin-Resource-Policy is
