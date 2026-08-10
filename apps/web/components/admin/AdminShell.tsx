@@ -30,6 +30,7 @@ type Props = {
     | "dashboard"
     | "orders"
     | "payments"
+    | "reports"
     | "products"
     | "catalog"
     | "discounts"
@@ -48,6 +49,7 @@ type Props = {
 const AUDIT_ROLES = new Set(["admin", "superadmin"]);
 
 const NAV_ITEMS = [
+  { key: "reports" as const, href: "/admin/reports", label: "گزارش‌ها" },
   { key: "payments" as const, href: "/admin/payments", label: "پرداخت‌ها" },
   // P8.S5. First entry, not appended: /admin is now a real overview page
   // and the place staff land after signing in.

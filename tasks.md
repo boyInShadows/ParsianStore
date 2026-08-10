@@ -153,7 +153,9 @@ cart, and checkout as separate reviewable slices; do not redo this account slice
       `/admin/feedback`, with status filters, approve/reject actions, question
       answers, audit logging, and automatic product-rating recalculation.
 - [ ] Admin: Support tickets (staff side)
-- [ ] Admin: Reports & exports
+- [x] Admin: Reports & exports â€” shipped 2026-08-10 at `/admin/reports`
+      with operational totals and BOM-prefixed CSV exports for orders,
+      inventory, and customers.
 - [ ] Admin: Staff RBAC (today: any staff role passes `requireStaff()`,
       no per-role permission granularity — P8.S8's audit viewer is the
       first and only per-role gate)
