@@ -11,6 +11,7 @@
     "seed:vehicles": "tsx src/seed/vehicles.ts",
     "seed:geo": "tsx src/seed/geo.ts",
     "seed:catalog": "tsx src/seed/catalog.ts",
+    "seed:visual-catalog": "tsx src/seed/visualCatalog.ts",
     "seed:shipping": "tsx src/seed/shipping.ts",
     "set-account-type": "tsx src/scripts/setAccountType.ts",
     "create-coupon": "tsx src/scripts/createCoupon.ts"

@@ -7,7 +7,10 @@
     "node": ">=22"
   },
   "scripts": {
+    "predev": "docker compose up -d --wait mongodb",
     "dev": "turbo run dev",
+    "dev:infra": "docker compose up -d --wait mongodb",
+    "dev:stop": "docker compose down",
     "dev:api": "turbo run dev --filter=api",
     "dev:web": "turbo run dev --filter=web",
     "build": "turbo run build",

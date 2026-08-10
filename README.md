@@ -54,24 +54,39 @@ legacy/      Pre-monorepo Create Next App prototype, kept for reference only
 
 ## Getting started
 
-Requires Node 22 (see `.nvmrc`) and pnpm (`corepack enable && corepack
-prepare pnpm@9 --activate`, or `npm i -g pnpm@9` if corepack can't write to
-your Node install location).
+Requires Node 22 (see `.nvmrc`), Docker Desktop, and pnpm (`corepack enable &&
+corepack prepare pnpm@9 --activate`, or `npm i -g pnpm@9` if corepack can't
+write to your Node install location).
 
 ```bash
 pnpm install
 cp .env.example apps/web/.env.local   # fill in what you need, mock providers work out of the box
 cp .env.example apps/api/.env
-pnpm dev     # runs every app in the workspace via Turborepo
+pnpm dev     # starts MongoDB, then every app in the workspace via Turborepo
 ```
+
+`pnpm dev` starts the project-scoped MongoDB container on port `27018` and
+waits for it to become healthy before starting the API and web development
+servers. MongoDB data persists in a Docker volume between sessions. Run
+`pnpm dev:stop` when you want to stop the container. The normal Ctrl+C only
+stops the web/API processes, allowing faster starts the next time.
 
 Other workspace-wide scripts: `pnpm lint`, `pnpm test`, `pnpm build`, and
 `pnpm e2e`.
 
+For the temporary image-backed visualization catalog sourced from
+`apps/web/public/products/digikala.csv`, run:
+
+```bash
+pnpm --filter api seed:visual-catalog
+```
+
+The idempotent importer keeps the first 100 unique records with a valid name,
+price, and product image in the single `/c/visual-products` category.
+
 The API needs MongoDB reachable at the `MONGODB_URI` in `apps/api/.env` before
-it will serve anything — if it is down, `pnpm dev` logs a
-`MongooseServerSelectionError` and the API process exits while the web app
-keeps running.
+it will serve anything. The default development URI uses the container managed
+by `pnpm dev`; custom or production environments may point it elsewhere.
 
 ### Reading the logs
 

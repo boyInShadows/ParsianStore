@@ -32,13 +32,22 @@ export function ProductCard({ product, messages }: Props) {
       className="flex h-full flex-col gap-3 rounded-lg border border-border bg-surface p-3 transition-colors hover:border-brand motion-reduce:transition-none"
     >
       <div className="relative">
-        <div
-          role="img"
-          aria-label={messages.noPhoto}
-          className="flex aspect-square items-center justify-center rounded-md border border-dashed border-border bg-surface-raised text-caption text-text-muted"
-        >
-          {messages.noPhoto}
-        </div>
+        {product.media[0] ? (
+          <img
+            src={product.media[0]}
+            alt={product.name.fa}
+            loading="lazy"
+            className="aspect-square w-full rounded-md border border-border bg-surface-raised object-contain"
+          />
+        ) : (
+          <div
+            role="img"
+            aria-label={messages.noPhoto}
+            className="flex aspect-square items-center justify-center rounded-md border border-dashed border-border bg-surface-raised text-caption text-text-muted"
+          >
+            {messages.noPhoto}
+          </div>
+        )}
         {/* WishlistButton stops its own click from bubbling into this
             card's <Link> navigation -- see its own doc comment. */}
         <WishlistButton
