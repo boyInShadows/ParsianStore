@@ -4,6 +4,18 @@ Snapshot as of 2026-08-10. Only what's left — shipped work lives in
 `masterPlan.md` §13. Regenerate/update this file rather than letting it
 drift; it's a review artifact for the owner, not a second source of truth.
 
+## Storefront design revival — 2026-08-11
+
+- [x] Establish the “Persian workshop manual” direction and restore the missing
+      `apps/web/design-quality.md` checklist.
+- [x] Rebuild the global header and landing hero around vehicle selection,
+      technical atmosphere, and the interactive Exploded View.
+- [x] Replace equal-card cadence in trust, system navigation, authenticity,
+      featured products, and shared product cards with evidence rails, catalog
+      plates, inspection records, real media, and stronger price hierarchy.
+- [ ] Carry the same language through PLP filtering and the PDP purchase/evidence
+      composition after owner review of this first storefront slice.
+
 ## Execution roadmap — 2026-08-10
 
 Ordered by customer value, operational leverage, and dependency risk. Live

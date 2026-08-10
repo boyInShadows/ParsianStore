@@ -10,6 +10,14 @@
 **Current status correction (v1.25, 2026-08-06):** Phase 8's numbered slices P8.S1–P8.S9 and Phase 5's P5.S4 brand pages are shipped; the older document-version sentence above is stale where it stops at P8.S2 and lists P5.S4 as undone. The dedicated Phase 5–7 design-quality backlog has started with the account-page slice, while storefront/cart/checkout remain. `tasks.md` is the current remaining-work snapshot.
 
 **Changelog:**
+- 1.26 — **Storefront visual direction revived.** The earlier “restraint
+  everywhere” instruction had been implemented too literally as repeated
+  rounded white cards with equal section cadence. The clarified direction is
+  a Persian workshop manual: technical plates, real catalog media, inspection
+  evidence, graphite/paper contrast, asymmetric editorial composition, and
+  vehicle/OEM entry paths staged as primary actions. Generated artwork may
+  establish atmosphere but never impersonate product or authenticity evidence.
+  `apps/web/design-quality.md` is restored as the maintained review checklist.
 - 1.25 — **P5.S4 brand pages shipped.** `/brand/[slug]` reuses the PLP product grid, sorting, cursor pagination, and URL-driven filter machinery with the fixed dimension swapped from category to brand. Owner accepted the recommended essential v1 facet set: category, price, and availability; brand is already fixed and attribute facets stay hidden for a cleaner page. The header exposes only real Brand-model evidence (name, country, OEM status, optional description/SEO), with no invented brand story or logo. Public brand parsing now includes those existing API fields and normalizes Mongoose's omitted empty `seo` object. Live checks covered 360/1440 px, light/dark, axe 0, category filtering, and localized RTL 404. 610/610 tests; route 146KB. Production Zarinpal activation was reconfirmed as final-session Phase 10 work because no live API credentials exist. See ADR 0026.
 - 1.24 — **First dedicated Phase 5–7 design-quality slice shipped (account pages).** `/orders`, `/orders/[code]`, and `/addresses` now apply the shared docket primitives established at P1.S7, with a responsive account shell, stronger order information hierarchy, a real status rail and receipt composition, complete address-card data, and corrected `Sheet` heading semantics. `/wishlist` and `/garage` adopt the same scroll-safe navigation API without otherwise reopening their shipped designs. This is a partial closure of the design-quality backlog, not the whole pass: storefront, cart, and checkout remain. 609/609 tests, lint, and production build pass; account routes build at 122KB (`/orders`, `/orders/[code]`) and 154KB (`/addresses`). See `tasks.md`'s 2026-08-06 cross-agent handoff.
 - 1.1 — Language decision reversed from plain JavaScript to TypeScript (§2.2), mid-Phase-0, before any app code existed. See `docs/decisions/0001-typescript-over-plain-js.md`.
@@ -527,7 +535,7 @@ Mobile-first. Every section must be usable and beautiful at 360px before desktop
 > that pattern, with green). See
 > `docs/decisions/0005-color-palette-marigold-cta.md`.
 
-~~Machined-metal graphite ground, Persian turquoise identity, safety-orange commerce.~~ The vernacular is the parts catalog: hairline rules, mono-set reference codes, exploded diagrams. Restraint everywhere except the Exploded View.
+~~Machined-metal graphite ground, Persian turquoise identity, safety-orange commerce.~~ The vernacular is the parts catalog: hairline rules, mono-set reference codes, exploded diagrams. Restraint means controlled hierarchy, not emotional emptiness: graphite workshop atmosphere, catalog-paper surfaces, real part media, inspection evidence, and asymmetric editorial composition create contrast around the Exploded View.
 
 ~~Turquoise (فیروزه) is the deliberate risk: this market is 90% red/orange/blue, and turquoise is authentically Persian — Isfahan tilework, Neyshabur stone — for a brand called Parsian. It also reads as diagnostic-instrument cyan in an automotive context. Justified twice.~~
 

@@ -196,19 +196,19 @@ export function ExplodedView({ svgLabel, nodeLabels }: Props) {
       {/* masterPlan.md §5 item 01: "collapses to a stacked, tappable list
           on mobile -- same codes, same language, no motion cost." A
           separate list, not a shrunk SVG. */}
-      <ul className="flex flex-col divide-y divide-border border-y border-border md:hidden">
+      <ul className="flex flex-col divide-y divide-graphite-700 border-y border-graphite-700 md:hidden">
         {EXPLODED_NODES.map((node) => (
           <li key={node.code}>
             <a
               href={`/c/${node.slug}`}
-              className="flex items-center justify-between gap-3 px-1 py-3 text-body text-text hover:bg-surface-raised"
+              className="flex items-center justify-between gap-3 px-1 py-3 text-body text-graphite-100 hover:bg-graphite-850"
             >
               <span className="flex items-center gap-3">
-                <span className="font-mono text-data text-text-muted">{node.code}</span>
+                <span className="font-mono text-data text-graphite-300">{node.code}</span>
                 <span>{node.name.fa}</span>
               </span>
               {nodeLabels[node.code].partsCountLabel !== null ? (
-                <span className="text-body-sm text-text-muted">
+                <span className="text-body-sm text-graphite-300">
                   {nodeLabels[node.code].partsCountLabel}
                 </span>
               ) : null}

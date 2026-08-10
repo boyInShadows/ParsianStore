@@ -65,13 +65,13 @@ export default function LandingPage() {
       <JsonLd data={[organizationJsonLd(), websiteJsonLd()]} />
       <Hero />
       <TrustStrip />
-      <ShopBySystem />
       <BestSellers />
-      <BrandWall />
+      <ShopBySystem />
       <AuthenticityStory />
-      <Deals />
       <ShopByVehicle />
       <SymptomFinder />
+      <BrandWall />
+      <Deals />
       <Numbers />
       <HowItWorks />
       <GuidesTeaser />

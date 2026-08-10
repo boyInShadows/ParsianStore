@@ -25,9 +25,9 @@ export async function AuthenticityStory() {
     <section
       id="authenticity"
       aria-labelledby="authenticity-heading"
-      className="mx-auto max-w-container px-4 py-12"
+      className="border-y border-border bg-surface-sunken py-20"
     >
-      <Reveal className="flex flex-col gap-2">
+      <Reveal className="mx-auto flex max-w-container flex-col gap-2 px-4">
         <p className="font-mono text-data text-text-muted">{t("code")}</p>
         <h2 id="authenticity-heading" className="font-display text-h2 font-black text-text">
           {t("title")}
@@ -36,12 +36,23 @@ export async function AuthenticityStory() {
       </Reveal>
       <a
         href={`/p/${product.slug}`}
-        className="mt-6 grid grid-cols-1 gap-4 rounded-lg border border-border bg-surface p-4 transition-colors hover:border-brand motion-reduce:transition-none sm:grid-cols-2"
+        className="mx-auto mt-8 grid max-w-container grid-cols-1 border border-border bg-surface transition-colors hover:border-brand motion-reduce:transition-none lg:grid-cols-[0.85fr_1.15fr]"
       >
-        <div>
-          <p className="text-body-sm text-text-muted">{product.name.fa}</p>
+        <div className="min-h-64 relative flex flex-col justify-end overflow-hidden bg-graphite-950 p-6 text-graphite-0">
+          {product.media[0] ? (
+            <img
+              src={product.media[0]}
+              alt=""
+              className="absolute inset-0 h-full w-full object-contain opacity-50"
+            />
+          ) : null}
+          <div className="absolute inset-0 bg-gradient-to-t from-graphite-950 to-transparent" />
+          <p className="relative z-10 font-display text-h2 font-black">{product.name.fa}</p>
+          <p className="relative z-10 mt-2 font-mono text-data text-marigold-300">
+            {product.authenticity.verificationCode}
+          </p>
         </div>
-        <dl className="grid grid-cols-2 gap-x-4 gap-y-2">
+        <dl className="gap-px p-px grid grid-cols-1 bg-rule sm:grid-cols-2">
           <AuthenticityField
             label={t("verificationCode")}
             value={product.authenticity.verificationCode}
@@ -69,9 +80,11 @@ function AuthenticityField({
   mono?: boolean;
 }) {
   return (
-    <div className="flex flex-col gap-1">
-      <dt className="text-caption text-text-muted">{label}</dt>
-      <dd className={`text-body-sm text-text ${mono ? "font-mono" : ""}`}>{value}</dd>
+    <div className="flex min-h-32 flex-col justify-between gap-4 bg-surface p-6">
+      <dt className="font-mono text-caption text-text-muted">{label}</dt>
+      <dd className={`text-body font-medium text-text ${mono ? "font-mono text-brand" : ""}`}>
+        {value}
+      </dd>
     </div>
   );
 }

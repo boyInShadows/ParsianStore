@@ -64,18 +64,18 @@ export function Header({ messages }: Props) {
   }
 
   return (
-    <header className="sticky top-0 z-40 border-b border-border bg-surface">
+    <header className="sticky top-0 z-40 border-b border-graphite-800 bg-graphite-950 text-graphite-100 shadow-md">
       <div className="mx-auto flex max-w-container items-center justify-between gap-4 px-4 py-3">
         <button
           type="button"
           onClick={() => setMobileMenuOpen(true)}
           aria-label="باز کردن منو"
-          className="inline-flex h-12 w-12 items-center justify-center rounded-md text-text md:hidden"
+          className="inline-flex h-12 w-12 items-center justify-center border border-graphite-800 text-graphite-100 md:hidden"
         >
           <MenuIcon />
         </button>
 
-        <Link href="/" className="font-display text-h3 font-black text-brand">
+        <Link href="/" className="font-display text-h3 font-black text-graphite-0">
           پارسیان
         </Link>
 
@@ -84,7 +84,7 @@ export function Header({ messages }: Props) {
             type="button"
             onClick={() => setCategoriesOpen((open) => !open)}
             aria-expanded={categoriesOpen}
-            className="rounded-md px-3 py-2 text-body-sm font-medium text-text hover:bg-surface-raised"
+            className="px-3 py-2 text-body-sm font-medium text-graphite-200 hover:bg-graphite-850 hover:text-graphite-0"
           >
             دسته‌بندی‌ها
           </button>
@@ -113,7 +113,7 @@ export function Header({ messages }: Props) {
             name="q"
             type="search"
             placeholder="جستجوی قطعه یا کد فنی"
-            className="w-full rounded-md border border-border bg-bg px-3 py-2 text-body-sm text-text placeholder:text-text-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus"
+            className="w-full border border-graphite-700 bg-graphite-900 px-4 py-3 font-mono text-body-sm text-graphite-0 placeholder:text-graphite-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus"
           />
         </form>
 
@@ -126,7 +126,7 @@ export function Header({ messages }: Props) {
             aria-label={
               activeVehicle ? `تعویض خودرو، فعلاً ${activeVehicle.label}` : "انتخاب خودرو"
             }
-            className="hidden items-center gap-1 rounded-full border border-border px-3 py-1 text-body-sm text-text-muted hover:text-text sm:inline-flex"
+            className="hidden items-center gap-2 border border-graphite-700 px-3 py-2 text-body-sm text-graphite-300 hover:border-steel-400 hover:text-graphite-0 sm:inline-flex"
           >
             <CarIcon />
             {activeVehicle?.label ?? "انتخاب خودرو"}
@@ -134,7 +134,7 @@ export function Header({ messages }: Props) {
           <Link
             href="/cart"
             aria-label={cartItemCount > 0 ? `سبد خرید، ${cartItemCount} قلم` : "سبد خرید"}
-            className="relative inline-flex h-12 w-12 items-center justify-center rounded-md text-text hover:bg-surface-raised"
+            className="relative inline-flex h-12 w-12 items-center justify-center text-graphite-100 hover:bg-graphite-850"
           >
             <CartIcon />
             {cartItemCount > 0 ? (
@@ -156,7 +156,7 @@ export function Header({ messages }: Props) {
                   authUser ? `${messages.signedInAria} ${authUser.phone}` : messages.signedInAria
                 }
                 title={authUser?.phone}
-                className="inline-flex h-12 w-12 items-center justify-center rounded-md text-brand hover:bg-surface-raised"
+                className="inline-flex h-12 w-12 items-center justify-center text-steel-300 hover:bg-graphite-850"
               >
                 <AccountIcon />
               </Link>
@@ -164,7 +164,7 @@ export function Header({ messages }: Props) {
                 type="button"
                 onClick={() => void handleSignOut()}
                 aria-label={messages.signOutAria}
-                className="inline-flex h-12 w-12 items-center justify-center rounded-md text-text hover:bg-surface-raised"
+                className="inline-flex h-12 w-12 items-center justify-center text-graphite-100 hover:bg-graphite-850"
               >
                 <SignOutIcon />
               </button>
@@ -173,7 +173,7 @@ export function Header({ messages }: Props) {
             <Link
               href="/auth/login"
               aria-label={messages.signInAria}
-              className="inline-flex h-12 w-12 items-center justify-center rounded-md text-text hover:bg-surface-raised"
+              className="inline-flex h-12 w-12 items-center justify-center text-graphite-100 hover:bg-graphite-850"
             >
               <AccountIcon />
             </Link>

@@ -31,21 +31,22 @@ export function ProductCard({ product, messages }: Props) {
   return (
     <Link
       href={`/p/${product.slug}`}
-      className="flex h-full flex-col gap-3 rounded-lg border border-border bg-surface p-3 transition-colors hover:border-brand motion-reduce:transition-none"
+      className="group relative flex h-full flex-col border border-border bg-surface p-3 shadow-sm transition duration-base ease-out hover:-translate-y-1 hover:border-brand hover:shadow-md motion-reduce:transform-none motion-reduce:transition-none"
     >
+      <span className="absolute inset-x-0 top-0 h-1 bg-cta" />
       <div className="relative">
         {product.media[0] ? (
           <img
             src={product.media[0]}
             alt={product.name.fa}
             loading="lazy"
-            className="aspect-square w-full rounded-md border border-border bg-surface-raised object-contain"
+            className="aspect-square w-full border-b border-rule bg-surface-raised object-contain transition duration-slow ease-out group-hover:scale-[1.02] motion-reduce:transform-none motion-reduce:transition-none"
           />
         ) : (
           <div
             role="img"
             aria-label={messages.noPhoto}
-            className="flex aspect-square items-center justify-center rounded-md border border-dashed border-border bg-surface-raised text-caption text-text-muted"
+            className="flex aspect-square items-center justify-center border-b border-dashed border-rule bg-surface-raised font-mono text-caption text-text-muted"
           >
             {messages.noPhoto}
           </div>
@@ -58,10 +59,14 @@ export function ProductCard({ product, messages }: Props) {
           className="bg-surface/90 absolute end-2 top-2 backdrop-blur-sm"
         />
       </div>
-      <div className="flex flex-1 flex-col gap-1">
-        <span className="line-clamp-2 text-body-sm text-text">{product.name.fa}</span>
-        <span className="flex items-center gap-2">
-          <span className="font-mono text-data text-text">{formatToman(product.priceRial)}</span>
+      <div className="flex flex-1 flex-col gap-2 pt-2">
+        <span className="line-clamp-2 min-h-12 text-body font-medium text-text">
+          {product.name.fa}
+        </span>
+        <span className="mt-auto flex items-center gap-2 border-t border-rule pt-3">
+          <span className="font-mono text-data font-medium text-price">
+            {formatToman(product.priceRial)}
+          </span>
           {product.isWholesalePrice ? (
             <span className="rounded-full bg-brand-subtle px-2 py-1 text-caption font-medium leading-none text-brand">
               {messages.wholesalePriceBadge}

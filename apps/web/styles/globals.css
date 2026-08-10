@@ -35,6 +35,15 @@
     color: var(--text);
   }
 
+  .hero-scrim {
+    background: linear-gradient(
+      to left,
+      var(--color-graphite-950) 12%,
+      color-mix(in srgb, var(--color-graphite-950) 92%, transparent) 52%,
+      color-mix(in srgb, var(--color-graphite-950) 18%, transparent) 100%
+    );
+  }
+
   /* Tailwind's `[&::backdrop]` arbitrary variant does not generate CSS for
      the native <dialog> backdrop pseudo-element (confirmed empty output
      building Modal/Drawer, P1.S7) -- plain CSS is the reliable path here.

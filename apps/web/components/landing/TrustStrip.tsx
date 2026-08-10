@@ -13,16 +13,17 @@ export async function TrustStrip() {
     <section
       id="trust-strip"
       aria-labelledby="trust-strip-heading"
-      className="mx-auto max-w-container px-4 py-8"
+      className="border-y border-graphite-800 bg-graphite-900"
     >
       <h2 id="trust-strip-heading" className="sr-only">
         {t("title")}
       </h2>
       <Reveal>
-        <ul className="flex flex-col divide-y divide-border border-y border-border sm:flex-row sm:divide-x sm:divide-y-0">
-          {items.map((item) => (
-            <li key={item} className="flex-1 px-4 py-3 text-center font-mono text-data text-text">
-              {item}
+        <ul className="mx-auto flex max-w-container flex-col divide-y divide-graphite-800 px-4 sm:flex-row sm:divide-x sm:divide-y-0">
+          {items.map((item, index) => (
+            <li key={item} className="flex flex-1 items-center gap-3 px-4 py-4 text-graphite-100">
+              <span className="font-mono text-caption text-marigold-300">0{index + 1}</span>
+              <span className="text-body-sm font-medium">{item}</span>
             </li>
           ))}
         </ul>

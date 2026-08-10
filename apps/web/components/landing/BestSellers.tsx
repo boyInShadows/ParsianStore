@@ -23,7 +23,7 @@ export async function BestSellers() {
     <section
       id="best-sellers"
       aria-labelledby="best-sellers-heading"
-      className="mx-auto max-w-container px-4 py-12"
+      className="mx-auto max-w-container px-4 py-20"
     >
       <Reveal className="flex flex-col gap-2">
         <p className="font-mono text-data text-text-muted">{t("code")}</p>
@@ -53,20 +53,32 @@ function ProductCard({
   return (
     <a
       href={`/p/${product.slug}`}
-      className="flex h-full flex-col gap-3 rounded-lg border border-border bg-surface p-3 transition-colors hover:border-brand motion-reduce:transition-none"
+      className="group relative flex h-full flex-col gap-3 border border-border bg-surface p-3 shadow-sm transition duration-base ease-out hover:-translate-y-1 hover:border-brand hover:shadow-md motion-reduce:transform-none motion-reduce:transition-none"
     >
-      {/* No product photography exists in the seed data yet -- an honest
-          "no photo" placeholder, not a fabricated stock image. */}
-      <div
-        role="img"
-        aria-label={noPhotoLabel}
-        className="flex aspect-square items-center justify-center rounded-md border border-dashed border-border bg-surface-raised text-caption text-text-muted"
-      >
-        {noPhotoLabel}
-      </div>
-      <div className="flex flex-col gap-1">
-        <span className="line-clamp-2 text-body-sm text-text">{product.name.fa}</span>
-        <span className="font-mono text-data text-text">{formatToman(product.priceRial)}</span>
+      <span className="absolute inset-x-0 top-0 h-1 bg-cta" />
+      {product.media[0] ? (
+        <img
+          src={product.media[0]}
+          alt={product.name.fa}
+          loading="lazy"
+          className="aspect-square w-full border-b border-rule bg-surface-raised object-contain transition duration-slow group-hover:scale-[1.02] motion-reduce:transform-none motion-reduce:transition-none"
+        />
+      ) : (
+        <div
+          role="img"
+          aria-label={noPhotoLabel}
+          className="flex aspect-square items-center justify-center border-b border-dashed border-rule bg-surface-raised font-mono text-caption text-text-muted"
+        >
+          {noPhotoLabel}
+        </div>
+      )}
+      <div className="flex flex-1 flex-col gap-2 pt-2">
+        <span className="line-clamp-2 min-h-12 text-body font-medium text-text">
+          {product.name.fa}
+        </span>
+        <span className="mt-auto border-t border-rule pt-3 font-mono text-data font-medium text-price">
+          {formatToman(product.priceRial)}
+        </span>
       </div>
     </a>
   );
