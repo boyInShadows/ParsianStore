@@ -35,6 +35,21 @@
     color: var(--text);
   }
 
+  /* Backstops for the hero's scroll-separated diagram (P9.S5). The stage's
+     first frame is "every part collapsed into the car", which is correct only
+     while JS is live and the visitor can scroll it apart. Two cases would
+     otherwise be stuck on that frame forever: the SSR paint that lands before
+     HeroStage hydrates for a reduced-motion visitor, and the visitor whose JS
+     never arrives at all. Both get the final, separated state instead --
+     "reduced motion = instant final state", not a frozen first frame.
+     !important because motion writes the collapsed transform inline. */
+  @media (prefers-reduced-motion: reduce) {
+    .hero-stage > * {
+      transform: none !important;
+      opacity: 1 !important;
+    }
+  }
+
   .hero-scrim {
     background: linear-gradient(
       to left,

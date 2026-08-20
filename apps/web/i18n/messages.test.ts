@@ -87,19 +87,19 @@ describe("getMessages", () => {
   });
 
   it("fills a key en.json has not translated with the Persian one", () => {
-    const en = getMessages("en") as typeof fa;
+    const en = getMessages("en") as unknown as typeof fa;
     // `beats` ships Persian-only at P9.S4; without the fallback next-intl
     // would raise a missing-message error on every /en render.
     expect(en.Landing.beats.hero.headline).toBe(fa.Landing.beats.hero.headline);
   });
 
   it("lets a translated key win over the Persian fallback", () => {
-    const en = getMessages("en") as typeof fa;
+    const en = getMessages("en") as unknown as typeof fa;
     expect(en.Landing.sections.hero.headline).not.toBe(fa.Landing.sections.hero.headline);
   });
 
   it("replaces message arrays wholesale instead of splicing two languages", () => {
-    const en = getMessages("en") as typeof fa;
+    const en = getMessages("en") as unknown as typeof fa;
     const symptoms = en.Landing.sections.symptomFinder.items;
     expect(new Set(symptoms).size).toBe(symptoms.length);
     expect(symptoms.some((item) => /[؀-ۿ]/.test(item))).toBe(false);

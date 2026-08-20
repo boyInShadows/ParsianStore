@@ -36,7 +36,22 @@ Work top-down, one step per commit, `<type>(web): [P9.Sn] <subject>`.
       **⚠️ String table awaits owner review** — see the S4 commit body; nothing
       downstream is blocked on it, but corrections get cheaper the earlier
       they land.
-- [ ] **P9.S5 — HeroV2 scaffold** behind `NEXT_PUBLIC_LANDING_V2`.
+- [x] **P9.S5a — HeroV2 scaffold.** ✅ 2026-08-21. `components/landing/HeroV2/`
+      complete and tested: server shell, scroll-driven `HeroStage` (three
+      separation chapters, transform/opacity only), `PartCodeSearch` (the
+      Mechanic's OEM path → `/search`), `heroLayout.ts`, and a `cutoutLoader`
+      that serves the S3 AVIF set with zero request-time optimization.
+      **Not on the route yet** — see the S5b note below. Verified flag-off
+      route JS unchanged at 188KB.
+- [ ] **P9.S5b — put HeroV2 on the route.** The `NEXT_PUBLIC_LANDING_V2` flag
+      was **dropped, deliberately**: measured three ways (static import, barrel
+      re-export, dynamic `import()` inside a dead branch) a flag branch still
+      pulls HeroV2's client leaves into the route's client-reference graph, so
+      flag-*off* cost +6KB (188 → 194) to ship code nobody renders. Next
+      collects client references per reachable module, not per rendered branch.
+      So HeroV2 goes on the route in **S6**, in the same commit that archives
+      the legacy hero — which is exactly when the offsetting removal lands.
+      194KB is then the honest interim figure until S9/S14/S16's cuts.
 - [ ] **P9.S6 — HeroV2 proof + flip.** *(closes audit item 3 — OEM/SKU above the fold)*
 - [ ] **P9.S7 — Trust strip.**
 - [ ] **P9.S8 — Best-sellers rail.** *(closes audit item 2)*
