@@ -23,8 +23,19 @@ Work top-down, one step per commit, `<type>(web): [P9.Sn] <subject>`.
       installed via winget with owner approval — a **local tool**, never a repo
       dependency; the script degrades to images-only without it. Receipts and
       verification method in `docs/landing-assets.md`.
-- [ ] **P9.S4 — Strings.** `fa.json` `Landing` v2 for all 11 beats; string table
-      presented to the owner for review.
+- [x] **P9.S4 — Strings.** ✅ 2026-08-21. `Landing.beats` in `fa.json` — real
+      Persian for beats 01–10 (the mega footer lives in the layout namespace).
+      Added **alongside** the live `Landing.sections`, not over it: each step
+      S5–S14 migrates its own component, and S16 deletes `sections`. So the
+      current page keeps rendering unchanged copy while the v2 set waits.
+      New copy: hero's two-path composition (driver selector + mechanic OEM
+      code field), trust claims rewritten as processes, interstitial plate,
+      and the closing beat (4 steps + support + CTA). `en.json` parity stays
+      suspended — `i18n/messages.ts` now layers `fa` **under** any non-default
+      locale so `/en` degrades to Persian instead of throwing on a missing key.
+      **⚠️ String table awaits owner review** — see the S4 commit body; nothing
+      downstream is blocked on it, but corrections get cheaper the earlier
+      they land.
 - [ ] **P9.S5 — HeroV2 scaffold** behind `NEXT_PUBLIC_LANDING_V2`.
 - [ ] **P9.S6 — HeroV2 proof + flip.** *(closes audit item 3 — OEM/SKU above the fold)*
 - [ ] **P9.S7 — Trust strip.**
