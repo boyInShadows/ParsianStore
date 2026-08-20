@@ -67,7 +67,12 @@ Work top-down, one step per commit, `<type>(web): [P9.Sn] <subject>`.
       the legacy hero — which is exactly when the offsetting removal lands.
       194KB is then the honest interim figure until S9/S14/S16's cuts.
 - [ ] **P9.S6 — HeroV2 proof + flip.** *(closes audit item 3 — OEM/SKU above the fold)*
-- [ ] **P9.S7 — Trust strip.**
+- [x] **P9.S7 — Trust strip.** ✅ 2026-08-21. Each of the four claims is now
+      claim + process — fitment check, authenticity record, server-side payment
+      verification, free consult — reading from `Landing.beats.trustStrip`.
+      Still hairline-ruled, mono-numbered, no icon circles. Its regression
+      assertion lands one commit later, with S8's new
+      `e2e/landing-sections.spec.ts`.
 - [ ] **P9.S8 — Best-sellers rail.** *(closes audit item 2)*
 - [ ] **P9.S9 — Absorb Shop-by-system into the hero.** *(closes audit item 4)*
 - [ ] **P9.S10 — Shop-by-vehicle real generation links.** *(closes audit item 1)*
