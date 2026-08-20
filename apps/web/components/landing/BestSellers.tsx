@@ -14,7 +14,7 @@ import { Reveal } from "@/components/motion";
 // for a follow-up pass once there's budget headroom, not silently
 // dropped.
 export async function BestSellers() {
-  const t = await getTranslations("Landing.sections.bestSellers");
+  const t = await getTranslations("Landing.beats.bestSellers");
   const products = await fetchFeaturedProducts();
 
   if (products.length === 0) return null;
@@ -34,7 +34,7 @@ export async function BestSellers() {
       </Reveal>
       <ul className="mt-6 flex snap-x gap-4 overflow-x-auto pb-2 sm:grid sm:grid-cols-2 sm:overflow-visible lg:grid-cols-4">
         {products.map((product) => (
-          <li key={product.id} className="w-64 flex-none snap-start sm:w-auto">
+          <li key={product.id} className="w-rail flex-none snap-start sm:w-auto">
             <ProductCard product={product} noPhotoLabel={t("noPhoto")} />
           </li>
         ))}

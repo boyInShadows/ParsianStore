@@ -185,6 +185,21 @@
   --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
   --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
 
+  /* ---- Rail card (§6.6) --------------------------------------------
+     The width of one card inside a horizontal snap rail. It needs to be a
+     definite length: inside a no-wrap flex rail an `auto` width resolves to
+     the card's *content* width, and a product image will happily report its
+     intrinsic size -- which is how a nominal 256px card measured 992px at a
+     390px viewport (2026-08-14 audit item 2).
+
+     A named token rather than a new step on the spacing scale. The scale is
+     deliberately short (4-128px) and several utilities in the app already
+     reference steps it does not define -- see tasks.md's "dead spacing
+     utilities" note. Widening the scale to fix one rail would silently
+     activate all of them at once, including a `w-9 h-9` that would drop an
+     icon button under the 44px touch-target floor. */
+  --rail-card: 256px;
+
   /* ---- Container (§6.6) ---- */
   --container-max: 1440px;
   --container-gutter: 16px; /* mobile; widened to 32px at --breakpoint-lg below */

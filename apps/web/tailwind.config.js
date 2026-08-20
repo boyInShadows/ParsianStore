@@ -153,6 +153,14 @@ module.exports = {
       maxWidth: {
         container: "var(--container-max)",
       },
+      // `w-rail` / `basis-rail` -- one card inside a horizontal snap rail.
+      // See tokens.css on why this is a named token, not a spacing step.
+      width: {
+        rail: "var(--rail-card)",
+      },
+      flexBasis: {
+        rail: "var(--rail-card)",
+      },
       // Type scale -- masterPlan.md §6.5. fontFamily/fontWeight compose with
       // these: e.g. `font-display text-display-1` or `font-mono text-data`.
       fontFamily: {

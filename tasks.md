@@ -73,7 +73,36 @@ Work top-down, one step per commit, `<type>(web): [P9.Sn] <subject>`.
       Still hairline-ruled, mono-numbered, no icon circles. Its regression
       assertion lands one commit later, with S8's new
       `e2e/landing-sections.spec.ts`.
-- [ ] **P9.S8 — Best-sellers rail.** *(closes audit item 2)*
+- [x] **P9.S8 — Best-sellers rail.** ✅ 2026-08-21. *(closes audit item 2)*
+      Root cause found: `tailwind.config.js` **replaces** the spacing scale
+      rather than extending it, so it defines only 0-4, 6, 8, 12, 16, 20, 24,
+      32. `w-64` therefore generated **no CSS at all**, the card fell back to
+      its content width, and a product image reported its intrinsic size —
+      hence one nominal 256px card measuring 992px and the section standing
+      1,848px tall at 390px. Fixed with a named `--rail-card` token
+      (`w-rail`), not a new spacing step; see the next item for why.
+      Regression: `e2e/landing-sections.spec.ts` asserts card width at 360px
+      and 390px, section height, and that the page never scrolls sideways.
+
+### Bug class — 13 more Tailwind utilities that silently generate no CSS
+
+Same root cause as S8, found while fixing it. `tailwind.config.js` sets
+`theme.spacing` (a replace), not `theme.extend.spacing`, so any utility naming a
+step outside `0 1 2 3 4 6 8 12 16 20 24 32` emits nothing and the element
+silently falls back to `auto`. Still live, **each needs its own judgement, not
+a blanket fix**:
+
+- `Button.tsx` `w-9 h-9` · `Select.tsx` `pe-9` · `EmptyState.tsx` `w-14 h-14`
+- `Header.tsx` `w-64` · `ShopBySystem.tsx` `min-h-48` ·
+  `AuthenticityStory.tsx` `min-h-64` · `compare/page.tsx` `min-w-56`
+- `account/page.tsx` `p-5` ×3 + `mt-5` · `profile/page.tsx` `p-5` ·
+  `ProfileForm.tsx` `gap-5`
+
+Do **not** just widen the scale: `Button`'s `w-9 h-9` currently does nothing,
+and making it work would shrink an icon button to 36px, under masterPlan §10's
+44px touch-target floor. The fix is per-site — decide the real intended size,
+then either use an existing step, add a named token, or delete the dead class.
+Worth a dedicated step; unrelated to the landing rebuild, so not folded into it.
 - [ ] **P9.S9 — Absorb Shop-by-system into the hero.** *(closes audit item 4)*
 - [ ] **P9.S10 — Shop-by-vehicle real generation links.** *(closes audit item 1)*
 - [ ] **P9.S11 — Authenticity story + engine stage.**
