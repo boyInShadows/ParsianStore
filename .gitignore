@@ -27,6 +27,12 @@ test-results/
 # local-disk StorageProvider (P2.S8) — uploaded/rendered images, dev-only
 apps/api/uploads/
 
+# landing-page render sources (P9.S2) — 113MB of 2048² PNGs and 1440p MP4s that
+# feed scripts/optimize-landing.mjs. Only the optimized outputs it emits into
+# apps/web/public/landing/ are committed; these masters live on the owner's disk.
+# Inventory and provenance: docs/landing-assets.md.
+/landing-src/
+
 # misc
 .DS_Store
 *.pem

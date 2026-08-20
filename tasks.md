@@ -1,5 +1,132 @@
 # ParsianStore — Remaining Work Checklist
 
+## ACTIVE — Landing rebuild, Phase 9 (P9.S2 → S17) — adopted 2026-08-20
+
+Step-level plan of record: **`fableTasks.md`** (external plan by Fable 5, written
+against `docs/landing-rebuild-brief.md`). Summary + binding amendments:
+`masterPlan.md` §5 v1.27 amendment and PHASE 9. Section inventory drops 15 → 11.
+Work top-down, one step per commit, `<type>(web): [P9.Sn] <subject>`.
+
+- [x] **P9.S2 — Asset hygiene.** ✅ 2026-08-20. 28 masters (113MB) moved to a
+      git-ignored `landing-src/` (`cutouts/` `plates/` `video/` `samples-opaque/`)
+      and renamed; inventory + provenance in `docs/landing-assets.md`;
+      `apps/web/public/landing/` left for S3's optimized output so no master
+      enters git history.
+- [ ] **P9.S3 — Pipeline.** `sharp` + `scripts/optimize-landing.mjs` → AVIF/WebP
+      responsive sets, posters, re-encoded clips; only optimized output committed.
+      *(Video half is gated on `ffmpeg` — see deferred item 1.)*
+- [ ] **P9.S4 — Strings.** `fa.json` `Landing` v2 for all 11 beats; string table
+      presented to the owner for review.
+- [ ] **P9.S5 — HeroV2 scaffold** behind `NEXT_PUBLIC_LANDING_V2`.
+- [ ] **P9.S6 — HeroV2 proof + flip.** *(closes audit item 3 — OEM/SKU above the fold)*
+- [ ] **P9.S7 — Trust strip.**
+- [ ] **P9.S8 — Best-sellers rail.** *(closes audit item 2)*
+- [ ] **P9.S9 — Absorb Shop-by-system into the hero.** *(closes audit item 4)*
+- [ ] **P9.S10 — Shop-by-vehicle real generation links.** *(closes audit item 1)*
+- [ ] **P9.S11 — Authenticity story + engine stage.**
+- [ ] **P9.S12 — Symptom finder + interstitial plate.**
+- [ ] **P9.S13 — Brand wall + Deals.**
+- [ ] **P9.S14 — Closing beat, real contact, hides.** *(closes audit items 5 & 6)*
+- [ ] **P9.S15 — Closing ambience + footer pass.**
+- [ ] **P9.S16 — Regression suite.** *(closes audit item 7)*
+- [ ] **P9.S17 — Measure + hand off.**
+
+### Environment note — `pnpm test` is flaky in parallel on this machine (found P9.S2)
+
+`pnpm test` fails a *different* handful of API suites on every run (2, then 5,
+then 6, then 7 files) — always `beforeAll` **hook timeouts at 10s** on
+`mongoose.connect` / `Model.init()`, never an assertion. Run sequentially the
+same suite is **80/80 files, 567/567 tests green**
+(`npx vitest run --project api --fileParallelism=false`). Cause: vitest defaults
+to ~20 workers on this 20-core box and each opens its own connection and builds
+indexes against one Dockerized Mongo, which on Windows routes through WSL2 and a
+port proxy. Nothing to do with application code — verified against a step that
+changed none.
+
+This blocks the "`pnpm test` green" line of every step's DoD until it's settled.
+Cheapest honest fixes, **owner's call, not taken unilaterally**: raise
+`hookTimeout` in `apps/api/vitest.config.ts` (the hooks are slow, not broken),
+or cap that project's pool (`poolOptions.threads.maxThreads`). Until then,
+sequential is the trustworthy signal and should be quoted alongside the parallel
+result rather than instead of it.
+
+### Deferred / owner decisions — parked, none blocking S2–S17
+
+1. **`ffmpeg` is not installed** on the dev machine (verified 2026-08-20). It is
+   a local tool, not a repo dependency. Video posters, RTL-mirrored variants and
+   re-encodes in S3 need it; the image pipeline does not. Owner installs it, or
+   the video beats defer.
+2. **WebGL v2 beat.** Owner reports ten GLB meshes exist in their Higgsfield
+   library. Activating costs `three`+`fiber`+`drei` ≈150KB gz, a §4 manifest
+   amendment, and a §10 budget renegotiation. Not without an explicit yes.
+3. **Coupe → domestic-sedan asset swap.** `car.png` is a classic fastback coupe
+   (verified). Owner chose to launch with it as workshop atmosphere and
+   regenerate a brand-free sedan nearer the Saipa/IKCO fleet later; the S2
+   naming makes it a drop-in swap.
+4. **No grille render exists.** Parts are: car, headlight, bumper, piston,
+   alternator, air filter, door, hood, fender, windshield. The hero layout must
+   not reserve a hole for a part that was never generated.
+5. **Numbers section return** — needs four real figures (parts in stock ·
+   vehicles covered · orders shipped · years). Re-enable only with data.
+6. **Newsletter** — hidden until a subscription backend exists. **Guides** —
+   hidden until Phase 9 content lands.
+7. **WhatsApp support channel** — masterPlan §5-13 names it; owner supplied
+   phone + Telegram only. Add when a number exists.
+8. **Light-theme video siblings** — the clips are graphite-dark plates; paper-light
+   video would be a regeneration batch, not an edit.
+9. **`en.json` revival** — suspended by owner 2026-07-30; lowest priority.
+
+## Landing-page audit backlog — 2026-08-14
+
+Live review covered Persian RTL at 1440px and 390px, light/dark, reduced
+motion, internal destinations, and axe. Fix these in order as separate,
+reviewable slices; do not trade the real catalog/authenticity evidence for
+decorative content.
+
+**Superseded in ordering, not in substance (2026-08-20):** all seven items are
+now absorbed into the Phase 9 rebuild above, each closed by a named step — 1→S10,
+2→S8, 3→S6, 4→S9, 5&6→S14, 7→S16. Check them off there.
+
+1. [ ] **Fix the broken vehicle-discovery links.** Every model link in
+       `ShopByVehicle` currently targets `/vehicle/[make]/[model]`, but the
+       shipped route requires `/vehicle/[make]/[model]/[gen]`; sampled links
+       returned 404. Redesign the model entry so it selects/exposes a real
+       generation rather than guessing one, then add a route-level regression
+       check for every rendered landing-page vehicle link.
+2. [ ] **Fix the mobile featured-product rail overflow.** At a 390px viewport,
+       the first nominal `w-64` card computed to 992px and its image to 966px,
+       making `BestSellers` 1,848px tall and showing a mostly blank oversized
+       product plate. Make card sizing definite inside the no-wrap flex rail,
+       preserve horizontal snap, and verify 360/390px with real seeded media.
+3. [ ] **Put OEM/SKU search visibly above the fold.** The hero makes vehicle
+       selection clear, but a mechanic with a known code only gets the small
+       global-header search (collapsed further on mobile). Add an explicit
+       code-first search action to the hero without competing with the vehicle
+       selector, and verify keyboard submission and useful no-result behavior.
+4. [ ] **Shorten and clarify the mobile discovery sequence.** The audited
+       390px page is 11,556px tall before the footer: the hero is 1,440px and
+       `ShopBySystem` alone is 2,060px. The exploded-view list and the later
+       ten-tile system grid also repeat the same destinations. Keep the
+       signature exploded view, but consolidate or progressively disclose the
+       repeated system navigation so products, vehicle entry, and authenticity
+       evidence arrive materially sooner.
+5. [ ] **Remove unfinished dead-end sections until they are operational.** The
+       guides block is heading-only, the newsletter form is fully disabled,
+       and support exposes `021-00000000` as a clickable placeholder while
+       saying hours are pending. Hide these surfaces or replace them only with
+       real destinations/contact data; the existing Phase 9 content backlog
+       remains the dependency for guides/newsletter functionality.
+6. [ ] **Give the lower half a deliberate conversion ending.** After brands,
+       the page falls into small statistics, generic process cards, three
+       unfinished blocks, and then the footer. Recompose the retained evidence
+       into one strong closing beat with a real next action (choose vehicle,
+       enter OEM code, or contact support once real contact data exists).
+7. [ ] **Add a permanent landing-page visual/link regression check.** Preserve
+       the current axe-zero and no-horizontal-document-overflow result, and add
+       360/390/1440 screenshots plus assertions for valid discovery links,
+       featured-card width, reduced motion, and both color schemes so the two
+       confirmed regressions above cannot silently return.
+
 Snapshot as of 2026-08-10. Only what's left — shipped work lives in
 `masterPlan.md` §13. Regenerate/update this file rather than letting it
 drift; it's a review artifact for the owner, not a second source of truth.
