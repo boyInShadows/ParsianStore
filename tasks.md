@@ -12,9 +12,17 @@ Work top-down, one step per commit, `<type>(web): [P9.Sn] <subject>`.
       and renamed; inventory + provenance in `docs/landing-assets.md`;
       `apps/web/public/landing/` left for S3's optimized output so no master
       enters git history.
-- [ ] **P9.S3 — Pipeline.** `sharp` + `scripts/optimize-landing.mjs` → AVIF/WebP
-      responsive sets, posters, re-encoded clips; only optimized output committed.
-      *(Video half is gated on `ffmpeg` — see deferred item 1.)*
+- [x] **P9.S3 — Pipeline.** ✅ 2026-08-20. `sharp` at the workspace root +
+      `pnpm optimize:landing` (`scripts/optimize-landing.mjs`) → 126 files,
+      5.9MB committed: AVIF/WebP at 4 widths for 10 cutouts (alpha kept) and 4
+      plates (mirrored for RTL), plus `chapter-2`/`chapter-4` re-encoded to
+      mirrored, audio-free 1080p H.264 (CRF 25, `+faststart`) with 3-width
+      poster sets. Generated index at `apps/web/lib/landing-assets.json`.
+      Every §6 budget met with room: car AVIF 30KB (≤90), desktop per-view
+      465KB / mobile 128KB (≤1.2MB), clips 2.74MB combined (≤3MB). ffmpeg 9.0
+      installed via winget with owner approval — a **local tool**, never a repo
+      dependency; the script degrades to images-only without it. Receipts and
+      verification method in `docs/landing-assets.md`.
 - [ ] **P9.S4 — Strings.** `fa.json` `Landing` v2 for all 11 beats; string table
       presented to the owner for review.
 - [ ] **P9.S5 — HeroV2 scaffold** behind `NEXT_PUBLIC_LANDING_V2`.
@@ -52,10 +60,12 @@ result rather than instead of it.
 
 ### Deferred / owner decisions — parked, none blocking S2–S17
 
-1. **`ffmpeg` is not installed** on the dev machine (verified 2026-08-20). It is
-   a local tool, not a repo dependency. Video posters, RTL-mirrored variants and
-   re-encodes in S3 need it; the image pipeline does not. Owner installs it, or
-   the video beats defer.
+1. ~~**`ffmpeg` is not installed** on the dev machine.~~ **Resolved at S3**,
+   2026-08-20 — owner approved installing Gyan.FFmpeg 9.0 via winget. Still a
+   local tool, never a repo dependency: nothing in build, test or CI touches it,
+   and `scripts/optimize-landing.mjs` emits images and prints a skip notice when
+   it is absent. Anyone regenerating the assets on another machine needs it on
+   `PATH` (or `$FFMPEG_DIR` set).
 2. **WebGL v2 beat.** Owner reports ten GLB meshes exist in their Higgsfield
    library. Activating costs `three`+`fiber`+`drei` ≈150KB gz, a §4 manifest
    amendment, and a §10 budget renegotiation. Not without an explicit yes.

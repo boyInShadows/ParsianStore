@@ -18,6 +18,7 @@
     "format": "prettier --write .",
     "test": "vitest run",
     "e2e": "playwright test",
+    "optimize:landing": "node scripts/optimize-landing.mjs",
     "prepare": "husky"
   },
   "devDependencies": {
@@ -35,6 +36,7 @@
     "lint-staged": "17.2.0",
     "prettier": "3.9.6",
     "prettier-plugin-tailwindcss": "0.8.1",
+    "sharp": "^0.35.3",
     "turbo": "^2.5.0",
     "typescript": "^5.7.0",
     "typescript-eslint": "8.65.0",

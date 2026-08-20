@@ -68,6 +68,14 @@ export default tseslint.config(
     },
   },
   {
+    // Repo tooling scripts (scripts/optimize-landing.mjs et al.) -- Node ESM,
+    // run by hand from the repo root, never bundled into an app.
+    files: ["scripts/**/*.mjs"],
+    languageOptions: {
+      globals: { process: "readonly", console: "readonly" },
+    },
+  },
+  {
     // CommonJS tool configs (tailwind.config.js et al.) -- not app code,
     // not ESM, run directly by Node under require().
     files: ["**/tailwind.config.js", "**/*.cjs"],
