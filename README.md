@@ -74,6 +74,22 @@ stops the web/API processes, allowing faster starts the next time.
 Other workspace-wide scripts: `pnpm lint`, `pnpm test`, `pnpm build`, and
 `pnpm e2e`.
 
+### Optional local tooling
+
+`pnpm optimize:landing` regenerates the committed landing artwork in
+`apps/web/public/landing/` from the git-ignored masters in `landing-src/`. It
+needs **ffmpeg on your `PATH`** (or `$FFMPEG_DIR` pointing at its `bin`) for the
+video half — posters, the RTL-mirrored variants, and the re-encoded clips.
+
+ffmpeg is deliberately **not** a repo dependency: nothing in `pnpm dev`, `lint`,
+`test`, `build` or CI touches it, and the script still emits the full image set
+without it, printing a notice for the video half it skipped. Install it only if
+you are regenerating assets — `winget install Gyan.FFmpeg` on Windows,
+`brew install ffmpeg` on macOS, your package manager on Linux.
+
+Asset provenance, output layout and the byte budgets that output has to respect
+are in `docs/landing-assets.md`.
+
 For the temporary image-backed visualization catalog sourced from
 `apps/web/public/products/digikala.csv`, run:
 
