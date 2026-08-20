@@ -9,7 +9,7 @@ import AxeBuilder from "@axe-core/playwright";
 
 async function gotoHero(page: Page) {
   await page.goto("/");
-  await page.waitForLoadState("networkidle");
+  await page.locator("#hero").waitFor();
 }
 
 test("hero has zero axe violations", async ({ page }) => {

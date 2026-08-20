@@ -1,6 +1,7 @@
 import { getTranslations } from "next-intl/server";
 import { fetchExampleProduct } from "@/lib/fetchers/products";
 import { Reveal } from "@/components/motion";
+import { VideoStage } from "./VideoStage";
 
 const SUPPLY_ROUTE_KEYS = {
   oem: "oem",
@@ -14,7 +15,7 @@ const SUPPLY_ROUTE_KEYS = {
 // its real authenticity fields (§3.5) -- verificationCode is genuinely
 // the same value GET /authenticity/verify/:code (P3.S2) resolves.
 export async function AuthenticityStory() {
-  const t = await getTranslations("Landing.sections.authenticityStory");
+  const t = await getTranslations("Landing.beats.authenticityStory");
   const product = await fetchExampleProduct();
 
   if (!product) return null;
@@ -25,20 +26,30 @@ export async function AuthenticityStory() {
     <section
       id="authenticity"
       aria-labelledby="authenticity-heading"
-      className="border-y border-border bg-surface-sunken py-20"
+      className="border-y border-border bg-surface-sunken"
     >
-      <Reveal className="mx-auto flex max-w-container flex-col gap-2 px-4">
-        <p className="font-mono text-data text-text-muted">{t("code")}</p>
-        <h2 id="authenticity-heading" className="font-display text-h2 font-black text-text">
-          {t("title")}
-        </h2>
-        <p className="max-w-2xl text-body text-text-muted">{t("subtitle")}</p>
-      </Reveal>
+      {/* The engine-bay clip stages this beat (fableTasks 3.3). It is the
+          backdrop the story is told against -- the evidence itself is the real
+          catalog record below, never the render. */}
+      <VideoStage
+        clip="chapter-2"
+        alt={t("stageAlt")}
+        className="aspect-[16/9] w-full lg:aspect-[21/9]"
+      >
+        <div className="via-graphite-950/70 absolute inset-0 bg-gradient-to-t from-graphite-950 to-transparent" />
+        <Reveal className="absolute inset-x-0 bottom-0 mx-auto flex max-w-container flex-col gap-2 p-4 lg:p-8">
+          <p className="font-mono text-data text-graphite-300">{t("code")}</p>
+          <h2 id="authenticity-heading" className="font-display text-h2 font-black text-graphite-0">
+            {t("title")}
+          </h2>
+          <p className="max-w-2xl text-body text-graphite-200">{t("subtitle")}</p>
+        </Reveal>
+      </VideoStage>
       <a
         href={`/p/${product.slug}`}
-        className="mx-auto mt-8 grid max-w-container grid-cols-1 border border-border bg-surface transition-colors hover:border-brand motion-reduce:transition-none lg:grid-cols-[0.85fr_1.15fr]"
+        className="mx-auto mb-20 mt-8 grid max-w-container grid-cols-1 border border-border bg-surface transition-colors hover:border-brand motion-reduce:transition-none lg:grid-cols-[0.85fr_1.15fr]"
       >
-        <div className="min-h-64 relative flex flex-col justify-end overflow-hidden bg-graphite-950 p-6 text-graphite-0">
+        <div className="relative flex aspect-[4/3] flex-col justify-end overflow-hidden bg-graphite-950 p-6 text-graphite-0 lg:aspect-auto">
           {product.media[0] ? (
             <img
               src={product.media[0]}

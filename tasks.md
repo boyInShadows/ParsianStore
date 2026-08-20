@@ -150,7 +150,27 @@ page missing sections gets baked and served to everyone until the next deploy.
 Options, none taken yet: fail the build when a landing fetcher degrades; render
 a visible fallback instead of `null`; or exempt the build's own IP. Worth a
 decision before Phase 10 — it is a deploy-time failure mode, not a runtime one.
-- [ ] **P9.S11 — Authenticity story + engine stage.**
+- [x] **P9.S11 — Authenticity story + engine stage.** ✅ 2026-08-21. New
+      reusable `VideoStage` (also S15's) stages the beat with `chapter-2`: the
+      poster always renders, the `<video>` mounts **only** on ≥1024px with
+      motion allowed, so mobile fetches literally zero video bytes rather than
+      relying on `preload="none"` to hold. Imagery law respected — the clip is
+      the backdrop, the evidence is the real catalog record (four real
+      authenticity fields + a link into that product). 4 new e2e cover mobile
+      byte count, desktop muted/looping/silent, reduced motion, and the record
+      being real data.
+
+### Two e2e lessons worth not relearning (S11)
+
+1. **`waitForLoadState("networkidle")` can never fire on a page with a looping
+   video.** Twenty-four tests started timing out at 30s the moment the hero
+   gained its stage, and nothing was wrong with the page. All landing specs now
+   wait on `#hero` instead. Playwright's own docs discourage `networkidle` for
+   exactly this reason.
+2. **Never run `turbo run build --force` while the Playwright dev server is
+   up** — it rewrites `.next/` underneath `next dev`, the next request has to
+   recompile from cold, and every test times out at once looking like a mass
+   regression.
 - [ ] **P9.S12 — Symptom finder + interstitial plate.**
 - [ ] **P9.S13 — Brand wall + Deals.**
 - [ ] **P9.S14 — Closing beat, real contact, hides.** *(closes audit items 5 & 6)*
