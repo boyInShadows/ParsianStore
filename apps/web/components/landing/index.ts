@@ -1,6 +1,5 @@
 export { HeroV2 } from "./HeroV2";
 export { TrustStrip } from "./TrustStrip";
-export { ShopBySystem } from "./ShopBySystem";
 export { BestSellers } from "./BestSellers";
 export { BrandWall } from "./BrandWall";
 export { AuthenticityStory } from "./AuthenticityStory";

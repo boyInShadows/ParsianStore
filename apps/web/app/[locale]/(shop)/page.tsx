@@ -14,7 +14,6 @@ import {
   HowItWorks,
   Newsletter,
   Numbers,
-  ShopBySystem,
   ShopByVehicle,
   Support,
   SymptomFinder,
@@ -66,7 +65,6 @@ export default function LandingPage() {
       <HeroV2 />
       <TrustStrip />
       <BestSellers />
-      <ShopBySystem />
       <AuthenticityStory />
       <ShopByVehicle />
       <SymptomFinder />

@@ -78,3 +78,35 @@ test("the landing page never scrolls sideways", async ({ page }) => {
     expect(overflow, `horizontal overflow at ${viewport.width}px`).toBeLessThanOrEqual(1);
   }
 });
+
+test.describe("shop-by-system absorbed into the hero (S9)", () => {
+  test("the standalone grid is gone but its landmark survives", async ({ page }) => {
+    await page.goto("/");
+    await page.waitForLoadState("networkidle");
+
+    await expect(page.locator("section#shop-by-system")).toHaveCount(0);
+    // The heading stays as an sr-only landmark on the hero's index rail, so
+    // deleting the section did not also delete the page's semantics.
+    const heading = page.locator("#shop-by-system-heading");
+    await expect(heading).toHaveCount(1);
+    await expect(heading).toHaveText(/\S/);
+  });
+
+  test("the hero rail carries all ten systems, once each", async ({ page }) => {
+    await page.goto("/");
+    await page.waitForLoadState("networkidle");
+
+    const heroHrefs = await page
+      .locator("#hero a[href^='/c/']")
+      .evaluateAll((anchors) => anchors.map((anchor) => anchor.getAttribute("href") ?? ""));
+    expect(new Set(heroHrefs).size).toBe(heroHrefs.length);
+    expect(heroHrefs).toHaveLength(10);
+
+    // What S9 removed was a second enumeration of these same ten systems
+    // under the same system names. The symptom finder still lists ten links
+    // into the same destinations under symptom phrases instead -- a separate
+    // finding, recorded for S12; not something this assertion should paper
+    // over by counting loosely.
+    await expect(page.locator("main section#shop-by-system")).toHaveCount(0);
+  });
+});

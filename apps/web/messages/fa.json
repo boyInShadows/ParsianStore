@@ -19,6 +19,7 @@
         "systemLinkLabel": "سیستم {name} — مشاهده قطعات",
         "partsCount": "{count} قطعه",
         "scrollHint": "برای جدا شدن قطعات، صفحه را پایین بکشید",
+        "systemIndexTitle": "خرید بر اساس سیستم خودرو",
         "staticStateAlt": "نمای از بالای خودرو، با قطعات جدا شده در اطراف آن",
         "driverPath": {
           "title": "خودرویم را می‌شناسم",

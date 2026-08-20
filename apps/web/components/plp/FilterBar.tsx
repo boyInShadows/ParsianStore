@@ -10,7 +10,8 @@ type Facets = FacetsResponse["data"] | null;
 
 // Passed as a plain object rather than calling next-intl's useTranslations
 // client-side -- P4.S4 found that hook alone can push a thin route budget
-// over its ceiling (see components/landing/ShopBySystem.tsx's history);
+// over its ceiling (found in the landing Shop-by-system grid, deleted at
+// P9.S9 once the rebuilt hero's index rail covered its destinations);
 // the PLP route's own 160KB ceiling (masterPlan.md §10) is tighter than
 // landing's, so the same avoidance applies here from the start rather
 // than being discovered the hard way again.

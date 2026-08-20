@@ -18,30 +18,43 @@ async function SystemIndex({ linkLabel }: { linkLabel: (name: string) => string 
   const counts = await getSystemPartCounts();
 
   return (
-    <ul className="grid grid-cols-1 border-t border-graphite-800 sm:grid-cols-2">
-      {CATALOG_SYSTEMS.map((system) => {
-        const count = counts[system.code];
-        return (
-          <li key={system.code} className="border-b border-graphite-800">
-            <a
-              href={`/c/${system.slug}`}
-              aria-label={linkLabel(system.name.fa)}
-              className="flex min-h-12 items-center justify-between gap-3 py-3 text-graphite-100 transition-colors hover:text-brand focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus motion-reduce:transition-none"
-            >
-              <span className="flex items-center gap-3">
-                <span className="font-mono text-data text-graphite-400">{system.code}</span>
-                <span className="text-body-sm">{system.name.fa}</span>
-              </span>
-              {count !== null ? (
-                <span className="font-mono text-caption text-graphite-400">
-                  {t("partsCount", { count })}
+    <>
+      {/* The standalone Shop-by-system grid was deleted at P9.S9 because this
+          rail already covers its destinations one for one. Its heading survives
+          as a landmark so the page does not lose the section's semantics along
+          with its markup -- visually redundant next to the diagram's own lead
+          line, so it is sr-only rather than repeated on screen. */}
+      <h2 id="shop-by-system-heading" className="sr-only">
+        {t("systemIndexTitle")}
+      </h2>
+      <ul
+        aria-labelledby="shop-by-system-heading"
+        className="grid grid-cols-1 border-t border-graphite-800 sm:grid-cols-2"
+      >
+        {CATALOG_SYSTEMS.map((system) => {
+          const count = counts[system.code];
+          return (
+            <li key={system.code} className="border-b border-graphite-800">
+              <a
+                href={`/c/${system.slug}`}
+                aria-label={linkLabel(system.name.fa)}
+                className="flex min-h-12 items-center justify-between gap-3 py-3 text-graphite-100 transition-colors hover:text-brand focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus motion-reduce:transition-none"
+              >
+                <span className="flex items-center gap-3">
+                  <span className="font-mono text-data text-graphite-400">{system.code}</span>
+                  <span className="text-body-sm">{system.name.fa}</span>
                 </span>
-              ) : null}
-            </a>
-          </li>
-        );
-      })}
-    </ul>
+                {count !== null ? (
+                  <span className="font-mono text-caption text-graphite-400">
+                    {t("partsCount", { count })}
+                  </span>
+                ) : null}
+              </a>
+            </li>
+          );
+        })}
+      </ul>
+    </>
   );
 }
 

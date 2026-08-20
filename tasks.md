@@ -103,7 +103,24 @@ and making it work would shrink an icon button to 36px, under masterPlan §10's
 44px touch-target floor. The fix is per-site — decide the real intended size,
 then either use an existing step, add a named token, or delete the dead class.
 Worth a dedicated step; unrelated to the landing rebuild, so not folded into it.
-- [ ] **P9.S9 — Absorb Shop-by-system into the hero.** *(closes audit item 4)*
+- [x] **P9.S9 — Absorb Shop-by-system into the hero.** ✅ 2026-08-21.
+      *(closes audit item 4)* `ShopBySystem.tsx` deleted — it mapped
+      `CATALOG_SYSTEMS` → `/c/<slug>`, exactly what the hero's index rail does,
+      so no destination was lost. Its `#shop-by-system-heading` survives as an
+      sr-only landmark on the rail so the page keeps the semantics along with
+      the links. A stale doc reference in `plp/FilterBar.tsx` updated.
+
+      **Found while doing it, for S12 to decide:** `SymptomFinder` is a *third*
+      enumeration of the same ten destinations — it maps `CATALOG_SYSTEMS` 1:1
+      and links each to `/c/<slug>`, just labelled with a symptom phrase and
+      the `SYS-xx` code instead of the system name. So the page still shows the
+      same ten links twice, which is the shape of audit item 4 even after S9.
+      It is defensible (the Driver's language vs. the Mechanic's, and
+      masterPlan §5-09 specifies exactly this pairing) — but it is a design
+      call, not a bug to fix silently. Options at S12: leave it, drop the
+      visible `SYS-xx` code so it stops reading as the same index, or cut the
+      symptom list to the handful of symptoms customers actually ask about
+      instead of one-per-system for symmetry.
 - [ ] **P9.S10 — Shop-by-vehicle real generation links.** *(closes audit item 1)*
 - [ ] **P9.S11 — Authenticity story + engine stage.**
 - [ ] **P9.S12 — Symptom finder + interstitial plate.**
