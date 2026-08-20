@@ -27,10 +27,10 @@ export async function fetchModels(makeId: string): Promise<VehicleModelDto[]> {
   return vehicleModelsResponseSchema.parse(json).data;
 }
 
-export async function fetchGenerations(modelId: string): Promise<VehicleGenDto[]> {
-  const res = await fetch(
-    `${API_URL}/api/v1/vehicles/generations?modelId=${modelId}&limit=${MAX_LIMIT}`,
-  );
+/** Omit `modelId` for every generation in the tree -- the endpoint allows it. */
+export async function fetchGenerations(modelId?: string): Promise<VehicleGenDto[]> {
+  const filter = modelId ? `modelId=${modelId}&` : "";
+  const res = await fetch(`${API_URL}/api/v1/vehicles/generations?${filter}limit=${MAX_LIMIT}`);
   const json = await res.json();
   return vehicleGenerationsResponseSchema.parse(json).data;
 }
@@ -43,6 +43,52 @@ export async function fetchGenerations(modelId: string): Promise<VehicleGenDto[]
 // API is unreachable. Found the hard way -- an unhandled rejection here
 // took the whole site down in a build-with-API-down smoke test.
 export type VehicleTreeEntry = { make: VehicleMakeDto; models: VehicleModelDto[] };
+
+export type VehicleModelWithGenerations = {
+  model: VehicleModelDto;
+  /** Newest first. Empty when the model has no generation seeded yet. */
+  generations: VehicleGenDto[];
+};
+
+export type VehicleTreeWithGenerations = {
+  make: VehicleMakeDto;
+  models: VehicleModelWithGenerations[];
+};
+
+/**
+ * The whole tree down to generations, in three requests rather than one per
+ * model. `modelId` is optional on `/vehicles/generations`, so all 31 seeded
+ * generations arrive in a single page and are grouped here -- the alternative
+ * was 23 sequential fetches to render one landing section.
+ *
+ * Exists because `/vehicle/[make]/[model]` is not a route: the shipped page is
+ * `/vehicle/[make]/[model]/[gen]`, keyed by the generation's `yearFrom`. A link
+ * that stops at the model 404s, which is exactly what the 2026-08-14 audit
+ * found (item 1). A model with no generation therefore has no link to give,
+ * and callers must render it as plain text rather than guessing a year.
+ */
+export async function fetchVehicleTreeWithGenerationsSafe(): Promise<VehicleTreeWithGenerations[]> {
+  try {
+    const [makes, generations] = await Promise.all([fetchMakes(), fetchGenerations()]);
+    const byModel = new Map<string, VehicleGenDto[]>();
+    for (const generation of generations) {
+      byModel.set(generation.modelId, [...(byModel.get(generation.modelId) ?? []), generation]);
+    }
+    for (const list of byModel.values()) list.sort((a, b) => b.yearFrom - a.yearFrom);
+
+    return await Promise.all(
+      makes.map(async (make) => ({
+        make,
+        models: (await fetchModels(make.id)).map((model) => ({
+          model,
+          generations: byModel.get(model.id) ?? [],
+        })),
+      })),
+    );
+  } catch {
+    return [];
+  }
+}
 
 export async function fetchVehicleTreeSafe(): Promise<VehicleTreeEntry[]> {
   try {

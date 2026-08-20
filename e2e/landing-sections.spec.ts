@@ -110,3 +110,50 @@ test.describe("shop-by-system absorbed into the hero (S9)", () => {
     await expect(page.locator("main section#shop-by-system")).toHaveCount(0);
   });
 });
+
+test.describe("shop by vehicle (audit item 1)", () => {
+  test("every rendered vehicle link resolves a real generation page", async ({ page }) => {
+    await page.goto("/");
+    await page.waitForLoadState("networkidle");
+
+    // Wait rather than skip. The section fetches its tree server-side and
+    // degrades to null when the API is slow or down, so a bare count check
+    // turns a transient into a silent "nothing to test" -- observed once in a
+    // loaded run. The tree IS seeded, so absence here is a failure worth
+    // seeing.
+    await expect(page.locator("#shop-by-vehicle")).toHaveCount(1, { timeout: 15_000 });
+    const links = page.locator("#shop-by-vehicle a[href^='/vehicle/']");
+    const hrefs = await links.evaluateAll((anchors) =>
+      anchors.map((anchor) => anchor.getAttribute("href") ?? ""),
+    );
+
+    for (const href of hrefs) {
+      // /vehicle/[make]/[model] is not a route -- the audit found every such
+      // link returning 404. Four segments, ending in a generation year.
+      expect(href, "link must carry a generation segment").toMatch(
+        /^\/vehicle\/[a-z0-9-]+\/[a-z0-9-]+\/\d{4}$/,
+      );
+      const response = await page.request.get(href);
+      expect(response.status(), href).toBe(200);
+    }
+  });
+
+  test("a model with no generation renders as text, never as a broken link", async ({ page }) => {
+    await page.goto("/");
+    await page.waitForLoadState("networkidle");
+
+    const section = page.locator("#shop-by-vehicle");
+    await expect(section).toHaveCount(1, { timeout: 15_000 });
+
+    // Every list item is either a link with a generation or plain text. What
+    // must never exist is a link that stops at the model.
+    const modelOnlyLinks = await section
+      .locator("a[href^='/vehicle/']")
+      .evaluateAll((anchors) =>
+        anchors
+          .map((anchor) => anchor.getAttribute("href") ?? "")
+          .filter((href) => href.split("/").filter(Boolean).length < 4),
+      );
+    expect(modelOnlyLinks).toEqual([]);
+  });
+});

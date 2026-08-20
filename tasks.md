@@ -121,7 +121,35 @@ Worth a dedicated step; unrelated to the landing rebuild, so not folded into it.
       visible `SYS-xx` code so it stops reading as the same index, or cut the
       symptom list to the handful of symptoms customers actually ask about
       instead of one-per-system for symmetry.
-- [ ] **P9.S10 — Shop-by-vehicle real generation links.** *(closes audit item 1)*
+- [x] **P9.S10 — Shop-by-vehicle real generation links.** ✅ 2026-08-21.
+      *(closes audit item 1)* Links were `/vehicle/[make]/[model]`, which is not
+      a route — the shipped page is `/vehicle/[make]/[model]/[gen]`, keyed by
+      the generation's `yearFrom`, so every sampled link 404'd. New
+      `fetchVehicleTreeWithGenerationsSafe()` pulls the whole tree in three
+      requests (`/generations` takes an optional `modelId`, so all 31 arrive in
+      one page) and each model links to its newest generation, with the year
+      shown in mono. A model with no seeded generation renders as plain text —
+      never a link that 404s, never hidden. e2e walks every rendered href and
+      asserts a 200.
+
+### ⚠️ Found at S10 — a rate-limited API renders as a *missing section*
+
+The API caps at 100/min/IP. When it trips, the 429 reaches a Server Component's
+"safe" fetcher, which returns `[]`, and the section returns `null` — so the page
+renders with a whole section silently absent and no error anywhere. Found
+because the e2e suite (~25 landing renders/minute through one IP) started
+failing at random.
+
+Fixed **for the test run only**: `RATE_LIMIT_DISABLED=true`, set by
+`playwright.config.ts`, never in production. Suite went from flaky-and-1.8min to
+27/27 in 44s.
+
+**The product risk is untouched and real.** Production pre-renders the landing
+page at build time, so if the API throttles or hiccups during `pnpm build`, a
+page missing sections gets baked and served to everyone until the next deploy.
+Options, none taken yet: fail the build when a landing fetcher degrades; render
+a visible fallback instead of `null`; or exempt the build's own IP. Worth a
+decision before Phase 10 — it is a deploy-time failure mode, not a runtime one.
 - [ ] **P9.S11 — Authenticity story + engine stage.**
 - [ ] **P9.S12 — Symptom finder + interstitial plate.**
 - [ ] **P9.S13 — Brand wall + Deals.**

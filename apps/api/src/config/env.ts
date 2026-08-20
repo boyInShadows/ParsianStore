@@ -64,6 +64,21 @@ const envSchema = z.object({
     .enum(["true", "false"])
     .default("true")
     .transform((value) => value === "true"),
+
+  // P9.S10 — lets the Playwright run opt out of the 100/min/IP API cap.
+  // The e2e suite drives ~25 full landing renders through one IP in under a
+  // minute, and every render fans out to several endpoints, so the cap trips
+  // on volume alone. A throttled response then reaches a Server Component's
+  // safe fetcher, which degrades to an empty result, which renders as a
+  // *missing section* -- so a rate-limited run looks exactly like a broken
+  // page and tests fail for reasons unrelated to the code under test.
+  // Same escape hatch NODE_ENV=test already gives the unit suite, made
+  // explicit so it can be used without pretending to be a different
+  // environment. Never set this in production.
+  RATE_LIMIT_DISABLED: z
+    .enum(["true", "false"])
+    .default("false")
+    .transform((value) => value === "true"),
 });
 
 export type Env = z.infer<typeof envSchema>;
