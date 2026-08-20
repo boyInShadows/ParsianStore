@@ -10,7 +10,7 @@ import {
   BrandWall,
   Deals,
   GuidesTeaser,
-  Hero,
+  HeroV2,
   HowItWorks,
   Newsletter,
   Numbers,
@@ -63,7 +63,7 @@ export default function LandingPage() {
   return (
     <main>
       <JsonLd data={[organizationJsonLd(), websiteJsonLd()]} />
-      <Hero />
+      <HeroV2 />
       <TrustStrip />
       <BestSellers />
       <ShopBySystem />

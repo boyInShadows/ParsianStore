@@ -1,4 +1,4 @@
-export { Hero } from "./Hero";
+export { HeroV2 } from "./HeroV2";
 export { TrustStrip } from "./TrustStrip";
 export { ShopBySystem } from "./ShopBySystem";
 export { BestSellers } from "./BestSellers";

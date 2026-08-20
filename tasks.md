@@ -43,7 +43,21 @@ Work top-down, one step per commit, `<type>(web): [P9.Sn] <subject>`.
       that serves the S3 AVIF set with zero request-time optimization.
       **Not on the route yet** — see the S5b note below. Verified flag-off
       route JS unchanged at 188KB.
-- [ ] **P9.S5b — put HeroV2 on the route.** The `NEXT_PUBLIC_LANDING_V2` flag
+- [x] **P9.S5b + S6 — HeroV2 on the route, proof pass done.** ✅ 2026-08-21.
+      Legacy `Hero`/`ExplodedView` off the route and out of the barrel, kept on
+      disk as reference until S16 deletes them. `e2e/landing-hero.spec.ts` —
+      11 tests, all green: axe 0 light **and** dark, RTL/lang attributes, all
+      10 layers present with no broken image, AVIF served straight from
+      `/landing/cutouts/` (never `/_next/image`), all 10 system links resolve
+      200, full keyboard reachability with a visible focus ring on every stop,
+      the code field normalizing Persian digits into `/search`, empty code
+      refused, and reduced motion showing the separated diagram rather than the
+      collapsed first frame. Route JS **192KB** (188 baseline + HeroV2 − the
+      retired ExplodedView client bundle); the offsets that bring it back are
+      S9/S14/S16. LCP element is now the car AVIF at **30KB vs the old hero
+      image's 77KB** — full Lighthouse re-run stays at S17 per the plan.
+      *(Old note kept below: the flag mechanism this step folded away.)*
+- [x] ~~**P9.S5b — put HeroV2 on the route.**~~ The `NEXT_PUBLIC_LANDING_V2` flag
       was **dropped, deliberately**: measured three ways (static import, barrel
       re-export, dynamic `import()` inside a dead branch) a flag branch still
       pulls HeroV2's client leaves into the route's client-reference graph, so
