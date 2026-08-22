@@ -61,7 +61,7 @@ export function PartCodeSearch({ label, placeholder, hint, submit, emptyError }:
           autoComplete="off"
           aria-describedby={error ? `${hintId} ${errorId}` : hintId}
           aria-invalid={error ? true : undefined}
-          className="min-w-0 flex-1 border border-graphite-700 bg-graphite-950 px-3 py-2 font-mono text-body-sm text-graphite-50 outline-none placeholder:text-graphite-500 focus-visible:border-focus focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
+          className="min-w-0 flex-1 border border-graphite-700 bg-graphite-950 px-3 py-2 font-mono text-body-sm text-graphite-50 outline-none placeholder:text-graphite-400 focus-visible:border-focus focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
         />
         <button
           type="submit"

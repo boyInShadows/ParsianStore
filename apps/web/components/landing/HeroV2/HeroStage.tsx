@@ -19,6 +19,12 @@ type Props = {
   carAlt: string;
 };
 
+/** Stage-percentage translate that puts a part exactly on the car once the
+ *  collapsed scale is applied about the stage centre. */
+function collapsed(carPct: number, partPct: number): number {
+  return Number((COLLAPSED_SCALE * (carPct - partPct)).toFixed(3));
+}
+
 /**
  * One part layer. The wrapper is inset-0, so a percentage translate on it is a
  * percentage of the STAGE, not of the little image inside -- which is what lets
@@ -28,8 +34,22 @@ type Props = {
  */
 function PartLayer({ part, progress }: { part: HeroPart; progress: MotionValue<number> }) {
   const [from, to] = CHAPTER_RANGE[part.chapter];
-  const x = useTransform(progress, [from, to], [`${HERO_CAR.startPct - part.startPct}%`, "0%"]);
-  const y = useTransform(progress, [from, to], [`${HERO_CAR.topPct - part.topPct}%`, "0%"]);
+  // `transform: translate(T) scale(s)` about the stage centre O maps a point to
+  // O + T + s*(p - O), so landing a part ON the car needs T = s*(O - p). The
+  // scale factor was missing here, making T too large by 1/s and overshooting
+  // every part to the OPPOSITE side of the car at 45% of its distance -- which
+  // is why the "collapsed" first frame showed nine parts ringing the vehicle
+  // instead of tucked inside it.
+  const x = useTransform(
+    progress,
+    [from, to],
+    [`${collapsed(HERO_CAR.startPct, part.startPct)}%`, "0%"],
+  );
+  const y = useTransform(
+    progress,
+    [from, to],
+    [`${collapsed(HERO_CAR.topPct, part.topPct)}%`, "0%"],
+  );
   const scale = useTransform(progress, [from, to], [COLLAPSED_SCALE, 1]);
   const opacity = useTransform(progress, [from, to], [COLLAPSED_OPACITY, 1]);
 
@@ -46,7 +66,7 @@ function PartImage({ part }: { part: HeroPart }) {
       src={`/landing/cutouts/${part.name}`}
       alt=""
       sizes={`${part.widthPct}vw`}
-      className="absolute -translate-x-1/2 -translate-y-1/2 rtl:translate-x-1/2"
+      className="absolute -translate-x-1/2 -translate-y-1/2"
       style={{
         insetInlineStart: `${part.startPct}%`,
         top: `${part.topPct}%`,
@@ -83,6 +103,14 @@ export function HeroStage({ label, carAlt }: Props) {
       ref={stageRef}
       role="group"
       aria-label={label}
+      // The diagram is a physical object, not text. Left un-pinned, RTL flips
+      // `insetInlineStart` to measure from the right while the collapse
+      // translate below keeps computing a left-based delta, so every part moved
+      // outward instead of into the car and four of the nine clipped off-stage.
+      // `dir` (not a physical CSS property, so the logical-properties rule is
+      // untouched) makes start mean left in both locales, and stops Tailwind's
+      // `rtl:` variants applying to the layers inside.
+      dir="ltr"
       className="hero-stage relative aspect-[16/11] w-full"
     >
       <LandingImage
@@ -90,7 +118,7 @@ export function HeroStage({ label, carAlt }: Props) {
         alt={carAlt}
         sizes="(min-width: 1024px) 58vw, 90vw"
         priority
-        className="absolute -translate-x-1/2 -translate-y-1/2 rtl:translate-x-1/2"
+        className="absolute -translate-x-1/2 -translate-y-1/2"
         style={{
           insetInlineStart: `${HERO_CAR.startPct}%`,
           top: `${HERO_CAR.topPct}%`,

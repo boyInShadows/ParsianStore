@@ -126,7 +126,7 @@ export async function HeroV2() {
         <div className="flex flex-col gap-6">
           <p className="max-w-prose text-body text-graphite-200">{t("diagramLead")}</p>
           <HeroStage label={t("diagramLabel")} carAlt={t("staticStateAlt")} />
-          <p className="font-mono text-caption text-graphite-500 motion-reduce:hidden">
+          <p className="font-mono text-caption text-graphite-400 motion-reduce:hidden">
             {t("scrollHint")}
           </p>
           <SystemIndex linkLabel={(name) => t("systemLinkLabel", { name })} />
