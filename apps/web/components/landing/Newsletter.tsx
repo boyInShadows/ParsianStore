@@ -7,7 +7,22 @@ import { Reveal } from "@/components/motion";
 // button are real but disabled, with an honest "coming soon" note next
 // to them, rather than faking a submit that goes nowhere or silently
 // pretending to succeed.
+/**
+ * Hidden on purpose, not broken. fableTasks §7 item 6 carries the return
+ * condition: the subscription backend does not exist, and a phone field that
+ * collects nothing is worse than no field at all.
+ *
+ * An explicit named flag rather than deleting the component or commenting out
+ * the call site: the section is finished work waiting on something outside the
+ * code, and a flag says that where a missing file would just look like an
+ * oversight. Flip this to `false` when the condition is met -- nothing else
+ * about the section needs to change.
+ */
+const SECTION_HIDDEN = true;
+
 export async function Newsletter() {
+  if (SECTION_HIDDEN) return null;
+
   const t = await getTranslations("Landing.sections.newsletter");
 
   return (

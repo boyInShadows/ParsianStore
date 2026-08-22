@@ -99,7 +99,14 @@ export async function HeroV2() {
             <p className="mt-4 text-body-lg text-graphite-200">{t("subheadline")}</p>
           </div>
 
-          <div className="flex flex-col gap-3 border-t border-graphite-800 pt-6">
+          {/* Anchor target for the closing beat's CTA -- «از خودروت شروع کن»
+              returns here, because naming a car is where every route into the
+              catalogue on this page begins. `scroll-mt` clears the sticky
+              header so the heading is not hidden under it on arrival. */}
+          <div
+            id="driver-path"
+            className="flex scroll-mt-24 flex-col gap-3 border-t border-graphite-800 pt-6"
+          >
             <h2 className="text-body font-bold text-graphite-0">{t("driverPath.title")}</h2>
             <p className="text-body-sm text-graphite-300">{t("driverPath.hint")}</p>
             <div className="border border-graphite-700 bg-graphite-900 p-4">

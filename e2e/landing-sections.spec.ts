@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import AxeBuilder from "@axe-core/playwright";
 
 /**
  * How long a server-rendered, API-backed section gets to appear.
@@ -350,4 +351,77 @@ test.describe("deals (S13)", () => {
     await expect(page.locator("#deals")).toHaveCount(0);
     await expect(page.getByRole("heading", { name: "پیشنهادهای ویژه" })).toHaveCount(0);
   });
+});
+
+test.describe("closing beat (S14)", () => {
+  test("folds the four steps, real contact and one CTA into a single beat", async ({ page }) => {
+    await page.goto("/");
+    await page.locator("#hero").waitFor();
+
+    const closing = page.locator("#closing");
+    await expect(closing).toHaveCount(1, { timeout: SECTION_RENDER });
+
+    // A real ordered list -- the numbering is the content, not decoration.
+    await expect(closing.locator("ol > li")).toHaveCount(4);
+
+    // The three sections this replaced are gone, not merely hidden: each one
+    // restated that the visit was over without giving anyone anywhere to go.
+    for (const id of ["#how-it-works", "#support", "#numbers"]) {
+      await expect(page.locator(id)).toHaveCount(0);
+    }
+  });
+
+  test("offers only contact channels that actually reach someone", async ({ page }) => {
+    await page.goto("/");
+    await page.locator("#hero").waitFor();
+    const closing = page.locator("#closing");
+    await expect(closing).toHaveCount(1, { timeout: SECTION_RENDER });
+
+    // Owner-supplied phone and Telegram. `tel:` carries the unambiguous
+    // international form; the visitor reads Persian digits of what they'd dial.
+    const phone = closing.locator("a[href^='tel:']");
+    await expect(phone).toHaveAttribute("href", "tel:+989120570658");
+    await expect(phone).toHaveText("۰۹۱۲۰۵۷۰۶۵۸");
+    await expect(closing.locator("a[href='https://t.me/boyinshadows']")).toHaveCount(1);
+
+    // WhatsApp is named by the spec but the owner has supplied no number, so it
+    // is absent rather than dead-linked (fableTasks §7 item 7). A wa.me link
+    // here would be a promise the store cannot keep.
+    await expect(closing.locator("a[href*='wa.me']")).toHaveCount(0);
+  });
+
+  test("the CTA returns to the vehicle selector, and the target exists", async ({ page }) => {
+    await page.goto("/");
+    await page.locator("#hero").waitFor();
+    const closing = page.locator("#closing");
+    await expect(closing).toHaveCount(1, { timeout: SECTION_RENDER });
+
+    await expect(closing.locator("a[href='#driver-path']")).toHaveCount(1);
+    // An anchor pointing at nothing is a broken promise the browser hides.
+    await expect(page.locator("#driver-path")).toHaveCount(1);
+  });
+
+  test("newsletter and guides stay hidden behind their flags", async ({ page }) => {
+    await page.goto("/");
+    await page.locator("#hero").waitFor();
+
+    // Hidden on purpose (fableTasks §7 item 6), not deleted: both are finished
+    // work waiting on something outside the code.
+    await expect(page.locator("#newsletter")).toHaveCount(0);
+    await expect(page.locator("#guides")).toHaveCount(0);
+  });
+});
+
+test.describe("closing beat accessibility (S14)", () => {
+  for (const theme of ["light", "dark"] as const) {
+    test(`has zero axe violations in ${theme} mode`, async ({ page }) => {
+      await page.emulateMedia({ colorScheme: theme });
+      await page.goto("/");
+      await page.locator("#hero").waitFor();
+      await expect(page.locator("#closing")).toHaveCount(1, { timeout: SECTION_RENDER });
+
+      const results = await new AxeBuilder({ page }).include("#closing").analyze();
+      expect(results.violations).toEqual([]);
+    });
+  }
 });

@@ -2,7 +2,7 @@ import Link from "next/link";
 import { CATALOG_SYSTEMS } from "schemas";
 import { fetchBrands } from "@/lib/fetchers/brands";
 import { fetchMakesSafe } from "@/lib/fetchers/vehicles";
-import { SUPPORT_PHONE_DISPLAY, SUPPORT_PHONE_TEL } from "@/lib/contact-info";
+import { CONTACT_PHONE_DISPLAY, CONTACT_PHONE_TEL } from "@/lib/contact-info";
 
 const POLICY_LINKS = [
   { label: "درباره ما", href: "/about" },
@@ -75,11 +75,11 @@ export async function Footer() {
           <h2 className="text-body-sm font-semibold text-text">ارتباط با ما</h2>
           <p className="text-body-sm text-text-muted">تهران، ایران</p>
           <a
-            href={`tel:${SUPPORT_PHONE_TEL}`}
+            href={`tel:${CONTACT_PHONE_TEL}`}
             dir="ltr"
             className="text-body-sm text-text-muted hover:text-text"
           >
-            {SUPPORT_PHONE_DISPLAY}
+            {CONTACT_PHONE_DISPLAY}
           </a>
           {/* Trust seals -- both gated on the business/legal registration
               masterPlan.md §11 flags as a Phase 6 external blocker. Real

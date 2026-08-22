@@ -8,15 +8,13 @@ import {
   AuthenticityStory,
   BestSellers,
   BrandWall,
+  ClosingBeat,
   Deals,
   GuidesTeaser,
   HeroV2,
-  HowItWorks,
   InterstitialPlate,
   Newsletter,
-  Numbers,
   ShopByVehicle,
-  Support,
   SymptomFinder,
   TrustStrip,
 } from "@/components/landing";
@@ -72,10 +70,8 @@ export default function LandingPage() {
       <InterstitialPlate />
       <BrandWall />
       <Deals />
-      <Numbers />
-      <HowItWorks />
+      <ClosingBeat />
       <GuidesTeaser />
-      <Support />
       <Newsletter />
     </main>
   );
