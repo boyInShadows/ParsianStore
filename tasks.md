@@ -66,7 +66,10 @@ Work top-down, one step per commit, `<type>(web): [P9.Sn] <subject>`.
       So HeroV2 goes on the route in **S6**, in the same commit that archives
       the legacy hero — which is exactly when the offsetting removal lands.
       194KB is then the honest interim figure until S9/S14/S16's cuts.
-- [ ] **P9.S6 — HeroV2 proof + flip.** *(closes audit item 3 — OEM/SKU above the fold)*
+- [x] **P9.S6 — HeroV2 proof + flip.** ✅ 2026-08-21 — landed together with S5b
+      in the entry above (route flip + legacy archive + the 11-test proof suite
+      had to be one commit, since dropping the flag meant the offsetting removal
+      shipped in the same change). *(closes audit item 3 — OEM/SKU above the fold)*
 - [x] **P9.S7 — Trust strip.** ✅ 2026-08-21. Each of the four claims is now
       claim + process — fitment check, authenticity record, server-side payment
       verification, free consult — reading from `Landing.beats.trustStrip`.
@@ -213,6 +216,29 @@ decision before Phase 10 — it is a deploy-time failure mode, not a runtime one
         reduced-motion backstop **must be revisited** — `transform: none` would
         undock every sprite; reduced motion has to pin the docked transform,
         not clear it.
+- [x] **Hero collapsed-frame bugfix.** ✅ 2026-08-22, `c8ae9b3`. Owner reported
+      the hero as "not what I wanted": nine ghost parts ringing the car instead
+      of tucked inside it. Two bugs, both measured in the running page.
+      (a) **RTL inverted the collapse** — `insetInlineStart` measures from the
+      right in Persian while the translate kept computing a left-based delta, so
+      parts pushed outward and four of nine landed outside the stage (-4%, -3%,
+      104%, 109%). The stage is now `dir="ltr"`: it is a diagram of a physical
+      object, not text. This also removes the same trap from the docked-sprite
+      hero, where it would be fatal rather than ugly.
+      (b) **The collapse maths ignored its own scale** — `translate(T) scale(s)`
+      about centre O maps p to O + T + s(p-O), so landing on the car needs
+      T = s(O-p), not (O-p). Every part overshot to the opposite side at 45% of
+      its distance. All nine now sit at exactly 50,50 at rest.
+      (c) Fixing those turned axe red and that was the useful part: the scroll
+      hint is `graphite-500` on `graphite-950` = **3.38:1** against a 4.5
+      minimum, a real defect that only passed because a stray part render sat
+      behind the text and stopped axe resolving a background. Moved to
+      `graphite-400` (5.30:1). Verified by stashing the fix — axe goes green
+      with the parts scattered, red with them tucked away.
+      **Known, not fixed:** the sequence still plays largely as the hero scrolls
+      off the top — the stage is 626px in a 900px viewport, so there is little
+      travel while it is fully visible. That is a composition change (pinned
+      stage), and S5 parts 2-3 rewrite this motion anyway.
 - [ ] **P9.S13 — Brand wall + Deals.**
 - [ ] **P9.S14 — Closing beat, real contact, hides.** *(closes audit items 5 & 6)*
 - [ ] **P9.S15 — Closing ambience + footer pass.**
