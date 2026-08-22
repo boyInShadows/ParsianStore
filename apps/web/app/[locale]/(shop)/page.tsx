@@ -12,6 +12,7 @@ import {
   GuidesTeaser,
   HeroV2,
   HowItWorks,
+  InterstitialPlate,
   Newsletter,
   Numbers,
   ShopByVehicle,
@@ -68,6 +69,7 @@ export default function LandingPage() {
       <AuthenticityStory />
       <ShopByVehicle />
       <SymptomFinder />
+      <InterstitialPlate />
       <BrandWall />
       <Deals />
       <Numbers />

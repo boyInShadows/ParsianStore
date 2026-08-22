@@ -1,6 +1,7 @@
 export { HeroV2 } from "./HeroV2";
 export { TrustStrip } from "./TrustStrip";
 export { BestSellers } from "./BestSellers";
+export { InterstitialPlate } from "./InterstitialPlate";
 export { BrandWall } from "./BrandWall";
 export { AuthenticityStory } from "./AuthenticityStory";
 export { Deals } from "./Deals";

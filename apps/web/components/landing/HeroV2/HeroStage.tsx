@@ -1,9 +1,9 @@
 "use client"; // scroll-linked transforms -- useScroll/useTransform need the client
 
 import { useRef } from "react";
-import Image from "next/image";
 import { motion, useReducedMotion, useScroll, useTransform, type MotionValue } from "motion/react";
-import { cutoutLoader, CUTOUT_INTRINSIC } from "@/lib/landing-image";
+import { CUTOUT_INTRINSIC } from "@/lib/landing-image";
+import { LandingImage } from "../LandingImage";
 import {
   CHAPTER_RANGE,
   COLLAPSED_OPACITY,
@@ -43,9 +43,9 @@ function PartLayer({ part, progress }: { part: HeroPart; progress: MotionValue<n
 
 function PartImage({ part }: { part: HeroPart }) {
   return (
-    <Image
-      loader={cutoutLoader}
+    <LandingImage
       src={`/landing/cutouts/${part.name}`}
+      ladder="cutouts"
       alt=""
       width={CUTOUT_INTRINSIC.width}
       height={CUTOUT_INTRINSIC.height}
@@ -89,9 +89,9 @@ export function HeroStage({ label, carAlt }: Props) {
       aria-label={label}
       className="hero-stage relative aspect-[16/11] w-full"
     >
-      <Image
-        loader={cutoutLoader}
+      <LandingImage
         src="/landing/cutouts/car"
+        ladder="cutouts"
         alt={carAlt}
         width={CUTOUT_INTRINSIC.width}
         height={CUTOUT_INTRINSIC.height}

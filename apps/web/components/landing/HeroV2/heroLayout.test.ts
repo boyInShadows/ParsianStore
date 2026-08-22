@@ -6,7 +6,7 @@ import { describe, expect, it } from "vitest";
 import { CATALOG_SYSTEM_CODES } from "schemas";
 
 import { CHAPTER_RANGE, HERO_CAR, HERO_PARTS } from "./heroLayout.js";
-import { cutoutLoader } from "../../../lib/landing-image.js";
+import { CUTOUT_WIDTHS } from "../../../lib/landing-image.js";
 
 const PUBLIC_LANDING = path.join(
   path.dirname(fileURLToPath(import.meta.url)),
@@ -74,19 +74,18 @@ describe("CHAPTER_RANGE", () => {
   });
 });
 
-describe("cutoutLoader", () => {
-  it("snaps a requested width up to the nearest emitted file", () => {
-    expect(cutoutLoader({ src: "/landing/cutouts/car", width: 300 })).toBe(
-      "/landing/cutouts/car-480.avif",
-    );
-    expect(cutoutLoader({ src: "/landing/cutouts/car", width: 800 })).toBe(
-      "/landing/cutouts/car-1024.avif",
-    );
+describe("CUTOUT_WIDTHS", () => {
+  it("names only widths the pipeline actually emitted", () => {
+    // LandingImage builds its srcset straight from this ladder, so a width
+    // listed here that the pipeline never wrote becomes a 404 in a srcset --
+    // silent, because the browser just picks another candidate.
+    for (const width of CUTOUT_WIDTHS) {
+      const file = path.join(PUBLIC_LANDING, "cutouts", `car-${width}.avif`);
+      expect(existsSync(file), `car-${width}.avif`).toBe(true);
+    }
   });
 
-  it("never asks for a width the pipeline did not emit", () => {
-    const file = cutoutLoader({ src: "/landing/cutouts/car", width: 4000 });
-    expect(file).toBe("/landing/cutouts/car-1440.avif");
-    expect(existsSync(path.join(PUBLIC_LANDING, "cutouts", "car-1440.avif"))).toBe(true);
+  it("is ordered smallest first, so srcset candidates ascend", () => {
+    expect([...CUTOUT_WIDTHS]).toEqual([...CUTOUT_WIDTHS].sort((a, b) => a - b));
   });
 });

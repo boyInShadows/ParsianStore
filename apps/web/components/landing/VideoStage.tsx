@@ -1,10 +1,9 @@
 "use client"; // needs the viewport + reduced-motion state to decide whether to fetch video at all
 
 import { useEffect, useState } from "react";
-import Image from "next/image";
 import { useReducedMotion } from "motion/react";
-
-const POSTER_WIDTHS = [768, 1024, 1440] as const;
+import { POSTER_INTRINSIC } from "@/lib/landing-image";
+import { LandingImage } from "./LandingImage";
 
 /** The width below which no video bytes are fetched at all (fableTasks D3). */
 const DESKTOP_QUERY = "(min-width: 1024px)";
@@ -17,11 +16,6 @@ type Props = {
   className?: string;
   children?: React.ReactNode;
 };
-
-function posterLoader({ src, width }: { src: string; width: number }): string {
-  const emitted = POSTER_WIDTHS.find((candidate) => candidate >= width) ?? POSTER_WIDTHS.at(-1);
-  return `${src}-${emitted}.avif`;
-}
 
 /**
  * An atmosphere clip used as a stage, with its poster as the real content.
@@ -57,13 +51,14 @@ export function VideoStage({ clip, alt, className = "", children }: Props) {
 
   return (
     <div className={`relative overflow-hidden bg-graphite-950 ${className}`}>
-      <Image
-        loader={posterLoader}
+      <LandingImage
         src={`/landing/video/${clip}-poster`}
+        ladder="posters"
         alt={alt}
-        fill
+        width={POSTER_INTRINSIC.width}
+        height={POSTER_INTRINSIC.height}
         sizes="100vw"
-        className="object-cover"
+        className="absolute inset-0 h-full w-full object-cover"
       />
       {showVideo ? (
         <video

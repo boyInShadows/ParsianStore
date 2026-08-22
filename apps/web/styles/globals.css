@@ -50,6 +50,29 @@
     }
   }
 
+  /* The interstitial plate's copy sits on the start-side third, so the scrim
+     is heaviest there and thins out across the artwork. CSS gradients take no
+     logical direction keyword, so the default is written for RTL (start =
+     right) and flipped for LTR, rather than being silently wrong in one of the
+     two directions the way a single `to left` would be. */
+  .interstitial-scrim {
+    background: linear-gradient(
+      to left,
+      var(--color-graphite-950) 0%,
+      color-mix(in srgb, var(--color-graphite-950) 82%, transparent) 38%,
+      color-mix(in srgb, var(--color-graphite-950) 25%, transparent) 100%
+    );
+  }
+
+  [dir="ltr"] .interstitial-scrim {
+    background: linear-gradient(
+      to right,
+      var(--color-graphite-950) 0%,
+      color-mix(in srgb, var(--color-graphite-950) 82%, transparent) 38%,
+      color-mix(in srgb, var(--color-graphite-950) 25%, transparent) 100%
+    );
+  }
+
   .hero-scrim {
     background: linear-gradient(
       to left,

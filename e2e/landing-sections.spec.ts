@@ -238,3 +238,50 @@ test.describe("authenticity story stage (S11)", () => {
     await expect(section.locator("a[href^='/p/']")).toHaveCount(1);
   });
 });
+
+test.describe("interstitial plate (S12)", () => {
+  test("is a full-bleed plate with copy, not another card", async ({ page }) => {
+    await page.goto("/");
+    await page.locator("#hero").waitFor();
+
+    const section = page.locator("#interstitial");
+    await expect(section).toHaveCount(1);
+
+    const plate = section.locator("img");
+    await expect(plate).toHaveCount(1);
+    // The plate serves from the pre-built AVIF set, same as the hero.
+    expect(await plate.getAttribute("srcset")).toContain("/landing/plates/plate-body-");
+    // Atmosphere, so its alt says illustration -- never evidence.
+    expect((await plate.getAttribute("alt")) ?? "").not.toBe("");
+
+    const box = (await section.boundingBox())!;
+    const viewport = page.viewportSize()!;
+    expect(box.width, "the plate should reach both edges").toBeCloseTo(viewport.width, -1);
+  });
+
+  test("its copy sits on the start-side third", async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto("/");
+    await page.locator("#hero").waitFor();
+
+    const heading = page.locator("#interstitial-heading");
+    await expect(heading).toBeVisible();
+    const box = (await heading.boundingBox())!;
+    // RTL: the start side is the right. The plates ship pre-mirrored precisely
+    // so this third is the empty one.
+    expect(box.x + box.width).toBeGreaterThan(1440 / 2);
+  });
+});
+
+test.describe("symptom finder (S12)", () => {
+  test("reads as symptoms, not as a second copy of the system index", async ({ page }) => {
+    await page.goto("/");
+    await page.locator("#hero").waitFor();
+
+    const cards = page.locator("#symptom-finder a");
+    await expect(cards).toHaveCount(10);
+    // The SYS-xx codes belong to the hero's index. Repeating them here made
+    // this section read as the same list twice (audit item 4, found at S9).
+    await expect(page.locator("#symptom-finder")).not.toContainText(/SYS-\d{2}/);
+  });
+});
