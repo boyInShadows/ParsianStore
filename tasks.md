@@ -171,7 +171,48 @@ decision before Phase 10 — it is a deploy-time failure mode, not a runtime one
    up** — it rewrites `.next/` underneath `next dev`, the next request has to
    recompile from cold, and every test times out at once looking like a mass
    regression.
-- [ ] **P9.S12 — Symptom finder + interstitial plate.**
+- [x] **P9.S12 — Symptom finder + interstitial plate.** ✅ 2026-08-22, `0050147`.
+      Full-bleed atmosphere plate (`plate-body`) between the symptom finder and
+      the brand wall — no card chrome, no heading rail, the page's third
+      distinct compositional beat. Copy sits on the start-side third because the
+      plates ship pre-mirrored from S3; `.interstitial-scrim` is written `to
+      left` for the RTL default and flipped under `[dir="ltr"]`, since CSS
+      gradients take no logical direction keyword. Symptom finder lost its
+      visible `SYS-xx` code — with it the section was a second copy of the
+      hero's system index (**closes audit item 4**, found at S9) — and gained a
+      48px target plus a focus ring; namespace moved to `Landing.beats`.
+      `LandingImage` extracted from HeroStage/VideoStage so the plate could
+      reuse it.
+- [ ] **P9.S5 (revisited) — docked-sprite hero, 3 parts.** Owner delivered a new
+      Fable batch 2026-08-22: a stripped car + 7 part sprites, replacing the
+      exploded model with a car that starts *assembled* and comes apart on
+      scroll (`fableTasks.md` §3.2).
+  - [x] **Part 1/3 — assets + pipeline.** ✅ 2026-08-22, `7cf297b`. 8 raws moved
+        out of the output dir into `landing-src/hero/`, renames verified by
+        re-measuring alpha bounding boxes. Pipeline gained an opt-in per-group
+        trim, a metadata re-read from the trimmed buffer, and a ladder that
+        can't come back empty. `landing-image.ts` now reads the generated
+        manifest instead of hand-written ladders. Budgets measured: base
+        **19.9KB** (≤90), 7 sprites **78.7KB** combined (≤120). See standing
+        decisions 4 and 5.
+  - [ ] **Part 2/3 — dock calibration + static composite.** Hand-tune each
+        sprite's position **and CSS 3D rotation** in `heroLayout.ts` until the
+        at-rest composite reads as one complete car. Owner decision 2026-08-22:
+        close the perspective gap with `rotateX/Y/Z` under a **stage-level**
+        `perspective` (one shared camera — per-element `perspective()` gives
+        each sprite its own and won't read as one object) rather than
+        regenerating the batch at the base's angle. Two known traps: the
+        sprites are neutral product shots (door/fender are dead-on profiles,
+        headlight is a face-on circle needing to become a tilted ellipse), and
+        **RTL flips the dock** — `insetInlineStart` mirrors while the unmirrored
+        car does not, so the stage needs `direction: ltr` (a CSS property, not a
+        banned physical direction property; the car is an object, not text).
+  - [ ] **Part 3/3 — undock motion.** Chapters re-driven dock → free, rotations
+        animating toward 0 so each part turns to face the viewer as it leaves.
+        `globals.css`'s `.hero-stage > * { transform: none !important }`
+        reduced-motion backstop **must be revisited** — `transform: none` would
+        undock every sprite; reduced motion has to pin the docked transform,
+        not clear it.
 - [ ] **P9.S13 — Brand wall + Deals.**
 - [ ] **P9.S14 — Closing beat, real contact, hides.** *(closes audit items 5 & 6)*
 - [ ] **P9.S15 — Closing ambience + footer pass.**
@@ -221,6 +262,22 @@ not a second source of truth.
    `pnpm optimize:landing` after any master changes, then re-check the §6 byte
    budgets before committing. Also recorded: `docs/landing-assets.md`
    §Optimized outputs.
+4. **`landing-assets.json` is load-bearing, not just an index.** Since P9.S5
+   part 1, `lib/landing-image.ts` reads every `srcset` from the generated
+   manifest instead of declaring width ladders by hand — the trimmed hero
+   layers each land on their own native width, so a shared ladder pointed at
+   files that do not exist. Two consequences: **run and commit
+   `pnpm optimize:landing` before writing code that references a new asset**
+   (until the manifest has it, `manifest.hero` is a type error and the build
+   fails), and **never combine `--skip-video` with `--clean`** — skip-video
+   carries the previous run's video entries forward so posters keep resolving,
+   but `--clean` deletes the files those entries name. Also recorded:
+   `docs/landing-assets.md` §Optimized outputs.
+5. **Trimming is opt-in per pipeline group.** `TRIMMED = { cutouts: false,
+   hero: true, plates: false }` in `scripts/optimize-landing.mjs`. The S2
+   cutouts are positioned by their centre inside a 2048² frame, so a global
+   trim would silently move every part on the shipped hero. `heroLayout.test.ts`
+   asserts both halves — hero layers trimmed, cutouts not.
 
 ### Deferred / owner decisions — parked, none blocking S2–S17
 
@@ -231,9 +288,11 @@ not a second source of truth.
    (verified). Owner chose to launch with it as workshop atmosphere and
    regenerate a brand-free sedan nearer the Saipa/IKCO fleet later; the S2
    naming makes it a drop-in swap.
-3. **No grille render exists.** Parts are: car, headlight, bumper, piston,
-   alternator, air filter, door, hood, fender, windshield. The hero layout must
-   not reserve a hole for a part that was never generated.
+3. ~~**No grille render exists.**~~ **Resolved 2026-08-22 at P9.S5.** True of
+   the ten standalone `cutouts/` (car, headlight, bumper, piston, alternator,
+   air filter, door, hood, fender, windshield), but the new hero batch ships
+   `hero/sprite-grille` among its seven docked sprites. The hero layout may
+   reserve a slot for the grille; it still must not for anything else.
 4. **Numbers section return** — needs four real figures (parts in stock ·
    vehicles covered · orders shipped · years). Re-enable only with data.
 5. **Newsletter** — hidden until a subscription backend exists. **Guides** —

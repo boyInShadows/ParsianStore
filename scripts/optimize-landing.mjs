@@ -293,7 +293,17 @@ async function carriedVideo() {
   const previous = JSON.parse(await readFile(MANIFEST, "utf8")).video ?? [];
   return previous.map((clip) => ({
     ...clip,
-    poster: { trim: null, ...clip.poster },
+    // Field order matches emitResponsive's return exactly, so --skip-video and
+    // a full run write a byte-identical manifest. Order alone would otherwise
+    // churn the committed diff depending on which flag was used.
+    poster: {
+      name: clip.poster.name,
+      intrinsic: clip.poster.intrinsic,
+      hasAlpha: clip.poster.hasAlpha,
+      mirrored: clip.poster.mirrored,
+      trim: clip.poster.trim ?? null,
+      variants: clip.poster.variants,
+    },
   }));
 }
 
