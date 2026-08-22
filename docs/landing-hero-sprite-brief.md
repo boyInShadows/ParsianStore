@@ -100,6 +100,42 @@ whether it lands where the source says it should. Green means the set docks with
 no calibration; anything else prints the per-part error so the next round is
 specific rather than "still looks off".
 
+## Batch 2 result — 2026-08-22, 3 of 7 dock
+
+Checked with `pnpm check:hero landing-src/cutouts/car.png`. The technique
+worked where it was applied: three parts came back as true in-place isolations
+and need no calibration at all.
+
+| Sprite | box in the 1024² frame | own-footprint agreement | verdict |
+|---|---|---|---|
+| `sprite-door` | 158×232 @642,351 | 52% → **97%** | docks |
+| `sprite-fender` | 291×190 @363,438 | 55% → **92%** | docks |
+| `sprite-bumper` | 374×100 @98,529 | 31% → **65%** | docks |
+| `sprite-grille` | 242×77 @135,473 | 67% → 27% | not registered |
+| `sprite-headlights` | 680×306 @171,359 | 49% → 50% | not registered |
+| `sprite-hood` | 737×208 @142,412 | 57% → 54% | not registered |
+| `sprite-windshield` | 762×345 @131,339 | 49% → 41% | not registered |
+
+`headlights`, `hood` and `windshield` are visibly centred product shots — big,
+frame-filling, at their own flattering angle — so they fail on inspection as
+well as on the number. `grille` is the ambiguous one: it *looks* small and in
+place, so its failure may be a position offset rather than a re-render.
+
+**Two caveats on this run, both worth fixing before batch 3.**
+
+1. **The complete-car master was not in the drop.** The file offered as the
+   source render is the *stripped* car with an opaque background, not the
+   pre-strip frame. So this check ran against `landing-src/cutouts/car.png`, the
+   P9.S2 master, as a proxy. The three passing scores (97/92/65) say that proxy
+   is close enough to trust for those parts; the `grille` verdict should be
+   re-run against the real master before regenerating it.
+2. **Still 1024², and that now matters more.** With in-place isolation each part
+   occupies only its own share of the frame, so resolution per part drops. At a
+   1440px stage the car renders 835 CSS px = 1670 device px at DPR 2, while a
+   1024² master carries only 823 px of car — **exactly 2× short**. `sprite-door`
+   is 158 px native against 321 needed. A 2048² master lands within 1.5% of
+   ideal for every part, which is why the brief asks for it.
+
 ## If a matched batch is not possible
 
 Fall back to CSS 3D calibration, which is the owner's standing decision for the

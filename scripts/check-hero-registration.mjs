@@ -6,6 +6,7 @@
  * This script measures that, so "matched" is a number rather than an opinion.
  *
  *   node scripts/check-hero-registration.mjs landing-src/hero/source-car.png
+ *   node scripts/check-hero-registration.mjs <source.png> <hero-dir>
  *
  * Reports, per sprite, where its content sits in the frame and how much of the
  * source it accounts for; then the whole-composite agreement. Exit 1 if the set
@@ -19,13 +20,16 @@ import { fileURLToPath } from "node:url";
 import sharp from "sharp";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const HERO = path.join(ROOT, "landing-src", "hero");
 const BASE = "car-stripped.png";
 
 // Per-pixel channel delta below which two renders count as the same surface.
 // Generative edits re-shade slightly even when geometry holds; 70 is the
 // threshold that separated real part removals from codec noise on batch 1.
 const SAME_SURFACE = 70;
+
+// Percentage points a sprite must add to its own footprint's agreement before
+// it counts as docked, rather than as noise around no change.
+const DOCK_MARGIN = 0.1;
 
 async function raw(file, size) {
   const { data, info } = await sharp(file)
@@ -71,25 +75,34 @@ function composite(base, layers) {
   return { ...base, data: out };
 }
 
-/** Fraction of pixels that read as the same surface, optionally inside a box. */
-function agreement(a, b, box = null) {
-  const { width, channels } = a;
+/**
+ * Fraction of pixels whose COLOUR reads as the same surface as the source,
+ * measured only where `mask` is opaque.
+ *
+ * Colour only, and mask-scoped, because the source render is a flat studio
+ * frame with an opaque background while every derived layer is transparent
+ * outside its subject. Comparing alpha, or comparing everywhere, would score
+ * the background difference rather than the artwork and drown the signal --
+ * it scored a known-good base at 17%.
+ *
+ * A layer that is transparent where the mask is opaque counts as a miss: that
+ * is a hole in the reconstruction, which is exactly what a sprite is supposed
+ * to fill.
+ */
+function agreement(layer, source, mask) {
+  const { width, height, channels } = layer;
   let considered = 0,
     same = 0;
-  const x0 = box ? box.x : 0;
-  const y0 = box ? box.y : 0;
-  const x1 = box ? box.x + box.w : width;
-  const y1 = box ? box.y + box.h : a.height;
-  for (let y = y0; y < y1; y++) {
-    for (let x = x0; x < x1; x++) {
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
       const i = (y * width + x) * channels;
-      if (a.data[i + 3] < 128 && b.data[i + 3] < 128) continue;
+      if (mask.data[i + 3] < 128) continue;
       considered++;
+      if (layer.data[i + 3] < 128) continue;
       const delta = Math.max(
-        Math.abs(a.data[i] - b.data[i]),
-        Math.abs(a.data[i + 1] - b.data[i + 1]),
-        Math.abs(a.data[i + 2] - b.data[i + 2]),
-        Math.abs(a.data[i + 3] - b.data[i + 3]),
+        Math.abs(layer.data[i] - source.data[i]),
+        Math.abs(layer.data[i + 1] - source.data[i + 1]),
+        Math.abs(layer.data[i + 2] - source.data[i + 2]),
       );
       if (delta <= SAME_SURFACE) same++;
     }
@@ -99,8 +112,11 @@ function agreement(a, b, box = null) {
 
 async function main() {
   const sourceArg = process.argv[2];
+  // Second arg lets a rejected batch be re-checked after a fix without
+  // shuffling directories, and lets a new batch be compared against an old one.
+  const HERO = path.resolve(ROOT, process.argv[3] ?? path.join("landing-src", "hero"));
   if (!sourceArg) {
-    console.error("usage: node scripts/check-hero-registration.mjs <source-render.png>");
+    console.error("usage: node scripts/check-hero-registration.mjs <source-render.png> [hero-dir]");
     console.error("The source render is the frame every hero output was derived from.");
     process.exitCode = 1;
     return;
@@ -129,13 +145,20 @@ async function main() {
       console.log(`  ${file.padEnd(24)} EMPTY`);
       continue;
     }
-    // The only question that matters per sprite: dropped onto the base at 0,0,
-    // does the region it covers get CLOSER to the source, or further away? A
-    // part isolated in place fills its own hole and improves; a product shot
-    // pastes itself over intact bodywork and makes things worse.
-    const before = agreement(base, src, box);
-    const after = agreement(composite(base, [layer]), src, box);
-    const registered = after > before;
+    // The only question that matters per sprite, measured over the sprite's own
+    // silhouette: does that footprint match the source better with the sprite
+    // than without it? An in-place isolation fills a hole the base left behind,
+    // so `before` is low (bay or interior showing) and `after` is high. A
+    // product shot pastes itself over the wrong pixels and `after` drops.
+    const before = agreement(base, src, layer);
+    const after = agreement(composite(base, [layer]), src, layer);
+    // A real dock is not a hairline win. Measured on the batches so far, an
+    // in-place isolation improves its own footprint by 34-45 points while a
+    // product shot lands between -40 and +1 -- so anything under DOCK_MARGIN is
+    // noise, and passing it would let a centred render through. That is not
+    // hypothetical: the combined-headlights sprite is visibly a product shot
+    // and scored +1.
+    const registered = after - before >= DOCK_MARGIN;
     if (!registered) unregistered++;
     console.log(
       `  ${path.basename(file, ".png").padEnd(20)}` +
@@ -146,9 +169,11 @@ async function main() {
     layers.push(layer);
   }
 
+  // Whole-set score, measured over the reconstruction's own silhouette: how
+  // much of the car it rebuilds actually looks like the master.
   const stacked = composite(base, layers);
-  const baseOnly = agreement(base, src);
-  const withSprites = agreement(stacked, src);
+  const baseOnly = agreement(base, src, stacked);
+  const withSprites = agreement(stacked, src, stacked);
 
   console.log(`\nreconstruction against the source render:`);
   console.log(`  stripped base alone      ${(baseOnly * 100).toFixed(1)}%`);
