@@ -1,6 +1,17 @@
 import { test, expect } from "@playwright/test";
 
 /**
+ * How long a server-rendered, API-backed section gets to appear.
+ *
+ * This is a precondition for the assertions below, never the assertion itself.
+ * The suite runs ~10 workers against a single dev API, so a section's first
+ * paint is load-dependent rather than fixed -- waiting longer costs nothing on
+ * a quiet run and stops a busy one failing for a reason that has nothing to do
+ * with the code under test.
+ */
+const SECTION_RENDER = 45_000;
+
+/**
  * Per-section regressions for the Phase 9 rebuild, added as each beat lands.
  * S16 folds these into the full screenshot + link sweep.
  */
@@ -124,7 +135,7 @@ test.describe("shop by vehicle (audit item 1)", () => {
     // turns a transient into a silent "nothing to test" -- observed once in a
     // loaded run. The tree IS seeded, so absence here is a failure worth
     // seeing.
-    await expect(page.locator("#shop-by-vehicle")).toHaveCount(1, { timeout: 15_000 });
+    await expect(page.locator("#shop-by-vehicle")).toHaveCount(1, { timeout: SECTION_RENDER });
     const links = page.locator("#shop-by-vehicle a[href^='/vehicle/']");
     const hrefs = await links.evaluateAll((anchors) =>
       anchors.map((anchor) => anchor.getAttribute("href") ?? ""),
@@ -146,7 +157,7 @@ test.describe("shop by vehicle (audit item 1)", () => {
     await page.locator("#hero").waitFor();
 
     const section = page.locator("#shop-by-vehicle");
-    await expect(section).toHaveCount(1, { timeout: 15_000 });
+    await expect(section).toHaveCount(1, { timeout: SECTION_RENDER });
 
     // Every list item is either a link with a generation or plain text. What
     // must never exist is a link that stops at the model.
@@ -174,7 +185,7 @@ test.describe("authenticity story stage (S11)", () => {
     await page.goto("/");
     await page.locator("#hero").waitFor();
 
-    await expect(page.locator("#authenticity")).toHaveCount(1, { timeout: 15_000 });
+    await expect(page.locator("#authenticity")).toHaveCount(1, { timeout: SECTION_RENDER });
     // The video mounts on hydration, not in the SSR HTML, so an absence
     // assertion has to give hydration time to prove itself -- otherwise this
     // passes for the wrong reason on every run.
@@ -190,7 +201,7 @@ test.describe("authenticity story stage (S11)", () => {
     await page.locator("#hero").waitFor();
 
     const video = page.locator("#authenticity video");
-    await expect(video).toHaveCount(1, { timeout: 15_000 });
+    await expect(video).toHaveCount(1, { timeout: SECTION_RENDER });
     // `muted` is a DOM property here, not an attribute -- React never emits
     // the attribute, so asserting on the attribute would be asserting on a
     // React implementation detail rather than on whether the page is silent.
@@ -222,7 +233,7 @@ test.describe("authenticity story stage (S11)", () => {
     await page.goto("/");
     await page.locator("#hero").waitFor();
 
-    await expect(page.locator("#authenticity")).toHaveCount(1, { timeout: 15_000 });
+    await expect(page.locator("#authenticity")).toHaveCount(1, { timeout: SECTION_RENDER });
     await expect(page.locator("#authenticity video")).toHaveCount(0);
     await context.close();
   });
@@ -232,7 +243,7 @@ test.describe("authenticity story stage (S11)", () => {
     await page.locator("#hero").waitFor();
 
     const section = page.locator("#authenticity");
-    await expect(section).toHaveCount(1, { timeout: 15_000 });
+    await expect(section).toHaveCount(1, { timeout: SECTION_RENDER });
     // Four real fields from a real product, and a link into that product.
     await expect(section.locator("dl > div")).toHaveCount(4);
     await expect(section.locator("a[href^='/p/']")).toHaveCount(1);
@@ -283,5 +294,60 @@ test.describe("symptom finder (S12)", () => {
     // The SYS-xx codes belong to the hero's index. Repeating them here made
     // this section read as the same list twice (audit item 4, found at S9).
     await expect(page.locator("#symptom-finder")).not.toContainText(/SYS-\d{2}/);
+  });
+});
+
+test.describe("brand wall (S13)", () => {
+  test("names its scrolling region and never tabs into the seamless duplicate", async ({
+    page,
+  }) => {
+    await page.goto("/");
+    await page.locator("#hero").waitFor();
+
+    const wall = page.locator("#brand-wall");
+    test.skip((await wall.count()) === 0, "no brands seeded");
+    await wall.locator(".motion-marquee-track").waitFor();
+
+    // The duplicate copy exists only so the loop has no visible seam. It is
+    // aria-hidden AND inert -- aria-hidden alone hides it from assistive tech
+    // but leaves it in the tab order, so a sighted keyboard user would tab
+    // through invisible links.
+    await expect(wall.locator("[aria-hidden='true']")).toHaveAttribute("inert", /.*/);
+
+    // The scrolling region carries its own name; the section heading names the
+    // section, not the group of links inside it.
+    await expect(wall.getByRole("group")).toHaveAttribute("aria-label", /\S/);
+  });
+
+  test("the marquee pauses for reduced motion, in CSS as well as in JS", async ({ browser }) => {
+    const context = await browser.newContext({ reducedMotion: "reduce" });
+    const page = await context.newPage();
+    await page.goto("/");
+    await page.locator("#hero").waitFor();
+
+    const wall = page.locator("#brand-wall");
+    if ((await wall.count()) > 0) {
+      const track = wall.locator(".motion-marquee-track");
+      await track.waitFor();
+      // `animation: none` from globals.css, not merely an absent inline style:
+      // the CSS rule is what covers the SSR paint that lands before hydration
+      // has decided anything. Polled because the section streams in.
+      await expect
+        .poll(() => track.evaluate((el) => getComputedStyle(el).animationName))
+        .toBe("none");
+    }
+    await context.close();
+  });
+});
+
+test.describe("deals (S13)", () => {
+  test("renders nothing at all until live deals exist, not an empty husk", async ({ page }) => {
+    await page.goto("/");
+    await page.locator("#hero").waitFor();
+
+    // No section, no heading, no landmark. A husk would advertise discounts the
+    // store cannot honour and leave a dead entry in the accessibility tree.
+    await expect(page.locator("#deals")).toHaveCount(0);
+    await expect(page.getByRole("heading", { name: "پیشنهادهای ویژه" })).toHaveCount(0);
   });
 });

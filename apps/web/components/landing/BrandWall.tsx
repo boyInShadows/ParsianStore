@@ -10,7 +10,7 @@ import { Marquee, Reveal } from "@/components/motion";
 // own). Marquee already pauses on hover + prefers-reduced-motion
 // (components/motion/Marquee.tsx, built in P1.S7).
 export async function BrandWall() {
-  const t = await getTranslations("Landing.sections.brandWall");
+  const t = await getTranslations("Landing.beats.brandWall");
   const brands = await fetchBrands();
 
   if (brands.length === 0) return null;
@@ -27,7 +27,7 @@ export async function BrandWall() {
           {t("title")}
         </h2>
       </Reveal>
-      <Marquee className="mt-6">
+      <Marquee className="mt-6" label={t("label")}>
         {brands.map((brand) => (
           <a
             key={brand.id}
