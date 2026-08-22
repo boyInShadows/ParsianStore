@@ -17,6 +17,9 @@ type Props = {
   label: string;
   /** Alt text for the assembled vehicle at the centre of the stage. */
   carAlt: string;
+  /** "Scroll to separate the parts" -- pinned with the stage, so it is on screen
+   *  for exactly as long as the invitation is true. */
+  hint: string;
 };
 
 /** Stage-percentage translate that puts a part exactly on the car once the
@@ -90,51 +93,68 @@ function PartImage({ part }: { part: HeroPart }) {
  * rule for the visitor whose JS never arrives -- without them the first frame
  * (progress 0, everything collapsed into the car) would be the *only* frame.
  */
-export function HeroStage({ label, carAlt }: Props) {
-  const stageRef = useRef<HTMLDivElement>(null);
+export function HeroStage({ label, carAlt, hint }: Props) {
+  const trackRef = useRef<HTMLDivElement>(null);
   const reduceMotion = useReducedMotion();
+  // Bound to the TRACK, not the stage. The stage is pinned, so its own box
+  // stops moving and could never drive anything; the track is what scrolls.
+  // ["start start", "end end"] makes the travel exactly the track's height minus
+  // one viewport -- and since the track is `100vh + X`, that travel is exactly X
+  // at every breakpoint instead of a number that shifts with window size.
   const { scrollYProgress } = useScroll({
-    target: stageRef,
-    offset: ["start start", "end start"],
+    target: trackRef,
+    offset: ["start start", "end end"],
   });
 
   return (
+    // The track only exists to buy scroll distance: `100vh` keeps the pinned
+    // stage on screen for a full viewport, and the extra is the distance the
+    // separation actually plays over. Reduced motion and no-JS collapse both
+    // this and the pin back to nothing (globals.css) -- an empty screen-height
+    // spacer would be pure dead scroll for a visitor who never sees the motion.
     <div
-      ref={stageRef}
-      role="group"
-      aria-label={label}
-      // The diagram is a physical object, not text. Left un-pinned, RTL flips
-      // `insetInlineStart` to measure from the right while the collapse
-      // translate below keeps computing a left-based delta, so every part moved
-      // outward instead of into the car and four of the nine clipped off-stage.
-      // `dir` (not a physical CSS property, so the logical-properties rule is
-      // untouched) makes start mean left in both locales, and stops Tailwind's
-      // `rtl:` variants applying to the layers inside.
-      dir="ltr"
-      className="hero-stage relative aspect-[16/11] w-full"
+      ref={trackRef}
+      className="hero-track relative min-h-[calc(100vh+14rem)] lg:min-h-[calc(100vh+34rem)]"
     >
-      <LandingImage
-        src="/landing/cutouts/car"
-        alt={carAlt}
-        sizes="(min-width: 1024px) 58vw, 90vw"
-        priority
-        className="absolute -translate-x-1/2 -translate-y-1/2"
-        style={{
-          insetInlineStart: `${HERO_CAR.startPct}%`,
-          top: `${HERO_CAR.topPct}%`,
-          width: `${HERO_CAR.widthPct}%`,
-          height: "auto",
-        }}
-      />
-      {HERO_PARTS.map((part) =>
-        reduceMotion ? (
-          <div key={part.name} className="pointer-events-none absolute inset-0">
-            <PartImage part={part} />
-          </div>
-        ) : (
-          <PartLayer key={part.name} part={part} progress={scrollYProgress} />
-        ),
-      )}
+      <div className="hero-pin sticky top-24 flex flex-col gap-6">
+        <div
+          role="group"
+          aria-label={label}
+          // The diagram is a physical object, not text. Left un-pinned, RTL flips
+          // `insetInlineStart` to measure from the right while the collapse
+          // translate below keeps computing a left-based delta, so every part moved
+          // outward instead of into the car and four of the nine clipped off-stage.
+          // `dir` (not a physical CSS property, so the logical-properties rule is
+          // untouched) makes start mean left in both locales, and stops Tailwind's
+          // `rtl:` variants applying to the layers inside.
+          dir="ltr"
+          className="hero-stage relative aspect-[16/11] w-full"
+        >
+          <LandingImage
+            src="/landing/cutouts/car"
+            alt={carAlt}
+            sizes="(min-width: 1024px) 58vw, 90vw"
+            priority
+            className="absolute -translate-x-1/2 -translate-y-1/2"
+            style={{
+              insetInlineStart: `${HERO_CAR.startPct}%`,
+              top: `${HERO_CAR.topPct}%`,
+              width: `${HERO_CAR.widthPct}%`,
+              height: "auto",
+            }}
+          />
+          {HERO_PARTS.map((part) =>
+            reduceMotion ? (
+              <div key={part.name} className="pointer-events-none absolute inset-0">
+                <PartImage part={part} />
+              </div>
+            ) : (
+              <PartLayer key={part.name} part={part} progress={scrollYProgress} />
+            ),
+          )}
+        </div>
+        <p className="font-mono text-caption text-graphite-400 motion-reduce:hidden">{hint}</p>
+      </div>
     </div>
   );
 }

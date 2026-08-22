@@ -74,17 +74,19 @@ export async function HeroV2() {
   const t = await getTranslations("Landing.beats.hero");
 
   return (
-    <section id="hero" className="overflow-hidden bg-graphite-950 text-graphite-50">
+    <section id="hero" className="overflow-x-clip bg-graphite-950 text-graphite-50">
       {/* The no-JS half of the pair described in globals.css: without it the
           stage's collapsed first frame would be the only frame. `noscript`
           takes raw HTML rather than children so React cannot escape the CSS. */}
       <noscript
         dangerouslySetInnerHTML={{
-          __html: "<style>.hero-stage > *{transform:none!important;opacity:1!important}</style>",
+          __html:
+            "<style>.hero-stage > *{transform:none!important;opacity:1!important}" +
+            ".hero-track{min-height:0!important}.hero-pin{position:static!important}</style>",
         }}
       />
       <div className="mx-auto grid max-w-container gap-8 border-x border-graphite-800 px-4 py-12 lg:grid-cols-[minmax(0,26rem)_minmax(0,1fr)] lg:gap-12 lg:px-8 lg:py-16">
-        <div className="flex flex-col gap-8">
+        <div className="flex flex-col gap-8 lg:sticky lg:top-24 lg:self-start">
           <div className="flex items-center gap-3">
             <span className="h-px w-12 bg-cta" />
             <p className="font-mono text-data text-graphite-300">{t("code")}</p>
@@ -125,10 +127,11 @@ export async function HeroV2() {
 
         <div className="flex flex-col gap-6">
           <p className="max-w-prose text-body text-graphite-200">{t("diagramLead")}</p>
-          <HeroStage label={t("diagramLabel")} carAlt={t("staticStateAlt")} />
-          <p className="font-mono text-caption text-graphite-400 motion-reduce:hidden">
-            {t("scrollHint")}
-          </p>
+          <HeroStage
+            label={t("diagramLabel")}
+            carAlt={t("staticStateAlt")}
+            hint={t("scrollHint")}
+          />
           <SystemIndex linkLabel={(name) => t("systemLinkLabel", { name })} />
         </div>
       </div>

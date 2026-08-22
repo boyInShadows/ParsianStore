@@ -48,6 +48,18 @@
       transform: none !important;
       opacity: 1 !important;
     }
+
+    /* The pin and its track exist only to hold the diagram still while the
+       separation plays. A visitor who never sees that motion would otherwise
+       scroll a screen and a half of deliberately empty space to get past a
+       picture that already shows its final state. */
+    .hero-track {
+      min-height: 0 !important;
+    }
+
+    .hero-pin {
+      position: static !important;
+    }
   }
 
   /* The interstitial plate's copy sits on the start-side third, so the scrim

@@ -137,10 +137,22 @@ test("reduced motion shows the separated diagram, never the collapsed frame", as
 
   // The collapsed first frame stacks every part on the car. Separated means
   // the layers occupy visibly different boxes.
-  const boxes = await page
-    .locator(".hero-stage img")
-    .evaluateAll((images) => images.map((image) => image.getBoundingClientRect().x));
-  expect(new Set(boxes.map(Math.round)).size).toBeGreaterThan(5);
+  //
+  // Polled rather than read once: the stage sits inside the pin and its track,
+  // and the reduced-motion rules that flatten both land a beat after `#hero`
+  // first exists, so a single synchronous read can catch every layer still
+  // sharing one x. The assertion is unchanged -- only the sampling waits for
+  // layout to settle instead of assuming it already has.
+  await expect
+    .poll(() =>
+      page
+        .locator(".hero-stage img")
+        .evaluateAll(
+          (images) =>
+            new Set(images.map((image) => Math.round(image.getBoundingClientRect().x))).size,
+        ),
+    )
+    .toBeGreaterThan(5);
 
   await context.close();
 });
