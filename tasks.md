@@ -235,10 +235,27 @@ decision before Phase 10 — it is a deploy-time failure mode, not a runtime one
       behind the text and stopped axe resolving a background. Moved to
       `graphite-400` (5.30:1). Verified by stashing the fix — axe goes green
       with the parts scattered, red with them tucked away.
-      **Known, not fixed:** the sequence still plays largely as the hero scrolls
-      off the top — the stage is 626px in a 900px viewport, so there is little
-      travel while it is fully visible. That is a composition change (pinned
-      stage), and S5 parts 2-3 rewrite this motion anyway.
+      ~~**Known, not fixed:** the sequence still plays largely as the hero
+      scrolls off the top.~~ **Fixed 2026-08-22, `cdd2319`** — see below.
+- [x] **Hero sticky stage (composition change).** ✅ 2026-08-22, `cdd2319`.
+      The stage now sits in a `.hero-track` (`min-h-[calc(100vh+14rem)]`,
+      `lg:…+34rem`) and is pinned by `.hero-pin` (`sticky top-24`). `useScroll`
+      binds to the **track**, not the stage — a pinned element's own box stops
+      moving and can never drive anything. With `["start start","end end"]` the
+      travel is the track height minus one viewport, and because the track is
+      `100vh + X` that travel is **exactly X on every screen** (544px desktop,
+      224px mobile) rather than drifting with window size. Measured at 1440×900
+      and 390×844: stage holds at viewport top 96, 100% visible from progress 0
+      through 1, all nine parts landing on their declared heroLayout positions.
+      Two blockers had to move first: the section's `overflow-hidden` made it a
+      scroll container and silently killed `sticky` (now `overflow-x-clip`,
+      which clips the same way without creating one, so the sideways-scroll e2e
+      guard still holds); and the left column is now `lg:sticky lg:top-24
+      lg:self-start` so the CTAs ride alongside instead of being stranded.
+      Reduced motion and no-JS **collapse the whole apparatus** (track → content
+      height, pin → static): verified 1444px → 626px, hero 1894px → 1149px, so
+      nobody scrolls a screen and a half of empty spacer for motion they never
+      see. Route JS **189KB** vs 192KB recorded after HeroV2 — no regression.
 - [ ] **P9.S13 — Brand wall + Deals.**
 - [ ] **P9.S14 — Closing beat, real contact, hides.** *(closes audit items 5 & 6)*
 - [ ] **P9.S15 — Closing ambience + footer pass.**
