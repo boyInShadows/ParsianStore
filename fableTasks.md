@@ -141,19 +141,58 @@ follow-up swap is noted in `tasks.md`.
 | `hf_20260819_174532_d8ff7b99….png` | `plate-engine.png` | keyframe 3 — engine bay |
 | `hf_20260819_174532_56166655….png` | `plate-body.png` | keyframe 4 — rear ¾, panels out |
 | `section1.mp4`…`section4.mp4` | `chapter-1.mp4`…`chapter-4.mp4` | see 3.3 |
+| *(new, Fable batch 2026-08-22)* | `car-stripped.png` + `sprite-{hood,door,fender,bumper,grille,headlight,windshield}.png` | docked-sprite hero set, §3.2 — owner downloads the background-removed versions from Higgsfield and drops them here |
 
 Raw originals move to `landing-src/` at repo root, **git-ignored**; only
 optimized outputs are committed (D2).
 
-### 3.2 Part renders → hero layers (after cutout swap)
+### 3.2 Hero layers — docked-sprite architecture (owner decision 2026-08-22)
 
-Ten transparent PNGs, 2048², become the hero's moving layers and the
-system-chip artwork: `car` (base), `headlight` `grille` `bumper` →
-front/lighting chapter; `piston` `alternator` `air-filter` → engine chapter;
-`door` `hood` `fender` `windshield` → body chapter. Every part layer is
-delivered through the S3 pipeline as AVIF/WebP at 480/768/1024w. The `car`
-cutout at hero size is the LCP candidate — `priority`, explicit dimensions,
-budgeted ≤90KB AVIF at the largest breakpoint.
+The hero is **one stripped base + seven docked sprites, all derived from the
+same `car.png` master** so perspective and lighting match by construction:
+
+- `car-stripped.png` — the base layer: the coupe with bumper, grille,
+  headlights, hood (bay exposed), driver door, driver fender, and windshield
+  removed. Transparent background. **This is the only base — there is no
+  complete-car layer.**
+- `sprite-hood.png` `sprite-door.png` `sprite-fender.png` `sprite-bumper.png`
+  `sprite-grille.png` `sprite-headlight.png` `sprite-windshield.png` —
+  transparent cutouts of each part at the master's exact angle and light.
+- At scroll 0 every sprite sits **docked** in its home position via a
+  coordinate map (`HeroV2/heroLayout.ts`, same pattern as
+  `explodedViewLayout.ts`) — the composite reads as a complete car. On
+  scroll, sprites undock per chapter and leave **real apertures**.
+- Docking tolerance: sprites and base are generative edits, not pixel crops —
+  expect small seams. Handle with (a) per-sprite `x/y/scale` calibration
+  values in `heroLayout.ts`, tuned visually; (b) undock begins with a subtle
+  lift + soft shadow so the eye reads motion, not rims; (c) sprites are cut
+  generously and sit above the base at dock.
+- Engine chapter: the hood sprite undocks to reveal the bay already present
+  in the stripped base; the three **standalone** cutouts (`piston.png`
+  `alternator.png` `air-filter.png`) rise from the bay — their neutral ¾
+  perspective is acceptable for free-floating parts.
+- The ten standalone cutouts keep their other jobs: system-chip artwork,
+  category pages, marketing — do not use them as docked sprites.
+- Pipeline: all hero layers through S3 as AVIF/WebP.
+  **Trim every sprite to its bounding box first** (`sharp().trim()` in the S3
+  script) — the raw removals keep the full square canvas with the part
+  floating in transparency, which bloats bytes and makes `heroLayout.ts`
+  coordinates meaningless; trimmed sprites give tight boxes to position.
+  Record each sprite's trim offset if needed for calibration.
+  ~~480/768/1024/1440w~~ **Amended at S5a: that ladder is unreachable.** The
+  masters are 1024² and the widest layer trims to 864px, so 1024 and 1440 could
+  only be produced by upscaling. Each trimmed asset instead contributes its own
+  native width as the top rung, with 480 kept for mobile and stock rungs within
+  10% of native dropped as redundant. Trimming stays **opt-in per group** — the
+  S2 cutouts are centred in 2048² frames and a global trim would move every
+  part on the shipped hero.
+  LCP element is `car-stripped.png` (`priority`, explicit dimensions,
+  ≤90KB AVIF at max breakpoint — **measured 19.9KB**); docked sprites load
+  eagerly but are small — combined sprite budget ≤120KB AVIF at max breakpoint
+  (**measured 78.7KB**).
+- Reduced motion / no JS: the docked composite is the final state — users
+  simply see a complete car. No separate fallback asset needed;
+  `plate-overhead.png` remains the social/meta poster only.
 
 ### 3.3 Videos and plates
 
@@ -271,13 +310,18 @@ drift — mirror the existing namespace's formality.
 
 **P9.S5 — HeroV2 scaffold (flagged).**
 Goal: `components/landing/HeroV2/` behind `NEXT_PUBLIC_LANDING_V2`: server
-shell; client scroll stage (`'use client'` justified) layering the cutouts;
-`useScroll`+`useTransform` drives three separation chapters
-(front → engine → body) with transform/opacity only; each part carries leader
-line + mono `SYS-xx` + real count (`getSystemPartCounts`) + link;
-`VehicleSelector` and the new OEM/SKU code action composed start-side;
-`plate-overhead.png` as the no-JS/reduced-motion final state. Files:
-`components/landing/HeroV2/*`, `app/[locale]/(shop)/page.tsx` (flag branch).
+shell; client scroll stage (`'use client'` justified) rendering
+`car-stripped.png` as the base with the seven sprites **docked** per
+`HeroV2/heroLayout.ts` (positions + per-sprite calibration, §3.2);
+`useScroll`+`useTransform` drives three undock chapters — front (headlight,
+grille, bumper), engine (hood lifts, bay revealed, the three standalone
+engine cutouts rise), body (door, fender, windshield) — transform/opacity
+only, each chapter re-docking before the next begins; each undocked part
+carries leader line + mono `SYS-xx` + real count (`getSystemPartCounts`) +
+link; `VehicleSelector` and the new OEM/SKU code action composed start-side;
+reduced-motion/no-JS final state = the docked composite (a complete car, free
+of charge). Files: `components/landing/HeroV2/*`,
+`app/[locale]/(shop)/page.tsx` (flag branch).
 Risk: the biggest step — if it can't land green in one commit, split scaffold
 (S5a: static composition) from motion (S5b: scroll binding) and tell the owner
 you did.
@@ -404,9 +448,11 @@ Explicitly parked, none blocking P9.S2–S17:
    regenerates car/door/hood/fender + 4 plates + 4 clips (+ optional GLBs) as
    a brand-free generic sedan nearer the Saipa/IKCO fleet. Owner runs this
    batch with Fable; the rename map in §3.1 makes it a drop-in swap.
-3. **Windshield.** Owner-supplied render; cutout + optional GLB pending its
-   upload to the generation pipeline. Until then the body chapter ships with
-   door/hood/fender only — the layout must not reserve a hole for it.
+3. **Windshield.** The hero's windshield sprite now comes from the car.png
+   master (§3.2) — nothing blocks the body chapter. The owner's own
+   `windshield.png` render remains useful for chip/category artwork and an
+   optional GLB; its upload to the generation pipeline is now low-priority,
+   not blocking.
 4. **Light-theme video siblings.** The two shipped clips are graphite-950
    plates and read as intentional workshop-dark in both themes; if the owner
    ever wants paper-light video, it is a regeneration batch (4 keyframes +

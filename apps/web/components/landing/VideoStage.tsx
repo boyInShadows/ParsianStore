@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 import { useReducedMotion } from "motion/react";
-import { POSTER_INTRINSIC } from "@/lib/landing-image";
 import { LandingImage } from "./LandingImage";
 
 /** The width below which no video bytes are fetched at all (fableTasks D3). */
@@ -53,10 +52,7 @@ export function VideoStage({ clip, alt, className = "", children }: Props) {
     <div className={`relative overflow-hidden bg-graphite-950 ${className}`}>
       <LandingImage
         src={`/landing/video/${clip}-poster`}
-        ladder="posters"
         alt={alt}
-        width={POSTER_INTRINSIC.width}
-        height={POSTER_INTRINSIC.height}
         sizes="100vw"
         className="absolute inset-0 h-full w-full object-cover"
       />

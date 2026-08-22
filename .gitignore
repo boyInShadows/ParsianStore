@@ -33,6 +33,11 @@ apps/api/uploads/
 # Inventory and provenance: docs/landing-assets.md.
 /landing-src/
 
+# Raw masters dropped into the output dir by mistake (this happened at P9.S5).
+# The pipeline only ever emits <name>-<width>.avif/.webp there, so a .png under
+# public/landing/ is always a misplaced source, never shipped output.
+apps/web/public/landing/**/*.png
+
 # misc
 .DS_Store
 *.pem

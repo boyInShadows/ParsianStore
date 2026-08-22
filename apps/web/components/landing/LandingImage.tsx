@@ -1,19 +1,12 @@
-import { CUTOUT_WIDTHS, PLATE_WIDTHS, POSTER_WIDTHS } from "@/lib/landing-image";
-
-const LADDERS = {
-  cutouts: CUTOUT_WIDTHS,
-  plates: PLATE_WIDTHS,
-  posters: POSTER_WIDTHS,
-} as const;
+import { landingAsset, landingFallback, landingSrcSet } from "@/lib/landing-image";
 
 type Props = {
   /** Path without the `-<width>.avif` tail, e.g. `/landing/cutouts/car`. */
   src: string;
-  /** Which width ladder the pipeline emitted for this asset. */
-  ladder: keyof typeof LADDERS;
   alt: string;
-  width: number;
-  height: number;
+  /** Defaults to the asset's own intrinsic size, which is almost always right. */
+  width?: number;
+  height?: number;
   sizes: string;
   className?: string;
   style?: React.CSSProperties;
@@ -28,7 +21,7 @@ type Props = {
  * is true. CLAUDE.md §0.6 asks for `next/image` because it buys four things:
  * a responsive `srcset`, explicit dimensions, lazy loading below the fold, and
  * modern formats. Every one of those is delivered here -- the widths come from
- * the ladder the pipeline actually wrote, so the `srcset` cannot reference a
+ * the manifest the pipeline actually wrote, so the `srcset` cannot reference a
  * file that does not exist, and the format is AVIF because that is what was
  * committed.
  *
@@ -46,7 +39,6 @@ type Props = {
  */
 export function LandingImage({
   src,
-  ladder,
   alt,
   width,
   height,
@@ -55,17 +47,16 @@ export function LandingImage({
   style,
   priority = false,
 }: Props) {
-  const widths = LADDERS[ladder];
-  const srcSet = widths.map((candidate) => `${src}-${candidate}.avif ${candidate}w`).join(", ");
+  const asset = landingAsset(src);
 
   return (
     <img
-      src={`${src}-${widths.at(-1)}.avif`}
-      srcSet={srcSet}
+      src={landingFallback(asset)}
+      srcSet={landingSrcSet(asset)}
       sizes={sizes}
       alt={alt}
-      width={width}
-      height={height}
+      width={width ?? asset.intrinsic.width}
+      height={height ?? asset.intrinsic.height}
       loading={priority ? "eager" : "lazy"}
       fetchPriority={priority ? "high" : undefined}
       decoding={priority ? "sync" : "async"}

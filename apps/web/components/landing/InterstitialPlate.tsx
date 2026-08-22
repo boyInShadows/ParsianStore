@@ -1,5 +1,4 @@
 import { getTranslations } from "next-intl/server";
-import { PLATE_INTRINSIC } from "@/lib/landing-image";
 import { LandingImage } from "./LandingImage";
 
 /**
@@ -25,10 +24,7 @@ export async function InterstitialPlate() {
     >
       <LandingImage
         src="/landing/plates/plate-body"
-        ladder="plates"
         alt={t("imageAlt")}
-        width={PLATE_INTRINSIC.width}
-        height={PLATE_INTRINSIC.height}
         sizes="100vw"
         className="absolute inset-0 -z-10 h-full w-full object-cover"
       />

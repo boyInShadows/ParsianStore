@@ -8,6 +8,7 @@
       },
       "hasAlpha": true,
       "mirrored": false,
+      "trim": null,
       "variants": [
         {
           "width": 480,
@@ -43,6 +44,7 @@
       },
       "hasAlpha": true,
       "mirrored": false,
+      "trim": null,
       "variants": [
         {
           "width": 480,
@@ -78,6 +80,7 @@
       },
       "hasAlpha": true,
       "mirrored": false,
+      "trim": null,
       "variants": [
         {
           "width": 480,
@@ -113,6 +116,7 @@
       },
       "hasAlpha": true,
       "mirrored": false,
+      "trim": null,
       "variants": [
         {
           "width": 480,
@@ -148,6 +152,7 @@
       },
       "hasAlpha": true,
       "mirrored": false,
+      "trim": null,
       "variants": [
         {
           "width": 480,
@@ -183,6 +188,7 @@
       },
       "hasAlpha": true,
       "mirrored": false,
+      "trim": null,
       "variants": [
         {
           "width": 480,
@@ -218,6 +224,7 @@
       },
       "hasAlpha": true,
       "mirrored": false,
+      "trim": null,
       "variants": [
         {
           "width": 480,
@@ -253,6 +260,7 @@
       },
       "hasAlpha": true,
       "mirrored": false,
+      "trim": null,
       "variants": [
         {
           "width": 480,
@@ -288,6 +296,7 @@
       },
       "hasAlpha": true,
       "mirrored": false,
+      "trim": null,
       "variants": [
         {
           "width": 480,
@@ -323,6 +332,7 @@
       },
       "hasAlpha": true,
       "mirrored": false,
+      "trim": null,
       "variants": [
         {
           "width": 480,
@@ -351,6 +361,256 @@
       ]
     }
   ],
+  "hero": [
+    {
+      "name": "car-stripped",
+      "intrinsic": {
+        "width": 823,
+        "height": 367
+      },
+      "hasAlpha": true,
+      "mirrored": false,
+      "trim": {
+        "canvas": {
+          "width": 1024,
+          "height": 1024
+        },
+        "left": 103,
+        "top": 333
+      },
+      "variants": [
+        {
+          "width": 480,
+          "height": 214,
+          "avif": 11062,
+          "webp": 18962
+        },
+        {
+          "width": 823,
+          "height": 367,
+          "avif": 20403,
+          "webp": 34624
+        }
+      ]
+    },
+    {
+      "name": "sprite-bumper",
+      "intrinsic": {
+        "width": 822,
+        "height": 232
+      },
+      "hasAlpha": true,
+      "mirrored": false,
+      "trim": {
+        "canvas": {
+          "width": 1024,
+          "height": 1024
+        },
+        "left": 102,
+        "top": 413
+      },
+      "variants": [
+        {
+          "width": 480,
+          "height": 135,
+          "avif": 5594,
+          "webp": 9440
+        },
+        {
+          "width": 822,
+          "height": 232,
+          "avif": 6229,
+          "webp": 11866
+        }
+      ]
+    },
+    {
+      "name": "sprite-door",
+      "intrinsic": {
+        "width": 761,
+        "height": 593
+      },
+      "hasAlpha": true,
+      "mirrored": false,
+      "trim": {
+        "canvas": {
+          "width": 1024,
+          "height": 1024
+        },
+        "left": 131,
+        "top": 211
+      },
+      "variants": [
+        {
+          "width": 480,
+          "height": 374,
+          "avif": 8621,
+          "webp": 15758
+        },
+        {
+          "width": 761,
+          "height": 593,
+          "avif": 12127,
+          "webp": 27644
+        }
+      ]
+    },
+    {
+      "name": "sprite-fender",
+      "intrinsic": {
+        "width": 815,
+        "height": 381
+      },
+      "hasAlpha": true,
+      "mirrored": false,
+      "trim": {
+        "canvas": {
+          "width": 1024,
+          "height": 1024
+        },
+        "left": 103,
+        "top": 328
+      },
+      "variants": [
+        {
+          "width": 480,
+          "height": 224,
+          "avif": 6783,
+          "webp": 12442
+        },
+        {
+          "width": 815,
+          "height": 381,
+          "avif": 8451,
+          "webp": 20642
+        }
+      ]
+    },
+    {
+      "name": "sprite-grille",
+      "intrinsic": {
+        "width": 786,
+        "height": 249
+      },
+      "hasAlpha": true,
+      "mirrored": false,
+      "trim": {
+        "canvas": {
+          "width": 1024,
+          "height": 1024
+        },
+        "left": 99,
+        "top": 396
+      },
+      "variants": [
+        {
+          "width": 480,
+          "height": 152,
+          "avif": 7477,
+          "webp": 15386
+        },
+        {
+          "width": 786,
+          "height": 249,
+          "avif": 11918,
+          "webp": 28402
+        }
+      ]
+    },
+    {
+      "name": "sprite-headlight",
+      "intrinsic": {
+        "width": 510,
+        "height": 575
+      },
+      "hasAlpha": true,
+      "mirrored": false,
+      "trim": {
+        "canvas": {
+          "width": 1024,
+          "height": 1024
+        },
+        "left": 262,
+        "top": 225
+      },
+      "variants": [
+        {
+          "width": 510,
+          "height": 575,
+          "avif": 20459,
+          "webp": 42316
+        }
+      ]
+    },
+    {
+      "name": "sprite-hood",
+      "intrinsic": {
+        "width": 841,
+        "height": 380
+      },
+      "hasAlpha": true,
+      "mirrored": false,
+      "trim": {
+        "canvas": {
+          "width": 1024,
+          "height": 1024
+        },
+        "left": 93,
+        "top": 316
+      },
+      "variants": [
+        {
+          "width": 480,
+          "height": 217,
+          "avif": 7917,
+          "webp": 11548
+        },
+        {
+          "width": 841,
+          "height": 380,
+          "avif": 10209,
+          "webp": 19236
+        }
+      ]
+    },
+    {
+      "name": "sprite-windshield",
+      "intrinsic": {
+        "width": 864,
+        "height": 440
+      },
+      "hasAlpha": true,
+      "mirrored": false,
+      "trim": {
+        "canvas": {
+          "width": 1024,
+          "height": 1024
+        },
+        "left": 62,
+        "top": 310
+      },
+      "variants": [
+        {
+          "width": 480,
+          "height": 244,
+          "avif": 7371,
+          "webp": 13932
+        },
+        {
+          "width": 768,
+          "height": 391,
+          "avif": 11950,
+          "webp": 27294
+        },
+        {
+          "width": 864,
+          "height": 440,
+          "avif": 11205,
+          "webp": 27840
+        }
+      ]
+    }
+  ],
   "plates": [
     {
       "name": "plate-body",
@@ -360,6 +620,7 @@
       },
       "hasAlpha": false,
       "mirrored": true,
+      "trim": null,
       "variants": [
         {
           "width": 480,
@@ -395,6 +656,7 @@
       },
       "hasAlpha": false,
       "mirrored": true,
+      "trim": null,
       "variants": [
         {
           "width": 480,
@@ -430,6 +692,7 @@
       },
       "hasAlpha": false,
       "mirrored": true,
+      "trim": null,
       "variants": [
         {
           "width": 480,
@@ -465,6 +728,7 @@
       },
       "hasAlpha": false,
       "mirrored": true,
+      "trim": null,
       "variants": [
         {
           "width": 480,
@@ -500,6 +764,7 @@
         "bytes": 1476432
       },
       "poster": {
+        "trim": null,
         "name": "chapter-2-poster",
         "intrinsic": {
           "width": 1920,
@@ -535,6 +800,7 @@
         "bytes": 1395592
       },
       "poster": {
+        "trim": null,
         "name": "chapter-4-poster",
         "intrinsic": {
           "width": 1920,

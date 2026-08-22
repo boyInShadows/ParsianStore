@@ -2,7 +2,6 @@
 
 import { useRef } from "react";
 import { motion, useReducedMotion, useScroll, useTransform, type MotionValue } from "motion/react";
-import { CUTOUT_INTRINSIC } from "@/lib/landing-image";
 import { LandingImage } from "../LandingImage";
 import {
   CHAPTER_RANGE,
@@ -45,10 +44,7 @@ function PartImage({ part }: { part: HeroPart }) {
   return (
     <LandingImage
       src={`/landing/cutouts/${part.name}`}
-      ladder="cutouts"
       alt=""
-      width={CUTOUT_INTRINSIC.width}
-      height={CUTOUT_INTRINSIC.height}
       sizes={`${part.widthPct}vw`}
       className="absolute -translate-x-1/2 -translate-y-1/2 rtl:translate-x-1/2"
       style={{
@@ -91,10 +87,7 @@ export function HeroStage({ label, carAlt }: Props) {
     >
       <LandingImage
         src="/landing/cutouts/car"
-        ladder="cutouts"
         alt={carAlt}
-        width={CUTOUT_INTRINSIC.width}
-        height={CUTOUT_INTRINSIC.height}
         sizes="(min-width: 1024px) 58vw, 90vw"
         priority
         className="absolute -translate-x-1/2 -translate-y-1/2 rtl:translate-x-1/2"
