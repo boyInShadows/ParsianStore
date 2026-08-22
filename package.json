@@ -19,7 +19,8 @@
     "test": "vitest run",
     "e2e": "playwright test",
     "optimize:landing": "node scripts/optimize-landing.mjs",
-    "prepare": "husky"
+    "prepare": "husky",
+    "check:hero": "node scripts/check-hero-registration.mjs"
   },
   "devDependencies": {
     "@axe-core/playwright": "4.12.1",
