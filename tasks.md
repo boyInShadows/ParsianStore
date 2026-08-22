@@ -258,7 +258,34 @@ decision before Phase 10 — it is a deploy-time failure mode, not a runtime one
       see. Route JS **189KB** vs 192KB recorded after HeroV2 — no regression.
 - [ ] **P9.S13 — Brand wall + Deals.**
 - [ ] **P9.S14 — Closing beat, real contact, hides.** *(closes audit items 5 & 6)*
-- [ ] **P9.S15 — Closing ambience + footer pass.**
+- [ ] **P9.S15 — Closing ambience + footer pass.** 🟡 **IN PROGRESS, UNCOMMITTED
+      — stopped mid-step 2026-08-23 at owner's request.** Code is written, `pnpm
+      lint` and `pnpm build` are green (route JS 189KB), but **e2e has not been
+      run since the ambience landed**, so this is deliberately not committed.
+      Dirty files: `ClosingBeat.tsx`, `layout/Footer.tsx`, `messages/fa.json`,
+      `styles/globals.css`.
+      Done so far:
+      (a) `chapter-4` wired as the closing beat's ambience via the existing
+      `VideoStage` (same §3.3 rules as the authenticity beat: desktop + motion
+      gets the clip, everything else the poster, zero video bytes below 1024px),
+      behind a new `.closing-scrim`. That scrim is **vertical**, so unlike
+      `.interstitial-scrim` it needs no RTL/LTR pair — `to top` means the same
+      in both. Uses `color-mix`, not an opacity modifier, because Tailwind
+      cannot apply one to an opaque `var()` colour (§6.8).
+      (b) New `Landing.beats.closing.ambienceAlt` in `fa.json`, in the same
+      "تصویر تزئینی" framing the other stages use.
+      (c) Footer now renders **every** channel from `CONTACT_CHANNELS` (was
+      phone only) and borrows its labels from `Landing.beats.closing.support`,
+      so footer and closing beat share one source for both values and labels
+      and cannot drift. Copyright year now goes through `toPersianDigits` — it
+      was the one place in the footer still rendering Latin digits.
+      **Next session, in order:** run `pnpm e2e e2e/landing-sections.spec.ts`
+      — pay particular attention to "mobile fetches zero video bytes", which now
+      has a second clip on the page and is the test most likely to catch a
+      mistake here; then add S15 e2e (e-Namad slot present, footer contact
+      matches `contact-info.ts`, vehicle/category columns resolve 200); then
+      commit. **Warm the dev servers first** — a cold `next dev` under ~10
+      Playwright workers produces phantom failures that look like real ones.
 - [ ] **P9.S16 — Regression suite.** *(closes audit item 7)*
 - [ ] **P9.S17 — Measure + hand off.**
 
