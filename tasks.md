@@ -258,34 +258,47 @@ decision before Phase 10 — it is a deploy-time failure mode, not a runtime one
       see. Route JS **189KB** vs 192KB recorded after HeroV2 — no regression.
 - [ ] **P9.S13 — Brand wall + Deals.**
 - [ ] **P9.S14 — Closing beat, real contact, hides.** *(closes audit items 5 & 6)*
-- [ ] **P9.S15 — Closing ambience + footer pass.** 🟡 **IN PROGRESS, UNCOMMITTED
-      — stopped mid-step 2026-08-23 at owner's request.** Code is written, `pnpm
-      lint` and `pnpm build` are green (route JS 189KB), but **e2e has not been
-      run since the ambience landed**, so this is deliberately not committed.
-      Dirty files: `ClosingBeat.tsx`, `layout/Footer.tsx`, `messages/fa.json`,
-      `styles/globals.css`.
-      Done so far:
-      (a) `chapter-4` wired as the closing beat's ambience via the existing
-      `VideoStage` (same §3.3 rules as the authenticity beat: desktop + motion
-      gets the clip, everything else the poster, zero video bytes below 1024px),
-      behind a new `.closing-scrim`. That scrim is **vertical**, so unlike
-      `.interstitial-scrim` it needs no RTL/LTR pair — `to top` means the same
-      in both. Uses `color-mix`, not an opacity modifier, because Tailwind
-      cannot apply one to an opaque `var()` colour (§6.8).
-      (b) New `Landing.beats.closing.ambienceAlt` in `fa.json`, in the same
-      "تصویر تزئینی" framing the other stages use.
-      (c) Footer now renders **every** channel from `CONTACT_CHANNELS` (was
-      phone only) and borrows its labels from `Landing.beats.closing.support`,
-      so footer and closing beat share one source for both values and labels
-      and cannot drift. Copyright year now goes through `toPersianDigits` — it
-      was the one place in the footer still rendering Latin digits.
-      **Next session, in order:** run `pnpm e2e e2e/landing-sections.spec.ts`
-      — pay particular attention to "mobile fetches zero video bytes", which now
-      has a second clip on the page and is the test most likely to catch a
-      mistake here; then add S15 e2e (e-Namad slot present, footer contact
-      matches `contact-info.ts`, vehicle/category columns resolve 200); then
-      commit. **Warm the dev servers first** — a cold `next dev` under ~10
-      Playwright workers produces phantom failures that look like real ones.
+- [x] **P9.S15 — Closing ambience + footer pass.** *(2026-08-24)*
+      (a) `chapter-4` stages the closing beat through the existing `VideoStage`
+      (§3.3 rules: desktop + motion gets the clip, everything else the poster,
+      zero video bytes below 1024px), behind a new `.closing-scrim`. That scrim
+      is **vertical**, so unlike `.interstitial-scrim` it needs no RTL/LTR pair
+      — `to top` means the same in both. `color-mix`, not an opacity modifier:
+      Tailwind cannot apply one to an opaque `var()` colour (§6.8).
+      (b) Footer renders **every** channel from `CONTACT_CHANNELS` (was phone
+      only) and borrows its labels from `Landing.beats.closing.support`, so the
+      footer and the beat share one source for values *and* labels and cannot
+      drift — asserted directly: the two must render an identical href set.
+      Copyright year now goes through `toPersianDigits`, the last Latin numeral
+      in the footer.
+      (c) **The footer pass found a real dead link and it is now fixed.** The
+      vehicle column had always pointed at `/vehicle/{make}` and that route did
+      not exist — both entries 404'd, the same class of failure the 2026-08-14
+      audit found one level down at `/vehicle/{make}/{model}` (item 1). Owner
+      chose to build the missing route rather than defer or drop the column:
+      new `app/[locale]/(shop)/vehicle/[make]/page.tsx` + `fetchMakeRoute`
+      (`lib/fetchers/vehicles.ts`) + `VehicleMakePage` messages. It is a
+      coverage list, not a card grid — model on the start side, its generations
+      as mono year chips on the end side, ruled rows; a model with no seeded
+      generation stays as plain text rather than getting a link that 404s.
+      Unlike the `*Safe` fetchers it separates **not-found from down**: an
+      unknown slug must 404 (degrading would tell a crawler the URL is real),
+      only a failing API may render the apiDown state.
+      DoD: `pnpm lint` clean · `pnpm test` 655/655 · `pnpm --filter web build`
+      green, landing route JS **189KB** (unchanged — the new page is its own
+      122KB route) · `pnpm e2e` **60/60**, including 13 new assertions
+      (`landing-sections.spec.ts` closing-ambience + footer blocks, new
+      `e2e/vehicle-make.spec.ts`) · axe 0 in light and dark on both the closing
+      beat and the new make page.
+      **Two environment traps hit while verifying, both worth knowing:**
+      `apps/api/.env` had a credential-less `MONGODB_URI` while the dedicated
+      27018 instance runs with `authorization: enabled` — the API connects
+      fine and then every query fails `Unauthorized`, which surfaces as
+      *sections silently missing from the page*, not as a database error.
+      And **never run `pnpm build` while `next dev` is serving**: they share
+      `.next`, the build clobbers the dev manifests mid-run, and the suite then
+      fails wholesale with ENOENT 500s that look like real regressions (cost
+      one 16-minute red run here).
 - [ ] **P9.S16 — Regression suite.** *(closes audit item 7)*
 - [ ] **P9.S17 — Measure + hand off.**
 

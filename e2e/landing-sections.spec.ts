@@ -425,3 +425,153 @@ test.describe("closing beat accessibility (S14)", () => {
     });
   }
 });
+
+test.describe("closing ambience (S15)", () => {
+  test("desktop stages the closing beat with chapter-4, decorative and silent", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto("/");
+    await page.locator("#hero").waitFor();
+
+    const video = page.locator("#closing video");
+    await expect(video).toHaveCount(1, { timeout: SECTION_RENDER });
+    await expect(video).toHaveAttribute("src", "/landing/video/chapter-4.mp4");
+    // Same guarantees the authenticity stage carries: silent, looping, and
+    // announced to nobody -- every fact in this beat is markup on top of it.
+    expect(await video.evaluate((node) => (node as HTMLVideoElement).muted)).toBe(true);
+    await expect(video).toHaveAttribute("loop", /.*/);
+    await expect(video).toHaveAttribute("aria-hidden", "true");
+
+    // The poster is the real content underneath, so it keeps a describing alt.
+    const poster = page.locator("#closing img");
+    await expect(poster).toHaveCount(1);
+    expect(await poster.getAttribute("srcset")).toContain("/landing/video/chapter-4-poster-");
+    expect((await poster.getAttribute("alt")) ?? "").not.toBe("");
+  });
+
+  test("mobile fetches zero video bytes with two clips on the page", async ({ page }) => {
+    const videoRequests: string[] = [];
+    page.on("request", (request) => {
+      if (request.url().includes("/landing/video/") && request.url().endsWith(".mp4")) {
+        videoRequests.push(request.url());
+      }
+    });
+
+    await page.setViewportSize(MOBILE);
+    await page.goto("/");
+    await page.locator("#hero").waitFor();
+    await expect(page.locator("#closing")).toHaveCount(1, { timeout: SECTION_RENDER });
+    // The videos mount on hydration, never in the SSR HTML, so the absence has
+    // to be given time to prove itself rather than measured before it could
+    // have happened.
+    await page.waitForTimeout(2_000);
+
+    // The page now carries two stages. The S11 version of this test could pass
+    // while a second clip downloaded, which is exactly the mistake this step
+    // could have made.
+    expect(videoRequests).toEqual([]);
+    await expect(page.locator("#closing video")).toHaveCount(0);
+    await expect(page.locator("#closing img")).toHaveCount(1);
+  });
+
+  test("reduced motion gets the poster, not the clip", async ({ browser }) => {
+    const context = await browser.newContext({
+      reducedMotion: "reduce",
+      viewport: { width: 1440, height: 900 },
+    });
+    const page = await context.newPage();
+    await page.goto("/");
+    await page.locator("#hero").waitFor();
+
+    await expect(page.locator("#closing")).toHaveCount(1, { timeout: SECTION_RENDER });
+    await expect(page.locator("#closing video")).toHaveCount(0);
+    await expect(page.locator("#closing img")).toHaveCount(1);
+    await context.close();
+  });
+
+  test("the copy stays readable over the ambience, in both themes", async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    for (const theme of ["light", "dark"] as const) {
+      await page.emulateMedia({ colorScheme: theme });
+      await page.goto("/");
+      await page.locator("#hero").waitFor();
+      await expect(page.locator("#closing")).toHaveCount(1, { timeout: SECTION_RENDER });
+
+      // Contrast is the whole reason the scrim exists: the beat is graphite-950
+      // copy-on-footage, and axe's colour-contrast rule is what proves the
+      // scrim is actually doing its job rather than merely being present.
+      const results = await new AxeBuilder({ page }).include("#closing").analyze();
+      expect(results.violations, `${theme} mode`).toEqual([]);
+    }
+  });
+});
+
+test.describe("footer (S15)", () => {
+  test("keeps a slot for each trust seal that is still unregistered", async ({ page }) => {
+    await page.goto("/");
+    await page.locator("footer").waitFor();
+
+    // Both seals are blocked on the business registration (masterPlan §11), so
+    // the footer reserves labelled slots rather than either faking a seal or
+    // silently leaving no room for one.
+    const seals = page.locator("footer [role='img']");
+    await expect(seals).toHaveCount(2);
+    await expect(seals.first()).toHaveAttribute("aria-label", /نماد اعتماد/);
+    await expect(seals.nth(1)).toHaveAttribute("aria-label", /نشان ملی/);
+  });
+
+  test("shows exactly the channels the closing beat shows", async ({ page }) => {
+    await page.goto("/");
+    await page.locator("#hero").waitFor();
+    await expect(page.locator("#closing")).toHaveCount(1, { timeout: SECTION_RENDER });
+
+    const hrefsIn = (selector: string) =>
+      page
+        .locator(
+          `${selector} a[href^='tel:'], ${selector} a[href^='https://t.me/'], ${selector} a[href*='wa.me']`,
+        )
+        .evaluateAll((anchors) =>
+          anchors.map((anchor) => anchor.getAttribute("href") ?? "").sort(),
+        );
+
+    const footerHrefs = await hrefsIn("footer");
+    // One source (lib/contact-info.ts) feeds both, so any drift between them is
+    // a bug in one of the two renderings rather than a data question.
+    expect(footerHrefs).toEqual(await hrefsIn("#closing"));
+    expect(footerHrefs).toEqual(["https://t.me/boyinshadows", "tel:+989120570658"]);
+
+    // Persian digits, same as the beat -- this is a Persian page (§7.5).
+    await expect(page.locator("footer a[href^='tel:']")).toHaveText("۰۹۱۲۰۵۷۰۶۵۸");
+    // Each link is named by its channel, so "۰۹۱۲…" and "@boyin…" are not two
+    // anonymous strings to a screen reader.
+    await expect(page.locator("footer a[href^='tel:']")).toHaveAttribute("aria-label", /\S+:/);
+  });
+
+  test("the copyright year renders in Persian digits", async ({ page }) => {
+    await page.goto("/");
+    await page.locator("footer").waitFor();
+    // It was the last Latin numeral in the footer.
+    const line = (await page.locator("footer").last().textContent()) ?? "";
+    expect(line).toMatch(/[۰-۹]{4}/);
+    expect(line).not.toMatch(/20\d{2}/);
+  });
+
+  test("every category and vehicle column link resolves", async ({ page }) => {
+    await page.goto("/");
+    await page.locator("footer").waitFor();
+
+    const hrefs = await page
+      .locator("footer a[href^='/c/'], footer a[href^='/vehicle/'], footer a[href^='/brand/']")
+      .evaluateAll((anchors) => anchors.map((anchor) => anchor.getAttribute("href") ?? ""));
+    // The columns are built from the real taxonomy and the real vehicle tree,
+    // so an empty set here means a fetch degraded rather than that there is
+    // nothing to check.
+    expect(hrefs.length).toBeGreaterThan(0);
+
+    for (const href of hrefs) {
+      const response = await page.request.get(href);
+      expect(response.status(), href).toBe(200);
+    }
+  });
+});

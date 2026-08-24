@@ -85,6 +85,21 @@
     );
   }
 
+  /* The closing beat's ambience clip sits behind full-width copy, so unlike
+     the interstitial's start-third scrim this one is vertical -- and a vertical
+     gradient needs no RTL/LTR pair, because `to top` means the same thing in
+     both. color-mix rather than an opacity modifier: Tailwind cannot apply one
+     to an opaque var() colour, so `bg-graphite-950/70` would silently generate
+     nothing (§6.8). */
+  .closing-scrim {
+    background: linear-gradient(
+      to top,
+      var(--color-graphite-950) 0%,
+      color-mix(in srgb, var(--color-graphite-950) 88%, transparent) 55%,
+      color-mix(in srgb, var(--color-graphite-950) 72%, transparent) 100%
+    );
+  }
+
   .hero-scrim {
     background: linear-gradient(
       to left,

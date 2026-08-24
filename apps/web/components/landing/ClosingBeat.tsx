@@ -2,6 +2,7 @@ import { getTranslations } from "next-intl/server";
 import { toPersianDigits } from "schemas";
 import { CONTACT_CHANNELS, type ContactChannelKind } from "@/lib/contact-info";
 import { Reveal } from "@/components/motion";
+import { VideoStage } from "./VideoStage";
 
 /**
  * The page's last beat: how it works, who to ask, and one way back to the top
@@ -14,7 +15,15 @@ import { Reveal } from "@/components/motion";
  * support channels that actually exist, and a single CTA that returns to the
  * vehicle selector, which is where every path on this page starts.
  *
- * Server component: real copy, real links, nothing interactive of its own.
+ * `chapter-4` stages it (fableTasks §3.3): the same rules as the authenticity
+ * beat -- desktop and motion-allowed get the clip, everything else gets its
+ * poster, and below 1024px no video bytes are fetched at all. It is atmosphere
+ * behind the copy, never evidence, so the alt says "decorative" and every real
+ * fact on the page lives in markup on top of it.
+ *
+ * Server component: real copy, real links, nothing interactive of its own. The
+ * one client leaf is VideoStage, which needs the viewport to decide whether to
+ * fetch video.
  */
 export async function ClosingBeat() {
   const t = await getTranslations("Landing.beats.closing");
@@ -33,8 +42,17 @@ export async function ClosingBeat() {
     <section
       id="closing"
       aria-labelledby="closing-heading"
-      className="border-t border-graphite-800 bg-graphite-950 text-graphite-50"
+      className="relative isolate border-t border-graphite-800 bg-graphite-950 text-graphite-50"
     >
+      <VideoStage
+        clip="chapter-4"
+        alt={t("ambienceAlt")}
+        className="absolute inset-0 -z-10 h-full w-full"
+      >
+        {/* Vertical scrim: the copy runs the full width here, so there is no
+            empty third to protect the way the interstitial plate has. */}
+        <div className="closing-scrim absolute inset-0" />
+      </VideoStage>
       <div className="mx-auto grid max-w-container gap-12 px-4 py-16 lg:grid-cols-[minmax(0,1fr)_minmax(0,22rem)] lg:gap-16 lg:px-8 lg:py-24">
         <div className="flex flex-col gap-8">
           <Reveal className="flex flex-col gap-3">

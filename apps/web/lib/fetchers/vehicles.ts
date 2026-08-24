@@ -136,3 +136,45 @@ export async function fetchVehicleRoute(
     return { ok: false, reason: "down" };
   }
 }
+
+export type MakeRouteResult =
+  | { ok: true; data: { make: VehicleMakeDto; models: VehicleModelWithGenerations[] } }
+  | { ok: false; reason: "not-found" | "down" };
+
+/**
+ * One make's whole subtree, for `/vehicle/[make]`.
+ *
+ * The footer's vehicle column has always linked here, and until this route
+ * existed both of its entries 404'd -- the same failure the 2026-08-14 audit
+ * found one level down (item 1). Generations arrive in one unfiltered request
+ * and are grouped locally, exactly as in
+ * `fetchVehicleTreeWithGenerationsSafe`: 23 models would otherwise mean 23
+ * sequential fetches to render one page.
+ *
+ * Unlike the `*Safe` helpers this distinguishes "no such make" from "the API is
+ * down", because a page must 404 for the first and degrade for the second --
+ * degrading on a typo'd slug would tell a crawler the URL is fine.
+ */
+export async function fetchMakeRoute(makeSlug: string): Promise<MakeRouteResult> {
+  try {
+    const make = (await fetchMakes()).find((item) => item.slug === makeSlug);
+    if (!make) return { ok: false, reason: "not-found" };
+
+    const [models, generations] = await Promise.all([fetchModels(make.id), fetchGenerations()]);
+    const byModel = new Map<string, VehicleGenDto[]>();
+    for (const generation of generations) {
+      byModel.set(generation.modelId, [...(byModel.get(generation.modelId) ?? []), generation]);
+    }
+    for (const list of byModel.values()) list.sort((a, b) => b.yearFrom - a.yearFrom);
+
+    return {
+      ok: true,
+      data: {
+        make,
+        models: models.map((model) => ({ model, generations: byModel.get(model.id) ?? [] })),
+      },
+    };
+  } catch {
+    return { ok: false, reason: "down" };
+  }
+}
