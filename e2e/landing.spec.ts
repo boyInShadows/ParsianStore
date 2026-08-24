@@ -148,6 +148,11 @@ test.describe("landing page visual regression (S16)", () => {
 
 test.describe("landing page link sweep (S16, audit item 7)", () => {
   test("every discovery link on the page resolves", async ({ page }) => {
+    // Forty-odd server renders in one test. The default 30s budget is written
+    // for a test that drives a page, not one that asks a dev server to compile
+    // a third of the site while nine other workers do the same -- it timed out
+    // here twice, both times with every link actually answering 200.
+    test.setTimeout(180_000);
     await openLanding(page, "light");
 
     // Internal links only: tel: and https://t.me/... are real destinations
@@ -163,16 +168,22 @@ test.describe("landing page link sweep (S16, audit item 7)", () => {
     // silently stopped rendering its links fail here rather than pass empty.
     expect(hrefs.length, "the landing page offers almost no way in").toBeGreaterThan(30);
 
-    // Asked twice before being called broken. Forty sequential SSR renders
-    // against one dev server that nine other workers are also compiling
-    // against will occasionally return a 500 that a second request serves
-    // fine -- that is the harness, not the page. A route that is genuinely
-    // missing answers 404 both times, so nothing real is retried away.
-    const broken: string[] = [];
-    for (const href of hrefs) {
+    // Six at a time rather than one after another: the wall-clock cost here is
+    // almost entirely the dev server's first compile of each route, and those
+    // overlap happily. Each link is asked twice before being called broken --
+    // under load a route occasionally 500s once and serves fine immediately
+    // after, while a genuinely missing one answers 404 both times, so nothing
+    // real is retried away.
+    const check = async (href: string) => {
       let status = (await page.request.get(href)).status();
       if (status !== 200) status = (await page.request.get(href)).status();
-      if (status !== 200) broken.push(`${status} ${href}`);
+      return status === 200 ? null : `${status} ${href}`;
+    };
+
+    const broken: string[] = [];
+    for (let index = 0; index < hrefs.length; index += 6) {
+      const batch = await Promise.all(hrefs.slice(index, index + 6).map(check));
+      broken.push(...batch.filter((entry): entry is string => entry !== null));
     }
     expect(broken).toEqual([]);
   });

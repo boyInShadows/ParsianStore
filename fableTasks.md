@@ -21,7 +21,8 @@ file is your plan of record. Non-negotiables, restated from the repo's own law:
    properties only** (`ms- me- ps- pe- start- end-`; never `ml- mr- pl- pr-`
    `left right text-left text-right`).
 5. Server Components by default; every `'use client'` carries a one-line
-   justification comment (house style: `ExplodedView.tsx`).
+   justification comment (house style: `VideoStage.tsx` -- `ExplodedView.tsx`
+   was the original pointer here and S16 deleted it).
 6. Every image through `next/image`, explicit dimensions, AVIF+WebP,
    above-the-fold `priority`, everything else lazy.
 7. All user-facing strings in `apps/web/messages/fa.json` (`Landing` namespace).
@@ -156,40 +157,40 @@ same `car.png` master** so perspective and lighting match by construction:
   removed. Transparent background. **This is the only base — there is no
   complete-car layer.**
 - `sprite-hood.png` `sprite-door.png` `sprite-fender.png` `sprite-bumper.png`
-  `sprite-grille.png` `sprite-headlight.png` `sprite-windshield.png` —
-  transparent cutouts of each part at the master's exact angle and light.
-- At scroll 0 every sprite sits **docked** in its home position via a
-  coordinate map (`HeroV2/heroLayout.ts`, same pattern as
-  `explodedViewLayout.ts`) — the composite reads as a complete car. On
-  scroll, sprites undock per chapter and leave **real apertures**.
-- Docking tolerance: sprites and base are generative edits, not pixel crops —
-  expect small seams. Handle with (a) per-sprite `x/y/scale` calibration
-  values in `heroLayout.ts`, tuned visually; (b) undock begins with a subtle
-  lift + soft shadow so the eye reads motion, not rims; (c) sprites are cut
-  generously and sit above the base at dock.
+  `sprite-grille.png` `sprite-headlights.png` `sprite-windshield.png` —
+  **in-place isolations, not product shots**: each sprite is the source
+  frame with everything except that part erased, so the part keeps its
+  native position, size and perspective on the full canvas.
+  `sprite-headlights.png` deliberately contains **both** headlights (the
+  base removed both; they undock together in chapter 1).
+- Dock = **stack at 0,0**. All layers share the source frame, so at scroll 0
+  the base plus all seven sprites, un-transformed, reconstruct the complete
+  car. `HeroV2/heroLayout.ts` holds **undock vectors** per chapter (and
+  optional micro-calibration), not dock positions.
+- Acceptance gate: `pnpm check:hero <source.png>` (agent commit `869ac9e`,
+  reasoning in `docs/landing-hero-sprite-brief.md`) must pass before any
+  sprite enters the repo. A sprite that fails registration is regenerated
+  individually — never nudged into place with transforms, because shading
+  baked for another pose cannot be rotated honestly (measured: the v1
+  centered batch missed by up to ~62° on the hood; discarded).
+- Undock still begins with a subtle lift + soft shadow so residual seams
+  read as motion.
 - Engine chapter: the hood sprite undocks to reveal the bay already present
   in the stripped base; the three **standalone** cutouts (`piston.png`
   `alternator.png` `air-filter.png`) rise from the bay — their neutral ¾
   perspective is acceptable for free-floating parts.
 - The ten standalone cutouts keep their other jobs: system-chip artwork,
   category pages, marketing — do not use them as docked sprites.
-- Pipeline: all hero layers through S3 as AVIF/WebP.
-  **Trim every sprite to its bounding box first** (`sharp().trim()` in the S3
-  script) — the raw removals keep the full square canvas with the part
-  floating in transparency, which bloats bytes and makes `heroLayout.ts`
-  coordinates meaningless; trimmed sprites give tight boxes to position.
-  Record each sprite's trim offset if needed for calibration.
-  ~~480/768/1024/1440w~~ **Amended at S5a: that ladder is unreachable.** The
-  masters are 1024² and the widest layer trims to 864px, so 1024 and 1440 could
-  only be produced by upscaling. Each trimmed asset instead contributes its own
-  native width as the top rung, with 480 kept for mobile and stock rungs within
-  10% of native dropped as redundant. Trimming stays **opt-in per group** — the
-  S2 cutouts are centred in 2048² frames and a global trim would move every
-  part on the shipped hero.
+- Pipeline: all hero layers through S3 as AVIF/WebP at 480/768/1024/1440w.
+  **Do not trim sprites naively** — full-canvas 0,0 stacking is the
+  registration contract, and a trimmed sprite loses its position. Ship
+  full-canvas AVIF for v1 (large transparent areas compress to almost
+  nothing). If bytes demand it later, `sharp().trim()` may be used **only**
+  with the reported trim offsets re-applied as layout transforms, and
+  `pnpm check:hero` re-run on the trimmed set.
   LCP element is `car-stripped.png` (`priority`, explicit dimensions,
-  ≤90KB AVIF at max breakpoint — **measured 19.9KB**); docked sprites load
-  eagerly but are small — combined sprite budget ≤120KB AVIF at max breakpoint
-  (**measured 78.7KB**).
+  ≤90KB AVIF at max breakpoint); docked sprites load eagerly but are small —
+  combined sprite budget ≤120KB AVIF at max breakpoint.
 - Reduced motion / no JS: the docked composite is the final state — users
   simply see a complete car. No separate fallback asset needed;
   `plate-overhead.png` remains the social/meta poster only.
@@ -283,6 +284,18 @@ Every step ends: lint ✓ test ✓ build ✓ · DoD (§0.10) ✓ · commit
 `<type>(web): [P9.Sn] <subject>` pushed. "Files" lists the primary surface,
 not an exhaustive diff.
 
+> **Status, 2026-08-25 — S2 through S17 are shipped and pushed.** Live state
+> per step lives in `tasks.md`, which is the log; this file stays the plan as
+> written so the two can be compared. Two things landed differently from the
+> text below and are worth reading before trusting a step's wording:
+> **S5's hero** shipped its scaffold and pinned stage, but parts 2-3 (dock
+> calibration and undock motion) are blocked on the sprite batch -- §3.2's
+> contract was rewritten mid-flight around in-place isolation and
+> `pnpm check:hero`, and batch 2 scored 3 of 7. **S15 and S16** each found a
+> live dead-link family the plan had not anticipated (the footer's vehicle
+> column, then the header's category menu and the seven policy pages); all
+> three are resolved, and the newly deferred items are in §7.
+
 **P9.S2 — Asset hygiene.**
 Goal: `public/landing/` exists with the §3.1 names; `landing-src/` holds the
 57MB originals, git-ignored; a `public/landing/README.md` records the map and
@@ -311,8 +324,10 @@ drift — mirror the existing namespace's formality.
 **P9.S5 — HeroV2 scaffold (flagged).**
 Goal: `components/landing/HeroV2/` behind `NEXT_PUBLIC_LANDING_V2`: server
 shell; client scroll stage (`'use client'` justified) rendering
-`car-stripped.png` as the base with the seven sprites **docked** per
-`HeroV2/heroLayout.ts` (positions + per-sprite calibration, §3.2);
+`car-stripped.png` and the seven in-place sprites stacked at 0,0 on the same
+full-canvas stage (§3.2 — `pnpm check:hero` must pass on the shipped set
+before this step starts); `heroLayout.ts` holds per-chapter **undock
+vectors**;
 `useScroll`+`useTransform` drives three undock chapters — front (headlight,
 grille, bumper), engine (hood lifts, bay revealed, the three standalone
 engine cutouts rise), body (door, fender, windshield) — transform/opacity
@@ -467,6 +482,32 @@ Explicitly parked, none blocking P9.S2–S17:
 9. **Scrub-driven hero upgrade** (video scrubbing instead of transform
    separation) — possible later via frame-sequence encode; costs transfer
    weight; only worth revisiting after v1 ships and is measured.
+
+10. **The seven policy pages** — `/about /contact /faq /returns /warranty
+    /privacy /terms`. masterPlan §5 names the routes; none has ever been
+    built, so the footer was linking seven 404s. Found by S16's link sweep;
+    the owner chose to **hide** the column (`POLICY_COLUMN_HIDDEN` in
+    `layout/Footer.tsx`, the same named-flag pattern Newsletter and
+    GuidesTeaser use) rather than defer with dead links live. `/contact` and
+    `/faq` could be written today from facts the codebase already enforces
+    (the real phone and Telegram, the five seeded couriers, Zarinpal, the
+    authenticity record, guest checkout). The four legal pages need copy only
+    the owner can write: returns window, warranty terms, privacy practices,
+    terms of sale. Flip the flag once routes exist.
+
+11. **A brand mark / favicon.** `GET /favicon.ico` 404s on every page load —
+    no `app/icon.*` exists and there is no logo asset in `public/brand/`
+    beyond a hero photo. Costs a Lighthouse best-practices point and gives
+    every browser tab a blank icon. Needs a real mark from the owner, not an
+    invented one.
+
+12. **`/api/v1/auth/me` logs a 401 to the console for signed-out visitors.**
+    Correct behaviour — the endpoint is auth-only and the client asks on every
+    load — but the browser logs every failed request, which is the other half
+    of that same best-practices deduction. Fixing it means either not calling
+    the endpoint without a session cookie or having it answer 200 with
+    `{ authenticated: false }`: an API contract change, so it belongs to a
+    backend step rather than to the landing rebuild.
 
 ---
 

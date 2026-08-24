@@ -13,7 +13,7 @@ import { PartCodeSearch } from "./PartCodeSearch";
  * (see heroLayout.ts), so the diagram alone cannot carry ten destinations. The
  * index does, with each system's mono code and its real product count.
  */
-async function SystemIndex({ linkLabel }: { linkLabel: (name: string) => string }) {
+async function SystemIndex({ linkAction }: { linkAction: string }) {
   const t = await getTranslations("Landing.beats.hero");
   const counts = await getSystemPartCounts();
 
@@ -37,7 +37,6 @@ async function SystemIndex({ linkLabel }: { linkLabel: (name: string) => string 
             <li key={system.code} className="border-b border-graphite-800">
               <a
                 href={`/c/${system.slug}`}
-                aria-label={linkLabel(system.name.fa)}
                 className="flex min-h-12 items-center justify-between gap-3 py-3 text-graphite-100 transition-colors hover:text-brand focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus motion-reduce:transition-none"
               >
                 <span className="flex items-center gap-3">
@@ -49,6 +48,17 @@ async function SystemIndex({ linkLabel }: { linkLabel: (name: string) => string 
                     {t("partsCount", { count })}
                   </span>
                 ) : null}
+                {/* The action, added to the accessible name rather than
+                    replacing it. An `aria-label` here used to override the
+                    whole name with "سیستم موتور — مشاهده قطعات" while the link
+                    reads "SYS-01 موتور ۳۲ قطعه" on screen -- a WCAG 2.5.3
+                    (Label in Name, level A) failure, because a voice-control
+                    user saying what they can see would not match the name.
+                    Playwright's axe run does not catch it: the rule is one of
+                    axe's experimental set and off by default. Lighthouse
+                    enables it, which is how P9.S17's measurement pass found
+                    it. */}
+                <span className="sr-only">{linkAction}</span>
               </a>
             </li>
           );
@@ -139,7 +149,7 @@ export async function HeroV2() {
             carAlt={t("staticStateAlt")}
             hint={t("scrollHint")}
           />
-          <SystemIndex linkLabel={(name) => t("systemLinkLabel", { name })} />
+          <SystemIndex linkAction={t("systemLinkAction")} />
         </div>
       </div>
     </section>

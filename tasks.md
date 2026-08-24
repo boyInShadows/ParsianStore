@@ -256,8 +256,15 @@ decision before Phase 10 — it is a deploy-time failure mode, not a runtime one
       height, pin → static): verified 1444px → 626px, hero 1894px → 1149px, so
       nobody scrolls a screen and a half of empty spacer for motion they never
       see. Route JS **189KB** vs 192KB recorded after HeroV2 — no regression.
-- [ ] **P9.S13 — Brand wall + Deals.**
-- [ ] **P9.S14 — Closing beat, real contact, hides.** *(closes audit items 5 & 6)*
+- [x] **P9.S13 — Brand wall + Deals.** *(`11f82d5`)* Marquee pauses on hover
+      and for reduced motion (CSS backstop included, so the SSR paint is covered
+      too); Deals renders nothing at all until live deals exist, asserted as an
+      absence rather than left to inspection.
+- [x] **P9.S14 — Closing beat, real contact, hides.** *(`ad2223f`, closes audit
+      items 5 & 6)* Three end-of-page sections folded into one beat; real
+      owner-supplied phone and Telegram in `lib/contact-info.ts` with WhatsApp
+      absent rather than dead-linked; Numbers deleted, Newsletter and Guides
+      behind named `SECTION_HIDDEN` flags.
 - [x] **P9.S15 — Closing ambience + footer pass.** *(2026-08-24)*
       (a) `chapter-4` stages the closing beat through the existing `VideoStage`
       (§3.3 rules: desktop + motion gets the clip, everything else the poster,
@@ -338,7 +345,40 @@ decision before Phase 10 — it is a deploy-time failure mode, not a runtime one
       about something else.
       DoD: `pnpm lint` clean · `pnpm test` **657/657** · build green, landing
       route JS **189KB** unchanged · `pnpm e2e` **78/78, twice in a row**.
-- [ ] **P9.S17 — Measure + hand off.**
+- [x] **P9.S17 — Measure + hand off.** *(2026-08-25 — Phase 9 landing rebuild
+      complete: S2–S17 all shipped)*
+      Clean production build + Lighthouse 13.4.1 re-run on the exact P4.S7
+      methodology (mobile 360x640 DPR 2, `--throttling-method=devtools`,
+      against `pnpm --filter web start`). Full numbers and the comparison table
+      are in `docs/performance-landing.md`, which now carries a P9.S17 section
+      alongside the P4.S7 baseline rather than overwriting it.
+      **Route JS 189KB** against §10's 180KB budget — over, knowingly, and
+      unchanged since S5 put the scroll stage in. S13/S15/S16 and this build
+      all measure the same 189: three steps of new work (a second video stage,
+      a whole new route, a regression suite) added zero route JS because all of
+      it is server components, CSS or test code. Framer sub-budget **39.9KB
+      gz** vs 45KB, still uncontaminated by other libraries.
+      **LCP 1.9s** (budget 2.0, was 1.7 at P4.S7 — margin is thinner and that
+      is stated rather than rounded away) · **CLS 0.032** (budget 0.05) ·
+      **TBT 130ms** · perf **97** · a11y **100** · SEO **100**.
+      **Zero video bytes on mobile, measured not asserted**: the network log
+      for a real production run contains no `.mp4` at all with two clips on the
+      page. Images total 88.9KB across 10 requests against a 1.2MB budget.
+      **The pass found and fixed a WCAG 2.5.3 (Label in Name, level A)
+      failure the e2e suite structurally could not see.** The hero's ten system
+      links had `aria-label="سیستم موتور — مشاهده قطعات"` while reading
+      `SYS-01 موتور ۳۲ قطعه` on screen, so the accessible name did not contain
+      the visible label — a voice-control user saying what they see would not
+      match. The action moved into an `sr-only` span inside the link, which
+      appends to the name instead of replacing it. **Why the suite missed it:**
+      `label-content-name-mismatch` is in axe's *experimental* set and off by
+      default in `@axe-core/playwright`; Lighthouse enables it. Axe at zero is
+      necessary, not sufficient — worth remembering for every future a11y DoD.
+      **Left open, both small and both logged in fableTasks §7 (items 10–12):**
+      the seven policy pages (column hidden, four of them need owner legal
+      copy), a real favicon/brand mark (`/favicon.ico` 404s on every load), and
+      `/api/v1/auth/me`'s guest 401 logging a console error — together they are
+      the whole of the 96/100 best-practices score.
 
 ### Environment note — `pnpm test` is flaky in parallel on this machine (found P9.S2)
 
