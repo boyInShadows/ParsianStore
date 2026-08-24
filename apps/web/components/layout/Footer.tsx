@@ -5,6 +5,23 @@ import { fetchBrands } from "@/lib/fetchers/brands";
 import { fetchMakesSafe } from "@/lib/fetchers/vehicles";
 import { CONTACT_CHANNELS, type ContactChannelKind } from "@/lib/contact-info";
 
+/**
+ * Hidden on purpose, not broken -- the same named-flag pattern `GuidesTeaser`
+ * and `Newsletter` use, for the same reason.
+ *
+ * P9.S16's link sweep found every one of these seven 404ing: masterPlan §5
+ * names the routes but none has ever been built, so the footer was advertising
+ * seven dead ends to real visitors. The column stays absent rather than
+ * dead-linked, exactly as WhatsApp is absent from the contact list and Deals
+ * renders nothing at all.
+ *
+ * The four legal pages need copy only the owner can write (returns window,
+ * warranty terms, privacy practices, terms of sale) -- that is what this is
+ * waiting on, not code. Flip to `false` once the routes exist; the labels and
+ * hrefs below are already the right ones.
+ */
+const POLICY_COLUMN_HIDDEN = true;
+
 const POLICY_LINKS = [
   { label: "درباره ما", href: "/about" },
   { label: "تماس با ما", href: "/contact" },
@@ -77,11 +94,15 @@ export async function Footer() {
 
   return (
     <footer className="border-t border-border bg-surface">
-      <div className="mx-auto grid max-w-container grid-cols-2 gap-6 px-4 py-8 sm:grid-cols-5">
+      <div
+        className={`mx-auto grid max-w-container grid-cols-2 gap-6 px-4 py-8 ${
+          POLICY_COLUMN_HIDDEN ? "sm:grid-cols-4" : "sm:grid-cols-5"
+        }`}
+      >
         <FooterColumn title="دسته‌بندی‌ها" links={categoryLinks} />
         <FooterColumn title="برندهای خودرو" links={vehicleLinks} />
         <FooterColumn title="برندهای قطعه" links={brandLinks} />
-        <FooterColumn title="راهنما" links={POLICY_LINKS} />
+        {POLICY_COLUMN_HIDDEN ? null : <FooterColumn title="راهنما" links={POLICY_LINKS} />}
         <div className="flex flex-col gap-2">
           <h2 className="text-body-sm font-semibold text-text">ارتباط با ما</h2>
           <p className="text-body-sm text-text-muted">تهران، ایران</p>

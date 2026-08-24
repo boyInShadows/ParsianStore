@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { CATALOG_SYSTEMS } from "schemas";
 import { Drawer, Modal } from "@/components/primitives";
 import { ThemeToggle } from "@/components/theme/theme-toggle";
 import { VehicleSelectorLazy } from "@/components/garage";
@@ -19,15 +20,32 @@ export interface HeaderMessages {
 
 type Props = { messages: HeaderMessages };
 
-// Real system-category vocabulary from masterPlan.md §1.2 / §3.1 -- the
-// mechanic persona's own terms, not invented labels.
-const CATEGORIES = [
-  { label: "موتوری", slug: "engine" },
-  { label: "جلوبندی", slug: "suspension" },
-  { label: "برقی", slug: "electrical" },
-  { label: "بدنه", slug: "body" },
-  { label: "ترمز", slug: "brake" },
-];
+// The five systems this nav surfaces, named by their catalogue code and
+// resolved to a real slug at module load -- P9.S16's link sweep found three of
+// the five hardcoded slugs here ("suspension", "body", "brake") 404ing, the
+// exact drift the footer had already been fixed for: the real slugs are
+// "suspension-steering", "body-exterior" and "brakes"
+// (packages/schemas/catalogSystems.ts). Taking the slug from the source of
+// truth means the link cannot rot again; a code that stops existing throws at
+// import rather than shipping a dead menu entry.
+//
+// The labels stay local and stay short: this is the mechanic persona's own
+// shorthand (masterPlan §1.2 / §3.1), deliberately terser than the catalogue's
+// full names, which are written for a category page heading and are too long
+// for a nav row.
+const NAV_SYSTEMS = [
+  { code: "SYS-01", label: "موتوری" },
+  { code: "SYS-03", label: "جلوبندی" },
+  { code: "SYS-05", label: "برقی" },
+  { code: "SYS-06", label: "بدنه" },
+  { code: "SYS-04", label: "ترمز" },
+] as const;
+
+const CATEGORIES = NAV_SYSTEMS.map(({ code, label }) => {
+  const system = CATALOG_SYSTEMS.find((entry) => entry.code === code);
+  if (!system) throw new Error(`Header nav references unknown catalog system ${code}`);
+  return { label, slug: system.slug };
+});
 
 export function Header({ messages }: Props) {
   const [categoriesOpen, setCategoriesOpen] = useState(false);

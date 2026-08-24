@@ -299,7 +299,45 @@ decision before Phase 10 — it is a deploy-time failure mode, not a runtime one
       `.next`, the build clobbers the dev manifests mid-run, and the suite then
       fails wholesale with ENOENT 500s that look like real regressions (cost
       one 16-minute red run here).
-- [ ] **P9.S16 — Regression suite.** *(closes audit item 7)*
+- [x] **P9.S16 — Regression suite.** *(closes audit item 7, 2026-08-25)*
+      New `e2e/landing.spec.ts` guards the page **as a page**: 9 full-page
+      screenshots (360/390/1440 x light/dark, plus reduced-motion at each
+      width), a link sweep, and axe across all six width/theme combinations.
+      Legacy hero deleted for real -- `Hero.tsx`, `ExplodedView.tsx`,
+      `explodedViewLayout.ts` -- along with the 14 message namespaces they and
+      the S9/S14 deletions had orphaned, in **both** catalogs.
+      **The sweep found two live families of dead links, both now fixed:**
+      (a) `Header.tsx`'s five-item category menu carried three stale slugs
+      (`suspension`/`body`/`brake` vs the real `suspension-steering`/
+      `body-exterior`/`brakes`) -- the identical drift the footer had already
+      been fixed for. It now names systems by **code** and resolves the slug
+      from `CATALOG_SYSTEMS` at module load, so it cannot rot again and an
+      unknown code throws at import instead of shipping a dead menu.
+      (b) The footer's «راهنما» column linked seven policy pages that have
+      never existed (`/about /contact /faq /returns /warranty /privacy
+      /terms`). Owner chose **hide, not defer**: `POLICY_COLUMN_HIDDEN`, the
+      same named-flag pattern Newsletter and GuidesTeaser use. The four legal
+      pages need copy only the owner can write; that is what it waits on.
+      **Three test-craft notes worth keeping:**
+      *Masks.* The first version masked all six API-backed sections and the
+      footer; since they sit next to each other the baseline came out with one
+      magenta slab over ~40% of the page and could not have caught anything.
+      Only `<video>` is masked now — the seed is committed and idempotent, so
+      a deliberate reseed is the one thing that invalidates a baseline, and
+      the answer to that is `--update-snapshots`, not a permanent blindfold.
+      *Flake.* `360px light` failed once in a parallel run and passed alone:
+      lazy images below the fold and an unswapped webfont. `settleForCapture`
+      scrolls once, awaits `document.fonts.ready`, then waits (**bounded** —
+      awaiting each image's own load event hung outright, since a lazy image
+      that never enters the viewport stays `complete === false` forever).
+      *Link sweep* asks twice before calling a link broken: 40 sequential SSR
+      renders under 10 workers occasionally 500, a real 404 answers twice.
+      `mergeCatalogs` is now exported and tested directly — its old tests
+      asserted merge semantics through whichever copy happened to exist in
+      both catalogs, so deleting a dead namespace broke a test that was really
+      about something else.
+      DoD: `pnpm lint` clean · `pnpm test` **657/657** · build green, landing
+      route JS **189KB** unchanged · `pnpm e2e` **78/78, twice in a row**.
 - [ ] **P9.S17 — Measure + hand off.**
 
 ### Environment note — `pnpm test` is flaky in parallel on this machine (found P9.S2)

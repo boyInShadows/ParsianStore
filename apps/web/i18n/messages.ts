@@ -30,12 +30,19 @@ function isTree(value: MessageValue | undefined): value is MessageTree {
  * Arrays are replaced wholesale rather than merged element-by-element: these
  * are ordered lists of copy, so an index-wise merge would splice two languages
  * into one list.
+ *
+ * Exported for its own test. It used to be asserted through whichever real
+ * copy happened to exist in both catalogs, which meant deleting a dead
+ * namespace at P9.S16 broke a test about merge semantics -- the test was
+ * really asserting that two specific sections still existed. Its rules are
+ * worth pinning directly; which sections exist is a different question, asked
+ * elsewhere in the same file.
  */
-function merge(base: MessageTree, override: MessageTree): MessageTree {
+export function mergeCatalogs(base: MessageTree, override: MessageTree): MessageTree {
   const merged: Record<string, MessageValue> = { ...base };
   for (const [key, value] of Object.entries(override)) {
     const fallback = merged[key];
-    merged[key] = isTree(value) && isTree(fallback) ? merge(fallback, value) : value;
+    merged[key] = isTree(value) && isTree(fallback) ? mergeCatalogs(fallback, value) : value;
   }
   return merged;
 }
@@ -57,6 +64,6 @@ export function getMessages(locale: Locale): AbstractIntlMessages {
   const tree =
     locale === routing.defaultLocale
       ? CATALOGS[locale]
-      : merge(CATALOGS[routing.defaultLocale], CATALOGS[locale]);
+      : mergeCatalogs(CATALOGS[routing.defaultLocale], CATALOGS[locale]);
   return tree as unknown as AbstractIntlMessages;
 }

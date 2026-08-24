@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import fa from "../messages/fa.json";
 
-import { getMessages } from "./messages.js";
+import { getMessages, mergeCatalogs } from "./messages.js";
 
 /** Every leaf string in a message tree, keyed by its dotted path. */
 function flatten(tree: unknown, prefix = ""): Record<string, string> {
@@ -95,13 +95,33 @@ describe("getMessages", () => {
 
   it("lets a translated key win over the Persian fallback", () => {
     const en = getMessages("en") as unknown as typeof fa;
-    expect(en.Landing.sections.hero.headline).not.toBe(fa.Landing.sections.hero.headline);
+    // `meta` is translated in both catalogs, so this is the fallback actually
+    // stepping aside rather than never being reached.
+    expect(en.Landing.meta.title).not.toBe(fa.Landing.meta.title);
+    expect(en.Landing.meta.title).toMatch(/[A-Za-z]/);
   });
 
-  it("replaces message arrays wholesale instead of splicing two languages", () => {
+  it("keeps a Persian-only array intact rather than dropping it", () => {
     const en = getMessages("en") as unknown as typeof fa;
-    const symptoms = en.Landing.sections.symptomFinder.items;
-    expect(new Set(symptoms).size).toBe(symptoms.length);
-    expect(symptoms.some((item) => /[؀-ۿ]/.test(item))).toBe(false);
+    // The rebuilt beats ship Persian-only, so an /en visitor reads Persian
+    // here. Untranslated is the honest state; missing would be a broken page.
+    expect(en.Landing.beats.symptomFinder.items).toEqual(fa.Landing.beats.symptomFinder.items);
+  });
+});
+
+describe("mergeCatalogs", () => {
+  it("replaces message arrays wholesale instead of splicing two languages", () => {
+    // Index-wise merging would return ["one", "ب", "ج"] -- one list carrying
+    // two languages, which is worse than either language alone.
+    const merged = mergeCatalogs({ list: ["الف", "ب", "ج"] }, { list: ["one"] });
+    expect(merged.list).toEqual(["one"]);
+  });
+
+  it("merges nested trees key by key instead of replacing the branch", () => {
+    const merged = mergeCatalogs(
+      { page: { title: "عنوان", hint: "راهنما" } },
+      { page: { title: "Title" } },
+    );
+    expect(merged.page).toEqual({ title: "Title", hint: "راهنما" });
   });
 });
