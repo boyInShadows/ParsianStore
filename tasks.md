@@ -198,19 +198,43 @@ decision before Phase 10 — it is a deploy-time failure mode, not a runtime one
         manifest instead of hand-written ladders. Budgets measured: base
         **19.9KB** (≤90), 7 sprites **78.7KB** combined (≤120). See standing
         decisions 4 and 5.
-  - [ ] **Part 2/3 — dock calibration + static composite.** Hand-tune each
-        sprite's position **and CSS 3D rotation** in `heroLayout.ts` until the
-        at-rest composite reads as one complete car. Owner decision 2026-08-22:
-        close the perspective gap with `rotateX/Y/Z` under a **stage-level**
-        `perspective` (one shared camera — per-element `perspective()` gives
-        each sprite its own and won't read as one object) rather than
-        regenerating the batch at the base's angle. Two known traps: the
-        sprites are neutral product shots (door/fender are dead-on profiles,
-        headlight is a face-on circle needing to become a tilted ellipse), and
-        **RTL flips the dock** — `insetInlineStart` mirrors while the unmirrored
-        car does not, so the stage needs `direction: ltr` (a CSS property, not a
-        banned physical direction property; the car is an object, not text).
-  - [ ] **Part 3/3 — undock motion.** Chapters re-driven dock → free, rotations
+  - [x] **Part 2/3 — dock calibration + static composite.** ✅ 2026-08-25.
+        **The shipped sprites were batch 1, not batch 2.** Part 1 ran the
+        pipeline at 20:08; the owner's replacement batch landed at 21:46, after
+        that commit, and was never processed — so every "the sprites are
+        centred product shots, docking is hopeless" note was measuring the wrong
+        files. Re-ran `pnpm optimize:landing` against batch 2 first, pruned 22
+        orphaned batch-1 variants, renamed `sprite-headlight` →
+        `sprite-headlights` (§3.2 wants both lamps), and moved `source-car.png`
+        to `landing-src/hero-reference/` so the pipeline stops treating a
+        reference master as a shippable layer. Sprite budget **78.7KB → 45.7KB**.
+        **Four of the seven need no calibration at all** — bumper, grille,
+        fender and door are true in-place isolations whose trim boxes land on
+        their own apertures, so `heroLayout.ts` docks them at native
+        registration and holds a *delta* for the other three rather than an
+        absolute position for all seven. Hood (scale 0.66, rotateZ −4°),
+        windshield (scale 0.37) and the lamps were calibrated by rendering the
+        real CSS-3D stage in Playwright and measuring each layer's alpha bbox in
+        canvas coordinates — not by eye. `HERO_FRAME_WIDTH_PCT` 72 → 92: at 72
+        the car was 58% of the stage wide and a third of it tall, floating in
+        empty graphite. `HeroStage` is now a **server component** (the docked
+        car has a correct resting frame, so it needs no JS) — route JS 189KB →
+        **184KB**.
+  - [x] **Reduced-motion backstop inverted, as warned.** `globals.css`'s
+        `.hero-stage > * { transform: none !important }` and its `<noscript>`
+        twin are **deleted**, not adjusted. They existed to jump a
+        reduced-motion visitor from the collapsed first frame to the separated
+        end state; against a docked car the same rule scatters every part for
+        exactly the visitor who asked for less movement. Part 3's backstop must
+        PIN the docked transform, never clear it. `landing-hero.spec.ts` proves
+        the inverse geometrically: under `reducedMotion: "reduce"` all 8 layer
+        boxes must still overlap the base's box.
+  - [ ] **Part 3/3 — undock motion.** Re-adds `'use client'`, the
+        `.hero-track` / `.hero-pin` scaffolding (removed in part 2 rather than
+        left as dead scroll behind a static picture), and `Landing.beats.hero.
+        scrollHint`, which part 2 deliberately stopped rendering because
+        "pull the page down to separate the parts" was a promise a static
+        composite does not keep. The key is still in `fa.json`, unused, waiting. Chapters re-driven dock → free, rotations
         animating toward 0 so each part turns to face the viewer as it leaves.
         `globals.css`'s `.hero-stage > * { transform: none !important }`
         reduced-motion backstop **must be revisited** — `transform: none` would
@@ -379,6 +403,21 @@ decision before Phase 10 — it is a deploy-time failure mode, not a runtime one
       copy), a real favicon/brand mark (`/favicon.ico` 404s on every load), and
       `/api/v1/auth/me`'s guest 401 logging a console error — together they are
       the whole of the 96/100 best-practices score.
+
+### Environment note — `pnpm build` poisons the e2e dev server (found P9.S5 part 2)
+
+`pnpm build` writes production output into `apps/web/.next`, the same directory
+`next dev` uses. Run the two in one session — which every step's DoD requires —
+and the dev server Playwright starts next reads a mixed cache and throws
+`SyntaxError: Unexpected non-whitespace character after JSON at position 741` on
+**every** server render, with `page: '/fa'` attached. The visible symptom is not
+a JSON error though: pages come back without `data-theme`, so `landing.spec.ts`
+fails 9 tests at `openLanding`'s theme assertion and it reads like a theming
+regression. Retries do not help; the corruption is persistent.
+
+`rm -rf apps/web/.next` fixes it, and 30/30 pass immediately after. So the
+order that works is **lint → test → build → `rm -rf apps/web/.next` → e2e**, or
+just clear it before any e2e run that follows a build.
 
 ### Environment note — `pnpm test` is flaky in parallel on this machine (found P9.S2)
 

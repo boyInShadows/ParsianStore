@@ -1,159 +1,163 @@
-"use client"; // scroll-linked transforms -- useScroll/useTransform need the client
-
-import { useRef } from "react";
-import { motion, useReducedMotion, useScroll, useTransform, type MotionValue } from "motion/react";
+import { landingAsset } from "@/lib/landing-image";
 import { LandingImage } from "../LandingImage";
 import {
-  CHAPTER_RANGE,
-  COLLAPSED_OPACITY,
-  COLLAPSED_SCALE,
-  HERO_CAR,
-  HERO_PARTS,
-  type HeroPart,
+  HERO_BASE_ASSET,
+  HERO_CANVAS,
+  HERO_FRAME_WIDTH_PCT,
+  HERO_LAYERS,
+  HERO_PERSPECTIVE_CQW,
+  type HeroClip,
+  type HeroDock,
+  type HeroLayer,
 } from "./heroLayout";
 
 type Props = {
   /** Accessible name for the whole diagram. */
   label: string;
-  /** Alt text for the assembled vehicle at the centre of the stage. */
+  /** Alt text for the assembled vehicle the layers add up to. */
   carAlt: string;
-  /** "Scroll to separate the parts" -- pinned with the stage, so it is on screen
-   *  for exactly as long as the invitation is true. */
-  hint: string;
 };
 
-/** Stage-percentage translate that puts a part exactly on the car once the
- *  collapsed scale is applied about the stage centre. */
-function collapsed(carPct: number, partPct: number): number {
-  return Number((COLLAPSED_SCALE * (carPct - partPct)).toFixed(3));
-}
+/** Roughly how wide the stage itself is, for `sizes`. */
+const STAGE_VW = { desktop: 55, mobile: 92 } as const;
+
+const pct = (value: number) => `${((value / HERO_CANVAS) * 100).toFixed(4)}%`;
 
 /**
- * One part layer. The wrapper is inset-0, so a percentage translate on it is a
- * percentage of the STAGE, not of the little image inside -- which is what lets
- * the layout live in plain CSS (`start`/`top`) while motion only ever moves a
- * delta. Scaling the wrapper scales about the stage centre, i.e. about the car,
- * so "tucked inside the vehicle" falls out of the geometry for free.
+ * Where a layer's box lands on the canvas, from the trim offsets the pipeline
+ * recorded plus this layer's calibration.
+ *
+ * The scale is taken about the box's own centre -- `(intrinsic - scaled) / 2`
+ * is that recentring. Scaling from the top-left corner instead would drag every
+ * resized part up and to the start side, which is what makes a "just make it
+ * smaller" nudge move a part that was already in the right place.
  */
-function PartLayer({ part, progress }: { part: HeroPart; progress: MotionValue<number> }) {
-  const [from, to] = CHAPTER_RANGE[part.chapter];
-  // `transform: translate(T) scale(s)` about the stage centre O maps a point to
-  // O + T + s*(p - O), so landing a part ON the car needs T = s*(O - p). The
-  // scale factor was missing here, making T too large by 1/s and overshooting
-  // every part to the OPPOSITE side of the car at 45% of its distance -- which
-  // is why the "collapsed" first frame showed nine parts ringing the vehicle
-  // instead of tucked inside it.
-  const x = useTransform(
-    progress,
-    [from, to],
-    [`${collapsed(HERO_CAR.startPct, part.startPct)}%`, "0%"],
-  );
-  const y = useTransform(
-    progress,
-    [from, to],
-    [`${collapsed(HERO_CAR.topPct, part.topPct)}%`, "0%"],
-  );
-  const scale = useTransform(progress, [from, to], [COLLAPSED_SCALE, 1]);
-  const opacity = useTransform(progress, [from, to], [COLLAPSED_OPACITY, 1]);
+function place(assetName: string, dock: HeroDock) {
+  const asset = landingAsset(`/landing/hero/${assetName}`);
+  if (!asset.trim) {
+    throw new Error(
+      `Hero layer "${assetName}" is untrimmed, so it carries no registration. ` +
+        `Re-run \`pnpm optimize:landing\` -- the hero group must trim (scripts/optimize-landing.mjs).`,
+    );
+  }
+  const width = asset.intrinsic.width * dock.scale;
+  const height = asset.intrinsic.height * dock.scale;
+  return {
+    width,
+    height,
+    left: asset.trim.left + (asset.intrinsic.width - width) / 2 + dock.dx,
+    top: asset.trim.top + (asset.intrinsic.height - height) / 2 + dock.dy,
+  };
+}
 
+/** The layer's rendered width in viewport terms, so `srcset` picks a real rung. */
+function sizesFor(width: number) {
+  const share = (width / HERO_CANVAS) * (HERO_FRAME_WIDTH_PCT / 100);
+  const desktop = Math.max(1, Math.round(share * STAGE_VW.desktop));
+  const mobile = Math.max(1, Math.round(share * STAGE_VW.mobile));
+  return `(min-width: 1024px) ${desktop}vw, ${mobile}vw`;
+}
+
+function transformFor(dock: HeroDock) {
+  // Always all three, always in this order: an undock animation interpolates
+  // between two transform strings, and the browser only interpolates them
+  // componentwise when the function lists match.
   return (
-    <motion.div className="pointer-events-none absolute inset-0" style={{ x, y, scale, opacity }}>
-      <PartImage part={part} />
-    </motion.div>
+    `rotateX(${dock.rotateX ?? 0}deg) ` +
+    `rotateY(${dock.rotateY ?? 0}deg) ` +
+    `rotateZ(${dock.rotateZ ?? 0}deg)`
   );
 }
 
-function PartImage({ part }: { part: HeroPart }) {
+function clipFor(clip: HeroClip | undefined) {
+  return clip ? `inset(${clip.top}% ${clip.right}% ${clip.bottom}% ${clip.left}%)` : undefined;
+}
+
+function Layer({ layer, index }: { layer: HeroLayer; index: number }) {
+  const box = place(layer.asset, layer.dock);
   return (
     <LandingImage
-      src={`/landing/cutouts/${part.name}`}
+      src={`/landing/hero/${layer.asset}`}
       alt=""
-      sizes={`${part.widthPct}vw`}
-      className="absolute -translate-x-1/2 -translate-y-1/2"
+      sizes={sizesFor(box.width)}
+      className="absolute"
       style={{
-        insetInlineStart: `${part.startPct}%`,
-        top: `${part.topPct}%`,
-        width: `${part.widthPct}%`,
+        insetInlineStart: pct(box.left),
+        top: pct(box.top),
+        width: pct(box.width),
         height: "auto",
+        transform: transformFor(layer.dock),
+        clipPath: clipFor(layer.clip),
+        zIndex: index + 2,
       }}
     />
   );
 }
 
 /**
- * The page's one orchestrated sequence (masterPlan §5 motion budget): the
- * vehicle's parts separate outward as the hero scrolls past. Transform and
- * opacity only, no layout properties, no new animation library -- `motion` was
- * already on this route and scroll-linked transforms add no bundle weight of
- * their own.
+ * The hero's vehicle: a stripped body with seven parts docked back onto it, so
+ * what the page opens with is a *complete* car (fableTasks §3.2).
  *
- * Reduced motion returns the final state instantly and never subscribes to
- * scroll at all. `globals.css` carries a `prefers-reduced-motion` backstop for
- * the SSR paint that lands before this component hydrates, and a `<noscript>`
- * rule for the visitor whose JS never arrives -- without them the first frame
- * (progress 0, everything collapsed into the car) would be the *only* frame.
+ * A server component, and that is the point of this step. The v1 stage was a
+ * client leaf whose whole job was to hold nine parts collapsed inside the car
+ * until scroll pulled them out; the docked model has a correct, finished first
+ * frame, so the resting composition needs no JavaScript at all. Part 3 adds
+ * the undock motion back on top of exactly this markup.
+ *
+ * `dir="ltr"` on the stage is deliberate and is not a physical-direction
+ * violation (CLAUDE.md §6): every layer is positioned with `insetInlineStart`,
+ * and the renders are never mirrored, so in Persian the sprites would mirror
+ * around a car that does not -- a bumper docking onto the rear. The car is an
+ * object, not text, so the object's own frame is pinned while the page around
+ * it stays RTL.
  */
-export function HeroStage({ label, carAlt, hint }: Props) {
-  const trackRef = useRef<HTMLDivElement>(null);
-  const reduceMotion = useReducedMotion();
-  // Bound to the TRACK, not the stage. The stage is pinned, so its own box
-  // stops moving and could never drive anything; the track is what scrolls.
-  // ["start start", "end end"] makes the travel exactly the track's height minus
-  // one viewport -- and since the track is `100vh + X`, that travel is exactly X
-  // at every breakpoint instead of a number that shifts with window size.
-  const { scrollYProgress } = useScroll({
-    target: trackRef,
-    offset: ["start start", "end end"],
-  });
+export function HeroStage({ label, carAlt }: Props) {
+  const base = place(HERO_BASE_ASSET, { dx: 0, dy: 0, scale: 1 });
 
   return (
-    // The track only exists to buy scroll distance: `100vh` keeps the pinned
-    // stage on screen for a full viewport, and the extra is the distance the
-    // separation actually plays over. Reduced motion and no-JS collapse both
-    // this and the pin back to nothing (globals.css) -- an empty screen-height
-    // spacer would be pure dead scroll for a visitor who never sees the motion.
     <div
-      ref={trackRef}
-      className="hero-track relative min-h-[calc(100vh+14rem)] lg:min-h-[calc(100vh+34rem)]"
+      role="group"
+      aria-label={label}
+      dir="ltr"
+      className="hero-stage relative aspect-[16/11] w-full"
+      // The container-query context the frame's `perspective` measures against.
+      style={{ containerType: "inline-size" }}
     >
-      <div className="hero-pin sticky top-24 flex flex-col gap-6">
-        <div
-          role="group"
-          aria-label={label}
-          // The diagram is a physical object, not text. Left un-pinned, RTL flips
-          // `insetInlineStart` to measure from the right while the collapse
-          // translate below keeps computing a left-based delta, so every part moved
-          // outward instead of into the car and four of the nine clipped off-stage.
-          // `dir` (not a physical CSS property, so the logical-properties rule is
-          // untouched) makes start mean left in both locales, and stops Tailwind's
-          // `rtl:` variants applying to the layers inside.
-          dir="ltr"
-          className="hero-stage relative aspect-[16/11] w-full"
-        >
-          <LandingImage
-            src="/landing/cutouts/car"
-            alt={carAlt}
-            sizes="(min-width: 1024px) 58vw, 90vw"
-            priority
-            className="absolute -translate-x-1/2 -translate-y-1/2"
-            style={{
-              insetInlineStart: `${HERO_CAR.startPct}%`,
-              top: `${HERO_CAR.topPct}%`,
-              width: `${HERO_CAR.widthPct}%`,
-              height: "auto",
-            }}
-          />
-          {HERO_PARTS.map((part) =>
-            reduceMotion ? (
-              <div key={part.name} className="pointer-events-none absolute inset-0">
-                <PartImage part={part} />
-              </div>
-            ) : (
-              <PartLayer key={part.name} part={part} progress={scrollYProgress} />
-            ),
-          )}
-        </div>
-        <p className="font-mono text-caption text-graphite-400 motion-reduce:hidden">{hint}</p>
+      {/* The 1024² master frame, centred in the stage. Every layer inside is
+          positioned as a percentage of THIS box, which is what makes the trim
+          offsets the pipeline recorded usable as dock coordinates.
+
+          `perspective` belongs here and nowhere else: one shared camera for
+          all eight layers. Written per layer it would give each sprite its own
+          vanishing point, and the composite would stop reading as one car. */}
+      <div
+        className="absolute aspect-square"
+        style={{
+          insetInlineStart: "50%",
+          top: "50%",
+          width: `${HERO_FRAME_WIDTH_PCT}%`,
+          transform: "translate(-50%, -50%)",
+          perspective: `${HERO_PERSPECTIVE_CQW}cqw`,
+          transformStyle: "preserve-3d",
+        }}
+      >
+        <LandingImage
+          src={`/landing/hero/${HERO_BASE_ASSET}`}
+          alt={carAlt}
+          sizes={sizesFor(base.width)}
+          priority
+          className="absolute"
+          style={{
+            insetInlineStart: pct(base.left),
+            top: pct(base.top),
+            width: pct(base.width),
+            height: "auto",
+            zIndex: 1,
+          }}
+        />
+        {HERO_LAYERS.map((layer, index) => (
+          <Layer key={layer.id} layer={layer} index={index} />
+        ))}
       </div>
     </div>
   );

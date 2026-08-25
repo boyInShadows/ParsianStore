@@ -35,32 +35,19 @@
     color: var(--text);
   }
 
-  /* Backstops for the hero's scroll-separated diagram (P9.S5). The stage's
-     first frame is "every part collapsed into the car", which is correct only
-     while JS is live and the visitor can scroll it apart. Two cases would
-     otherwise be stuck on that frame forever: the SSR paint that lands before
-     HeroStage hydrates for a reduced-motion visitor, and the visitor whose JS
-     never arrives at all. Both get the final, separated state instead --
-     "reduced motion = instant final state", not a frozen first frame.
-     !important because motion writes the collapsed transform inline. */
-  @media (prefers-reduced-motion: reduce) {
-    .hero-stage > * {
-      transform: none !important;
-      opacity: 1 !important;
-    }
+  /* The hero's docked-sprite car (P9.S5 part 2) needs no motion backstop, and
+     the one that used to live here would now do damage. It read
+     `.hero-stage > * { transform: none !important }`, written when the stage's
+     first frame was "every part collapsed into the car" and reduced motion had
+     to jump to the separated end state. The docked model inverts that: the
+     resting frame IS the finished car, the dock transforms are inline on the
+     layers, and clearing them would undock every sprite -- scattering the parts
+     for exactly the visitor who asked for less movement. There is also nothing
+     left to back-stop: the stage is a server component, so its correct state is
+     in the SSR paint whether or not JavaScript ever arrives.
 
-    /* The pin and its track exist only to hold the diagram still while the
-       separation plays. A visitor who never sees that motion would otherwise
-       scroll a screen and a half of deliberately empty space to get past a
-       picture that already shows its final state. */
-    .hero-track {
-      min-height: 0 !important;
-    }
-
-    .hero-pin {
-      position: static !important;
-    }
-  }
+     Part 3 adds the undock animation. Its backstop must PIN the docked
+     transform, never clear it. */
 
   /* The interstitial plate's copy sits on the start-side third, so the scrim
      is heaviest there and thins out across the artwork. CSS gradients take no

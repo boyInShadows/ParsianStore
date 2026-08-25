@@ -56,28 +56,43 @@ fleet. The names above make that a drop-in swap — no code changes, same paths.
 
 ## `landing-src/hero/` — 1 stripped base + 7 docked sprites (P9.S5)
 
-Added 2026-08-22. The docked-sprite hero set (`fableTasks.md` §3.2): one car
-with parts removed, plus a cutout of each removed part. At scroll 0 the sprites
-sit docked in their home positions and the composite reads as a complete car;
-on scroll they undock and leave real apertures.
+The docked-sprite hero set (`fableTasks.md` §3.2): one car with parts removed,
+plus a cutout of each removed part. At rest the sprites sit docked in their home
+positions and the composite reads as a complete car; on scroll they undock and
+leave real apertures.
+
+**Two batches exist, and the second is the one that ships.** Batch 1 (2026-08-22
+20:08) came back as hero-framed product shots — each part centred and filled to
+its own 1024² canvas — and is what P9.S5 part 1 put through the pipeline. Batch 2
+arrived the same evening (21:46), after that commit, and was still unprocessed
+when part 2 opened; running `pnpm optimize:landing` against it is the first thing
+part 2 did. Batch 1 is kept at `landing-src/hero-batch1/` because the two share
+`car-stripped.png` byte for byte and the difference between them is the whole
+argument for how the sprites are placed.
 
 1024×1024 PNG, 8-bit RGBA. Alpha is **binary** — ~83% of pixels fully
 transparent, ~17% near-opaque, and under 0.2% in the semi-transparent band, so
 the Higgsfield removal left clean hard mattes with no grey halo to composite
-around. 1.1–1.4MB each. The owner dropped these into
-`apps/web/public/landing/` by mistake; they were moved here and each rename was
-verified by re-measuring its alpha bounding box, not by trusting the order.
+around. 0.8–1.4MB each.
 
-| File | Contents | Was | Trimmed box in the 1024² master |
+| File | Contents | Trimmed box in the 1024² master | Batch 1's box |
 |---|---|---|---|
-| `car-stripped.png` | the coupe with bumper, grille, headlights, hood, driver door, driver fender and windshield removed; engine bay and interior exposed | `incompleteCar.png` | 823×367 @ 103,333 |
-| `sprite-hood.png` | hood panel | `hf_20260822_163517_5236f36e….png` | 841×380 @ 93,316 |
-| `sprite-door.png` | driver door with glass and mirror | `hf_20260822_163520_d08f5557….png` | 761×593 @ 131,211 |
-| `sprite-fender.png` | front fender | `hf_20260822_163523_10974f72….png` | 815×381 @ 103,328 |
-| `sprite-bumper.png` | front chrome bumper bar | `hf_20260822_163526_dfbe5ba6….png` | 822×232 @ 102,413 |
-| `sprite-grille.png` | chrome slatted grille | `hf_20260822_163532_40c7d0d2….png` | 786×249 @ 99,396 |
-| `sprite-headlight.png` | round sealed-beam headlight | `hf_20260822_163536_7fb1b73f….png` | 510×575 @ 262,225 |
-| `sprite-windshield.png` | windshield glass with wipers | `hf_20260822_163539_5281354c….png` | 864×440 @ 62,310 |
+| `car-stripped.png` | the coupe with bumper, grille, headlights, hood, driver door, driver fender and windshield removed; engine bay and interior exposed | 823×367 @ 103,333 | identical |
+| `sprite-bumper.png` | front chrome bumper bar | **374×100 @ 98,529** | 822×232 @ 102,413 |
+| `sprite-grille.png` | chrome slatted grille | **241×77 @ 136,473** | 786×249 @ 99,396 |
+| `sprite-fender.png` | front fender with wheel arch | **291×189 @ 363,438** | 815×381 @ 103,328 |
+| `sprite-door.png` | driver door with glass and mirror | **157×232 @ 643,351** | 761×593 @ 131,211 |
+| `sprite-hood.png` | hood panel | 737×208 @ 142,412 | 841×380 @ 93,316 |
+| `sprite-windshield.png` | windshield glass with wipers | 762×345 @ 131,339 | 864×440 @ 62,310 |
+| `sprite-headlights.png` | **both** round sealed-beam headlights | 680×306 @ 171,359 | 510×575 @ 262,225 (one lamp) |
+
+**Four of batch 2's seven are in-place isolations, and that is measurable.**
+Bumper, grille, fender and door trim to boxes that land on their own apertures
+in the base — the bumper's 374×100 @ 98,529 sits exactly across the nose, the
+grille's 241×77 @ 136,473 exactly in the front face. Those four dock at native
+registration with no calibration at all. Hood, windshield and headlights came
+back re-framed, at up to three times aperture size, and carry a measured scale
+and offset in `components/landing/HeroV2/heroLayout.ts`.
 
 **`car-stripped.png` is not a mask of `cutouts/car.png`.** Measured at S5: a
 per-pixel diff shows 56% of body pixels changed, spread across the whole car
@@ -86,18 +101,24 @@ generations that happen to share framing (silhouette bounding boxes agree to
 ~6px). So dock coordinates cannot be derived by differencing the two, and the
 sprites cannot be cut out of the complete car.
 
-**The sprites are hero-framed product shots, not in-place renders.** Each is
-centred and filled to its own canvas — `sprite-door` trims to 761×593 while the
-entire car is 823×367 — so the trim offsets recorded in the manifest do **not**
-give dock positions either. Docking is hand-calibrated in
-`components/landing/HeroV2/heroLayout.ts`.
+**`sprite-headlights.png` cannot dock as one layer.** Its two lamps are 380px
+apart at 303px across; the base's two sockets are ~280 canvas px apart at ~50
+across. No single scale seats both, so the render is placed twice and
+`clip-path`-ed to one lamp each — one download, two placements.
 
-**Their camera angles are neutral, not matched to the base.** The base is a ¾
-front-left view; `door` and `fender` are dead-on side profiles and `headlight`
-is a face-on circle. Owner decision 2026-08-22: close the gap with CSS 3D
-rotation per sprite rather than regenerate the batch — rotating a near-planar
-panel under a shared stage perspective is the geometrically correct operation,
-and turns the headlight circle into the ellipse its bucket needs.
+**`pnpm check:hero` cannot pass, and that is the gate's premise, not the
+batch's.** It scores each sprite by whether adding it moves its own region
+*closer* to a reference render — but the only reference that exists,
+`landing-src/hero-reference/source-car.png`, is the stripped car with an opaque
+background. There is no complete-car master. Adding a correct bumper to a
+reference that has no bumper necessarily scores as a regression, so the tool
+reports 7 of 7 NOT REGISTERED for a batch where four sprites are provably in
+place. Kept for the box coordinates it prints, which are useful; its verdict
+line is not.
+
+`source-car.png` lives in `landing-src/hero-reference/` rather than beside the
+sprites on purpose: `optimize-landing.mjs` ships every PNG in a group directory,
+and a reference master is not a layer.
 
 ## `landing-src/plates/` — 4 atmosphere plates
 
@@ -167,8 +188,10 @@ first, `--skip-video` does images only.
 | `video/` | `chapter-<n>.mp4` | 1920×1080 | **mirrored**, audio stripped, H.264 high/CRF 25/preset slow, `+faststart` |
 | `video/` | `chapter-<n>-poster-<w>.avif` + `.webp` | 768 · 1024 · 1440 | frame 1 of the *encoded* clip, so the poster is mirrored identically |
 
-158 files, **6.08MB committed** (cutouts 2.05MB · hero 484KB · plates 487KB ·
-video 3.07MB). Encoder settings: AVIF q55 effort 6, WebP q72 effort 5, metadata
+150 files, **5.88MB committed** (cutouts 2.05MB · hero 289KB · plates 478KB ·
+video 3.07MB). The hero group shrank from 484KB when part 2 re-ran the pipeline
+against batch 2: those sprites are in-place isolations, so they trim to a
+fraction of batch 1's re-framed boxes. Encoder settings: AVIF q55 effort 6, WebP q72 effort 5, metadata
 stripped. Only `chapter-2` and `chapter-4` are encoded — 1 and 3 stay in
 `landing-src/` as marketing material and never enter git.
 
@@ -182,7 +205,7 @@ cutouts are untrimmed and the hero layers are.
 trims to 864px. Rather than upscale, each trimmed asset contributes its own
 native width as the top rung, stock rungs within 10% of it are dropped as
 redundant, and 480 stays for mobile. So `car-stripped` emits 480 + 823 and
-`sprite-headlight` emits 510 alone. Dropping 768 is not lossy — `car-stripped`
+`sprite-grille` emits 242 alone. Dropping 768 is not lossy — `car-stripped`
 measures 20.2KB at 768w against 19.9KB at its native 823w, so the resample costs
 more bytes than the full-resolution crop.
 
@@ -203,7 +226,7 @@ with `--clean`, which deletes the files those entries name).
 |---|---|---|
 | Hero LCP candidate (`car` AVIF, largest breakpoint) | ≤90KB | **30.0KB** |
 | Docked-hero LCP candidate (`hero/car-stripped` AVIF, largest rung) | ≤90KB | **19.9KB** |
-| Seven docked sprites combined, AVIF at largest rung | ≤120KB | **78.7KB** |
+| Seven docked sprites combined, AVIF at largest rung | ≤120KB | **45.7KB** |
 | Images fetched per view, desktop worst case | ≤1.2MB | **465KB** (all 10 cutouts @1440 + 4 plates @1376 + 2 posters @1440) |
 | Images fetched per view, mobile | ≤1.2MB | **128KB** (480w set + 768w posters) |
 | Two shipped clips, combined | ≤3MB | **2.74MB** (1.41 + 1.33) |

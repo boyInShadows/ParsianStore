@@ -3,9 +3,14 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { describe, expect, it } from "vitest";
-import { CATALOG_SYSTEM_CODES } from "schemas";
 
-import { CHAPTER_RANGE, HERO_CAR, HERO_PARTS } from "./heroLayout.js";
+import {
+  CHAPTER_RANGE,
+  HERO_BASE_ASSET,
+  HERO_CANVAS,
+  HERO_FRAME_WIDTH_PCT,
+  HERO_LAYERS,
+} from "./heroLayout.js";
 import { landingAsset } from "../../../lib/landing-image.js";
 
 const PUBLIC_LANDING = path.join(
@@ -13,49 +18,112 @@ const PUBLIC_LANDING = path.join(
   "../../../public/landing",
 );
 
-describe("HERO_PARTS", () => {
-  it("only references cutouts the pipeline actually emitted", () => {
-    // There is no grille render (verified P9.S2) -- a layout that reserves a
-    // slot for a part nobody generated renders a broken image, not a gap.
-    for (const part of HERO_PARTS) {
-      const file = path.join(PUBLIC_LANDING, "cutouts", `${part.name}-1440.avif`);
-      expect(existsSync(file), part.name).toBe(true);
+const ALL_ASSETS = [HERO_BASE_ASSET, ...new Set(HERO_LAYERS.map((layer) => layer.asset))];
+
+/** The box a layer occupies on the 1024² canvas, exactly as HeroStage places it. */
+function dockedBox(layer: (typeof HERO_LAYERS)[number]) {
+  const asset = landingAsset(`/landing/hero/${layer.asset}`);
+  const width = asset.intrinsic.width * layer.dock.scale;
+  const height = asset.intrinsic.height * layer.dock.scale;
+  return {
+    width,
+    height,
+    left: asset.trim!.left + (asset.intrinsic.width - width) / 2 + layer.dock.dx,
+    top: asset.trim!.top + (asset.intrinsic.height - height) / 2 + layer.dock.dy,
+  };
+}
+
+describe("HERO_LAYERS", () => {
+  it("docks all seven sprites onto the stripped base", () => {
+    // Seven layers of artwork but eight entries: the headlights render carries
+    // both lamps, and the two sockets are too far apart at too small a size for
+    // one scale to seat both, so it is placed twice and clipped to one lamp
+    // each. Asset count is what the §3.2 inventory promises; layer count is an
+    // implementation detail on top of it.
+    expect(new Set(HERO_LAYERS.map((layer) => layer.asset)).size).toBe(7);
+    expect(HERO_LAYERS).toHaveLength(8);
+  });
+
+  it("gives every layer a unique id", () => {
+    const ids = HERO_LAYERS.map((layer) => layer.id);
+    expect(new Set(ids).size).toBe(ids.length);
+  });
+
+  it("only references hero assets the pipeline actually emitted", () => {
+    for (const name of ALL_ASSETS) {
+      expect(() => landingAsset(`/landing/hero/${name}`), name).not.toThrow();
+      const asset = landingAsset(`/landing/hero/${name}`);
+      const file = path.join(PUBLIC_LANDING, "hero", `${name}-${asset.widths.at(-1)}.avif`);
+      expect(existsSync(file), file).toBe(true);
     }
   });
 
-  it("keeps every layer inside the stage", () => {
-    for (const part of [...HERO_PARTS, HERO_CAR]) {
-      expect(part.startPct).toBeGreaterThanOrEqual(0);
-      expect(part.startPct).toBeLessThanOrEqual(100);
-      expect(part.topPct).toBeGreaterThanOrEqual(0);
-      expect(part.topPct).toBeLessThanOrEqual(100);
-      expect(part.widthPct).toBeGreaterThan(0);
+  it("keeps every docked layer inside the canvas frame", () => {
+    // A layer whose box runs off the 1024² frame is off the stage too, so the
+    // part would be clipped away at rest rather than sitting on the car.
+    for (const layer of HERO_LAYERS) {
+      const box = dockedBox(layer);
+      expect(box.left, `${layer.id} left`).toBeGreaterThanOrEqual(0);
+      expect(box.top, `${layer.id} top`).toBeGreaterThanOrEqual(0);
+      expect(box.left + box.width, `${layer.id} end`).toBeLessThanOrEqual(HERO_CANVAS);
+      expect(box.top + box.height, `${layer.id} bottom`).toBeLessThanOrEqual(HERO_CANVAS);
     }
   });
 
-  it("never labels two parts with the same system", () => {
-    const mapped = HERO_PARTS.map((part) => part.system).filter((code) => code !== null);
-    expect(new Set(mapped).size).toBe(mapped.length);
-  });
+  it("overlaps the base rather than floating beside it", () => {
+    // The whole point of a dock: a sprite that misses the body is a part lying
+    // on the floor next to the car, which is the failure the v1 hero shipped.
+    const base = landingAsset(`/landing/hero/${HERO_BASE_ASSET}`);
+    const carLeft = base.trim!.left;
+    const carTop = base.trim!.top;
+    const carRight = carLeft + base.intrinsic.width;
+    const carBottom = carTop + base.intrinsic.height;
 
-  it("only claims systems that exist in the catalog", () => {
-    for (const part of HERO_PARTS) {
-      if (part.system === null) continue;
-      expect(CATALOG_SYSTEM_CODES).toContain(part.system);
+    for (const layer of HERO_LAYERS) {
+      const box = dockedBox(layer);
+      expect(box.left, `${layer.id}`).toBeLessThan(carRight);
+      expect(box.left + box.width, `${layer.id}`).toBeGreaterThan(carLeft);
+      expect(box.top, `${layer.id}`).toBeLessThan(carBottom);
+      expect(box.top + box.height, `${layer.id}`).toBeGreaterThan(carTop);
     }
   });
 
-  it("leaves a part unlabeled rather than inventing a system for it", () => {
-    // The honest mapping is small on purpose: piston/alternator/air-filter/hood
-    // depict a system, the other five renders are body panels and front-end
-    // trim that do not. The index rail carries the rest of the destinations.
-    const labeled = HERO_PARTS.filter((part) => part.system !== null).map((part) => part.name);
-    expect(labeled.sort()).toEqual(["air-filter", "alternator", "hood", "piston"]);
+  it("leaves the in-place isolations at native registration", () => {
+    // Bumper, grille, fender and door came back from the batch already in the
+    // right place. If a future re-render moves one, this is what says so --
+    // "someone nudged a part that did not need nudging" is otherwise invisible.
+    const native = HERO_LAYERS.filter(
+      (layer) => layer.dock.dx === 0 && layer.dock.dy === 0 && layer.dock.scale === 1,
+    ).map((layer) => layer.id);
+    expect(native.sort()).toEqual(["bumper", "door", "fender", "grille"]);
   });
 
-  it("spreads the parts across all three separation chapters", () => {
-    const chapters = new Set(HERO_PARTS.map((part) => part.chapter));
-    expect([...chapters].sort()).toEqual([1, 2, 3]);
+  it("clips only the layers that share one render", () => {
+    const clipped = HERO_LAYERS.filter((layer) => layer.clip).map((layer) => layer.id);
+    expect(clipped.sort()).toEqual(["lamp-far", "lamp-near"]);
+    for (const layer of HERO_LAYERS) {
+      if (!layer.clip) continue;
+      // Opposite insets summing past 100% would clip the layer to nothing.
+      expect(layer.clip.left + layer.clip.right, layer.id).toBeLessThan(100);
+      expect(layer.clip.top + layer.clip.bottom, layer.id).toBeLessThan(100);
+    }
+  });
+
+  it("takes disjoint halves of the headlights render for the two lamps", () => {
+    const far = HERO_LAYERS.find((layer) => layer.id === "lamp-far")!;
+    const near = HERO_LAYERS.find((layer) => layer.id === "lamp-near")!;
+    // If the windows overlapped, one socket would show a sliver of the other
+    // lamp instead of a clean single unit.
+    expect(100 - far.clip!.right).toBeLessThanOrEqual(near.clip!.left);
+  });
+
+  it("spreads the layers across all three separation chapters", () => {
+    expect([...new Set(HERO_LAYERS.map((layer) => layer.chapter))].sort()).toEqual([1, 2, 3]);
+  });
+
+  it("leaves room in the stage for the frame", () => {
+    expect(HERO_FRAME_WIDTH_PCT).toBeGreaterThan(0);
+    expect(HERO_FRAME_WIDTH_PCT).toBeLessThanOrEqual(100);
   });
 });
 
@@ -74,72 +142,43 @@ describe("CHAPTER_RANGE", () => {
   });
 });
 
-/**
- * The P9.S5 docked-sprite set: one stripped base plus the seven sprites that
- * dock onto it (fableTasks §3.2). `heroLayout.ts` binds to these in S5b; these
- * assertions guard the inventory the pipeline delivered in S5a.
- */
-const HERO_SPRITES = [
-  "sprite-bumper",
-  "sprite-door",
-  "sprite-fender",
-  "sprite-grille",
-  "sprite-headlight",
-  "sprite-hood",
-  "sprite-windshield",
-] as const;
-
 const SPRITE_BUDGET_BYTES = 120 * 1024;
 const BASE_BUDGET_BYTES = 90 * 1024;
 
 function topRungAvif(src: string): number {
   const asset = landingAsset(src);
-  const largest = asset.widths.at(-1);
   const file = path.join(PUBLIC_LANDING, src.replace("/landing/", ""));
-  return statSync(`${file}-${largest}.avif`).size;
+  return statSync(`${file}-${asset.widths.at(-1)}.avif`).size;
 }
 
 describe("hero layer assets", () => {
-  it("ships the stripped base and all seven sprites", () => {
-    // The honest-inventory test. Its predecessor asserted "there is no grille
-    // render", which was true of the standalone cutouts and is now false of the
-    // hero group -- sprite-grille is one of the seven.
-    for (const name of ["car-stripped", ...HERO_SPRITES]) {
-      expect(() => landingAsset(`/landing/hero/${name}`), name).not.toThrow();
-    }
-  });
-
   it("trims every hero layer to its bounding box", () => {
     // Untrimmed, a sprite floats in a 1024² canvas that is 80% transparent, and
-    // a dock coordinate in heroLayout.ts would mean nothing.
-    for (const name of ["car-stripped", ...HERO_SPRITES]) {
+    // the trim offset heroLayout.ts docks against would mean nothing.
+    for (const name of ALL_ASSETS) {
       const asset = landingAsset(`/landing/hero/${name}`);
       expect(asset.trim, name).not.toBeNull();
-      expect(asset.trim!.canvas).toEqual({ width: 1024, height: 1024 });
-      expect(asset.intrinsic.width, name).toBeLessThan(asset.trim!.canvas.width);
-      expect(asset.trim!.left + asset.intrinsic.width).toBeLessThanOrEqual(
-        asset.trim!.canvas.width,
-      );
-      expect(asset.trim!.top + asset.intrinsic.height).toBeLessThanOrEqual(
-        asset.trim!.canvas.height,
-      );
+      expect(asset.trim!.canvas).toEqual({ width: HERO_CANVAS, height: HERO_CANVAS });
+      expect(asset.intrinsic.width, name).toBeLessThan(HERO_CANVAS);
+      expect(asset.trim!.left + asset.intrinsic.width).toBeLessThanOrEqual(HERO_CANVAS);
+      expect(asset.trim!.top + asset.intrinsic.height).toBeLessThanOrEqual(HERO_CANVAS);
     }
   });
 
-  it("leaves the standalone cutouts untrimmed", () => {
-    // The regression guard for the trap this step walked into: HERO_PARTS
-    // positions cutouts by their centre inside a 2048² frame, so a global trim
-    // would silently move every part on the shipped hero.
-    for (const part of HERO_PARTS) {
-      const asset = landingAsset(`/landing/cutouts/${part.name}`);
-      expect(asset.trim, part.name).toBeNull();
-      expect(asset.intrinsic, part.name).toEqual({ width: 2048, height: 2048 });
+  it("leaves the standalone cutouts untrimmed and centred", () => {
+    // The regression guard for the trap P9.S5 part 1 walked into: the cutouts
+    // are positioned by their centre inside a 2048² frame, so a global trim
+    // would silently move every one of them wherever they are used.
+    for (const name of ["car", "piston", "alternator", "air-filter"]) {
+      const asset = landingAsset(`/landing/cutouts/${name}`);
+      expect(asset.trim, name).toBeNull();
+      expect(asset.intrinsic, name).toEqual({ width: 2048, height: 2048 });
     }
   });
 
   it("holds the fableTasks §3.2 byte budgets", () => {
-    expect(topRungAvif("/landing/hero/car-stripped")).toBeLessThanOrEqual(BASE_BUDGET_BYTES);
-    const sprites = HERO_SPRITES.reduce(
+    expect(topRungAvif(`/landing/hero/${HERO_BASE_ASSET}`)).toBeLessThanOrEqual(BASE_BUDGET_BYTES);
+    const sprites = ALL_ASSETS.filter((name) => name !== HERO_BASE_ASSET).reduce(
       (total, name) => total + topRungAvif(`/landing/hero/${name}`),
       0,
     );

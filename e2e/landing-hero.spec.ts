@@ -36,9 +36,19 @@ test("the diagram exposes exactly the layers the layout declares", async ({ page
   await gotoHero(page);
   const stage = page.locator(".hero-stage");
   await expect(stage).toHaveAttribute("role", "group");
-  // 1 car + 9 parts. A missing render would show up here as a short count
-  // rather than as a silently broken image.
-  await expect(stage.locator("img")).toHaveCount(10);
+  // 1 stripped base + 8 docked layers (7 sprites, the headlights render placed
+  // twice and clipped to one lamp each). A missing render would show up here as
+  // a short count rather than as a silently broken image.
+  await expect(stage.locator("img")).toHaveCount(9);
+});
+
+test("the diagram is pinned LTR so the dock does not mirror under RTL", async ({ page }) => {
+  await gotoHero(page);
+  // The page is RTL and the renders are never mirrored, so an unpinned stage
+  // would measure `insetInlineStart` from the right and dock the bumper onto
+  // the back of a car facing the other way.
+  await expect(page.locator(".hero-stage")).toHaveAttribute("dir", "ltr");
+  await expect(page.locator("html")).toHaveAttribute("dir", "rtl");
 });
 
 test("every part render resolves — no broken images in the diagram", async ({ page }) => {
@@ -62,7 +72,7 @@ test("the hero serves the pre-built AVIF set, not the request-time optimizer", a
     .locator(".hero-stage img")
     .evaluateAll((images) => images.map((image) => (image as HTMLImageElement).currentSrc));
   for (const source of sources) {
-    expect(source).toMatch(/\/landing\/cutouts\/[a-z-]+-\d+\.avif$/);
+    expect(source).toMatch(/\/landing\/hero\/[a-z-]+-\d+\.avif$/);
     expect(source).not.toContain("/_next/image");
   }
 });
@@ -128,31 +138,33 @@ test("an empty part code is refused instead of searching for nothing", async ({ 
   expect(page.url()).not.toContain("/search");
 });
 
-test("reduced motion shows the separated diagram, never the collapsed frame", async ({
-  browser,
-}) => {
+test("reduced motion still shows a whole car, docked", async ({ browser }) => {
   const context = await browser.newContext({ reducedMotion: "reduce" });
   const page = await context.newPage();
   await gotoHero(page);
 
-  // The collapsed first frame stacks every part on the car. Separated means
-  // the layers occupy visibly different boxes.
+  // The inverse of what this test used to assert, and the reason it had to be
+  // rewritten rather than deleted. The v1 stage opened with every part
+  // collapsed onto the car, so reduced motion had to jump to the *separated*
+  // end state and the CSS backstop cleared the layers' transforms to get
+  // there. The docked model opens finished: clearing those same transforms
+  // would now undock every sprite and scatter the parts for exactly the
+  // visitor who asked for less movement.
   //
-  // Polled rather than read once: the stage sits inside the pin and its track,
-  // and the reduced-motion rules that flatten both land a beat after `#hero`
-  // first exists, so a single synchronous read can catch every layer still
-  // sharing one x. The assertion is unchanged -- only the sampling waits for
-  // layout to settle instead of assuming it already has.
-  await expect
-    .poll(() =>
-      page
-        .locator(".hero-stage img")
-        .evaluateAll(
-          (images) =>
-            new Set(images.map((image) => Math.round(image.getBoundingClientRect().x))).size,
-        ),
-    )
-    .toBeGreaterThan(5);
+  // Proved geometrically: each layer's box must still overlap the base's box.
+  // A part flung off the car fails this; a part sitting on it cannot.
+  const overlaps = await page.locator(".hero-stage img").evaluateAll((images) => {
+    const [base, ...layers] = images.map((image) => image.getBoundingClientRect());
+    return layers.map(
+      (box) =>
+        box.right > base.left &&
+        box.left < base.right &&
+        box.bottom > base.top &&
+        box.top < base.bottom,
+    );
+  });
+  expect(overlaps.length).toBe(8);
+  expect(overlaps.every(Boolean)).toBe(true);
 
   await context.close();
 });

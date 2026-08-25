@@ -9,9 +9,10 @@ import { PartCodeSearch } from "./PartCodeSearch";
  * Every catalog system, as a ruled index beside the diagram.
  *
  * This is where the hero earns the removal of the standalone Shop-by-system
- * grid (P9.S9): only four of the nine part renders depict a system honestly
- * (see heroLayout.ts), so the diagram alone cannot carry ten destinations. The
- * index does, with each system's mono code and its real product count.
+ * grid (P9.S9): the diagram is a car, and a car's panels are body and
+ * front-end trim -- none of them honestly stands for "brakes" or "gearbox", so
+ * the artwork alone cannot carry ten destinations. The index does, with each
+ * system's mono code and its real product count.
  */
 async function SystemIndex({ linkAction }: { linkAction: string }) {
   const t = await getTranslations("Landing.beats.hero");
@@ -71,30 +72,27 @@ async function SystemIndex({ linkAction }: { linkAction: string }) {
 /**
  * Hero v2 — the Exploded View in a new costume (fableTasks D4).
  *
- * The signature stays the signature: one vehicle drawn apart, every system
- * reachable from it, the two entry paths inside the composition rather than
- * stacked below it. What changes is the artwork (rendered cutouts instead of
- * flat SVG) and the trigger (scroll instead of page load), plus the Mechanic's
- * code field the audit asked for.
+ * The signature stays the signature: one vehicle, every system reachable from
+ * it, the two entry paths inside the composition rather than stacked below it,
+ * plus the Mechanic's code field the audit asked for.
  *
- * Server component: only the scroll stage and the code field are client work,
- * and both are leaves.
+ * What the page opens with changed at P9.S5 part 2: the car arrives *whole*,
+ * assembled from a stripped body and seven docked sprites, and comes apart on
+ * scroll rather than starting apart. Server component -- after the docked
+ * rebuild the only client leaf left in this beat is the code field.
  */
 export async function HeroV2() {
   const t = await getTranslations("Landing.beats.hero");
 
   return (
     <section id="hero" className="overflow-x-clip bg-graphite-950 text-graphite-50">
-      {/* The no-JS half of the pair described in globals.css: without it the
-          stage's collapsed first frame would be the only frame. `noscript`
-          takes raw HTML rather than children so React cannot escape the CSS. */}
-      <noscript
-        dangerouslySetInnerHTML={{
-          __html:
-            "<style>.hero-stage > *{transform:none!important;opacity:1!important}" +
-            ".hero-track{min-height:0!important}.hero-pin{position:static!important}</style>",
-        }}
-      />
+      {/* The `<noscript>` override that used to sit here is gone with the same
+          reasoning as its globals.css twin (P9.S5 part 2). It forced
+          `transform:none` so a visitor without JS would see the separated end
+          state instead of the collapsed first frame; the docked car has no
+          collapsed frame to escape, it is a server component, and clearing the
+          dock transforms would now scatter the parts rather than assemble
+          them. */}
       <div className="mx-auto grid max-w-container gap-8 border-x border-graphite-800 px-4 py-12 lg:grid-cols-[minmax(0,26rem)_minmax(0,1fr)] lg:gap-12 lg:px-8 lg:py-16">
         <div className="flex flex-col gap-8 lg:sticky lg:top-24 lg:self-start">
           <div className="flex items-center gap-3">
@@ -144,11 +142,11 @@ export async function HeroV2() {
 
         <div className="flex flex-col gap-6">
           <p className="max-w-prose text-body text-graphite-200">{t("diagramLead")}</p>
-          <HeroStage
-            label={t("diagramLabel")}
-            carAlt={t("staticStateAlt")}
-            hint={t("scrollHint")}
-          />
+          {/* `scrollHint` is deliberately not rendered here. It reads "pull the
+              page down to separate the parts", which is a promise part 2 does
+              not keep -- the docked composite is static. Part 3 brings back both
+              the motion and the invitation to it. */}
+          <HeroStage label={t("diagramLabel")} carAlt={t("staticStateAlt")} />
           <SystemIndex linkAction={t("systemLinkAction")} />
         </div>
       </div>
