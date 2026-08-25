@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { requireAuth } from "../../middleware/auth.js";
+import { optionalAuth, requireAuth } from "../../middleware/auth.js";
 import { authRateLimiter, otpRequestRateLimiter } from "../../middleware/rateLimit.js";
 import { validate } from "../../middleware/validate.js";
 import * as authController from "./auth.controller.js";
@@ -38,7 +38,10 @@ authRouter.post(
 );
 authRouter.post("/refresh", authRateLimiter, authController.refreshHandler);
 authRouter.post("/logout", authController.logoutHandler);
-authRouter.get("/me", requireAuth, authController.meHandler);
+// `optionalAuth`, not `requireAuth`: a signed-out visitor gets 200 with a null
+// user rather than a 401 the browser logs on every anonymous page load. See
+// meHandler for why the client cannot simply skip the call.
+authRouter.get("/me", optionalAuth, authController.meHandler);
 authRouter.patch(
   "/me",
   requireAuth,

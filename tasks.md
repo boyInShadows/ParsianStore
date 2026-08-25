@@ -426,27 +426,88 @@ decision before Phase 10 — it is a deploy-time failure mode, not a runtime one
       `/api/v1/auth/me`'s guest 401 logging a console error — together they are
       the whole of the 96/100 best-practices score.
 
-### Environment note — `pnpm dev` and `pnpm build` fight over `apps/web/.next`
+### P9 tail — the three items S17 left open (2026-08-26)
 
-Found P9.S5 part 2. Both write the same directory, and whichever ran last
-breaks the other. It goes both ways, and neither symptom names the cause:
+- [x] **`/auth/me` no longer 401s at signed-out visitors.** It ran behind
+      `requireAuth`, the web client asks on every page load, and the session
+      lives in httpOnly cookies so JavaScript cannot check first — every
+      anonymous visit wrote a failed request into the browser console. Now it
+      runs under the existing `optionalAuth` and answers `{ ok: true, data:
+      null }`. The envelope is unchanged and both fetchers already treated a
+      missing user as "signed out", so nothing downstream moved. `PATCH /me`
+      keeps `requireAuth`: reading who you are is public, changing it is not.
+- [x] **A real icon.** `app/icon.svg` — the isolated Persian «پ», first letter
+      of the «پارسیان» wordmark the header and footer already render, drawn as
+      paths so it needs no font. **Not a designed mark**; it is a stand-in that
+      stops `/favicon.ico` 404ing on every load and gives the tab a name, and
+      it is a one-file swap when the owner has a real one. Two traps recorded
+      in the file: the root `<svg>` must stay on line 1 with explicit width and
+      height (Next's metadata image loader sniffs the head of the file, and a
+      comment block above the root made it reject the file outright and fail to
+      compile *any* route), and XML comments cannot contain a double hyphen so
+      CSS custom properties cannot be named in there.
+- [x] **Three of the seven policy pages.** `/about`, `/contact`, `/faq` — real
+      Persian copy under a new `Info` namespace, every claim checkable against
+      behaviour the codebase enforces. The footer's «راهنما» column is
+      un-hidden and lists exactly these three; `POLICY_COLUMN_HIDDEN` is gone.
+      `e2e/info-pages.spec.ts` (13 tests) guards them, including an assertion
+      that the four missing routes are *not* linked.
+      Two bugs found and fixed while looking at the rendered pages: a Latin
+      Telegram handle inside an RTL line renders as `boyinshadows@` unless the
+      value is isolated with `dir="ltr"` (the footer already did this; the new
+      page did not), and `bg-surface-sunken` is the same value as `--bg` in
+      both themes, so a panel using it on a plain page has no visible container
+      at all — use `border border-rule bg-surface` there.
+- [ ] **The four legal pages — blocked on the owner.** `/returns`,
+      `/warranty`, `/privacy`, `/terms`. A returns window, warranty terms,
+      privacy practices and terms of sale are commitments only the owner can
+      make. Writing plausible ones would be worse than a missing page, so they
+      are absent from the app *and* from the footer. `/faq` deliberately does
+      not answer returns, warranty, or how payment settles for the same reason
+      — and because the live gateway is not activated, so any answer about
+      paying online would be false today.
+- [ ] **A real brand mark — blocked on the owner.** The «پ» above is interim.
 
-- **build → e2e.** The dev server Playwright starts reads a mixed cache and
-  throws `SyntaxError: Unexpected non-whitespace character after JSON at
-  position 741` on *every* server render, with `page: '/fa'` attached. What you
-  see in the test output is different: pages come back with no `data-theme`, so
-  `landing.spec.ts` fails 9 tests at `openLanding`'s theme assertion and it
-  reads like a next-themes regression. Retries do not help.
-- **dev → build.** `pnpm build` exits with a bare `Build error occurred` on a
-  tree that built clean minutes earlier.
+### Environment note — `pnpm typecheck` exists now, and you need it
 
-`rm -rf apps/web/.next` fixes both, immediately and every time. Don't go
-hunting in `messages/fa.json` or the theme provider — exactly one `JSON.parse`
-exists in the whole web app and it is client-side `localStorage`
-(`CompareButton.tsx`).
+`pnpm build` type-checks app code but **not test files**, and `eslint` does not
+type-check at all. A `noUncheckedIndexedAccess` error sat in
+`heroLayout.test.ts` through a green lint + green vitest + green build and only
+surfaced when `tsc -p` was run by hand. `pnpm typecheck` now runs both projects;
+add it to the gate: **lint → typecheck → test → build → `rm -rf apps/web/.next`
+→ e2e**.
 
-**Order that works:** lint → test → build → `rm -rf apps/web/.next` → e2e, and
-clear it again before going back to `pnpm dev`.
+### Environment note — anything that writes `apps/web/.next` twice at once corrupts it
+
+Found P9.S5 part 2, root cause narrowed 2026-08-26. `.next` is shared mutable
+state, and **two writers at the same time** leave it half-written. Three ways to
+get there, all of which happen in normal work:
+
+- `pnpm build` while a dev server is running (or the reverse)
+- Playwright starting its own dev server while another one is already up
+- **two people/agents on the same checkout with two dev servers** — the most
+  likely cause when it appears out of nowhere
+
+**The symptom never names the cause.** The server log shows
+`SyntaxError: Unexpected non-whitespace character after JSON at position 741`
+with `page: '/fa'` attached on *every* render — a half-written manifest under
+`.next` parsed as two concatenated JSON documents. What the test output shows
+instead is `landing.spec.ts` failing ~9 tests at `openLanding`'s
+`expect(html).toHaveAttribute("data-theme", …)` with `Received: ""`, which reads
+exactly like a next-themes regression. Retries do not help. `pnpm build` can also
+fail with a bare `Build error occurred` from the same cause.
+
+**Fix:** `rm -rf apps/web/.next`, make sure nothing is listening on 3000/4000,
+then run once. Recovers immediately and completely.
+
+**Order that works:** lint → typecheck → test → build → `rm -rf apps/web/.next`
+→ e2e. And before deleting `.next`, check for a peer's dev server — deleting it
+under a running server leaves the process holding the port while answering
+nothing, which then looks like [[reference-orphaned-dev-servers]].
+
+Don't go hunting in `messages/fa.json` or the theme provider: exactly one
+`JSON.parse` exists in the whole web app and it is client-side `localStorage` in
+`CompareButton.tsx`.
 
 ### Environment note — `pnpm dev` no longer needs Docker (fixed P9.S5 part 2)
 
@@ -774,6 +835,45 @@ cart, and checkout as separate reviewable slices; do not redo this account slice
       first and only per-role gate)
 - [ ] Admin: Settings page
 
+## Phase 11 — Design-system consolidation — adopted 2026-08-26
+
+Plan of record: **`docs/decisions/0027-design-system-consolidation.md`**.
+Numbered 11 only because renumbering Phase 10 (Launch) would break every
+existing cross-reference — it is scheduled *before* launch.
+
+Owner asked for "a clean UI design system" plus a page showing it on the admin
+dashboard. The audit found the token layer already complete and signed off
+(ADR 0003/0005/0025) — so this track closes gaps rather than rebuilding.
+Owner-confirmed 2026-08-26: **keep the locked stack** (no Tailwind v4, no
+shadcn/ui, no Radix, no Lucide, no CVA — only `clsx` + `tailwind-merge` for
+`cn()`, a §4 manifest amendment), **in-app pages as the docs surface** (no
+Storybook), **iframe the storefront guide** inside the admin page so Tailwind
+never enters the admin document, and **landing / PDP / checkout** as the three
+token-validation screens.
+
+- [ ] **P11.S1 — `/admin/design-system`.** Foundations tab generated from
+      `tokens.css` at build time (colour ramps with live contrast ratios, type
+      scale, spacing, radius, shadow, motion, breakpoints), storefront tab
+      embedding `/styleguide` in a sandboxed iframe, MUI admin-component tab.
+      Nav entry in `AdminShell`.
+- [ ] **P11.S2 — `cn()`.** `clsx` + `tailwind-merge` with a config taught this
+      repo's non-stock scale (`text-display-1`, `text-body-sm`, `text-data`,
+      `w-rail`), existing primitives migrated off string concatenation so a
+      caller's `className` can actually override a base class.
+- [ ] **P11.S3 — Missing form primitives.** `Label`, `FormField`, `Switch`,
+      `RadioGroup`, `SearchField`, plus real `error`/`loading` states on the
+      existing form controls.
+- [ ] **P11.S4 — Missing display primitives.** `Avatar`, `Separator`,
+      `Spinner`, `Progress`, `Alert`, `ErrorState`, `Link`, `Table`,
+      `Accordion`, `DropdownMenu`. The last two carry hand-written keyboard
+      behaviour (roving tabindex, typeahead, focus return) since Radix was
+      declined — explicit keyboard tests, not just an axe pass.
+- [ ] **P11.S5 — Retrofit.** Replace hand-rolled one-offs across the 122
+      components with the new primitives; ESLint guard against reintroduction.
+- [ ] **P11.S6 — Validation pass.** Landing / PDP / checkout, both themes,
+      360→1920, keyboard, axe, contrast. Token revisions land here if those
+      three screens demand a one-off colour, spacing, radius or shadow.
+
 ## Phase 9 — Content, SEO, hardening
 
 - [ ] Blog + guides (lead with counterfeit-identification content)
@@ -787,6 +887,32 @@ cart, and checkout as separate reviewable slices; do not redo this account slice
 - [ ] Load testing
 - [ ] Penetration-test checklist
 - [ ] Backup & restore runbook
+
+## Engineering standards — `docs/engineering-standards.md` (2026-08-26)
+
+Owner asked for a rule book covering **where data lives** (state manager vs
+localStorage vs direct API call) and **what "current" means for a 2026 site**.
+Written as a tracked doc rather than folded into `CLAUDE.md`, which stays the
+short always-loaded non-negotiables list; the new file is the reasoning
+underneath it and explicitly defers to it on any conflict.
+
+Part 1 is a seven-row decision table for state, derived from what this codebase
+already does rather than from generic advice — Server Component fetch by
+default, URL for anything shareable, a Zustand store as a *cache* for
+server-owned data (`cart`/`wishlist`/`auth`, never persisted), Zustand +
+`persist` for browser-owned data (`garage`), a cookie mirror when a Server
+Component must read a client-owned value, TanStack Query for client-side
+mutation, `useState` for ephemera. It names one outlier to fix opportunistically:
+`CompareButton.tsx` talks to `localStorage` directly instead of through a store.
+
+Part 2 is the 2026 baseline with sources: Core Web Vitals unchanged (LCP ≤2.5s,
+INP ≤200ms, CLS ≤0.1 at p75), and the accessibility position — the European
+Accessibility Act has been enforceable since **June 2025** against **EN 301 549,
+which currently incorporates WCAG 2.1 AA**, with **EN 301 549 v4.1.1 expected
+during 2026 to incorporate WCAG 2.2**. This project already targets 2.2 AA, so
+that update should be a no-op; the note exists so nobody relaxes to 2.1.
+
+Re-check the cited sections yearly — they are the parts most likely to go stale.
 
 ## Deferred — migrate MongoDB → PostgreSQL
 

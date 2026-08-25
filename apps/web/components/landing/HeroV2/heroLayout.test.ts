@@ -173,19 +173,17 @@ describe("HERO_LAYERS", () => {
           bottom: box.top + layer.undock.dy + box.height,
         };
       });
-      for (let a = 0; a < boxes.length; a += 1) {
-        for (let b = a + 1; b < boxes.length; b += 1) {
-          const overlapX =
-            Math.min(boxes[a].right, boxes[b].right) - Math.max(boxes[a].left, boxes[b].left);
-          const overlapY =
-            Math.min(boxes[a].bottom, boxes[b].bottom) - Math.max(boxes[a].top, boxes[b].top);
-          const area = Math.max(0, overlapX) * Math.max(0, overlapY);
-          const smallest = Math.min(
-            (boxes[a].right - boxes[a].left) * (boxes[a].bottom - boxes[a].top),
-            (boxes[b].right - boxes[b].left) * (boxes[b].bottom - boxes[b].top),
-          );
-          expect(area / smallest, `${boxes[a].id} sits on ${boxes[b].id}`).toBeLessThan(0.6);
-        }
+      for (const [first, second] of boxes.flatMap((box, i) =>
+        boxes.slice(i + 1).map((other) => [box, other] as const),
+      )) {
+        const overlapX = Math.min(first.right, second.right) - Math.max(first.left, second.left);
+        const overlapY = Math.min(first.bottom, second.bottom) - Math.max(first.top, second.top);
+        const area = Math.max(0, overlapX) * Math.max(0, overlapY);
+        const smallest = Math.min(
+          (first.right - first.left) * (first.bottom - first.top),
+          (second.right - second.left) * (second.bottom - second.top),
+        );
+        expect(area / smallest, `${first.id} sits on ${second.id}`).toBeLessThan(0.6);
       }
     }
   });

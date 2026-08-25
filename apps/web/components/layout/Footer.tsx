@@ -6,30 +6,22 @@ import { fetchMakesSafe } from "@/lib/fetchers/vehicles";
 import { CONTACT_CHANNELS, type ContactChannelKind } from "@/lib/contact-info";
 
 /**
- * Hidden on purpose, not broken -- the same named-flag pattern `GuidesTeaser`
- * and `Newsletter` use, for the same reason.
+ * The information pages that exist. `/about`, `/contact` and `/faq` shipped
+ * with the P9 tail; the four legal pages masterPlan §5 also names --
+ * `/returns`, `/warranty`, `/privacy`, `/terms` -- are absent from this list
+ * because they are absent from the app.
  *
- * P9.S16's link sweep found every one of these seven 404ing: masterPlan §5
- * names the routes but none has ever been built, so the footer was advertising
- * seven dead ends to real visitors. The column stays absent rather than
- * dead-linked, exactly as WhatsApp is absent from the contact list and Deals
- * renders nothing at all.
- *
- * The four legal pages need copy only the owner can write (returns window,
- * warranty terms, privacy practices, terms of sale) -- that is what this is
- * waiting on, not code. Flip to `false` once the routes exist; the labels and
- * hrefs below are already the right ones.
+ * S16's link sweep is what forced the question: the column used to carry all
+ * seven and every one of them was a 404, so the owner hid the whole column
+ * behind a flag rather than ship dead links. Hiding is no longer the right
+ * answer now that three of them are real, and listing the other four still is
+ * not. A link appears here when its route does, and the sweep in
+ * `e2e/landing.spec.ts` is what keeps that honest.
  */
-const POLICY_COLUMN_HIDDEN = true;
-
 const POLICY_LINKS = [
   { label: "درباره ما", href: "/about" },
   { label: "تماس با ما", href: "/contact" },
   { label: "سوالات متداول", href: "/faq" },
-  { label: "بازگشت و تعویض", href: "/returns" },
-  { label: "ضمانت اصالت کالا", href: "/warranty" },
-  { label: "حریم خصوصی", href: "/privacy" },
-  { label: "قوانین و مقررات", href: "/terms" },
 ];
 
 function FooterColumn({
@@ -94,15 +86,11 @@ export async function Footer() {
 
   return (
     <footer className="border-t border-border bg-surface">
-      <div
-        className={`mx-auto grid max-w-container grid-cols-2 gap-6 px-4 py-8 ${
-          POLICY_COLUMN_HIDDEN ? "sm:grid-cols-4" : "sm:grid-cols-5"
-        }`}
-      >
+      <div className="mx-auto grid max-w-container grid-cols-2 gap-6 px-4 py-8 sm:grid-cols-5">
         <FooterColumn title="دسته‌بندی‌ها" links={categoryLinks} />
         <FooterColumn title="برندهای خودرو" links={vehicleLinks} />
         <FooterColumn title="برندهای قطعه" links={brandLinks} />
-        {POLICY_COLUMN_HIDDEN ? null : <FooterColumn title="راهنما" links={POLICY_LINKS} />}
+        <FooterColumn title="راهنما" links={POLICY_LINKS} />
         <div className="flex flex-col gap-2">
           <h2 className="text-body-sm font-semibold text-text">ارتباط با ما</h2>
           <p className="text-body-sm text-text-muted">تهران، ایران</p>

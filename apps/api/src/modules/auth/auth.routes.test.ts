@@ -162,9 +162,23 @@ describe("auth session flow (verify -> me -> refresh -> logout)", () => {
     expect(reuseAfterLogoutRes.status).toBe(401);
   });
 
-  it("returns 401 for /me without a session cookie", async () => {
+  it("answers /me without a session cookie as 200 with a null user", async () => {
+    // Not 401. The web client asks on every page load and cannot check first --
+    // the session is in httpOnly cookies, invisible to JavaScript -- so a 401
+    // here wrote a failed request into the console of every anonymous visit.
     const res = await fetch(`${baseUrl}/api/v1/auth/me`);
-    expect(res.status).toBe(401);
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ ok: true, data: null });
+  });
+
+  it("still answers /me with a null user when the session cookie is junk", async () => {
+    // `optionalAuth` swallows a bad token and proceeds as a guest, so a stale
+    // or tampered cookie must read as signed out rather than as an error.
+    const res = await fetch(`${baseUrl}/api/v1/auth/me`, {
+      headers: { cookie: "accessToken=not-a-jwt" },
+    });
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ ok: true, data: null });
   });
 
   it("validates profile updates and protects them with the session", async () => {
@@ -214,7 +228,7 @@ describe("auth rate limiting covers credentials, not the session read", () => {
       const res = await fetch(`${baseUrl}/api/v1/auth/me`);
       statuses.push(res.status);
     }
-    // 401 (no cookie) is the expected answer here -- what must never
+    // 200 with a null user is the expected answer here -- what must never
     // appear is 429.
     expect(statuses).not.toContain(429);
   });
