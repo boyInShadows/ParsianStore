@@ -90,14 +90,32 @@ export type HeroClip = {
   readonly left: number;
 };
 
+/**
+ * How far the part travels away from the car at the peak of its chapter, in
+ * canvas pixels, plus how much it grows as it comes toward the viewer.
+ *
+ * Mostly vertical on purpose. The frame is square and the stage is 16/11, so
+ * the canvas rows visible inside the stage run roughly 130..894 -- about 200
+ * pixels of clear air above the car and 190 below. Sideways there is far less:
+ * the car spans 103..926 of 1024, and a part that keeps going leaves the stage
+ * and lands on the copy column beside it.
+ */
+export type HeroUndock = {
+  readonly dx: number;
+  readonly dy: number;
+  /** Peak scale. Slightly over 1 reads as "toward the viewer", not "bigger". */
+  readonly scale: number;
+};
+
 export type HeroLayer = {
-  /** Unique key; also the motion key when part 3 drives the undock. */
+  /** Unique key; also the motion key that drives the undock. */
   readonly id: string;
   /** Manifest name under `/landing/hero/`. */
   readonly asset: string;
   /** Which separation beat this layer leaves on: 1 = front, 2 = engine, 3 = body. */
   readonly chapter: 1 | 2 | 3;
   readonly dock: HeroDock;
+  readonly undock: HeroUndock;
   readonly clip?: HeroClip;
 };
 
@@ -117,12 +135,13 @@ export const HERO_BASE_ASSET = "car-stripped";
  */
 export const HERO_LAYERS: readonly HeroLayer[] = [
   // Product shot: scaled to the bay and turned a few degrees so its ridge runs
-  // along the car's, rather than across it.
+  // along the car's, rather than across it. Lifts up and back off its hinge.
   {
     id: "hood",
     asset: "sprite-hood",
     chapter: 2,
     dock: { dx: -130, dy: -95, scale: 0.66, rotateZ: -4 },
+    undock: { dx: 40, dy: -175, scale: 1.06 },
   },
   // Product shot: the pane is rendered at nearly three times the aperture.
   {
@@ -130,10 +149,29 @@ export const HERO_LAYERS: readonly HeroLayer[] = [
     asset: "sprite-windshield",
     chapter: 3,
     dock: { dx: 28, dy: -111, scale: 0.37 },
+    undock: { dx: 90, dy: -140, scale: 1.06 },
   },
-  { id: "fender", asset: "sprite-fender", chapter: 3, dock: NATIVE },
-  { id: "door", asset: "sprite-door", chapter: 3, dock: NATIVE },
-  { id: "grille", asset: "sprite-grille", chapter: 1, dock: NATIVE },
+  {
+    id: "fender",
+    asset: "sprite-fender",
+    chapter: 3,
+    dock: NATIVE,
+    undock: { dx: -40, dy: 180, scale: 1.05 },
+  },
+  {
+    id: "door",
+    asset: "sprite-door",
+    chapter: 3,
+    dock: NATIVE,
+    undock: { dx: 120, dy: 90, scale: 1.05 },
+  },
+  {
+    id: "grille",
+    asset: "sprite-grille",
+    chapter: 1,
+    dock: NATIVE,
+    undock: { dx: -90, dy: 75, scale: 1.08 },
+  },
   // One render, two lamps, two sockets -- and the sockets are 280 canvas
   // pixels apart at ~50 across while the render's pair is 380 apart at 303.
   // No single scale seats both, so each socket gets its own instance of the
@@ -143,6 +181,7 @@ export const HERO_LAYERS: readonly HeroLayer[] = [
     asset: "sprite-headlights",
     chapter: 1,
     dock: { dx: -354.4, dy: -12.8, scale: 0.1551 },
+    undock: { dx: -45, dy: -85, scale: 1.12 },
     clip: { top: 0, right: 55.3, bottom: 1, left: 0.15 },
   },
   {
@@ -150,19 +189,37 @@ export const HERO_LAYERS: readonly HeroLayer[] = [
     asset: "sprite-headlights",
     chapter: 1,
     dock: { dx: -142.2, dy: 7.2, scale: 0.1848 },
+    undock: { dx: 15, dy: -105, scale: 1.12 },
     clip: { top: 0, right: 0.15, bottom: 0.65, left: 55.4 },
   },
-  { id: "bumper", asset: "sprite-bumper", chapter: 1, dock: NATIVE },
+  {
+    id: "bumper",
+    asset: "sprite-bumper",
+    chapter: 1,
+    dock: NATIVE,
+    undock: { dx: -30, dy: 150, scale: 1.05 },
+  },
 ];
 
 /**
  * Scroll ranges per chapter, as a fraction of the hero's own scroll distance.
- * They overlap so the separation reads as one continuous motion rather than
- * three discrete steps. Part 3 drives the undock from these; part 2 ships the
- * docked state only.
+ *
+ * **Sequential, not overlapping, and each chapter returns to zero before the
+ * next opens** (fableTasks §5, P9.S5: "each chapter re-docking before the next
+ * begins"). The v1 hero overlapped its ranges because it played one continuous
+ * one-way explosion; a docked car wants the opposite. Each group lifts away and
+ * settles back, so the composite is legible at every point in the scroll, only
+ * one group is ever in the air, and the visitor who scrolls to the bottom is
+ * looking at a whole car again rather than a cloud of panels.
+ *
+ * The gaps between ranges are deliberate rest beats, and the leading 0.02 keeps
+ * the very first frame docked so the hero does not appear mid-motion.
  */
 export const CHAPTER_RANGE: Record<HeroLayer["chapter"], readonly [number, number]> = {
-  1: [0.0, 0.45],
-  2: [0.15, 0.7],
-  3: [0.35, 0.95],
+  1: [0.02, 0.34],
+  2: [0.36, 0.66],
+  3: [0.68, 0.98],
 };
+
+/** Where inside its chapter a part is furthest from the car. */
+export const CHAPTER_PEAK = 0.5;

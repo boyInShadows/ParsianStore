@@ -186,7 +186,7 @@ decision before Phase 10 — it is a deploy-time failure mode, not a runtime one
       48px target plus a focus ring; namespace moved to `Landing.beats`.
       `LandingImage` extracted from HeroStage/VideoStage so the plate could
       reuse it.
-- [ ] **P9.S5 (revisited) — docked-sprite hero, 3 parts.** Owner delivered a new
+- [x] **P9.S5 (revisited) — docked-sprite hero, 3 parts.** ✅ 2026-08-26, all three parts shipped. Owner delivered a new
       Fable batch 2026-08-22: a stripped car + 7 part sprites, replacing the
       exploded model with a car that starts *assembled* and comes apart on
       scroll (`fableTasks.md` §3.2).
@@ -229,17 +229,39 @@ decision before Phase 10 — it is a deploy-time failure mode, not a runtime one
         PIN the docked transform, never clear it. `landing-hero.spec.ts` proves
         the inverse geometrically: under `reducedMotion: "reduce"` all 8 layer
         boxes must still overlap the base's box.
-  - [ ] **Part 3/3 — undock motion.** Re-adds `'use client'`, the
-        `.hero-track` / `.hero-pin` scaffolding (removed in part 2 rather than
-        left as dead scroll behind a static picture), and `Landing.beats.hero.
-        scrollHint`, which part 2 deliberately stopped rendering because
-        "pull the page down to separate the parts" was a promise a static
-        composite does not keep. The key is still in `fa.json`, unused, waiting. Chapters re-driven dock → free, rotations
-        animating toward 0 so each part turns to face the viewer as it leaves.
-        `globals.css`'s `.hero-stage > * { transform: none !important }`
-        reduced-motion backstop **must be revisited** — `transform: none` would
-        undock every sprite; reduced motion has to pin the docked transform,
-        not clear it.
+  - [x] **Part 3/3 — undock motion.** ✅ 2026-08-26. `HeroStage` is a client
+        leaf again, the `.hero-track` / `.hero-pin` scaffolding and
+        `Landing.beats.hero.scrollHint` are back, and `useScroll` drives three
+        chapters off the track (never the pin — a pinned box stops moving and
+        can't drive anything).
+        **Out and back, not out and gone.** `CHAPTER_RANGE` is now
+        **sequential** — `0.02–0.34`, `0.36–0.66`, `0.68–0.98` — where v1
+        overlapped, because fableTasks §5 asks for "each chapter re-docking
+        before the next begins" and a docked car wants exactly that: one group
+        in the air at a time, the composite legible at every rest beat, and a
+        whole car again at the end of the track instead of a cloud of panels.
+        Each layer interpolates `[from, peak, to] → [0, 1, 0]`.
+        Translation is expressed in percentages of the part's **own box**, not
+        the stage, so one `motion.img` carries the whole transform — as a stage
+        percentage it would need a wrapper to measure against and the rotation
+        would then apply about the wrong origin.
+        **Rotations run the other way: dock value → 0.** They exist only to sit
+        a neutral product shot on a car photographed at an angle; a part in
+        mid-air owes the car nothing, so it turns to face the viewer as it
+        leaves. Today only the hood has one (`rotateZ -4`), but the mechanism is
+        general.
+        Vectors are mostly vertical by necessity: the frame is square inside a
+        16/11 stage, so only canvas rows ~130–894 are visible (≈200px of air
+        above the car, ≈190 below) while sideways the car already spans 103–926
+        of 1024 and a part that keeps going lands on the copy column. A test
+        computes that visible band and fails any part that lifts out of sight.
+  - [x] **Reduced-motion + no-JS backstop, done the right way round.**
+        `globals.css` and the `<noscript>` twin collapse `.hero-track` and
+        unpin `.hero-pin` — and deliberately **touch nothing else**. There is no
+        `.hero-stage > *` rule any more: the dock transforms are inline on each
+        layer and clearing them would undock every sprite. Reduced motion
+        renders `DockedLayer`, which never subscribes to scroll, so the correct
+        picture is already in the SSR paint.
 - [x] **Hero collapsed-frame bugfix.** ✅ 2026-08-22, `c8ae9b3`. Owner reported
       the hero as "not what I wanted": nine ghost parts ringing the car instead
       of tucked inside it. Two bugs, both measured in the running page.
@@ -765,6 +787,44 @@ cart, and checkout as separate reviewable slices; do not redo this account slice
 - [ ] Load testing
 - [ ] Penetration-test checklist
 - [ ] Backup & restore runbook
+
+## Deferred — migrate MongoDB → PostgreSQL
+
+**Owner decision 2026-08-25.** The store moves off MongoDB/Mongoose onto
+PostgreSQL, to avoid problems the owner expects to hit later. **Explicitly a
+low-priority, later task** — it is recorded here so it is not forgotten, not
+scheduled. Nothing in Phase 9 or the landing rebuild waits on it, and no new
+work should be shaped around it until it is picked up.
+
+Scope, measured 2026-08-25 rather than guessed:
+
+- **22 models** under `apps/api/src/models/` (plus their unit tests), and
+  **120 files** across `apps/api/src` that import `mongoose`.
+- **20 index/`$text` declarations** in the models. `Product`'s derived search
+  text is Mongo-specific and is what the Mongo-backed `SearchProvider` reads —
+  Postgres wants `tsvector` + GIN, which changes both the write path (the
+  derive-on-save hook) and the read path.
+- `ObjectId` is a public shape: it reaches the API envelope, the web app's Zod
+  schemas, cart/order snapshots, and every `/:id` route. Swapping to a
+  Postgres key type is an **API-contract change**, not just a storage one.
+- Transactions: the variant-aware stock reservation and release currently lean
+  on Mongo semantics; Postgres would let them be real transactions, which is
+  an improvement, but the code has to be rewritten to take it.
+- Seed data, `scripts/`, the fitment queries, admin reports/exports, and the
+  e2e suites all read the current shapes.
+- `compose.yaml`, `apps/api/.env`, and `scripts/dev-db.mjs` all name Mongo and
+  port 27018 today (see the environment notes above — the local instance is the
+  only working database on this machine right now).
+
+Open decisions when it is picked up, **owner's call, not to be assumed**:
+ORM/driver (Prisma · Drizzle · pg + Kysely), whether ids become `uuid` or
+`bigserial`, and whether it is a clean cutover or a dual-write migration with
+real production data. An ADR belongs in `docs/decisions/` before any code.
+
+Prior art to reread first: `docs/decisions/0001-typescript-over-plain-js.md`
+for the format, and masterPlan §8's module boundaries — a controller never
+touches the ORM, it calls a service. That boundary is what makes this
+migration survivable, so **do not weaken it in the meantime.**
 
 ## Phase 10 — Launch
 

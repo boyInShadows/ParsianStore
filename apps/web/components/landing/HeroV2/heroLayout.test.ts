@@ -20,6 +20,19 @@ const PUBLIC_LANDING = path.join(
 
 const ALL_ASSETS = [HERO_BASE_ASSET, ...new Set(HERO_LAYERS.map((layer) => layer.asset))];
 
+/**
+ * The canvas rows the stage actually shows.
+ *
+ * The frame is square and spans HERO_FRAME_WIDTH_PCT of a 16/11 stage, so it is
+ * taller than the stage and its top and bottom bands fall outside. A part that
+ * undocks into those rows travels somewhere nobody can see.
+ */
+const VISIBLE = (() => {
+  const frameOverStage = (HERO_FRAME_WIDTH_PCT / 100) * (16 / 11);
+  const shown = 1 / frameOverStage;
+  return { top: ((1 - shown) / 2) * HERO_CANVAS, bottom: ((1 + shown) / 2) * HERO_CANVAS };
+})();
+
 /** The box a layer occupies on the 1024² canvas, exactly as HeroStage places it. */
 function dockedBox(layer: (typeof HERO_LAYERS)[number]) {
   const asset = landingAsset(`/landing/hero/${layer.asset}`);
@@ -121,6 +134,62 @@ describe("HERO_LAYERS", () => {
     expect([...new Set(HERO_LAYERS.map((layer) => layer.chapter))].sort()).toEqual([1, 2, 3]);
   });
 
+  it("gives every layer somewhere to go", () => {
+    // A zero vector is a part that stays welded to the car through its own
+    // chapter -- the group lifts away around it and it just sits there.
+    for (const layer of HERO_LAYERS) {
+      expect(Math.abs(layer.undock.dx) + Math.abs(layer.undock.dy), layer.id).toBeGreaterThan(0);
+      expect(layer.undock.scale, layer.id).toBeGreaterThanOrEqual(1);
+    }
+  });
+
+  it("keeps every undocked part inside the rows the stage actually shows", () => {
+    // The trap this guards: the frame is taller than the stage, so `0..1024` is
+    // NOT the visible range. A part that lifts 200px into the top band travels
+    // out of sight and the chapter looks like it did nothing.
+    for (const layer of HERO_LAYERS) {
+      const box = dockedBox(layer);
+      const top = box.top + layer.undock.dy;
+      const bottom = top + box.height;
+      const left = box.left + layer.undock.dx;
+      expect(top, `${layer.id} lifts above the stage`).toBeGreaterThanOrEqual(VISIBLE.top);
+      expect(bottom, `${layer.id} drops below the stage`).toBeLessThanOrEqual(VISIBLE.bottom);
+      expect(left, `${layer.id} leaves the frame`).toBeGreaterThanOrEqual(0);
+      expect(left + box.width, `${layer.id} leaves the frame`).toBeLessThanOrEqual(HERO_CANVAS);
+    }
+  });
+
+  it("never leaves two parts of the same chapter stacked on each other", () => {
+    // Undocked parts are the point of the beat; two of them occupying the same
+    // box reads as one part, not two.
+    for (const chapter of [1, 2, 3] as const) {
+      const boxes = HERO_LAYERS.filter((layer) => layer.chapter === chapter).map((layer) => {
+        const box = dockedBox(layer);
+        return {
+          id: layer.id,
+          left: box.left + layer.undock.dx,
+          top: box.top + layer.undock.dy,
+          right: box.left + layer.undock.dx + box.width,
+          bottom: box.top + layer.undock.dy + box.height,
+        };
+      });
+      for (let a = 0; a < boxes.length; a += 1) {
+        for (let b = a + 1; b < boxes.length; b += 1) {
+          const overlapX =
+            Math.min(boxes[a].right, boxes[b].right) - Math.max(boxes[a].left, boxes[b].left);
+          const overlapY =
+            Math.min(boxes[a].bottom, boxes[b].bottom) - Math.max(boxes[a].top, boxes[b].top);
+          const area = Math.max(0, overlapX) * Math.max(0, overlapY);
+          const smallest = Math.min(
+            (boxes[a].right - boxes[a].left) * (boxes[a].bottom - boxes[a].top),
+            (boxes[b].right - boxes[b].left) * (boxes[b].bottom - boxes[b].top),
+          );
+          expect(area / smallest, `${boxes[a].id} sits on ${boxes[b].id}`).toBeLessThan(0.6);
+        }
+      }
+    }
+  });
+
   it("leaves room in the stage for the frame", () => {
     expect(HERO_FRAME_WIDTH_PCT).toBeGreaterThan(0);
     expect(HERO_FRAME_WIDTH_PCT).toBeLessThanOrEqual(100);
@@ -136,9 +205,13 @@ describe("CHAPTER_RANGE", () => {
     }
   });
 
-  it("overlaps the chapters so the separation reads as one sequence", () => {
-    expect(CHAPTER_RANGE[2][0]).toBeLessThan(CHAPTER_RANGE[1][1]);
-    expect(CHAPTER_RANGE[3][0]).toBeLessThan(CHAPTER_RANGE[2][1]);
+  it("runs the chapters one after another, never two groups in the air at once", () => {
+    // Inverted at P9.S5 part 3, deliberately. The v1 hero overlapped its ranges
+    // because it played one continuous one-way explosion. A docked car wants the
+    // opposite: each group lifts away and settles back before the next opens, so
+    // the composite stays legible and the end of the scroll is a whole car.
+    expect(CHAPTER_RANGE[2][0]).toBeGreaterThan(CHAPTER_RANGE[1][1]);
+    expect(CHAPTER_RANGE[3][0]).toBeGreaterThan(CHAPTER_RANGE[2][1]);
   });
 });
 

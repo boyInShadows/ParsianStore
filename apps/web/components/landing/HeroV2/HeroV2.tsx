@@ -77,22 +77,34 @@ async function SystemIndex({ linkAction }: { linkAction: string }) {
  * plus the Mechanic's code field the audit asked for.
  *
  * What the page opens with changed at P9.S5 part 2: the car arrives *whole*,
- * assembled from a stripped body and seven docked sprites, and comes apart on
- * scroll rather than starting apart. Server component -- after the docked
- * rebuild the only client leaf left in this beat is the code field.
+ * assembled from a stripped body and seven docked sprites, and (part 3) comes
+ * apart group by group on scroll rather than starting apart.
+ *
+ * Server component; the scroll stage and the code field are the two client
+ * leaves, and both are leaves.
  */
 export async function HeroV2() {
   const t = await getTranslations("Landing.beats.hero");
 
   return (
     <section id="hero" className="overflow-x-clip bg-graphite-950 text-graphite-50">
-      {/* The `<noscript>` override that used to sit here is gone with the same
-          reasoning as its globals.css twin (P9.S5 part 2). It forced
-          `transform:none` so a visitor without JS would see the separated end
-          state instead of the collapsed first frame; the docked car has no
-          collapsed frame to escape, it is a server component, and clearing the
-          dock transforms would now scatter the parts rather than assemble
-          them. */}
+      {/* The no-JS half of the pair in globals.css. Without JavaScript the
+          undock never runs, so the stage shows the docked car -- correct, and
+          exactly what a reduced-motion visitor gets -- but the track's extra
+          scroll distance would still be there, a screen and a half of empty
+          space in front of a picture that never moves. This collapses it.
+
+          It must NOT clear the layers' transforms. The version of this block
+          that shipped with the v1 hero did (`transform:none!important`), which
+          against a docked car would undock every sprite. `noscript` takes raw
+          HTML rather than children so React cannot escape the CSS. */}
+      <noscript
+        dangerouslySetInnerHTML={{
+          __html:
+            "<style>.hero-track{min-height:0!important}" +
+            ".hero-pin{position:static!important}</style>",
+        }}
+      />
       <div className="mx-auto grid max-w-container gap-8 border-x border-graphite-800 px-4 py-12 lg:grid-cols-[minmax(0,26rem)_minmax(0,1fr)] lg:gap-12 lg:px-8 lg:py-16">
         <div className="flex flex-col gap-8 lg:sticky lg:top-24 lg:self-start">
           <div className="flex items-center gap-3">
@@ -142,11 +154,11 @@ export async function HeroV2() {
 
         <div className="flex flex-col gap-6">
           <p className="max-w-prose text-body text-graphite-200">{t("diagramLead")}</p>
-          {/* `scrollHint` is deliberately not rendered here. It reads "pull the
-              page down to separate the parts", which is a promise part 2 does
-              not keep -- the docked composite is static. Part 3 brings back both
-              the motion and the invitation to it. */}
-          <HeroStage label={t("diagramLabel")} carAlt={t("staticStateAlt")} />
+          <HeroStage
+            label={t("diagramLabel")}
+            carAlt={t("staticStateAlt")}
+            hint={t("scrollHint")}
+          />
           <SystemIndex linkAction={t("systemLinkAction")} />
         </div>
       </div>

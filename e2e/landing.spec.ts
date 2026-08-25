@@ -112,34 +112,33 @@ test.describe("landing page visual regression (S16)", () => {
     test(`${viewport.name}px honours prefers-reduced-motion`, async ({ page }) => {
       await page.setViewportSize({ width: viewport.width, height: viewport.height });
 
-      // This used to measure the hero's pin and its track collapsing, because
-      // the v1 diagram bought a screen and a half of scroll to play a
-      // separation over and had to hand that spacer back to a reduced-motion
-      // visitor. P9.S5 part 2 replaced that stage with a docked car that is
-      // finished at rest and buys no scroll at all, so there is no apparatus
-      // left to collapse -- and the honest assertion is now that the hero
-      // costs the same either way rather than that it shrinks.
-      //
-      // Compared as a ratio, not to the pixel. Two loads of the same page differ
-      // by a line or so at 360px depending on whether the lazily-mounted vehicle
-      // selector has swapped in by the time the box is read -- 12px on a
-      // ~1900px hero, and nothing to do with motion. The regression this guards
-      // is a *pinned track* coming back, which was more than half the hero's
-      // height again, so 5% is a floor far below the real signal and far above
-      // the noise.
-      const heroHeight = async () => (await page.locator("#hero").boundingBox())!.height;
+      const track = page.locator(".hero-track");
+      const pin = page.locator(".hero-pin");
 
+      // Measure the pinned state first, so the collapse below is proved
+      // against something rather than passing vacuously the day the stage
+      // stops being pinned at all.
       await openLanding(page, "light");
-      const normal = await heroHeight();
+      expect(await pin.evaluate((node) => getComputedStyle(node).position)).toBe("sticky");
+      const pinnedTrack = (await track.boundingBox())!.height;
+      const pinnedStage = (await pin.boundingBox())!.height;
+      expect(pinnedTrack, "the track carries no scroll travel").toBeGreaterThan(pinnedStage * 1.5);
 
+      // Reduced motion collapses the apparatus -- track back to content height,
+      // stage unpinned -- so these visitors do not scroll a screen and a half of
+      // empty spacer past a car that never comes apart.
+      //
+      // What it must NOT do is touch the layers. Their dock transforms are
+      // inline, and the v1 backstop that cleared them would now undock every
+      // sprite. `landing-hero.spec.ts` holds that half of the pair.
       await page.emulateMedia({ reducedMotion: "reduce" });
       await openLanding(page, "light");
-      const reduced = await heroHeight();
-      expect(
-        Math.abs(reduced - normal) / normal,
-        `the hero measures ${normal}px normally and ${reduced}px under reduced motion -- ` +
-          `a gap that size means it is carrying scroll travel it cannot use`,
-      ).toBeLessThan(0.05);
+      expect(await pin.evaluate((node) => getComputedStyle(node).position)).not.toBe("sticky");
+      const reducedTrack = (await track.boundingBox())!.height;
+      const reducedStage = (await pin.boundingBox())!.height;
+      expect(reducedTrack, "the track keeps spacer it no longer uses").toBeLessThanOrEqual(
+        reducedStage + 2,
+      );
 
       await settleForCapture(page);
       await expect(page).toHaveScreenshot(`landing-${viewport.name}-reduced-motion.png`, {

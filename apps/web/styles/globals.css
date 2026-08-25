@@ -35,19 +35,31 @@
     color: var(--text);
   }
 
-  /* The hero's docked-sprite car (P9.S5 part 2) needs no motion backstop, and
-     the one that used to live here would now do damage. It read
-     `.hero-stage > * { transform: none !important }`, written when the stage's
-     first frame was "every part collapsed into the car" and reduced motion had
-     to jump to the separated end state. The docked model inverts that: the
-     resting frame IS the finished car, the dock transforms are inline on the
-     layers, and clearing them would undock every sprite -- scattering the parts
-     for exactly the visitor who asked for less movement. There is also nothing
-     left to back-stop: the stage is a server component, so its correct state is
-     in the SSR paint whether or not JavaScript ever arrives.
+  /* Backstop for the hero's undock (P9.S5 part 3).
+     Note what is NOT here: any rule touching the layers themselves. The v1
+     stage's backstop read `.hero-stage > * { transform: none !important }`,
+     because back then the first frame was "every part collapsed into the car"
+     and reduced motion had to jump to the separated end state. The docked model
+     inverts that. The resting frame IS the finished car, its dock transforms
+     are inline on each layer, and clearing them would undock every sprite --
+     scattering the parts for exactly the visitor who asked for less movement.
+     Reduced motion instead renders the layers with no motion attached at all
+     (HeroStage's DockedLayer), so the correct picture is already in the SSR
+     paint and there is nothing to override.
 
-     Part 3 adds the undock animation. Its backstop must PIN the docked
-     transform, never clear it. */
+     What does need collapsing is the apparatus around it: the pin and its track
+     exist only to hold the stage still while the three chapters play. A visitor
+     who never sees that motion would otherwise scroll a screen and a half of
+     deliberately empty space past a picture that never changes. */
+  @media (prefers-reduced-motion: reduce) {
+    .hero-track {
+      min-height: 0 !important;
+    }
+
+    .hero-pin {
+      position: static !important;
+    }
+  }
 
   /* The interstitial plate's copy sits on the start-side third, so the scrim
      is heaviest there and thins out across the artwork. CSS gradients take no
