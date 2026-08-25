@@ -72,7 +72,10 @@ export default tseslint.config(
     // run by hand from the repo root, never bundled into an app.
     files: ["scripts/**/*.mjs"],
     languageOptions: {
-      globals: { process: "readonly", console: "readonly" },
+      // `URL` is a Node builtin, not a DOM leak -- listed so a script can parse
+      // a connection string with the standard API instead of a hand-rolled
+      // regex that a password containing ":" or "@" would defeat.
+      globals: { process: "readonly", console: "readonly", URL: "readonly" },
     },
   },
   {

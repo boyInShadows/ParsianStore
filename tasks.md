@@ -404,20 +404,44 @@ decision before Phase 10 — it is a deploy-time failure mode, not a runtime one
       `/api/v1/auth/me`'s guest 401 logging a console error — together they are
       the whole of the 96/100 best-practices score.
 
-### Environment note — `pnpm build` poisons the e2e dev server (found P9.S5 part 2)
+### Environment note — `pnpm dev` and `pnpm build` fight over `apps/web/.next`
 
-`pnpm build` writes production output into `apps/web/.next`, the same directory
-`next dev` uses. Run the two in one session — which every step's DoD requires —
-and the dev server Playwright starts next reads a mixed cache and throws
-`SyntaxError: Unexpected non-whitespace character after JSON at position 741` on
-**every** server render, with `page: '/fa'` attached. The visible symptom is not
-a JSON error though: pages come back without `data-theme`, so `landing.spec.ts`
-fails 9 tests at `openLanding`'s theme assertion and it reads like a theming
-regression. Retries do not help; the corruption is persistent.
+Found P9.S5 part 2. Both write the same directory, and whichever ran last
+breaks the other. It goes both ways, and neither symptom names the cause:
 
-`rm -rf apps/web/.next` fixes it, and 30/30 pass immediately after. So the
-order that works is **lint → test → build → `rm -rf apps/web/.next` → e2e**, or
-just clear it before any e2e run that follows a build.
+- **build → e2e.** The dev server Playwright starts reads a mixed cache and
+  throws `SyntaxError: Unexpected non-whitespace character after JSON at
+  position 741` on *every* server render, with `page: '/fa'` attached. What you
+  see in the test output is different: pages come back with no `data-theme`, so
+  `landing.spec.ts` fails 9 tests at `openLanding`'s theme assertion and it
+  reads like a next-themes regression. Retries do not help.
+- **dev → build.** `pnpm build` exits with a bare `Build error occurred` on a
+  tree that built clean minutes earlier.
+
+`rm -rf apps/web/.next` fixes both, immediately and every time. Don't go
+hunting in `messages/fa.json` or the theme provider — exactly one `JSON.parse`
+exists in the whole web app and it is client-side `localStorage`
+(`CompareButton.tsx`).
+
+**Order that works:** lint → test → build → `rm -rf apps/web/.next` → e2e, and
+clear it again before going back to `pnpm dev`.
+
+### Environment note — `pnpm dev` no longer needs Docker (fixed P9.S5 part 2)
+
+`predev` was `docker compose up -d --wait mongodb`, which fails hard when the
+Docker daemon is not running — so `pnpm dev` refused to start over a database
+that was never missing. It is now `node scripts/dev-db.mjs`: check the port
+`apps/api/.env` actually names, use whatever is already answering, fall back to
+compose, and warn rather than exit if compose is unavailable. The API prints its
+own connection error naming the URI it tried, which is more useful than this
+script guessing.
+
+Worth knowing on this machine: **the compose service cannot start here at all.**
+`mongo:8.0` aborts on Linux kernel 6.19+ (SERVER-121912), so Docker Desktop's
+WSL2 backend restart-loops it with "MongoDB cannot start: Linux kernel versions
+6.19 and newer has a known incompatibility with this version of MongoDB". The
+working database is the local instance on the same port 27018
+(`reference-local-mongodb`). Only one of the two can hold that port.
 
 ### Environment note — `pnpm test` is flaky in parallel on this machine (found P9.S2)
 
