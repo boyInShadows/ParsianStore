@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { Link } from "@/i18n/navigation";
 import { buttonBase, buttonSizes, buttonVariants } from "./Button";
+import { cn } from "@/lib/cn";
 
 type Props = {
   href: string;
@@ -28,7 +29,7 @@ export function ButtonLink({
   return (
     <Link
       href={href}
-      className={`${buttonBase} ${buttonSizes[size]} ${buttonVariants[variant]} ${className}`}
+      className={cn(buttonBase, buttonSizes[size], buttonVariants[variant], className)}
     >
       {children}
     </Link>

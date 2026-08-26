@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { Link } from "@/i18n/navigation";
+import { cn } from "@/lib/cn";
 
 type Tone = "surface" | "sunken";
 
@@ -31,7 +32,7 @@ const tones: Record<Tone, string> = {
 
 export function Sheet({ tone = "surface", children, className = "" }: SheetProps) {
   return (
-    <div className={`overflow-hidden rounded-lg border ${tones[tone]} ${className}`}>
+    <div className={cn("overflow-hidden rounded-lg border", tones[tone], className)}>
       {children}
     </div>
   );
@@ -67,7 +68,7 @@ function SheetRows({ children, className = "" }: { children: ReactNode; classNam
   // divide-rule, not a border on every child -- one hairline between rows,
   // none above the first or below the last, which is what makes a ruled
   // sheet read as a sheet instead of a stack of boxes.
-  return <ul className={`divide-y divide-rule ${className}`}>{children}</ul>;
+  return <ul className={cn("divide-y divide-rule", className)}>{children}</ul>;
 }
 
 type SheetRowProps = {
@@ -96,13 +97,13 @@ function SheetRow({ children, href, className = "" }: SheetRowProps) {
   if (href) {
     return (
       <li>
-        <Link href={href} className={`${interactiveRow} ${className}`}>
+        <Link href={href} className={cn(interactiveRow, className)}>
           {children}
         </Link>
       </li>
     );
   }
-  return <li className={`flex items-center gap-4 px-4 py-3 ${className}`}>{children}</li>;
+  return <li className={cn("flex items-center gap-4 px-4 py-3", className)}>{children}</li>;
 }
 
 Sheet.Header = SheetHeader;

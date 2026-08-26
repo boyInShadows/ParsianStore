@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { cn } from "@/lib/cn";
 
 type Emphasis = "normal" | "muted" | "strong" | "total";
 
@@ -43,17 +44,17 @@ export function DataRow({
 
   return (
     <div
-      className={`flex flex-wrap items-baseline justify-between gap-3 ${
-        isTotal ? "border-t border-border pt-6" : ""
-      } ${className}`}
+      className={cn(
+        "flex flex-wrap items-baseline justify-between gap-3",
+        isTotal && "border-t border-border pt-6",
+        className,
+      )}
     >
       <span className={labelStyles[emphasis]}>
         {label}
         {hint ? <span className="block text-caption text-text-muted">{hint}</span> : null}
       </span>
-      <span className={`${valueStyles[emphasis]} ${mono || isTotal ? "font-mono" : ""}`}>
-        {value}
-      </span>
+      <span className={cn(valueStyles[emphasis], (mono || isTotal) && "font-mono")}>{value}</span>
     </div>
   );
 }

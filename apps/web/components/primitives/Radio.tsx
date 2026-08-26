@@ -1,4 +1,5 @@
 import { useId, type InputHTMLAttributes } from "react";
+import { cn } from "@/lib/cn";
 
 type Props = Omit<InputHTMLAttributes<HTMLInputElement>, "type"> & {
   label: string;
@@ -13,7 +14,10 @@ export function Radio({ label, id, className = "", ...rest }: Props) {
       <input
         id={radioId}
         type="radio"
-        className={`h-4 w-4 border-border accent-brand-solid focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2 focus-visible:ring-offset-bg disabled:opacity-50 ${className}`}
+        className={cn(
+          "h-4 w-4 border-border accent-brand-solid focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2 focus-visible:ring-offset-bg disabled:opacity-50",
+          className,
+        )}
         {...rest}
       />
       {label}

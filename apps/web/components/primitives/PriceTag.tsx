@@ -1,4 +1,5 @@
 import { formatToman } from "schemas/fa-text";
+import { cn } from "@/lib/cn";
 
 type Size = "sm" | "md" | "lg" | "xl";
 
@@ -41,8 +42,8 @@ export function PriceTag({
   const hasCompareAt = typeof compareAtRial === "number" && compareAtRial > priceRial;
 
   return (
-    <span className={`inline-flex flex-wrap items-baseline gap-2 ${className}`}>
-      <span className={`font-mono font-medium text-price ${sizes[size]}`}>
+    <span className={cn("inline-flex flex-wrap items-baseline gap-2", className)}>
+      <span className={cn("font-mono font-medium text-price", sizes[size])}>
         {formatToman(priceRial)}
       </span>
       {hasCompareAt ? (

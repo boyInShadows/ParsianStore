@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { Link } from "@/i18n/navigation";
+import { cn } from "@/lib/cn";
 
 type Props = {
   // Mono record code -- the docket grammar SectionShell already established
@@ -32,7 +33,7 @@ export function PageHeader({
   const TitleTag = titleAs;
 
   return (
-    <div className={`flex flex-col gap-4 border-b border-rule pb-6 ${className}`}>
+    <div className={cn("flex flex-col gap-4 border-b border-rule pb-6", className)}>
       {back ? (
         <Link
           href={back.href}

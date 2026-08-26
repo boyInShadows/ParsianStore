@@ -1,4 +1,5 @@
 import { toPersianDigits } from "schemas/fa-text";
+import { cn } from "@/lib/cn";
 
 type Props = {
   page: number;
@@ -72,11 +73,12 @@ export function Pagination({ page, pageCount, onPageChange }: Props) {
           type="button"
           onClick={() => onPageChange(pageNumber)}
           aria-current={pageNumber === page ? "page" : undefined}
-          className={`inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-md text-body-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus ${
+          className={cn(
+            "inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-md text-body-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus",
             pageNumber === page
               ? "bg-brand-solid text-brand-fg"
-              : "text-text hover:bg-surface-raised"
-          }`}
+              : "text-text hover:bg-surface-raised",
+          )}
         >
           {toPersianDigits(String(pageNumber))}
         </button>

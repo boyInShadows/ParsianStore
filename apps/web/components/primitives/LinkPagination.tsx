@@ -1,5 +1,6 @@
 import { toPersianDigits } from "schemas/fa-text";
 import { Link } from "@/i18n/navigation";
+import { cn } from "@/lib/cn";
 
 type Props = {
   page: number;
@@ -30,11 +31,14 @@ export function LinkPagination({ page, pageCount, hrefFor, labels }: Props) {
   return (
     <nav aria-label={labels.status} className="flex items-center justify-between gap-4 pt-6">
       {hasPrevious ? (
-        <Link href={hrefFor(page - 1)} className={`${linkBase} text-brand hover:bg-surface-raised`}>
+        <Link
+          href={hrefFor(page - 1)}
+          className={cn(linkBase, "text-brand hover:bg-surface-raised")}
+        >
           {labels.previous}
         </Link>
       ) : (
-        <span className={`${linkBase} text-text-muted opacity-40`} aria-hidden="true">
+        <span className={cn(linkBase, "text-text-muted opacity-40")} aria-hidden="true">
           {labels.previous}
         </span>
       )}
@@ -42,11 +46,14 @@ export function LinkPagination({ page, pageCount, hrefFor, labels }: Props) {
         {toPersianDigits(String(page))} / {toPersianDigits(String(pageCount))}
       </span>
       {hasNext ? (
-        <Link href={hrefFor(page + 1)} className={`${linkBase} text-brand hover:bg-surface-raised`}>
+        <Link
+          href={hrefFor(page + 1)}
+          className={cn(linkBase, "text-brand hover:bg-surface-raised")}
+        >
           {labels.next}
         </Link>
       ) : (
-        <span className={`${linkBase} text-text-muted opacity-40`} aria-hidden="true">
+        <span className={cn(linkBase, "text-text-muted opacity-40")} aria-hidden="true">
           {labels.next}
         </span>
       )}

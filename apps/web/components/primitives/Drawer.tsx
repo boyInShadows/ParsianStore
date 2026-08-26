@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useId, useRef, type MouseEvent, type ReactNode } from "react";
+import { cn } from "@/lib/cn";
 
 type Side = "start" | "end";
 
@@ -53,7 +54,10 @@ export function Drawer({ open, onClose, title, side = "end", children }: Props) 
       onCancel={onClose}
       onClick={handleBackdropClick}
       aria-labelledby={titleId}
-      className={`fixed top-0 m-0 h-dvh w-full max-w-sm border-s border-border bg-surface p-0 text-text ${sidePosition[side]}`}
+      className={cn(
+        "fixed top-0 m-0 h-dvh w-full max-w-sm border-s border-border bg-surface p-0 text-text",
+        sidePosition[side],
+      )}
     >
       <div className="flex items-center justify-between border-b border-border p-4">
         <h2 id={titleId} className="text-h3 font-semibold">

@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { cn } from "@/lib/cn";
 
 type Props = {
   children: ReactNode;
@@ -9,14 +10,15 @@ type Props = {
 export function Chip({ children, onRemove, removeLabel = "Remove" }: Props) {
   return (
     <span
-      className={`inline-flex items-center gap-1 rounded-full border border-border bg-surface-raised text-body-sm text-text ${
+      className={cn(
+        "inline-flex items-center gap-1 rounded-full border border-border bg-surface-raised text-body-sm text-text",
         // A chip carrying a remove button is an interactive control on the
         // PLP filter bar, so it has to clear masterPlan §10's 44px floor.
         // The glyph stays 12px; the button's own box is what grows, and the
         // chip drops its inline-end padding so the target does not just add
         // width. A decorative chip keeps the original compact shape.
-        onRemove ? "min-h-12 pe-0 ps-3" : "px-3 py-1"
-      }`}
+        onRemove ? "min-h-12 pe-0 ps-3" : "px-3 py-1",
+      )}
     >
       {children}
       {onRemove ? (

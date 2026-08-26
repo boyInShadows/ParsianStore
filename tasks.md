@@ -856,10 +856,23 @@ token-validation screens.
       scale, spacing, radius, shadow, motion, breakpoints), storefront tab
       embedding `/styleguide` in a sandboxed iframe, MUI admin-component tab.
       Nav entry in `AdminShell`.
-- [ ] **P11.S2 — `cn()`.** `clsx` + `tailwind-merge` with a config taught this
-      repo's non-stock scale (`text-display-1`, `text-body-sm`, `text-data`,
-      `w-rail`), existing primitives migrated off string concatenation so a
-      caller's `className` can actually override a base class.
+- [x] **P11.S2 — `cn()`.** ✅ 2026-08-26. `clsx` + **tailwind-merge v2**
+      (v3 targets Tailwind v4; this repo is on 3.4, so the v2 line is the
+      matching one). All 21 primitives that composed classes with a template
+      literal now use `cn()`, so a caller's `className` genuinely overrides a
+      base class instead of merely sitting beside it and losing on source
+      order. The config is the whole job: `tailwind.config.js` **replaces**
+      `colors`, and tailwind-merge's default colour matcher accepts any
+      value, so out of the box it read `text-body-sm` as a colour and
+      `cn("text-body-sm", "text-text-muted")` returned only the colour —
+      silently dropping the font size on every component. Measured before
+      writing the config, pinned by 14 tests. `override` vs `extend` mirrors
+      what the Tailwind config does per scale: colours are replaced so they
+      are overridden; `fontSize`/`transitionDuration` are only extended, so
+      the stock steps still merge; `borderRadius` needs nothing. Four of the
+      tests re-parse `tailwind.config.js` and fail if the literal scales in
+      `cn.ts` ever drift from it (mutation-checked: removing one colour
+      fails them).
 - [ ] **P11.S3 — Missing form primitives.** `Label`, `FormField`, `Switch`,
       `RadioGroup`, `SearchField`, plus real `error`/`loading` states on the
       existing form controls.

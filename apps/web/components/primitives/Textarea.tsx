@@ -1,4 +1,5 @@
 import { useId, type TextareaHTMLAttributes } from "react";
+import { cn } from "@/lib/cn";
 
 type Props = TextareaHTMLAttributes<HTMLTextAreaElement> & {
   label: string;
@@ -24,7 +25,11 @@ export function Textarea({ label, error, helperText, id, className = "", ...rest
         id={textareaId}
         aria-invalid={Boolean(error)}
         aria-describedby={describedBy || undefined}
-        className={`min-h-24 rounded-md border bg-surface px-3 py-2 text-body text-text placeholder:text-text-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus disabled:opacity-50 ${error ? "border-danger" : "border-border"} ${className}`}
+        className={cn(
+          "min-h-24 rounded-md border bg-surface px-3 py-2 text-body text-text placeholder:text-text-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus disabled:opacity-50",
+          error ? "border-danger" : "border-border",
+          className,
+        )}
         {...rest}
       />
       {error ? (

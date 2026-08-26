@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { cn } from "@/lib/cn";
 
 type Tone = "brand" | "success" | "warning" | "danger" | "info" | "neutral";
 type Variant = "solid" | "dot";
@@ -42,12 +43,12 @@ export function Badge({ tone = "neutral", variant = "solid", children }: Props) 
 
   if (variant === "dot") {
     return (
-      <span className={`${base} border border-border bg-surface text-text`}>
-        <span aria-hidden="true" className={`h-2 w-2 rounded-full ${dotColors[tone]}`} />
+      <span className={cn(base, "border border-border bg-surface text-text")}>
+        <span aria-hidden="true" className={cn("h-2 w-2 rounded-full", dotColors[tone])} />
         {children}
       </span>
     );
   }
 
-  return <span className={`${base} ${tones[tone]}`}>{children}</span>;
+  return <span className={cn(base, tones[tone])}>{children}</span>;
 }

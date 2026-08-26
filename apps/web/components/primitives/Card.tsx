@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { cn } from "@/lib/cn";
 
 type Elevation = "flat" | "raised" | "floating";
 
@@ -37,9 +38,12 @@ export function Card({
 }: Props) {
   return (
     <div
-      className={`rounded-lg border border-border p-4 ${elevations[elevation]} ${
-        interactive ? interactiveStyles : ""
-      } ${className}`}
+      className={cn(
+        "rounded-lg border border-border p-4",
+        elevations[elevation],
+        interactive && interactiveStyles,
+        className,
+      )}
     >
       {children}
     </div>

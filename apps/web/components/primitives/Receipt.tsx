@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { DataRow } from "./DataRow";
+import { cn } from "@/lib/cn";
 
 type Props = {
   title: string;
@@ -25,7 +26,7 @@ export function Receipt({ title, code, children, footer, className = "" }: Props
   return (
     <section
       aria-label={title}
-      className={`rounded-lg border border-border bg-surface-sunken ${className}`}
+      className={cn("rounded-lg border border-border bg-surface-sunken", className)}
     >
       <div className="flex flex-col gap-1 border-b border-rule px-6 py-4">
         {code ? <span className="font-mono text-caption text-text-muted">{code}</span> : null}

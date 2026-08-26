@@ -1,4 +1,5 @@
 import type { ButtonHTMLAttributes, ReactNode } from "react";
+import { cn } from "@/lib/cn";
 
 type Variant = "brand" | "cta" | "ghost" | "outline";
 type Size = "sm" | "md" | "lg" | "icon";
@@ -55,7 +56,7 @@ export function Button({
   return (
     <button
       type="button"
-      className={`${buttonBase} ${buttonSizes[size]} ${buttonVariants[variant]} ${className}`}
+      className={cn(buttonBase, buttonSizes[size], buttonVariants[variant], className)}
       {...rest}
     >
       {children}
