@@ -38,7 +38,8 @@ type Props = {
     | "vehicles"
     | "shipping"
     | "feedback"
-    | "audit";
+    | "audit"
+    | "design-system";
   children: ReactNode;
 };
 
@@ -75,6 +76,10 @@ const NAV_ITEMS = [
   { key: "shipping" as const, href: "/admin/shipping", label: "ارسال" },
   { key: "feedback" as const, href: "/admin/feedback", label: "نظرات و پرسش‌ها" },
   { key: "audit" as const, href: "/admin/audit", label: "گزارش رویدادها" },
+  // P11.S1. Last entry, deliberately: it is a reference surface, not a
+  // daily operational one, and pushing it above the working screens would
+  // repeat exactly the mistake the `catalog` note above avoids.
+  { key: "design-system" as const, href: "/admin/design-system", label: "سیستم طراحی" },
 ];
 
 export function AdminShell({ active, children }: Props) {
