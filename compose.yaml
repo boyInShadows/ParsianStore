@@ -27,5 +27,31 @@ services:
       retries: 15
       start_period: 5s
 
+  # The destination of the Mongo migration (tasks.md). Present so a fresh
+  # clone has a one-command database; on the machine this was written on,
+  # PostgreSQL 18 is installed natively and `pnpm db:setup` targets that
+  # instead, because Docker is not running there and the mongo image above
+  # cannot start on its kernel at all.
+  postgres:
+    image: postgres:18
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:5432:5432"
+    environment:
+      POSTGRES_DB: parsian_store
+      POSTGRES_USER: parsianstore
+      # Compose-only convenience credential. The real password lives in
+      # apps/api/.env's DATABASE_URL and never enters git.
+      POSTGRES_PASSWORD: parsianstore
+    volumes:
+      - parsianstore-postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U parsianstore -d parsian_store"]
+      interval: 2s
+      timeout: 5s
+      retries: 15
+      start_period: 5s
+
 volumes:
   parsianstore-mongodb:
+  parsianstore-postgres:

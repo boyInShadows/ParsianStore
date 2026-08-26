@@ -1,0 +1,897 @@
+// ParsianStore — PostgreSQL schema.
+//
+// Phase 1 of the Mongo → Postgres migration (tasks.md, owner decision
+// 2026-08-25). This file is the destination shape for all 22 Mongoose models in
+// `src/models/`. Nothing reads it yet: the app still runs on Mongoose, and
+// phase 2 swaps the data layer one module at a time with the suite green at
+// every step.
+//
+// ## Decisions baked in here, all owner-confirmed 2026-08-26
+//
+// **UUID v7 primary keys.** Time-ordered, so they index and paginate like a
+// sequence while staying globally unique — a v4 would scatter inserts across
+// the B-tree. This breaks the 24-hex `ObjectId` shape that 30 files across the
+// monorepo currently assert, which is exactly why it happens now: the database
+// is empty, there is no production data, and the format will never be cheaper
+// to change. `packages/schemas` gets one shared `id` schema so those 30 files
+// each become a one-line edit.
+//
+// **Embedded documents become tables.** Mongo let `Product.variants`,
+// `User.addresses`, `Order.items` and friends live inline. In Postgres each
+// becomes a real table with a foreign key, because that is what makes them
+// queryable, constrainable and countable. The exception is genuinely
+// unstructured payloads — `Payment.raw`, `AuditLog.before/after`,
+// `Coupon.scope` — which stay `Json`.
+//
+// **Localized names become two columns**, `nameFa` / `nameEn`, not a Json blob.
+// They are always both present, always queried, and a blob cannot be indexed or
+// checked. Same for the two SEO fields.
+//
+// **Soft delete stays** (`deletedAt`), because the Mongoose plugin's behaviour
+// is load-bearing across the app. Note the difference: Mongoose *silently*
+// filtered soft-deleted rows in a pre-hook, so every query in the app is
+// written assuming that filter exists. Prisma has no such hook — phase 2 must
+// add `deletedAt: null` explicitly to every read, and that is the single
+// biggest correctness risk in this migration.
+//
+// **Enums are real Postgres enums.** Mongoose validated them as strings at
+// write time only; a bad value could always arrive some other way. Here the
+// database refuses it.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+// Prisma 7 moved the connection URL out of the schema: Migrate reads it from
+// `prisma.config.ts`, and the client gets a driver adapter instead of a URL.
+// See https://pris.ly/d/config-datasource
+datasource db {
+  provider = "postgresql"
+}
+
+// ---------------------------------------------------------------- enums ----
+
+enum UserRole {
+  customer
+  support
+  operator
+  admin
+  superadmin
+}
+
+enum AccountType {
+  retail
+  wholesale
+}
+
+enum BodyType {
+  sedan
+  hatchback
+  liftback
+  pickup
+  crossover
+}
+
+enum FuelType {
+  petrol
+  cng
+}
+
+enum CatalogSystemCode {
+  SYS_01
+  SYS_02
+  SYS_03
+  SYS_04
+  SYS_05
+  SYS_06
+  SYS_07
+  SYS_08
+  SYS_09
+  SYS_10
+}
+
+enum AttributeType {
+  select
+  number
+  bool
+  text
+}
+
+enum ProductStatus {
+  draft
+  active
+  archived
+}
+
+enum SupplyRoute {
+  oem
+  genuine_imported
+  domestic
+  grade1_aftermarket
+}
+
+enum FitmentConfidence {
+  exact
+  likely
+  check
+}
+
+enum OrderStatus {
+  pending
+  paid
+  processing
+  shipped
+  delivered
+  cancelled
+  refunded
+}
+
+enum PaymentStatus {
+  initiated
+  success
+  failed
+  refunded
+}
+
+enum CouponType {
+  percent
+  fixed
+}
+
+enum ModerationStatus {
+  pending
+  approved
+  rejected
+}
+
+enum InventoryMoveReason {
+  manual_adjustment
+  restock
+  reservation
+  reservation_released
+  reservation_confirmed
+}
+
+enum ShippingZone {
+  tehran
+  other
+}
+
+enum OtpPurpose {
+  login
+}
+
+// ------------------------------------------------------------------ geo ----
+
+model Province {
+  id        String    @id @default(uuid(7)) @db.Uuid
+  nameFa    String
+  nameEn    String
+  slug      String    @unique
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  cities    City[]
+  addresses Address[]
+
+  @@index([deletedAt])
+}
+
+model City {
+  id         String    @id @default(uuid(7)) @db.Uuid
+  provinceId String    @db.Uuid
+  nameFa     String
+  nameEn     String
+  slug       String
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+  deletedAt  DateTime?
+
+  province  Province  @relation(fields: [provinceId], references: [id], onDelete: Restrict)
+  addresses Address[]
+
+  @@unique([provinceId, slug])
+  @@index([provinceId])
+  @@index([deletedAt])
+}
+
+// -------------------------------------------------------------- vehicles ----
+
+model VehicleMake {
+  id         String    @id @default(uuid(7)) @db.Uuid
+  nameFa     String
+  nameEn     String
+  slug       String    @unique
+  logo       String?
+  country    String
+  isDomestic Boolean
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+  deletedAt  DateTime?
+
+  models   VehicleModel[]
+  fitments Fitment[]
+  garage   GarageEntry[]
+
+  @@index([deletedAt])
+}
+
+model VehicleModel {
+  id        String    @id @default(uuid(7)) @db.Uuid
+  makeId    String    @db.Uuid
+  nameFa    String
+  nameEn    String
+  slug      String
+  bodyType  BodyType
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  make        VehicleMake   @relation(fields: [makeId], references: [id], onDelete: Restrict)
+  generations VehicleGen[]
+  fitments    Fitment[]
+  garage      GarageEntry[]
+
+  @@unique([makeId, slug])
+  @@index([makeId])
+  @@index([deletedAt])
+}
+
+model VehicleGen {
+  id        String    @id @default(uuid(7)) @db.Uuid
+  modelId   String    @db.Uuid
+  nameFa    String
+  nameEn    String
+  yearFrom  Int
+  yearTo    Int?
+  facelift  Boolean   @default(false)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  model    VehicleModel    @relation(fields: [modelId], references: [id], onDelete: Restrict)
+  engines  VehicleEngine[]
+  fitments Fitment[]
+  garage   GarageEntry[]
+
+  @@index([modelId])
+  @@index([deletedAt])
+}
+
+model VehicleEngine {
+  id           String    @id @default(uuid(7)) @db.Uuid
+  genId        String    @db.Uuid
+  code         String
+  displacement Int
+  fuel         FuelType
+  power        Int
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  deletedAt    DateTime?
+
+  generation VehicleGen    @relation(fields: [genId], references: [id], onDelete: Restrict)
+  fitments   Fitment[]
+  garage     GarageEntry[]
+
+  @@index([genId])
+  @@index([deletedAt])
+}
+
+// --------------------------------------------------------------- catalog ----
+
+model Category {
+  id             String            @id @default(uuid(7)) @db.Uuid
+  nameFa         String
+  nameEn         String
+  slug           String            @unique
+  parentId       String?           @db.Uuid
+  systemCode     CatalogSystemCode
+  icon           String?
+  /// Ancestor slugs, root first. A Postgres array rather than a join table:
+  /// it is written whole by the same hook every time and only ever read whole.
+  path           String[]          @default([])
+  order          Int               @default(0)
+  seoTitle       String?
+  seoDescription String?
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+  deletedAt      DateTime?
+
+  parent   Category?  @relation("CategoryTree", fields: [parentId], references: [id], onDelete: Restrict)
+  children Category[] @relation("CategoryTree")
+  products Product[]
+
+  @@index([parentId])
+  @@index([systemCode])
+  @@index([deletedAt])
+}
+
+model Brand {
+  id             String    @id @default(uuid(7)) @db.Uuid
+  nameFa         String
+  nameEn         String
+  slug           String    @unique
+  logo           String?
+  country        String
+  isOEM          Boolean   @default(false)
+  description    String?
+  seoTitle       String?
+  seoDescription String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  deletedAt      DateTime?
+
+  products Product[]
+
+  @@index([deletedAt])
+}
+
+model Attribute {
+  id        String        @id @default(uuid(7)) @db.Uuid
+  name      String
+  key       String        @unique
+  type      AttributeType
+  unit      String?
+  options   String[]      @default([])
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+  deletedAt DateTime?
+
+  values ProductAttributeValue[]
+
+  @@index([deletedAt])
+}
+
+model Product {
+  id                 String        @id @default(uuid(7)) @db.Uuid
+  nameFa             String
+  nameEn             String
+  slug               String        @unique
+  sku                String        @unique
+  oemNumbers         String[]      @default([])
+  crossRefNumbers    String[]      @default([])
+  brandId            String        @db.Uuid
+  categoryId         String        @db.Uuid
+  media              String[]      @default([])
+  priceRial          Int
+  compareAtRial      Int?
+  wholesalePriceRial Int?
+  taxRate            Int           @default(0)
+  stock              Int           @default(0)
+  lowStockAt         Int           @default(0)
+  backorderable      Boolean       @default(false)
+  weightGram         Int
+  lengthMm           Int
+  widthMm            Int
+  heightMm           Int
+  warrantyMonths     Int
+  warrantyText       String
+
+  // Authenticity record. Flattened from the embedded document because every
+  // field is required together and the PDP reads all of them at once.
+  supplyRoute            SupplyRoute
+  sourceBrand            String
+  countryOfManufacture   String
+  hologramCode           String?
+  guideUrl               String?
+  verificationCode       String
+
+  status     ProductStatus @default(draft)
+  ratingAvg  Float         @default(0)
+  ratingCount Int          @default(0)
+
+  /// Derived on write from name, sku, oem numbers and brand — the same job the
+  /// Mongoose pre-save hook does today. In Postgres this is what the tsvector
+  /// index is built from; see the migration note in docs/engineering-standards.
+  searchText String @default("")
+
+  seoTitle       String?
+  seoDescription String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  deletedAt      DateTime?
+
+  brand        Brand                  @relation(fields: [brandId], references: [id], onDelete: Restrict)
+  category     Category               @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  attributes   ProductAttributeValue[]
+  variants     ProductVariant[]
+  fitments     Fitment[]
+  cartItems    CartItem[]
+  orderItems   OrderItem[]
+  wishlists    Wishlist[]
+  reviews      Review[]
+  questions    Question[]
+  moves        InventoryMove[]
+  reservations StockReservation[]
+
+  @@index([brandId])
+  @@index([categoryId])
+  @@index([status])
+  @@index([oemNumbers], type: Gin)
+  @@index([deletedAt])
+}
+
+/// Was an inline sub-document array on Product. A table so a key can be
+/// constrained to an Attribute that actually exists.
+model ProductAttributeValue {
+  id          String @id @default(uuid(7)) @db.Uuid
+  productId   String @db.Uuid
+  attributeId String @db.Uuid
+  value       String
+
+  product   Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
+  attribute Attribute @relation(fields: [attributeId], references: [id], onDelete: Restrict)
+
+  @@unique([productId, attributeId])
+  @@index([productId])
+}
+
+/// Was an inline sub-document array. Order items and cart items reference a
+/// variant by id, which an embedded array could only ever do by convention.
+model ProductVariant {
+  id                 String    @id @default(uuid(7)) @db.Uuid
+  productId          String    @db.Uuid
+  nameFa             String
+  nameEn             String
+  sku                String    @unique
+  priceRial          Int
+  wholesalePriceRial Int?
+  stock              Int       @default(0)
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+  deletedAt          DateTime?
+
+  product      Product            @relation(fields: [productId], references: [id], onDelete: Cascade)
+  cartItems    CartItem[]
+  orderItems   OrderItem[]
+  reservations StockReservation[]
+
+  @@index([productId])
+}
+
+model Fitment {
+  id         String            @id @default(uuid(7)) @db.Uuid
+  productId  String            @db.Uuid
+  makeId     String            @db.Uuid
+  modelId    String            @db.Uuid
+  genId      String?           @db.Uuid
+  engineId   String?           @db.Uuid
+  yearFrom   Int
+  yearTo     Int?
+  note       String?
+  confidence FitmentConfidence
+  createdAt  DateTime          @default(now())
+  updatedAt  DateTime          @updatedAt
+  deletedAt  DateTime?
+
+  product Product        @relation(fields: [productId], references: [id], onDelete: Cascade)
+  make    VehicleMake    @relation(fields: [makeId], references: [id], onDelete: Restrict)
+  model   VehicleModel   @relation(fields: [modelId], references: [id], onDelete: Restrict)
+  gen     VehicleGen?    @relation(fields: [genId], references: [id], onDelete: Restrict)
+  engine  VehicleEngine? @relation(fields: [engineId], references: [id], onDelete: Restrict)
+
+  @@index([productId])
+  @@index([makeId, modelId, genId, yearFrom, yearTo])
+  @@index([deletedAt])
+}
+
+// ----------------------------------------------------------------- users ----
+
+model User {
+  id                 String      @id @default(uuid(7)) @db.Uuid
+  phone              String      @unique
+  name               String
+  email              String?
+  passwordHash       String?
+  role               UserRole    @default(customer)
+  accountType        AccountType @default(retail)
+  walletBalanceRial  Int         @default(0)
+  isActive           Boolean     @default(true)
+  lastLoginAt        DateTime?
+  createdAt          DateTime    @default(now())
+  updatedAt          DateTime    @updatedAt
+  deletedAt          DateTime?
+
+  addresses        Address[]
+  garage           GarageEntry[]
+  refreshTokens    RefreshToken[]
+  carts            Cart[]
+  orders           Order[]
+  wishlists        Wishlist[]
+  reviews          Review[]
+  moderatedReviews Review[]        @relation("ReviewModerator")
+  questions        Question[]
+  answeredQuestions Question[]     @relation("QuestionAnswerer")
+  moderatedQuestions Question[]    @relation("QuestionModerator")
+  auditLogs        AuditLog[]
+  inventoryMoves   InventoryMove[]
+
+  @@index([role])
+  @@index([deletedAt])
+}
+
+/// Was `User.addresses[]`. A table because an order snapshots one and the
+/// address book pages it.
+model Address {
+  id            String   @id @default(uuid(7)) @db.Uuid
+  userId        String   @db.Uuid
+  provinceId    String   @db.Uuid
+  cityId        String   @db.Uuid
+  line          String
+  postalCode    String
+  plate         String?
+  unit          String?
+  receiverName  String
+  receiverPhone String
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  province Province @relation(fields: [provinceId], references: [id], onDelete: Restrict)
+  city     City     @relation(fields: [cityId], references: [id], onDelete: Restrict)
+
+  @@index([userId])
+}
+
+/// Was `User.garage[]`. The saved vehicles, server side — the client mirror is
+/// `apps/web/stores/garage-store.ts`.
+model GarageEntry {
+  id        String   @id @default(uuid(7)) @db.Uuid
+  userId    String   @db.Uuid
+  makeId    String   @db.Uuid
+  modelId   String   @db.Uuid
+  genId     String   @db.Uuid
+  engineId  String?  @db.Uuid
+  year      Int
+  nickname  String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user   User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  make   VehicleMake    @relation(fields: [makeId], references: [id], onDelete: Restrict)
+  model  VehicleModel   @relation(fields: [modelId], references: [id], onDelete: Restrict)
+  gen    VehicleGen     @relation(fields: [genId], references: [id], onDelete: Restrict)
+  engine VehicleEngine? @relation(fields: [engineId], references: [id], onDelete: Restrict)
+
+  @@unique([userId, makeId, modelId, genId, year])
+  @@index([userId])
+}
+
+model OtpToken {
+  id        String     @id @default(uuid(7)) @db.Uuid
+  phone     String
+  codeHash  String
+  expiresAt DateTime
+  attempts  Int        @default(0)
+  purpose   OtpPurpose @default(login)
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+
+  // Mongo expired these with a TTL index. Postgres has no equivalent, so a
+  // scheduled sweep has to delete them — see the jobs note in tasks.md.
+  @@index([phone])
+  @@index([expiresAt])
+}
+
+model RefreshToken {
+  id        String    @id @default(uuid(7)) @db.Uuid
+  userId    String    @db.Uuid
+  tokenHash String    @unique
+  expiresAt DateTime
+  userAgent String?
+  revokedAt DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+// -------------------------------------------------------------- commerce ----
+
+model Cart {
+  id         String    @id @default(uuid(7)) @db.Uuid
+  userId     String?   @db.Uuid
+  /// The guest identity cookie. Exactly one of userId/anonId is set.
+  anonId     String?
+  couponCode String?
+  expiresAt  DateTime
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+  deletedAt  DateTime?
+
+  user  User?      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  items CartItem[]
+
+  @@index([userId])
+  @@index([anonId])
+  @@index([expiresAt])
+}
+
+model CartItem {
+  id                 String   @id @default(uuid(7)) @db.Uuid
+  cartId             String   @db.Uuid
+  productId          String   @db.Uuid
+  variantId          String?  @db.Uuid
+  qty                Int
+  /// Price when it went in the cart, so a catalogue edit cannot silently
+  /// change what the customer thinks they are buying.
+  priceRialSnapshot  Int
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  cart    Cart            @relation(fields: [cartId], references: [id], onDelete: Cascade)
+  product Product         @relation(fields: [productId], references: [id], onDelete: Restrict)
+  variant ProductVariant? @relation(fields: [variantId], references: [id], onDelete: Restrict)
+
+  @@unique([cartId, productId, variantId])
+  @@index([cartId])
+}
+
+model Order {
+  id            String      @id @default(uuid(7)) @db.Uuid
+  code          String      @unique
+  userId        String      @db.Uuid
+  subtotalRial  Int
+  discountRial  Int         @default(0)
+  couponCode    String?
+  shippingRial  Int         @default(0)
+  taxRial       Int         @default(0)
+  totalRial     Int
+  trackingCode  String?
+  status        OrderStatus @default(pending)
+  notes         String?
+
+  // Address snapshot. Frozen at placement: editing the address book afterwards
+  // must not rewrite where an order was sent.
+  addrProvinceFa   String
+  addrProvinceEn   String
+  addrCityFa       String
+  addrCityEn       String
+  addrLine         String
+  addrPostalCode   String
+  addrPlate        String?
+  addrUnit         String?
+  addrReceiverName String
+  addrReceiverPhone String
+
+  // Shipping method snapshot, frozen for the same reason.
+  shipMethodCode String
+  shipMethodFa   String
+  shipMethodEn   String
+  shipPriceRial  Int
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  user          User               @relation(fields: [userId], references: [id], onDelete: Restrict)
+  items         OrderItem[]
+  statusHistory OrderStatusEntry[]
+  payments      Payment[]
+
+  @@index([userId])
+  @@index([status])
+  @@index([createdAt])
+  @@index([deletedAt])
+}
+
+model OrderItem {
+  id                String  @id @default(uuid(7)) @db.Uuid
+  orderId           String  @db.Uuid
+  productId         String  @db.Uuid
+  variantId         String? @db.Uuid
+  nameFaSnapshot    String
+  nameEnSnapshot    String
+  variantNameFaSnapshot String?
+  variantNameEnSnapshot String?
+  skuSnapshot       String
+  qty               Int
+  priceRial         Int
+
+  order   Order           @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product Product         @relation(fields: [productId], references: [id], onDelete: Restrict)
+  variant ProductVariant? @relation(fields: [variantId], references: [id], onDelete: Restrict)
+
+  @@index([orderId])
+  @@index([productId])
+}
+
+model OrderStatusEntry {
+  id      String      @id @default(uuid(7)) @db.Uuid
+  orderId String      @db.Uuid
+  status  OrderStatus
+  at      DateTime    @default(now())
+  note    String?
+
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([orderId, at])
+}
+
+model Payment {
+  id         String        @id @default(uuid(7)) @db.Uuid
+  orderId    String        @db.Uuid
+  provider   String
+  amountRial Int
+  authority  String?
+  refId      String?
+  status     PaymentStatus @default(initiated)
+  /// The gateway's own response, kept verbatim for reconciliation. Genuinely
+  /// unstructured and provider-specific, so it stays Json.
+  raw        Json?
+  verifiedAt DateTime?
+  createdAt  DateTime      @default(now())
+  updatedAt  DateTime      @updatedAt
+  deletedAt  DateTime?
+
+  order Order @relation(fields: [orderId], references: [id], onDelete: Restrict)
+
+  @@index([orderId])
+  @@index([status])
+  @@index([authority])
+}
+
+model Coupon {
+  id               String     @id @default(uuid(7)) @db.Uuid
+  code             String     @unique
+  type             CouponType
+  value            Int
+  minSubtotalRial  Int?
+  maxDiscountRial  Int?
+  usageLimit       Int?
+  usedCount        Int        @default(0)
+  perUserLimit     Int?
+  startsAt         DateTime?
+  endsAt           DateTime?
+  /// Category/brand/product restrictions. Shapeless by design today; revisit
+  /// as columns if it ever needs to be queried rather than just evaluated.
+  scope            Json?
+  createdAt        DateTime   @default(now())
+  updatedAt        DateTime   @updatedAt
+  deletedAt        DateTime?
+
+  @@index([deletedAt])
+}
+
+model ShippingRate {
+  id             String       @id @default(uuid(7)) @db.Uuid
+  methodCode     String
+  zone           ShippingZone
+  minWeightGram  Int
+  maxWeightGram  Int?
+  priceRial      Int
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  deletedAt      DateTime?
+
+  @@index([methodCode, zone, minWeightGram])
+  @@index([deletedAt])
+}
+
+// ---------------------------------------------------- feedback and stock ----
+
+model Wishlist {
+  id        String    @id @default(uuid(7)) @db.Uuid
+  userId    String    @db.Uuid
+  productId String    @db.Uuid
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, productId])
+  @@index([userId, createdAt])
+}
+
+model Review {
+  id                  String           @id @default(uuid(7)) @db.Uuid
+  productId           String           @db.Uuid
+  userId              String           @db.Uuid
+  authorNameSnapshot  String
+  rating              Int
+  title               String
+  body                String
+  verifiedPurchase    Boolean          @default(true)
+  status              ModerationStatus @default(pending)
+  moderatedById       String?          @db.Uuid
+  moderatedAt         DateTime?
+  createdAt           DateTime         @default(now())
+  updatedAt           DateTime         @updatedAt
+  deletedAt           DateTime?
+
+  product     Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  user        User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  moderatedBy User?   @relation("ReviewModerator", fields: [moderatedById], references: [id], onDelete: SetNull)
+
+  @@unique([userId, productId])
+  @@index([productId, status, createdAt])
+}
+
+model Question {
+  id                 String           @id @default(uuid(7)) @db.Uuid
+  productId          String           @db.Uuid
+  userId             String           @db.Uuid
+  authorNameSnapshot String
+  body               String
+  status             ModerationStatus @default(pending)
+  answer             String?
+  answeredById       String?          @db.Uuid
+  answeredAt         DateTime?
+  moderatedById      String?          @db.Uuid
+  moderatedAt        DateTime?
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
+  deletedAt          DateTime?
+
+  product     Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  user        User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  answeredBy  User?   @relation("QuestionAnswerer", fields: [answeredById], references: [id], onDelete: SetNull)
+  moderatedBy User?   @relation("QuestionModerator", fields: [moderatedById], references: [id], onDelete: SetNull)
+
+  @@index([productId, status, createdAt])
+}
+
+model InventoryMove {
+  id        String              @id @default(uuid(7)) @db.Uuid
+  productId String              @db.Uuid
+  delta     Int
+  reason    InventoryMoveReason
+  refId     String?
+  byUserId  String?             @db.Uuid
+  createdAt DateTime            @default(now())
+  updatedAt DateTime            @updatedAt
+  deletedAt DateTime?
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  byUser  User?   @relation(fields: [byUserId], references: [id], onDelete: SetNull)
+
+  @@index([productId])
+  @@index([createdAt])
+}
+
+model StockReservation {
+  id        String    @id @default(uuid(7)) @db.Uuid
+  productId String    @db.Uuid
+  variantId String?   @db.Uuid
+  qty       Int
+  refId     String?
+  expiresAt DateTime
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  product Product         @relation(fields: [productId], references: [id], onDelete: Cascade)
+  variant ProductVariant? @relation(fields: [variantId], references: [id], onDelete: Cascade)
+
+  // Another Mongo TTL index that Postgres cannot express — the existing
+  // release job has to sweep these instead.
+  @@index([productId])
+  @@index([expiresAt])
+}
+
+model AuditLog {
+  id        String   @id @default(uuid(7)) @db.Uuid
+  actorId   String   @db.Uuid
+  action    String
+  entity    String
+  entityId  String?
+  /// Before/after snapshots of an arbitrary admin-edited entity. Json is
+  /// correct here: the shape genuinely differs per entity.
+  before    Json?
+  after     Json?
+  ip        String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  actor User @relation(fields: [actorId], references: [id], onDelete: Restrict)
+
+  @@index([actorId])
+  @@index([entity])
+  @@index([createdAt])
+}

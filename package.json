@@ -11,6 +11,7 @@
     "dev": "turbo run dev",
     "dev:infra": "docker compose up -d --wait mongodb",
     "dev:stop": "docker compose down",
+    "db:setup": "node scripts/setup-postgres.mjs",
     "dev:api": "turbo run dev --filter=api",
     "dev:web": "turbo run dev --filter=web",
     "build": "turbo run build",
