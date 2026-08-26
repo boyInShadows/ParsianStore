@@ -41,6 +41,19 @@ jobs:
           node-version-file: ".nvmrc"
           cache: "pnpm"
 
+      # apps/api/src/config/env.ts requires JWT_ACCESS_SECRET and
+      # JWT_REFRESH_SECRET with no default -- a hardcoded fallback secret in
+      # source is the vulnerability that rule exists to prevent. Locally they
+      # come from the gitignored apps/api/.env, which CI does not have, so the
+      # env module threw at import time and every suite that touches it failed
+      # before running a single test. Minted fresh per run rather than stored
+      # as a repository secret: nothing here signs a token that outlives the
+      # job, so there is no value to leak and no rotation to forget.
+      - name: Provision test secrets
+        run: |
+          echo "JWT_ACCESS_SECRET=$(openssl rand -hex 32)" >> "$GITHUB_ENV"
+          echo "JWT_REFRESH_SECRET=$(openssl rand -hex 32)" >> "$GITHUB_ENV"
+
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 

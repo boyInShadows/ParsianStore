@@ -69,7 +69,7 @@ export function WishlistButton({ productId, messages, className = "" }: Props) {
       onClick={(event) => void handleClick(event)}
       aria-pressed={isSaved}
       aria-label={isSaved ? messages.remove : messages.add}
-      className={`h-9 w-9 inline-flex items-center justify-center rounded-full border border-border bg-surface text-text transition-colors duration-fast hover:text-danger focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus motion-reduce:transition-none ${className}`}
+      className={`inline-flex h-12 w-12 items-center justify-center rounded-full border border-border bg-surface text-text transition-colors duration-fast hover:text-danger focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus motion-reduce:transition-none ${className}`}
     >
       <HeartIcon filled={isSaved} />
     </button>

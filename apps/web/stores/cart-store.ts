@@ -20,7 +20,7 @@ type CartState = {
   cart: CartDto | null;
   status: CartStatus;
   load: (options?: { force?: boolean }) => Promise<void>;
-  addItem: (productId: string, qty?: number) => Promise<boolean>;
+  addItem: (productId: string, qty?: number, variantId?: string) => Promise<boolean>;
   updateItem: (itemId: string, qty: number) => Promise<boolean>;
   removeItem: (itemId: string) => Promise<boolean>;
   applyCoupon: (code: string) => Promise<{ ok: boolean; message?: string }>;
@@ -37,8 +37,8 @@ export const useCartStore = create<CartState>((set, get) => ({
     const cart = await fetchCart();
     set({ cart, status: "loaded" });
   },
-  addItem: async (productId, qty = 1) => {
-    const cart = await addCartItem(productId, qty);
+  addItem: async (productId, qty = 1, variantId) => {
+    const cart = await addCartItem(productId, qty, variantId);
     if (!cart) return false;
     set({ cart, status: "loaded" });
     return true;

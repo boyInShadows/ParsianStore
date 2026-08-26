@@ -13,11 +13,12 @@ type Props = {
 // ("Count-up on scroll, once, reduced-motion safe"). Deliberately does
 // NOT use motion/react's `animate()`/`useInView()` (unlike this file's
 // original P1.S7 version) -- those two APIs weren't used by anything
-// else on the landing route (ExplodedView only uses variants/
-// staggerChildren) and added ~2-3KB the first time this component
-// actually shipped in production (P4.S5, Numbers.tsx), pushing the route
-// over its 180KB budget. `useReducedMotion` stays -- it's already
-// bundled via ExplodedView, so reusing it here is free. The native
+// else on the landing route (the exploded-view hero it shared the route
+// with, deleted at P9.S16, only used variants/staggerChildren) and added
+// ~2-3KB the first time this component actually shipped in production
+// (P4.S5, Numbers.tsx), pushing the route over its 180KB budget.
+// `useReducedMotion` stays -- VideoStage and the hero stage both pull it
+// in already, so reusing it here is free. The native
 // IntersectionObserver + requestAnimationFrame below cost nothing extra:
 // they're browser APIs, not library code.
 export function CountUp({ value, className }: Props) {

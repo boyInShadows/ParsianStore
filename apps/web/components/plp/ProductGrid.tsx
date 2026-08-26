@@ -15,7 +15,7 @@ export interface ProductGridMessages {
 }
 
 type Props = {
-  categorySlug: string;
+  clearFiltersHref: string;
   products: ProductListItemDto[];
   nextCursor: string | null;
   filters: Omit<CatalogProductFilters, "cursor">;
@@ -24,7 +24,7 @@ type Props = {
 };
 
 export function ProductGrid({
-  categorySlug,
+  clearFiltersHref,
   products,
   nextCursor,
   filters,
@@ -39,7 +39,7 @@ export function ProductGrid({
         action={
           hasActiveFilters ? (
             <Link
-              href={`/c/${categorySlug}`}
+              href={clearFiltersHref}
               className="text-body-sm text-brand hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus"
             >
               {messages.clearFilters}

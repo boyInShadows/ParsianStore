@@ -17,9 +17,6 @@ export async function generateMetadata(): Promise<Metadata> {
 
 export default async function GaragePage() {
   const t = await getTranslations("Garage");
-  const tOrders = await getTranslations("Orders");
-  const tAddresses = await getTranslations("Addresses");
-  const tWishlist = await getTranslations("Wishlist");
 
   const messages: GarageMessages = {
     title: t("title"),
@@ -35,13 +32,7 @@ export default async function GaragePage() {
 
   return (
     <main className="mx-auto max-w-container px-4 py-8">
-      <AccountNav
-        active="garage"
-        ordersLabel={tOrders("title")}
-        addressesLabel={tAddresses("title")}
-        wishlistLabel={tWishlist("title")}
-        garageLabel={t("title")}
-      />
+      <AccountNav active="garage" />
       <div className="mt-6">
         <GarageContent messages={messages} />
       </div>

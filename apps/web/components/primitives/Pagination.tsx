@@ -1,3 +1,6 @@
+import { toPersianDigits } from "schemas/fa-text";
+import { cn } from "@/lib/cn";
+
 type Props = {
   page: number;
   pageCount: number;
@@ -51,13 +54,16 @@ export function Pagination({ page, pageCount, onPageChange }: Props) {
   const pages = Array.from({ length: pageCount }, (_, index) => index + 1);
 
   return (
-    <nav aria-label="Pagination" className="flex items-center gap-1">
+    // flex-wrap + shrink-0 on the buttons: without both, a 5-page bar at
+    // 360px squeezed every 48px target down to 41px wide, silently breaking
+    // masterPlan §10's 44px floor even though the classes said w-12.
+    <nav aria-label="Pagination" className="flex flex-wrap items-center gap-1">
       <button
         type="button"
         onClick={() => onPageChange(page - 1)}
         disabled={page <= 1}
         aria-label="Previous page"
-        className="inline-flex h-8 w-8 items-center justify-center rounded-md text-text-muted hover:text-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus disabled:pointer-events-none disabled:opacity-40"
+        className="inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-md text-text-muted hover:text-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus disabled:pointer-events-none disabled:opacity-40"
       >
         <PrevIcon />
       </button>
@@ -67,13 +73,14 @@ export function Pagination({ page, pageCount, onPageChange }: Props) {
           type="button"
           onClick={() => onPageChange(pageNumber)}
           aria-current={pageNumber === page ? "page" : undefined}
-          className={`inline-flex h-8 w-8 items-center justify-center rounded-md text-body-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus ${
+          className={cn(
+            "inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-md text-body-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus",
             pageNumber === page
               ? "bg-brand-solid text-brand-fg"
-              : "text-text hover:bg-surface-raised"
-          }`}
+              : "text-text hover:bg-surface-raised",
+          )}
         >
-          {pageNumber}
+          {toPersianDigits(String(pageNumber))}
         </button>
       ))}
       <button
@@ -81,7 +88,7 @@ export function Pagination({ page, pageCount, onPageChange }: Props) {
         onClick={() => onPageChange(page + 1)}
         disabled={page >= pageCount}
         aria-label="Next page"
-        className="inline-flex h-8 w-8 items-center justify-center rounded-md text-text-muted hover:text-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus disabled:pointer-events-none disabled:opacity-40"
+        className="inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-md text-text-muted hover:text-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus disabled:pointer-events-none disabled:opacity-40"
       >
         <NextIcon />
       </button>

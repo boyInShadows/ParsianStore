@@ -25,7 +25,10 @@ export function EmptyState({ title, description, action, icon, titleAs = "p" }: 
       {icon ? (
         <span
           aria-hidden="true"
-          className="h-14 w-14 flex items-center justify-center rounded-full bg-surface-raised text-text-muted"
+          // h-16/w-16 (64px), not the h-14/w-14 this had: 14 is not in the
+          // tailwind.config.js spacing scale (which REPLACES Tailwind's own),
+          // so both classes generated nothing and the icon well was unsized.
+          className="flex h-16 w-16 items-center justify-center rounded-full bg-surface-raised text-text-muted"
         >
           {icon}
         </span>

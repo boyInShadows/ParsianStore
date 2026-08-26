@@ -1,0 +1,49 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-label="پارسیان">
+  <!--
+    Interim brand mark: the first letter of the wordmark, nothing more.
+
+    fableTasks §7 item 11 asks for a real mark from the owner and says not to
+    invent one, and this does not. It is the isolated Persian letter «پ», the
+    opening letter of «پارسیان» that the header and footer already render,
+    drawn as paths so it does not depend on a font the viewer may not have.
+    No symbol, no monogram of anything that is not already the name.
+    Replacing it with a real mark is a one file swap.
+
+    What it fixes: `GET /favicon.ico` 404'd on every page load and every
+    browser tab showed a blank icon. Next serves this through
+    `<link rel="icon">`, so the probe stops and the tab gets the name.
+
+    Two things that will bite an editor here:
+
+    1. The root `<svg>` element must stay on the first line, with explicit
+       width and height. Next's metadata image loader sniffs the head of the
+       file to size it, and a comment block above the root made it reject the
+       whole file as "not a valid image" -- the dev server then failed to
+       compile any route at all.
+    2. XML comments cannot contain a double hyphen, so CSS custom properties
+       cannot be written by name in here. Hence the prose below.
+
+    Colours are token values, quoted rather than referenced: an independently
+    served SVG cannot read the stylesheet's custom properties, and no browser
+    makes a favicon theme aware. Ground is the graphite-950 token (#0e1418),
+    letter is the cta token (#e2a91d). See styles/tokens.css and
+    docs/decisions/0005-color-palette-marigold-cta.md. This is the one file
+    outside tokens.css that has to follow if either value changes.
+  -->
+  <rect width="64" height="64" rx="14" fill="#0e1418" />
+  <!-- The bowl: a short upward tick on the start side, then the shallow
+       boat shaped sweep that both «ب» and «پ» share. -->
+  <path
+    d="M50 15 v12 c0 8 -7.5 13 -18 13 s-18 -5 -18 -13"
+    fill="none"
+    stroke="#e2a91d"
+    stroke-width="7"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+  />
+  <!-- The three dots that make it «پ» rather than «ب». Below letter dots point
+       their triangle downward: two abreast, one centred beneath. -->
+  <circle cx="23" cy="50" r="4.2" fill="#e2a91d" />
+  <circle cx="41" cy="50" r="4.2" fill="#e2a91d" />
+  <circle cx="32" cy="59" r="4.2" fill="#e2a91d" />
+</svg>

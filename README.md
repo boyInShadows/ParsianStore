@@ -5,11 +5,17 @@ imported vehicles. Owned by Ash Tech Group.
 
 **Single source of truth for scope, architecture, and phased delivery:
 [`masterPlan.md`](./masterPlan.md).** Read it before touching this repo.
-Always-on coding rules for agents/contributors live in [`CLAUDE.md`](./CLAUDE.md).
+Shared coding rules for humans and AI collaborators live in
+[`CLAUDE.md`](./CLAUDE.md); Codex loads the matching repository entry point in
+[`AGENTS.md`](./AGENTS.md).
 
 ## Status
 
-Phases 0–6 complete, Phases 7–8 in progress on `development`.
+Core Phases 0–6 are shipped. Phase 7's main customer-account flows are live,
+and the admin dashboard is implemented through P8.S9. Remaining work spans the
+storefront backlog, account expansion, advanced admin tooling, hardening, and
+launch. See [`tasks.md`](./tasks.md) for the dated working snapshot and
+`masterPlan.md` for authoritative scope.
 
 A shopper can browse categories, open a product page, search, save to a
 wishlist, fill a cart, and check out to a paid order — with B2B wholesale
@@ -48,23 +54,55 @@ legacy/      Pre-monorepo Create Next App prototype, kept for reference only
 
 ## Getting started
 
-Requires Node 22 (see `.nvmrc`) and pnpm (`corepack enable && corepack
-prepare pnpm@9 --activate`, or `npm i -g pnpm@9` if corepack can't write to
-your Node install location).
+Requires Node 22 (see `.nvmrc`), Docker Desktop, and pnpm (`corepack enable &&
+corepack prepare pnpm@9 --activate`, or `npm i -g pnpm@9` if corepack can't
+write to your Node install location).
 
 ```bash
 pnpm install
 cp .env.example apps/web/.env.local   # fill in what you need, mock providers work out of the box
 cp .env.example apps/api/.env
-pnpm dev     # runs every app in the workspace via Turborepo
+pnpm dev     # starts MongoDB, then every app in the workspace via Turborepo
 ```
 
-Other workspace-wide scripts: `pnpm lint`, `pnpm test`, `pnpm build`.
+`pnpm dev` starts the project-scoped MongoDB container on port `27018` and
+waits for it to become healthy before starting the API and web development
+servers. MongoDB data persists in a Docker volume between sessions. Run
+`pnpm dev:stop` when you want to stop the container. The normal Ctrl+C only
+stops the web/API processes, allowing faster starts the next time.
+
+Other workspace-wide scripts: `pnpm lint`, `pnpm test`, `pnpm build`, and
+`pnpm e2e`.
+
+### Optional local tooling
+
+`pnpm optimize:landing` regenerates the committed landing artwork in
+`apps/web/public/landing/` from the git-ignored masters in `landing-src/`. It
+needs **ffmpeg on your `PATH`** (or `$FFMPEG_DIR` pointing at its `bin`) for the
+video half — posters, the RTL-mirrored variants, and the re-encoded clips.
+
+ffmpeg is deliberately **not** a repo dependency: nothing in `pnpm dev`, `lint`,
+`test`, `build` or CI touches it, and the script still emits the full image set
+without it, printing a notice for the video half it skipped. Install it only if
+you are regenerating assets — `winget install Gyan.FFmpeg` on Windows,
+`brew install ffmpeg` on macOS, your package manager on Linux.
+
+Asset provenance, output layout and the byte budgets that output has to respect
+are in `docs/landing-assets.md`.
+
+For the temporary image-backed visualization catalog sourced from
+`apps/web/public/products/digikala.csv`, run:
+
+```bash
+pnpm --filter api seed:visual-catalog
+```
+
+The idempotent importer keeps the first 100 unique records with a valid name,
+price, and product image in the single `/c/visual-products` category.
 
 The API needs MongoDB reachable at the `MONGODB_URI` in `apps/api/.env` before
-it will serve anything — if it is down, `pnpm dev` logs a
-`MongooseServerSelectionError` and the API process exits while the web app
-keeps running.
+it will serve anything. The default development URI uses the container managed
+by `pnpm dev`; custom or production environments may point it elsewhere.
 
 ### Reading the logs
 
@@ -112,3 +150,15 @@ GitHub branch protection on `main` and `development` — require the CI
 workflow (`.github/workflows/ci.yml`) to pass and require PR review before
 merge to `main`. This needs to be done once in the repo's GitHub Settings →
 Branches by someone with admin access.
+
+## Claude + Codex collaboration
+
+Claude and Codex are peers working in the same checkout. Both follow
+`masterPlan.md`, `CLAUDE.md`, and `tasks.md`; `AGENTS.md` keeps Codex pointed at
+the same rules instead of maintaining a competing instruction set.
+
+Before editing, each collaborator must inspect `git status` and preserve work
+already present in the tree. Do not revert, reformat, stage, or commit another
+collaborator's changes unless the owner explicitly asks. Record durable project
+status in `tasks.md` (or the relevant ADR), not in private chat context, and
+leave the worktree buildable with the relevant checks reported.

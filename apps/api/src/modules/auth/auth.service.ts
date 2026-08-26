@@ -11,6 +11,7 @@ import { generateOtpCode } from "../../utils/otp.js";
 import { hashToken, parseDurationMs } from "../../utils/token.js";
 import { signAccessToken } from "../../utils/jwt.js";
 import type { HydratedDocument } from "mongoose";
+import type { ProfileUpdateInput } from "./auth.schema.js";
 
 const OTP_TTL_MS = 120_000;
 const OTP_MAX_ATTEMPTS = 5;
@@ -139,5 +140,19 @@ export async function getUserById(userId: string): Promise<HydratedDocument<User
   if (!user) {
     throw new ApiError(404, "کاربر یافت نشد");
   }
+  return user;
+}
+
+export async function updateProfile(
+  userId: string,
+  input: ProfileUpdateInput,
+): Promise<HydratedDocument<User>> {
+  const user = await UserModel.findById(userId);
+  if (!user) {
+    throw new ApiError(404, "کاربر یافت نشد");
+  }
+  user.name = input.name;
+  user.email = input.email || undefined;
+  await user.save();
   return user;
 }

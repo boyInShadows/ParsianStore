@@ -10,9 +10,22 @@
   "tasks": {
     "build": {
       "dependsOn": ["^build"],
-      "outputs": [".next/**", "!.next/cache/**", "dist/**"]
+      "outputs": [".next/**", "!.next/cache/**", "dist/**"],
+      // `NEXT_PUBLIC_*` values are inlined into the bundle at build time, so
+      // they change the output and must be part of the cache key. Without
+      // this, flipping NEXT_PUBLIC_LANDING_V2 replays the previous build from
+      // cache and reports the wrong bundle -- caught at P9.S5, where a
+      // flag-off build proudly printed the flag-on route size.
+      "env": ["NEXT_PUBLIC_*"]
     },
+    // `packages/schemas` now emits real JS to dist/ (its `main`/`exports` point
+    // there, so plain Node can load it in production). Dev therefore has to
+    // build it once up front, or `next dev` / `tsx watch` start against a
+    // missing dist on a fresh clone. Turbo caches it, so this costs nothing on
+    // a warm repo; schemas' own `dev` task then keeps it in sync via tsc
+    // --watch for the rest of the session.
     "dev": {
+      "dependsOn": ["^build"],
       "cache": false,
       "persistent": true
     }

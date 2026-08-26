@@ -9,6 +9,7 @@ import {
   adminProductListQuerySchema,
   createProductSchema,
   updateProductSchema,
+  removeProductMediaSchema,
 } from "./products.admin.schema.js";
 
 // P8.S2: same requireStaff()+auditLog convention every other admin
@@ -21,6 +22,7 @@ adminProductsRouter.get(
   validateQuery(adminProductListQuerySchema),
   productsAdminController.listAdminProductsHandler,
 );
+adminProductsRouter.post("/import", productsAdminController.importProductsHandler);
 adminProductsRouter.get(
   "/:id",
   validateParams(adminProductIdParamSchema),
@@ -30,6 +32,17 @@ adminProductsRouter.post(
   "/",
   validate(createProductSchema),
   productsAdminController.createProductHandler,
+);
+adminProductsRouter.post(
+  "/:id/media",
+  validateParams(adminProductIdParamSchema),
+  productsAdminController.addProductMediaHandler,
+);
+adminProductsRouter.delete(
+  "/:id/media",
+  validateParams(adminProductIdParamSchema),
+  validate(removeProductMediaSchema),
+  productsAdminController.removeProductMediaHandler,
 );
 adminProductsRouter.patch(
   "/:id",

@@ -14,6 +14,13 @@ export type ProductStatusDto = z.infer<typeof productStatusSchema>;
 
 const localizedNameSchema = z.object({ fa: z.string(), en: z.string() });
 const objectId = z.string().regex(/^[0-9a-fA-F]{24}$/);
+const productVariantInputSchema = z.object({
+  name: localizedNameSchema,
+  sku: z.string().min(1),
+  priceRial: z.number().int().min(0),
+  wholesalePriceRial: z.number().int().min(0).optional(),
+  stock: z.number().int().min(0),
+});
 
 // Essential fields only (owner-confirmed scope, P8.S2) -- dimensions,
 // warranty, and SEO get real, honest server-side defaults on create
@@ -51,6 +58,7 @@ export const adminCreateProductInputSchema = z.object({
   // both enforced server-side in attributes.service.ts, which is the only
   // place that can see the dictionary.
   attributes: z.array(z.object({ key: z.string().min(1), value: z.string().min(1) })).optional(),
+  variants: z.array(productVariantInputSchema).optional(),
 });
 export type AdminCreateProductInput = z.infer<typeof adminCreateProductInputSchema>;
 
@@ -91,6 +99,8 @@ export const adminProductDetailSchema = adminProductSummarySchema.extend({
   categoryId: z.string(),
   authenticity: adminAuthenticitySchema,
   attributes: z.array(z.object({ key: z.string(), value: z.string() })),
+  media: z.array(z.string()),
+  variants: z.array(productVariantInputSchema.extend({ id: z.string() })),
 });
 export type AdminProductDetailDto = z.infer<typeof adminProductDetailSchema>;
 

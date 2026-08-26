@@ -44,8 +44,8 @@ export function ShippingPicker({ addressId, selectedCode, onSelect, messages }: 
   }, [addressId]);
 
   return (
-    <section className="flex flex-col gap-3">
-      <h2 className="text-h4 font-bold text-text">{messages.title}</h2>
+    <section className="flex flex-col gap-4 rounded-xl border border-border bg-surface p-4 shadow-sm sm:p-6">
+      <h2 className="border-b border-rule pb-3 text-h3 font-bold text-text">{messages.title}</h2>
       {hasError ? (
         <p role="alert" className="text-body-sm text-danger">
           {messages.errorHint}
@@ -60,7 +60,7 @@ export function ShippingPicker({ addressId, selectedCode, onSelect, messages }: 
           {options.map((option) => (
             <div
               key={option.methodCode}
-              className="flex items-center justify-between rounded-lg border border-border bg-surface p-3 has-[:checked]:border-brand-solid"
+              className="flex items-center justify-between rounded-lg border border-border bg-surface-raised p-4 transition-colors has-[:checked]:border-brand-solid has-[:checked]:bg-brand-subtle motion-reduce:transition-none"
             >
               <Radio
                 name="shipping"
@@ -68,7 +68,7 @@ export function ShippingPicker({ addressId, selectedCode, onSelect, messages }: 
                 checked={selectedCode === option.methodCode}
                 onChange={() => onSelect(option)}
               />
-              <span className="font-mono text-body-sm text-text">
+              <span className="font-mono text-body-sm font-bold text-price">
                 {formatToman(option.priceRial)}
               </span>
             </div>

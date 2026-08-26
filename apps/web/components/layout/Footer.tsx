@@ -1,17 +1,27 @@
 import Link from "next/link";
-import { CATALOG_SYSTEMS } from "schemas";
+import { getTranslations } from "next-intl/server";
+import { CATALOG_SYSTEMS, toPersianDigits } from "schemas";
 import { fetchBrands } from "@/lib/fetchers/brands";
 import { fetchMakesSafe } from "@/lib/fetchers/vehicles";
-import { SUPPORT_PHONE_DISPLAY, SUPPORT_PHONE_TEL } from "@/lib/contact-info";
+import { CONTACT_CHANNELS, type ContactChannelKind } from "@/lib/contact-info";
 
+/**
+ * The information pages that exist. `/about`, `/contact` and `/faq` shipped
+ * with the P9 tail; the four legal pages masterPlan §5 also names --
+ * `/returns`, `/warranty`, `/privacy`, `/terms` -- are absent from this list
+ * because they are absent from the app.
+ *
+ * S16's link sweep is what forced the question: the column used to carry all
+ * seven and every one of them was a 404, so the owner hid the whole column
+ * behind a flag rather than ship dead links. Hiding is no longer the right
+ * answer now that three of them are real, and listing the other four still is
+ * not. A link appears here when its route does, and the sweep in
+ * `e2e/landing.spec.ts` is what keeps that honest.
+ */
 const POLICY_LINKS = [
   { label: "درباره ما", href: "/about" },
   { label: "تماس با ما", href: "/contact" },
   { label: "سوالات متداول", href: "/faq" },
-  { label: "بازگشت و تعویض", href: "/returns" },
-  { label: "ضمانت اصالت کالا", href: "/warranty" },
-  { label: "حریم خصوصی", href: "/privacy" },
-  { label: "قوانین و مقررات", href: "/terms" },
 ];
 
 function FooterColumn({
@@ -50,6 +60,16 @@ function FooterColumn({
 // vehicle tree only ever had those two makes to begin with.
 export async function Footer() {
   const [brands, makes] = await Promise.all([fetchBrands(), fetchMakesSafe()]);
+  // Borrowed from the closing beat's namespace on purpose: the footer and that
+  // beat list the same channels, so sharing one set of labels as well as one
+  // source of values means the two can never disagree about how to reach the
+  // store.
+  const t = await getTranslations("Landing.beats.closing.support");
+  const channelLabel: Record<ContactChannelKind, string> = {
+    phone: t("phone"),
+    telegram: t("telegram"),
+    whatsapp: t("whatsapp"),
+  };
 
   const categoryLinks = CATALOG_SYSTEMS.map((system) => ({
     label: system.name.fa,
@@ -74,13 +94,23 @@ export async function Footer() {
         <div className="flex flex-col gap-2">
           <h2 className="text-body-sm font-semibold text-text">ارتباط با ما</h2>
           <p className="text-body-sm text-text-muted">تهران، ایران</p>
-          <a
-            href={`tel:${SUPPORT_PHONE_TEL}`}
-            dir="ltr"
-            className="text-body-sm text-text-muted hover:text-text"
-          >
-            {SUPPORT_PHONE_DISPLAY}
-          </a>
+          {/* Every channel contact-info.ts exposes, so the footer cannot fall
+              behind the closing beat. WhatsApp is absent from both for the same
+              reason: no number exists yet (fableTasks §7 item 7). */}
+          <ul className="flex flex-col gap-1">
+            {CONTACT_CHANNELS.map((channel) => (
+              <li key={channel.kind}>
+                <a
+                  href={channel.href}
+                  dir="ltr"
+                  aria-label={`${channelLabel[channel.kind]}: ${channel.display}`}
+                  className="text-body-sm text-text-muted hover:text-text"
+                >
+                  {channel.display}
+                </a>
+              </li>
+            ))}
+          </ul>
           {/* Trust seals -- both gated on the business/legal registration
               masterPlan.md §11 flags as a Phase 6 external blocker. Real
               social media accounts don't exist yet either -- omitted
@@ -106,7 +136,7 @@ export async function Footer() {
         </div>
       </div>
       <div className="border-t border-border px-4 py-4 text-center text-body-sm text-text-muted">
-        © {new Date().getFullYear()} پارسیان -- Ash Tech Group
+        © {toPersianDigits(String(new Date().getFullYear()))} پارسیان -- Ash Tech Group
       </div>
     </footer>
   );

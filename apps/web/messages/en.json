@@ -1,111 +1,14 @@
 {
   "Landing": {
-    "partsCount": "{count} parts",
-    "explodedView": {
-      "svgLabel": "Exploded view of the car by system -- select a system to see its parts",
-      "systemLinkLabel": "{name} system -- view parts"
-    },
     "meta": {
       "title": "Genuine parts for Saipa & Iran Khodro",
       "description": "Genuine, authenticity-checked parts for Saipa and Iran Khodro vehicles — fast delivery, secure payment, and free consultation before you buy."
     },
     "sections": {
-      "hero": {
-        "code": "01",
-        "headline": "The part that fits your car, not something like it.",
-        "subheadline": "Built for Saipa and Iran Khodro. Genuine parts, authenticity-checked, fast delivery."
-      },
-      "trustStrip": {
-        "code": "02",
-        "title": "Why Parsian",
-        "items": ["Authenticity guarantee", "Fast delivery", "Secure payment", "Free consultation"]
-      },
-      "shopBySystem": {
-        "code": "03",
-        "title": "Shop by system",
-        "subtitle": "Engine, suspension, electrical, body, brakes, and more — in the vocabulary mechanics actually use."
-      },
-      "bestSellers": {
-        "code": "04",
-        "title": "Featured picks",
-        "subtitle": "A selection of what's in stock — this section switches to real best-sellers once we have order history.",
-        "noPhoto": "No photo"
-      },
-      "brandWall": {
-        "code": "05",
-        "title": "Trusted brands"
-      },
-      "authenticityStory": {
-        "code": "06",
-        "title": "An authenticity guarantee, not a slogan",
-        "subtitle": "Every item carries an Authenticity Record: a verification code, supply route, and country of manufacture — checkable by any buyer.",
-        "verificationCode": "Verification code",
-        "supplyRoute": "Supply route",
-        "sourceBrand": "Source brand",
-        "countryOfManufacture": "Country of manufacture",
-        "supplyRoutes": {
-          "oem": "OEM",
-          "genuineImported": "Genuine imported",
-          "domestic": "Domestic",
-          "grade1Aftermarket": "Grade 1 aftermarket"
-        }
-      },
-      "deals": {
-        "code": "07",
-        "title": "Special offers",
-        "subtitle": "Time-limited deals, shown only when they're actually live."
-      },
-      "shopByVehicle": {
-        "code": "08",
-        "title": "Shop by vehicle",
-        "subtitle": "Pride, Tiba, Quick, 405, Samand, Dena — parts matched to your exact Saipa or Iran Khodro model."
-      },
-      "symptomFinder": {
-        "code": "09",
-        "title": "Know the symptom?",
-        "subtitle": "For example, \"squeaking when braking\" — pick a symptom and we'll find the matching part.",
-        "items": [
-          "Check engine light stays on",
-          "Hard to shift gears",
-          "Steering wheel vibrates at high speed",
-          "Squeaking when braking",
-          "Car won't start with the key",
-          "Rust or fading paint on the body",
-          "Engine overheating",
-          "Unusual noise from underneath the car",
-          "Ticking noise from the dashboard",
-          "Engine oil pressure drop"
-        ]
-      },
-      "numbers": {
-        "code": "10",
-        "title": "Parsian at a glance",
-        "partsInStock": "Parts in stock",
-        "modelsCovered": "Vehicle models covered"
-      },
-      "howItWorks": {
-        "code": "11",
-        "title": "How it works",
-        "subtitle": "Choose your car, find the part, confirm fitment and authenticity, receive it.",
-        "steps": [
-          "Choose your vehicle",
-          "Find the part you need",
-          "Confirm authenticity and fitment",
-          "Receive your order"
-        ]
-      },
       "guidesTeaser": {
         "code": "12",
         "title": "Buying & repair guides",
         "subtitle": "Counterfeit-part identification and common symptom guides."
-      },
-      "support": {
-        "code": "13",
-        "title": "Always reachable",
-        "subtitle": "Phone, WhatsApp, and free consultation before you buy.",
-        "phone": "Call us",
-        "whatsapp": "WhatsApp",
-        "hoursPending": "Support hours will be announced soon"
       },
       "newsletter": {
         "code": "14",
@@ -117,6 +20,42 @@
         "comingSoon": "This feature launches soon."
       }
     }
+  },
+  "VehiclePage": {
+    "metaTitle": "Compatible parts for {vehicle}",
+    "metaDescription": "Shop parts with recorded fitment for {vehicle} from {year}, with current pricing and availability.",
+    "title": "Compatible parts for {vehicle}",
+    "description": "This list only includes products recorded in the store's technical fitment data for {vehicle}, generation {generation}.",
+    "yearRange": "Model years {from}–{to}",
+    "yearFrom": "From model year {from}",
+    "makeLabel": "Make",
+    "modelLabel": "Model",
+    "generationLabel": "Generation",
+    "productsTitle": "Verified parts for this vehicle",
+    "productsHint": "Compatibility is based on fitment records maintained in the catalog.",
+    "emptyTitle": "No compatible parts recorded yet",
+    "emptyDescription": "There are no active fitment records for this generation of {vehicle} yet."
+  },
+  "Compare": {
+    "title": "Compare parts",
+    "description": "Compare {count} products using current catalog data.",
+    "emptyTitle": "No products selected",
+    "emptyDescription": "Add up to four parts from product cards to compare them.",
+    "browse": "Browse products",
+    "feature": "Feature",
+    "remove": "Remove",
+    "price": "Price",
+    "stock": "Availability",
+    "inStock": "In stock",
+    "outOfStock": "Out of stock",
+    "brand": "Brand",
+    "category": "Category",
+    "sku": "SKU",
+    "oem": "OEM number",
+    "warranty": "Warranty",
+    "weight": "Weight",
+    "weightValue": "{value} g",
+    "unknown": "Not recorded"
   },
   "Catalog": {
     "breadcrumbHome": "Parsian",
@@ -167,6 +106,11 @@
         "remove": "Remove from wishlist",
         "error": "Couldn't update your wishlist, try again"
       },
+      "compare": {
+        "add": "Add to compare",
+        "open": "View comparison",
+        "limit": "Maximum 4 products"
+      },
       "addToCart": {
         "qtyLabel": "Quantity",
         "addButton": "Add to cart",
@@ -214,6 +158,23 @@
       },
       "related": {
         "title": "Related parts"
+      },
+      "feedback": {
+        "reviewsTitle": "Customer reviews",
+        "questionsTitle": "Questions and answers",
+        "noReviews": "No approved reviews yet.",
+        "noQuestions": "No questions yet.",
+        "verified": "Verified purchase",
+        "answer": "Store answer",
+        "signIn": "Sign in to review or ask a question",
+        "pending": "Submitted for moderation.",
+        "error": "Could not submit. Try again.",
+        "ratingLabel": "Rating",
+        "titleLabel": "Review title",
+        "reviewBodyLabel": "Review",
+        "reviewSubmit": "Submit review",
+        "questionBodyLabel": "Your question",
+        "questionSubmit": "Submit question"
       },
       "brandLink": "View all {brand} products"
     },
@@ -322,6 +283,46 @@
       "invalidDescription": "This payment link's details aren't valid.",
       "orderCodeLabel": "Order number",
       "continueShoppingCta": "Back to shop"
+    }
+  },
+  "Account": {
+    "nav": {
+      "overview": "Overview",
+      "orders": "My Orders",
+      "addresses": "My Addresses",
+      "wishlist": "Wishlist",
+      "garage": "My Garage",
+      "profile": "Profile"
+    },
+    "overview": {
+      "title": "My Account",
+      "greeting": "Hello, {name}",
+      "subtitle": "See your orders and account information in one place.",
+      "ordersLabel": "Orders",
+      "addressesLabel": "Addresses",
+      "wishlistLabel": "Wishlist",
+      "recentOrders": "Recent orders",
+      "viewAll": "View all",
+      "noOrders": "You have not placed an order yet.",
+      "profilePrompt": "Account information",
+      "profileDescription": "Complete your name and email to help us stay in touch.",
+      "editProfile": "Edit profile",
+      "apiDown": "Some account information is currently unavailable."
+    },
+    "profile": {
+      "title": "Profile",
+      "subtitle": "Manage your account name and email.",
+      "nameLabel": "Full name",
+      "emailLabel": "Email",
+      "emailOptional": "Optional",
+      "phoneLabel": "Mobile number",
+      "phoneHelper": "Your mobile number is your sign-in identity and cannot be changed here.",
+      "save": "Save changes",
+      "saving": "Saving…",
+      "success": "Your profile was saved.",
+      "error": "Could not save your profile. Try again.",
+      "nameError": "Name must be at least 2 characters.",
+      "emailError": "Enter a valid email address."
     }
   },
   "Orders": {

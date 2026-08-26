@@ -35,6 +35,79 @@
     color: var(--text);
   }
 
+  /* Backstop for the hero's undock (P9.S5 part 3).
+     Note what is NOT here: any rule touching the layers themselves. The v1
+     stage's backstop read `.hero-stage > * { transform: none !important }`,
+     because back then the first frame was "every part collapsed into the car"
+     and reduced motion had to jump to the separated end state. The docked model
+     inverts that. The resting frame IS the finished car, its dock transforms
+     are inline on each layer, and clearing them would undock every sprite --
+     scattering the parts for exactly the visitor who asked for less movement.
+     Reduced motion instead renders the layers with no motion attached at all
+     (HeroStage's DockedLayer), so the correct picture is already in the SSR
+     paint and there is nothing to override.
+
+     What does need collapsing is the apparatus around it: the pin and its track
+     exist only to hold the stage still while the three chapters play. A visitor
+     who never sees that motion would otherwise scroll a screen and a half of
+     deliberately empty space past a picture that never changes. */
+  @media (prefers-reduced-motion: reduce) {
+    .hero-track {
+      min-height: 0 !important;
+    }
+
+    .hero-pin {
+      position: static !important;
+    }
+  }
+
+  /* The interstitial plate's copy sits on the start-side third, so the scrim
+     is heaviest there and thins out across the artwork. CSS gradients take no
+     logical direction keyword, so the default is written for RTL (start =
+     right) and flipped for LTR, rather than being silently wrong in one of the
+     two directions the way a single `to left` would be. */
+  .interstitial-scrim {
+    background: linear-gradient(
+      to left,
+      var(--color-graphite-950) 0%,
+      color-mix(in srgb, var(--color-graphite-950) 82%, transparent) 38%,
+      color-mix(in srgb, var(--color-graphite-950) 25%, transparent) 100%
+    );
+  }
+
+  [dir="ltr"] .interstitial-scrim {
+    background: linear-gradient(
+      to right,
+      var(--color-graphite-950) 0%,
+      color-mix(in srgb, var(--color-graphite-950) 82%, transparent) 38%,
+      color-mix(in srgb, var(--color-graphite-950) 25%, transparent) 100%
+    );
+  }
+
+  /* The closing beat's ambience clip sits behind full-width copy, so unlike
+     the interstitial's start-third scrim this one is vertical -- and a vertical
+     gradient needs no RTL/LTR pair, because `to top` means the same thing in
+     both. color-mix rather than an opacity modifier: Tailwind cannot apply one
+     to an opaque var() colour, so `bg-graphite-950/70` would silently generate
+     nothing (§6.8). */
+  .closing-scrim {
+    background: linear-gradient(
+      to top,
+      var(--color-graphite-950) 0%,
+      color-mix(in srgb, var(--color-graphite-950) 88%, transparent) 55%,
+      color-mix(in srgb, var(--color-graphite-950) 72%, transparent) 100%
+    );
+  }
+
+  .hero-scrim {
+    background: linear-gradient(
+      to left,
+      var(--color-graphite-950) 12%,
+      color-mix(in srgb, var(--color-graphite-950) 92%, transparent) 52%,
+      color-mix(in srgb, var(--color-graphite-950) 18%, transparent) 100%
+    );
+  }
+
   /* Tailwind's `[&::backdrop]` arbitrary variant does not generate CSS for
      the native <dialog> backdrop pseudo-element (confirmed empty output
      building Modal/Drawer, P1.S7) -- plain CSS is the reliable path here.

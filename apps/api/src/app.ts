@@ -26,11 +26,15 @@ import { adminShippingRouter } from "./modules/shipping/shipping.admin.routes.js
 import { adminVehiclesRouter } from "./modules/vehicles/vehicles.admin.routes.js";
 import { adminFitmentRouter } from "./modules/fitment/fitment.admin.routes.js";
 import { fitmentRouter } from "./modules/fitment/fitment.routes.js";
+import { feedbackRouter } from "./modules/feedback/feedback.routes.js";
+import { adminFeedbackRouter } from "./modules/feedback/feedback.admin.routes.js";
 import { geoRouter } from "./modules/geo/geo.routes.js";
 import { adminInventoryRouter } from "./modules/inventory/inventory.admin.routes.js";
 import { adminOrdersRouter } from "./modules/orders/orders.admin.routes.js";
 import { ordersRouter } from "./modules/orders/orders.routes.js";
 import { paymentsRouter } from "./modules/payments/payments.routes.js";
+import { adminPaymentsRouter } from "./modules/payments/payments.admin.routes.js";
+import { adminReportsRouter } from "./modules/reports/reports.admin.routes.js";
 import { vehiclesRouter } from "./modules/vehicles/vehicles.routes.js";
 import { wishlistRouter } from "./modules/wishlist/wishlist.routes.js";
 import { uploadsDir } from "./providers/storage/index.js";
@@ -67,6 +71,8 @@ app.use("/api/v1/catalog", catalogRouter);
 app.use("/api/v1/admin/catalog", adminCatalogRouter);
 app.use("/api/v1/authenticity", authenticityRouter);
 app.use("/api/v1/fitment", fitmentRouter);
+app.use("/api/v1/feedback", feedbackRouter);
+app.use("/api/v1/admin/feedback", adminFeedbackRouter);
 app.use("/api/v1/admin/inventory", adminInventoryRouter);
 // requireAuth is applied inside wishlistRouter itself (matches how
 // catalog.admin.routes.ts's entity routers apply their own middleware
@@ -109,6 +115,8 @@ app.use("/api/v1/admin/fitment", adminFitmentRouter);
 // No auth on paymentsRouter -- see payments.routes.ts, this is the
 // gateway's own redirect target, not a client-called resource.
 app.use("/api/v1/payments", paymentsRouter);
+app.use("/api/v1/admin/payments", adminPaymentsRouter);
+app.use("/api/v1/admin/reports", adminReportsRouter);
 // LocalDiskStorageProvider's saved variants (P2.S8) — served directly, no
 // auth: product/category imagery is public by nature. P2.S9 security
 // header audit: helmet()'s default Cross-Origin-Resource-Policy is

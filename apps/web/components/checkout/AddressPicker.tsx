@@ -41,8 +41,8 @@ export function AddressPicker({ selectedId, onSelect, messages }: Props) {
   }
 
   return (
-    <section className="flex flex-col gap-3">
-      <h2 className="text-h4 font-bold text-text">{messages.title}</h2>
+    <section className="flex flex-col gap-4 rounded-xl border border-border bg-surface p-4 shadow-sm sm:p-6">
+      <h2 className="border-b border-rule pb-3 text-h3 font-bold text-text">{messages.title}</h2>
 
       {addresses === null ? (
         <p className="text-body-sm text-text-muted">{messages.loading}</p>
@@ -58,7 +58,7 @@ export function AddressPicker({ selectedId, onSelect, messages }: Props) {
               {addresses.map((address) => (
                 <div
                   key={address.id}
-                  className="rounded-lg border border-border bg-surface p-3 has-[:checked]:border-brand-solid"
+                  className="rounded-lg border border-border bg-surface-raised p-4 transition-colors has-[:checked]:border-brand-solid has-[:checked]:bg-brand-subtle motion-reduce:transition-none"
                 >
                   <Radio
                     name="address"

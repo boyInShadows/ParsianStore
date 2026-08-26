@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
 import { useToastStore, type ToastTone } from "@/stores/toast-store";
+import { cn } from "@/lib/cn";
 
 const toneStyles: Record<ToastTone, string> = {
   neutral: "border-border bg-surface text-text",
@@ -12,6 +13,10 @@ const toneStyles: Record<ToastTone, string> = {
 };
 
 const AUTO_DISMISS_MS = 5000;
+
+// Module-level so its identity is stable across renders -- this store never
+// changes after mount, so there is genuinely nothing to subscribe to.
+const subscribeToNothing = () => () => {};
 
 function ToastItemView({ id, message, tone }: { id: string; message: string; tone: ToastTone }) {
   const dismiss = useToastStore((state) => state.dismiss);
@@ -24,7 +29,10 @@ function ToastItemView({ id, message, tone }: { id: string; message: string; ton
   return (
     <div
       role="status"
-      className={`pointer-events-auto rounded-md border px-4 py-2 text-body-sm shadow-md ${toneStyles[tone]}`}
+      className={cn(
+        "pointer-events-auto rounded-md border px-4 py-2 text-body-sm shadow-md",
+        toneStyles[tone],
+      )}
     >
       {message}
     </div>
@@ -39,8 +47,25 @@ function ToastItemView({ id, message, tone }: { id: string; message: string; ton
  */
 export function Toaster() {
   const toasts = useToastStore((state) => state.toasts);
+  // `typeof document === "undefined"` was the gate here, which is the exact
+  // server/client branch React's hydration-mismatch error names first: the
+  // server rendered null and the client's FIRST render produced the portal,
+  // so every page carrying <Toaster/> (i.e. the whole (shop) layout) threw
+  // "Hydration failed because the server rendered HTML didn't match" and
+  // silently re-rendered the tree on the client. Found by reading the dev
+  // overlay's own "1 Issue" counter during the design pass, not by a test.
+  // A mount flag makes the server render and the first client render agree.
+  // useSyncExternalStore rather than useState+useEffect: it is React's own
+  // hydration-safe "server said X, client says Y" primitive (the server
+  // snapshot is a separate argument), and `react-hooks/set-state-in-effect`
+  // rightly rejects the setState-in-an-effect version.
+  const mounted = useSyncExternalStore(
+    subscribeToNothing,
+    () => true,
+    () => false,
+  );
 
-  if (typeof document === "undefined") return null;
+  if (!mounted) return null;
 
   return createPortal(
     <div

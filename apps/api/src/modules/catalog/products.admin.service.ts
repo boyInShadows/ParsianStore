@@ -7,6 +7,7 @@ import { ApiError } from "../../utils/ApiError.js";
 import { paginate, type PaginatedResult, type PaginationQuery } from "../../utils/pagination.js";
 import { escapeRegExp } from "../../utils/regex.js";
 import { validateProductAttributes } from "./attributes.service.js";
+import { storageProvider } from "../../providers/storage/index.js";
 import type { CreateProductInput, UpdateProductInput } from "./products.admin.schema.js";
 
 // Real, honest defaults for the fields P8.S2's own create form deliberately
@@ -74,6 +75,9 @@ export async function createProduct(input: CreateProductInput): Promise<Hydrated
   }
   return ProductModel.create({
     ...input,
+    stock: input.variants?.length
+      ? input.variants.reduce((sum, variant) => sum + variant.stock, 0)
+      : input.stock,
     dimensions: DEFAULT_DIMENSIONS,
     warranty: DEFAULT_WARRANTY,
   });
@@ -101,6 +105,8 @@ export async function updateProduct(
     await validateProductAttributes(input.attributes);
   }
   Object.assign(product, input);
+  if (input.variants)
+    product.stock = input.variants.reduce((sum, variant) => sum + variant.stock, 0);
   await product.save();
   return product;
 }
@@ -112,4 +118,27 @@ export async function updateProduct(
  * references, and its own listing/edit history all intact. */
 export async function archiveProduct(id: string): Promise<HydratedDocument<Product>> {
   return updateProduct(id, { status: "archived" });
+}
+
+export async function addProductMedia(id: string, buffer: Buffer) {
+  const product = await getAdminProductById(id);
+  const stored = await storageProvider.saveImage(buffer);
+  const preferred = stored.variants.find((item) => item.size === "large" && item.format === "webp");
+  if (!preferred) {
+    await storageProvider.deleteImage(stored.key);
+    throw new ApiError(500, "نسخه اصلی تصویر ساخته نشد");
+  }
+  product.media.push(preferred.url);
+  await product.save();
+  return { product, stored };
+}
+
+export async function removeProductMedia(id: string, url: string) {
+  const product = await getAdminProductById(id);
+  if (!product.media.includes(url)) throw new ApiError(404, "تصویر برای این محصول یافت نشد");
+  product.media = product.media.filter((item) => item !== url);
+  await product.save();
+  const match = new URL(url).pathname.match(/\/uploads\/([^/]+)\//);
+  if (match?.[1]) await storageProvider.deleteImage(match[1]);
+  return product;
 }

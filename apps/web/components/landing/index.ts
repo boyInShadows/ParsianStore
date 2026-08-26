@@ -1,14 +1,12 @@
-export { Hero } from "./Hero";
+export { HeroV2 } from "./HeroV2";
 export { TrustStrip } from "./TrustStrip";
-export { ShopBySystem } from "./ShopBySystem";
 export { BestSellers } from "./BestSellers";
+export { InterstitialPlate } from "./InterstitialPlate";
 export { BrandWall } from "./BrandWall";
 export { AuthenticityStory } from "./AuthenticityStory";
 export { Deals } from "./Deals";
+export { ClosingBeat } from "./ClosingBeat";
 export { ShopByVehicle } from "./ShopByVehicle";
 export { SymptomFinder } from "./SymptomFinder";
-export { Numbers } from "./Numbers";
-export { HowItWorks } from "./HowItWorks";
 export { GuidesTeaser } from "./GuidesTeaser";
-export { Support } from "./Support";
 export { Newsletter } from "./Newsletter";

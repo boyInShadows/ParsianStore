@@ -2,7 +2,9 @@ import {
   meResponseSchema,
   otpRequestResponseSchema,
   otpVerifyResponseSchema,
+  updateProfileResponseSchema,
   type MeDto,
+  type UpdateProfileInput,
 } from "schemas";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000";
@@ -102,5 +104,23 @@ export async function logout(): Promise<void> {
     // Best-effort -- clearing the client-side auth store (caller's job) is
     // what actually matters for the UI; a failed network call here
     // shouldn't block that.
+  }
+}
+
+export async function updateProfile(input: UpdateProfileInput): Promise<AuthActionResult<MeDto>> {
+  try {
+    const res = await fetch(`${API_URL}/api/v1/auth/me`, {
+      method: "PATCH",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(input),
+    });
+    if (!res.ok) return { ok: false, message: await readErrorMessage(res) };
+    const parsed = updateProfileResponseSchema.safeParse(await res.json());
+    return parsed.success
+      ? { ok: true, data: parsed.data.data }
+      : { ok: false, message: GENERIC_ERROR };
+  } catch {
+    return { ok: false, message: GENERIC_ERROR };
   }
 }

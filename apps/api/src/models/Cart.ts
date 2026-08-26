@@ -18,6 +18,7 @@ export interface CartItem {
   // routes need to address a specific line via PATCH/DELETE /cart/items/:id.
   _id?: Types.ObjectId;
   productId: Types.ObjectId;
+  variantId?: Types.ObjectId;
   qty: number;
   // Captured at add-time for a "price changed since you added this" UI
   // hint only -- every real total is computed from live Product.priceRial
@@ -46,6 +47,7 @@ type CartModelType = Model<Cart, object, SoftDeleteMethods>;
 const cartItemSchema = new Schema<CartItem>(
   {
     productId: { type: Schema.Types.ObjectId, ref: "Product", required: true },
+    variantId: { type: Schema.Types.ObjectId },
     qty: { type: Number, required: true, min: 1 },
     priceRialSnapshot: { type: Number, required: true, min: 0 },
   },

@@ -49,9 +49,6 @@ export default async function WishlistPage({ params, searchParams }: Props) {
   const page = pageParam && /^\d+$/.test(pageParam) ? Number(pageParam) : 1;
 
   const t = await getTranslations("Wishlist");
-  const tOrders = await getTranslations("Orders");
-  const tAddresses = await getTranslations("Addresses");
-  const tGarage = await getTranslations("Garage");
   const tCatalog = await getTranslations("Catalog");
 
   // Server-side auth gate, same reasoning as /orders (P7.S1): this page's
@@ -84,22 +81,21 @@ export default async function WishlistPage({ params, searchParams }: Props) {
       remove: tCatalog("product.wishlist.remove"),
       error: tCatalog("product.wishlist.error"),
     },
+    compare: {
+      add: tCatalog("product.compare.add"),
+      open: tCatalog("product.compare.open"),
+      limit: tCatalog("product.compare.limit"),
+    },
   };
 
   return (
     <main className="mx-auto max-w-container px-4 py-8">
-      <AccountNav
-        active="wishlist"
-        ordersLabel={tOrders("title")}
-        addressesLabel={tAddresses("title")}
-        wishlistLabel={t("title")}
-        garageLabel={tGarage("title")}
-      />
+      <AccountNav active="wishlist" />
 
       <div className="mt-6 flex flex-wrap items-center gap-3">
         <h1 className="font-display text-h2 font-black text-text">{t("title")}</h1>
         {total > 0 ? (
-          <span className="gap-1.5 bg-danger/10 inline-flex items-center rounded-full px-3 py-1 text-body-sm font-medium text-danger">
+          <span className="inline-flex items-center gap-2 rounded-full border border-danger bg-surface px-3 py-1 text-body-sm font-medium text-danger">
             {t("itemCount", { count: total })}
           </span>
         ) : null}

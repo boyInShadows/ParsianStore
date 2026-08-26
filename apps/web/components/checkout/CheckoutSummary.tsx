@@ -43,8 +43,8 @@ export function CheckoutSummary({
   const totalRial = (cart?.totalRial ?? subtotalRial) + (shippingRial ?? 0);
 
   return (
-    <section className="flex flex-col gap-3 rounded-lg border border-border bg-surface p-4">
-      <h2 className="text-h4 font-bold text-text">{messages.title}</h2>
+    <section className="flex flex-col gap-4 rounded-xl border border-border bg-surface-sunken p-4 shadow-sm sm:p-6">
+      <h2 className="border-b border-rule pb-3 text-h3 font-bold text-text">{messages.title}</h2>
       <div className="flex items-center justify-between text-body-sm text-text">
         <span>{messages.subtotalLabel}</span>
         <span className="font-mono">{formatToman(subtotalRial)}</span>
@@ -66,7 +66,7 @@ export function CheckoutSummary({
       </div>
       <div className="flex items-center justify-between border-t border-border pt-3 text-body font-medium text-text">
         <span>{messages.totalLabel}</span>
-        <span className="font-mono text-h3">{formatToman(totalRial)}</span>
+        <span className="font-mono text-h3 font-black text-price">{formatToman(totalRial)}</span>
       </div>
       <Button type="button" variant="cta" disabled={!canSubmit || submitting} onClick={onSubmit}>
         {submitting ? messages.placingOrderButton : messages.placeOrderButton}

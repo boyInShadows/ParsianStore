@@ -11,11 +11,13 @@
     "seed:vehicles": "tsx src/seed/vehicles.ts",
     "seed:geo": "tsx src/seed/geo.ts",
     "seed:catalog": "tsx src/seed/catalog.ts",
+    "seed:visual-catalog": "tsx src/seed/visualCatalog.ts",
     "seed:shipping": "tsx src/seed/shipping.ts",
     "set-account-type": "tsx src/scripts/setAccountType.ts",
     "create-coupon": "tsx src/scripts/createCoupon.ts"
   },
   "dependencies": {
+    "@prisma/client": "^7.10.0",
     "argon2": "^0.41.1",
     "compression": "^1.7.5",
     "cookie-parser": "^1.4.7",
@@ -44,6 +46,7 @@
     "@types/node": "^22.10.0",
     "@types/node-cron": "^3.0.11",
     "pino-pretty": "^13.0.0",
+    "prisma": "7.10.0",
     "tsx": "^4.19.0",
     "typescript": "^5.7.0"
   }

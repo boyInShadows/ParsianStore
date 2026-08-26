@@ -122,6 +122,7 @@ export async function initiateCheckout(
         item.qty,
         CHECKOUT_RESERVATION_TTL_MS,
         orderId.toString(),
+        item.variantId,
       );
     }
   } catch (err) {
@@ -133,6 +134,8 @@ export async function initiateCheckout(
     const product = productById.get(item.productId)!;
     return {
       productId: new Types.ObjectId(item.productId),
+      variantId: item.variantId ? new Types.ObjectId(item.variantId) : undefined,
+      variantNameSnapshot: item.variant?.name,
       nameSnapshot: product.name,
       skuSnapshot: product.sku,
       qty: item.qty,

@@ -69,7 +69,7 @@ export function GarageContent({ messages }: { messages: GarageMessages }) {
       <div className="flex flex-wrap items-center gap-3">
         <h1 className="font-display text-h2 font-black text-text">{messages.title}</h1>
         {vehicles.length > 0 ? (
-          <span className="gap-1.5 bg-info/10 inline-flex items-center rounded-full px-3 py-1 text-body-sm font-medium text-info">
+          <span className="inline-flex items-center gap-2 rounded-full border border-info bg-surface px-3 py-1 text-body-sm font-medium text-info">
             {formatItemCount(messages.itemCount, vehicles.length)}
           </span>
         ) : null}
@@ -97,7 +97,7 @@ export function GarageContent({ messages }: { messages: GarageMessages }) {
                   <div className="flex items-center gap-2">
                     <span
                       aria-hidden="true"
-                      className="h-9 w-9 flex items-center justify-center rounded-full bg-surface-raised text-text-muted"
+                      className="flex h-12 w-12 items-center justify-center rounded-full bg-surface-raised text-text-muted"
                     >
                       <CarIcon />
                     </span>

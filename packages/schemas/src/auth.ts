@@ -11,7 +11,9 @@ export const meSchema = z.object({
   id: z.string(),
   phone: z.string(),
   name: z.string(),
+  email: z.string().email().optional(),
   role: z.enum(["customer", "support", "operator", "admin", "superadmin"]),
+  accountType: z.enum(["retail", "wholesale"]),
 });
 export type MeDto = z.infer<typeof meSchema>;
 
@@ -29,3 +31,11 @@ export const otpRequestResponseSchema = z.object({
 // `{ ok: true, data: session.user }` (auth.controller.ts) -- same shape
 // as GET /auth/me.
 export const otpVerifyResponseSchema = meResponseSchema;
+
+export const updateProfileInputSchema = z.object({
+  name: z.string().trim().min(2).max(80),
+  email: z.union([z.string().trim().email(), z.literal("")]).optional(),
+});
+export type UpdateProfileInput = z.infer<typeof updateProfileInputSchema>;
+
+export const updateProfileResponseSchema = meResponseSchema;

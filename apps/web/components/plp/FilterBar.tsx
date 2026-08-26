@@ -10,7 +10,8 @@ type Facets = FacetsResponse["data"] | null;
 
 // Passed as a plain object rather than calling next-intl's useTranslations
 // client-side -- P4.S4 found that hook alone can push a thin route budget
-// over its ceiling (see components/landing/ShopBySystem.tsx's history);
+// over its ceiling (found in the landing Shop-by-system grid, deleted at
+// P9.S9 once the rebuilt hero's index rail covered its destinations);
 // the PLP route's own 160KB ceiling (masterPlan.md §10) is tighter than
 // landing's, so the same avoidance applies here from the start rather
 // than being discovered the hard way again.
@@ -31,6 +32,8 @@ export interface FilterBarMessages {
 type Props = {
   facets: Facets;
   childCategories: { slug: string; label: string }[];
+  categoryOptions?: { slug: string; label: string; count: number }[];
+  showBrandFilter?: boolean;
   messages: FilterBarMessages;
 };
 
@@ -51,13 +54,20 @@ function serializeAttributes(map: Map<string, string>): string | undefined {
   return [...map.entries()].map(([key, value]) => `${key}:${value}`).join(ALL_ATTRIBUTE_KEYS_SEP);
 }
 
-export function FilterBar({ facets, childCategories, messages }: Props) {
+export function FilterBar({
+  facets,
+  childCategories,
+  categoryOptions = [],
+  showBrandFilter = true,
+  messages,
+}: Props) {
   const searchParams = useSearchParams();
   const router = useRouter();
   const pathname = usePathname();
   const activeVehicle = useGarageStore(selectActiveVehicle);
 
   const currentBrand = searchParams.get("brand");
+  const currentCategory = searchParams.get("category");
   const currentMin = searchParams.get("minPriceRial") ?? "";
   const currentMax = searchParams.get("maxPriceRial") ?? "";
   const inStockOnly = searchParams.get("inStock") === "true";
@@ -66,6 +76,7 @@ export function FilterBar({ facets, childCategories, messages }: Props) {
 
   const hasActiveFilters =
     Boolean(currentBrand) ||
+    Boolean(currentCategory) ||
     Boolean(currentMin) ||
     Boolean(currentMax) ||
     inStockOnly ||
@@ -83,6 +94,13 @@ export function FilterBar({ facets, childCategories, messages }: Props) {
     updateParams((params) => {
       if (currentBrand === slug) params.delete("brand");
       else params.set("brand", slug);
+    });
+  }
+
+  function toggleCategory(slug: string) {
+    updateParams((params) => {
+      if (currentCategory === slug) params.delete("category");
+      else params.set("category", slug);
     });
   }
 
@@ -140,6 +158,15 @@ export function FilterBar({ facets, childCategories, messages }: Props) {
               {facets?.brands.find((b) => b.slug === currentBrand)?.name.fa ?? currentBrand}
             </Chip>
           ) : null}
+          {currentCategory ? (
+            <Chip
+              onRemove={() => toggleCategory(currentCategory)}
+              removeLabel={messages.removeFilter}
+            >
+              {categoryOptions.find((category) => category.slug === currentCategory)?.label ??
+                currentCategory}
+            </Chip>
+          ) : null}
           {inStockOnly ? (
             <Chip onRemove={toggleInStock} removeLabel={messages.removeFilter}>
               {messages.inStock}
@@ -179,6 +206,21 @@ export function FilterBar({ facets, childCategories, messages }: Props) {
         </fieldset>
       ) : null}
 
+      {categoryOptions.length > 0 ? (
+        <fieldset className="flex flex-col gap-2">
+          <legend className="text-body-sm font-medium text-text">{messages.category}</legend>
+          {categoryOptions.map((category) => (
+            <Radio
+              key={category.slug}
+              name="category"
+              label={`${category.label} (${category.count})`}
+              checked={currentCategory === category.slug}
+              onChange={() => toggleCategory(category.slug)}
+            />
+          ))}
+        </fieldset>
+      ) : null}
+
       {activeVehicle ? (
         <fieldset className="flex flex-col gap-1">
           <Checkbox
@@ -190,7 +232,7 @@ export function FilterBar({ facets, childCategories, messages }: Props) {
         </fieldset>
       ) : null}
 
-      {facets && facets.brands.length > 0 ? (
+      {showBrandFilter && facets && facets.brands.length > 0 ? (
         <fieldset className="flex flex-col gap-2">
           <legend className="text-body-sm font-medium text-text">{messages.brand}</legend>
           {facets.brands.map((brand) => (
@@ -234,20 +276,22 @@ export function FilterBar({ facets, childCategories, messages }: Props) {
 
       <Checkbox label={messages.inStock} checked={inStockOnly} onChange={toggleInStock} />
 
-      {[...attributeGroups.entries()].map(([key, values]) => (
-        <fieldset key={key} className="flex flex-col gap-2">
-          <legend className="text-body-sm font-medium text-text">{values[0]?.keyLabel}</legend>
-          {values.map((option) => (
-            <Radio
-              key={option.value}
-              name={`attr-${key}`}
-              label={`${option.value} (${option.count})`}
-              checked={attributeSelections.get(key) === option.value}
-              onChange={() => toggleAttribute(key, option.value)}
-            />
-          ))}
-        </fieldset>
-      ))}
+      {showBrandFilter
+        ? [...attributeGroups.entries()].map(([key, values]) => (
+            <fieldset key={key} className="flex flex-col gap-2">
+              <legend className="text-body-sm font-medium text-text">{values[0]?.keyLabel}</legend>
+              {values.map((option) => (
+                <Radio
+                  key={option.value}
+                  name={`attr-${key}`}
+                  label={`${option.value} (${option.count})`}
+                  checked={attributeSelections.get(key) === option.value}
+                  onChange={() => toggleAttribute(key, option.value)}
+                />
+              ))}
+            </fieldset>
+          ))
+        : null}
     </div>
   );
 }

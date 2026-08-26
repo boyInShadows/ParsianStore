@@ -3,7 +3,7 @@ import { env } from "../../config/env.js";
 import { ApiError } from "../../utils/ApiError.js";
 import { parseDurationMs } from "../../utils/token.js";
 import * as authService from "./auth.service.js";
-import type { OtpRequestInput, OtpVerifyInput } from "./auth.schema.js";
+import type { OtpRequestInput, OtpVerifyInput, ProfileUpdateInput } from "./auth.schema.js";
 import type { AuthSession } from "./auth.service.js";
 
 const COOKIE_BASE = {
@@ -93,9 +93,41 @@ export async function logoutHandler(
   }
 }
 
+/**
+ * "Who am I?" -- and "nobody" is a real answer, not an error.
+ *
+ * This used to sit behind `requireAuth` and 401 for a signed-out visitor. The
+ * web client asks on every page load and cannot avoid it: the session lives in
+ * httpOnly cookies, so JavaScript has no way to check whether one exists before
+ * asking. Every anonymous visit therefore wrote a failed request to the browser
+ * console -- correct behaviour producing a permanent error, and half of the
+ * landing page's Lighthouse best-practices deduction (fableTasks §7 item 12).
+ *
+ * Now it runs under `optionalAuth` and answers `{ ok: true, data: null }`. The
+ * envelope is unchanged, and both fetchers already treat a missing user as
+ * "signed out", so nothing downstream had to move. PATCH /me keeps
+ * `requireAuth` -- reading who you are is public, changing it is not.
+ */
 export async function meHandler(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
-    const user = await authService.getUserById(req.user!.sub);
+    if (!req.user) {
+      res.json({ ok: true, data: null });
+      return;
+    }
+    const user = await authService.getUserById(req.user.sub);
+    res.json({ ok: true, data: user });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function updateProfileHandler(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  try {
+    const user = await authService.updateProfile(req.user!.sub, req.body as ProfileUpdateInput);
     res.json({ ok: true, data: user });
   } catch (err) {
     next(err);

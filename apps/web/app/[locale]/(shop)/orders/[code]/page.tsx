@@ -3,21 +3,19 @@ import { cookies } from "next/headers";
 import { getTranslations } from "next-intl/server";
 import { formatJalali, formatToman, type OrderStatusDto } from "schemas";
 import { redirect } from "@/i18n/navigation";
-import { EmptyState, Badge } from "@/components/primitives";
+import { EmptyState } from "@/components/primitives";
+// By file path, not the barrel -- see primitives/index.ts.
+import { PageHeader } from "@/components/primitives/PageHeader";
+import { Sheet } from "@/components/primitives/Sheet";
+import { DataRow } from "@/components/primitives/DataRow";
+import { Receipt } from "@/components/primitives/Receipt";
+import { PriceTag } from "@/components/primitives/PriceTag";
+import { AccountNav } from "@/components/account/AccountNav";
+import { OrderStatusBadge, OrderStatusRail } from "@/components/account/OrderStatus";
 import { fetchOrderByCode } from "@/lib/fetchers/orders";
 
 type Props = {
   params: Promise<{ locale: string; code: string }>;
-};
-
-const STATUS_TONE: Record<OrderStatusDto, "neutral" | "info" | "success" | "danger"> = {
-  pending: "neutral",
-  paid: "info",
-  processing: "info",
-  shipped: "info",
-  delivered: "success",
-  cancelled: "danger",
-  refunded: "danger",
 };
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
@@ -58,111 +56,133 @@ export default async function OrderDetailPage({ params }: Props) {
 
   const order = result.data;
 
+  const statusLabels = {
+    pending: tStatus("pending"),
+    paid: tStatus("paid"),
+    processing: tStatus("processing"),
+    shipped: tStatus("shipped"),
+    delivered: tStatus("delivered"),
+    cancelled: tStatus("cancelled"),
+    refunded: tStatus("refunded"),
+  } satisfies Record<OrderStatusDto, string>;
+
   return (
-    <main className="mx-auto flex max-w-3xl flex-col gap-8 px-4 py-8">
-      <div className="flex flex-col gap-2">
-        <h1 className="font-display text-h2 font-black text-text">
-          {tDetail("title", { code: order.code })}
-        </h1>
-        <div className="flex items-center gap-3">
-          <Badge tone={STATUS_TONE[order.status]}>{tStatus(order.status)}</Badge>
-          <span className="text-caption text-text-muted">
-            {formatJalali(order.createdAt, "YYYY/MM/DD - HH:mm")}
-          </span>
+    <main className="mx-auto flex max-w-container flex-col gap-6 px-4 py-8">
+      <AccountNav active="orders" />
+
+      {/* The order code IS this page's identity, so it becomes the mono
+          eyebrow at real scale. Previously this page had no back link and
+          no AccountNav at all -- opening an order dropped you out of the
+          account shell entirely. */}
+      <PageHeader
+        code={order.code}
+        title={tDetail("title", { code: order.code })}
+        back={{ href: "/orders", label: t("title") }}
+        meta={
+          <>
+            <OrderStatusBadge status={order.status} label={tStatus(order.status)} />
+            <time dateTime={order.createdAt} className="font-mono text-caption text-text-muted">
+              {formatJalali(order.createdAt, "YYYY/MM/DD - HH:mm")}
+            </time>
+          </>
+        }
+      />
+
+      {/* Two columns at lg: the document on the start side, the money and
+          its logistics facts sticky on the end side. This was one
+          max-w-3xl column of four identically-styled boxes. */}
+      <div className="grid gap-6 lg:grid-cols-[1fr_360px] lg:items-start">
+        <div className="flex flex-col gap-6">
+          <Sheet>
+            <Sheet.Header code="ITM" title={tDetail("itemsTitle")} />
+            <Sheet.Rows>
+              {order.items.map((item, index) => (
+                <Sheet.Row key={`${item.productId}-${index}`}>
+                  <span className="flex flex-1 flex-col gap-1">
+                    <span className="text-body text-text">{item.nameSnapshot.fa}</span>
+                    <span className="font-mono text-caption text-text-muted">
+                      {item.skuSnapshot} ·{" "}
+                      {tDetail("qtyAtPrice", {
+                        qty: item.qty,
+                        price: formatToman(item.priceRial),
+                      })}
+                    </span>
+                  </span>
+                  <PriceTag priceRial={item.priceRial * item.qty} size="sm" className="shrink-0" />
+                </Sheet.Row>
+              ))}
+            </Sheet.Rows>
+          </Sheet>
+
+          <Sheet>
+            <Sheet.Header code="TRK" title={tDetail("timelineTitle")} />
+            <div className="p-4">
+              {/* Was a stack of disconnected 2px stubs (one `border-s-2` per
+                  <li>) with no nodes and no sense of where the order is. */}
+              <OrderStatusRail
+                history={order.statusHistory}
+                currentStatus={order.status}
+                labels={statusLabels}
+                currentLabel={tDetail("currentStatus")}
+              />
+            </div>
+          </Sheet>
+        </div>
+
+        <div className="flex flex-col gap-6 lg:sticky lg:top-6">
+          <Receipt title={tDetail("summaryTitle")} code="SUM">
+            <Receipt.Line
+              label={tDetail("subtotalLabel")}
+              value={formatToman(order.subtotalRial)}
+              mono
+            />
+            {order.discountRial > 0 ? (
+              <Receipt.Line
+                label={
+                  order.couponCode
+                    ? tDetail("discountWithCode", { code: order.couponCode })
+                    : tDetail("discountLabel")
+                }
+                value={`-${formatToman(order.discountRial)}`}
+                mono
+                emphasis="muted"
+              />
+            ) : null}
+            <Receipt.Line
+              label={tDetail("shippingLabel")}
+              value={formatToman(order.shippingRial)}
+              mono
+            />
+            {/* The grand total rendered at BODY size before this: its
+                `text-h4` class is not in the type scale, so it generated
+                no CSS at all. */}
+            <Receipt.Total label={tDetail("totalLabel")} value={formatToman(order.totalRial)} />
+          </Receipt>
+
+          <Sheet>
+            <Sheet.Header code="ADR" title={tDetail("addressTitle")} />
+            <div className="flex flex-col gap-3 p-4">
+              <DataRow label={tDetail("receiverLabel")} value={order.address.receiverName} />
+              <DataRow label={tDetail("phoneLabel")} value={order.address.receiverPhone} mono />
+              <DataRow
+                label={tDetail("addressLabel")}
+                value={`${order.address.province.fa}، ${order.address.city.fa}، ${order.address.line}`}
+              />
+              <DataRow label={tDetail("postalCodeLabel")} value={order.address.postalCode} mono />
+            </div>
+          </Sheet>
+
+          <Sheet>
+            <Sheet.Header code="SHP" title={tDetail("shippingMethodTitle")} />
+            <div className="flex flex-col gap-3 p-4">
+              <DataRow label={tDetail("methodLabel")} value={order.shippingMethod.name.fa} />
+              {order.trackingCode ? (
+                <DataRow label={tDetail("trackingLabel")} value={order.trackingCode} mono />
+              ) : null}
+            </div>
+          </Sheet>
         </div>
       </div>
-
-      <section className="flex flex-col gap-3">
-        <h2 className="text-h4 font-bold text-text">{tDetail("itemsTitle")}</h2>
-        <ul className="flex flex-col gap-3">
-          {order.items.map((item, index) => (
-            <li
-              key={`${item.productId}-${index}`}
-              className="flex items-center justify-between gap-4 rounded-lg border border-border bg-surface p-3"
-            >
-              <div className="flex flex-col gap-1">
-                <span className="text-body-sm text-text">{item.nameSnapshot.fa}</span>
-                <span className="font-mono text-caption text-text-muted">{item.skuSnapshot}</span>
-              </div>
-              <div className="flex flex-col items-end gap-1">
-                <span className="text-caption text-text-muted">
-                  {tDetail("qtyAtPrice", { qty: item.qty, price: formatToman(item.priceRial) })}
-                </span>
-                <span className="font-mono text-body-sm font-medium text-text">
-                  {formatToman(item.priceRial * item.qty)}
-                </span>
-              </div>
-            </li>
-          ))}
-        </ul>
-      </section>
-
-      <section className="flex flex-col gap-2 rounded-lg border border-border bg-surface p-4">
-        <div className="flex items-center justify-between text-body-sm text-text">
-          <span className="text-text-muted">{tDetail("subtotalLabel")}</span>
-          <span className="font-mono">{formatToman(order.subtotalRial)}</span>
-        </div>
-        {order.discountRial > 0 ? (
-          <div className="flex items-center justify-between text-body-sm text-text">
-            <span className="text-text-muted">
-              {order.couponCode
-                ? tDetail("discountWithCode", { code: order.couponCode })
-                : tDetail("discountLabel")}
-            </span>
-            <span className="font-mono">-{formatToman(order.discountRial)}</span>
-          </div>
-        ) : null}
-        <div className="flex items-center justify-between text-body-sm text-text">
-          <span className="text-text-muted">{tDetail("shippingLabel")}</span>
-          <span className="font-mono">{formatToman(order.shippingRial)}</span>
-        </div>
-        <div className="flex items-center justify-between border-t border-border pt-2 text-body font-medium text-text">
-          <span>{tDetail("totalLabel")}</span>
-          <span className="text-h4 font-mono">{formatToman(order.totalRial)}</span>
-        </div>
-      </section>
-
-      <section className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <div className="flex flex-col gap-1 rounded-lg border border-border bg-surface p-4">
-          <h2 className="text-body-sm font-bold text-text">{tDetail("addressTitle")}</h2>
-          <p className="text-body-sm text-text">{order.address.receiverName}</p>
-          <p className="font-mono text-caption text-text-muted">{order.address.receiverPhone}</p>
-          <p className="text-body-sm text-text-muted">
-            {order.address.province.fa}، {order.address.city.fa}، {order.address.line}
-          </p>
-          <p className="font-mono text-caption text-text-muted">{order.address.postalCode}</p>
-        </div>
-        <div className="flex flex-col gap-1 rounded-lg border border-border bg-surface p-4">
-          <h2 className="text-body-sm font-bold text-text">{tDetail("shippingMethodTitle")}</h2>
-          <p className="text-body-sm text-text">{order.shippingMethod.name.fa}</p>
-          {order.trackingCode ? (
-            <p className="font-mono text-caption text-text-muted">
-              {tDetail("trackingCode", { code: order.trackingCode })}
-            </p>
-          ) : null}
-        </div>
-      </section>
-
-      <section className="flex flex-col gap-3">
-        <h2 className="text-h4 font-bold text-text">{tDetail("timelineTitle")}</h2>
-        <ol className="flex flex-col gap-4">
-          {order.statusHistory.map((entry, index) => (
-            <li key={index} className="flex gap-3 border-s-2 border-border ps-3">
-              <div className="gap-0.5 flex flex-col">
-                <span className="text-body-sm font-medium text-text">
-                  {tStatus(entry.status as OrderStatusDto)}
-                </span>
-                <span className="text-caption text-text-muted">
-                  {formatJalali(entry.at, "YYYY/MM/DD - HH:mm")}
-                </span>
-                {entry.note ? (
-                  <span className="text-caption text-text-muted">{entry.note}</span>
-                ) : null}
-              </div>
-            </li>
-          ))}
-        </ol>
-      </section>
     </main>
   );
 }

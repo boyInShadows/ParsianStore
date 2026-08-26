@@ -39,6 +39,31 @@ export interface AdminProductListPage {
   limit: number;
 }
 
+export interface ProductImportResult {
+  total: number;
+  valid: number;
+  imported: number;
+  rows: Array<{ row: number; sku: string; ok: boolean; errors: string[] }>;
+}
+export async function importAdminProducts(
+  file: File,
+  commit = false,
+): Promise<{ ok: true; data: ProductImportResult } | { ok: false; message: string }> {
+  try {
+    const res = await fetch(`${API_URL}/api/v1/admin/catalog/products/import?commit=${commit}`, {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "text/csv" },
+      body: file,
+    });
+    if (!res.ok) return { ok: false, message: await readErrorMessage(res) };
+    const json = (await res.json()) as { data?: ProductImportResult };
+    return json.data ? { ok: true, data: json.data } : { ok: false, message: GENERIC_ERROR };
+  } catch {
+    return { ok: false, message: GENERIC_ERROR };
+  }
+}
+
 export async function fetchAdminProducts(
   page: number,
   limit: number,
@@ -136,6 +161,45 @@ export async function archiveAdminProduct(
     if (!res.ok) return { ok: false, message: await readErrorMessage(res) };
     const json = await res.json();
     const parsed = adminProductDetailResponseSchema.safeParse(json);
+    return parsed.success
+      ? { ok: true, data: parsed.data.data }
+      : { ok: false, message: GENERIC_ERROR };
+  } catch {
+    return { ok: false, message: GENERIC_ERROR };
+  }
+}
+
+export async function uploadAdminProductMedia(
+  id: string,
+  file: File,
+): Promise<AdminProductActionResult<AdminProductDetailDto>> {
+  try {
+    const res = await fetch(`${API_URL}/api/v1/admin/catalog/products/${id}/media`, {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": file.type },
+      body: file,
+    });
+    if (!res.ok) return { ok: false, message: await readErrorMessage(res) };
+    const product = await fetchAdminProduct(id);
+    return product ? { ok: true, data: product } : { ok: false, message: GENERIC_ERROR };
+  } catch {
+    return { ok: false, message: GENERIC_ERROR };
+  }
+}
+export async function removeAdminProductMedia(
+  id: string,
+  url: string,
+): Promise<AdminProductActionResult<AdminProductDetailDto>> {
+  try {
+    const res = await fetch(`${API_URL}/api/v1/admin/catalog/products/${id}/media`, {
+      method: "DELETE",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ url }),
+    });
+    if (!res.ok) return { ok: false, message: await readErrorMessage(res) };
+    const parsed = adminProductDetailResponseSchema.safeParse(await res.json());
     return parsed.success
       ? { ok: true, data: parsed.data.data }
       : { ok: false, message: GENERIC_ERROR };

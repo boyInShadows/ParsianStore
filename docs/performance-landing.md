@@ -117,3 +117,124 @@ npx lighthouse http://localhost:3000/ \
 The JS budget table is `pnpm --filter web build`'s own route-size output
 after `rm -rf apps/web/.next` (a clean build — Next's incremental cache
 can otherwise report stale sizes).
+
+---
+
+# P9.S17 re-measurement — the rebuilt landing page
+
+Same commands, same throttling method, same machine; the page underneath
+them is the Phase 9 rebuild (pinned hero stage, two ambience clips, four
+sections deleted, two hidden). Everything above is kept as the P4.S7
+baseline rather than overwritten — the point of re-measuring is the
+comparison.
+
+## JS budget
+
+```
+Route (app)                                 Size  First Load JS
+├ ● /[locale]                            9.23 kB         189 kB
++ First Load JS shared by all             103 kB
+  ├ chunks/5886ae73-e5764e556e37f504.js  54.2 kB
+  ├ chunks/3889-ae79439eefc5b2dc.js      46.4 kB
+  └ other shared chunks (total)          2.13 kB
+```
+
+**189 KB, against a §10 budget of 180 KB — over, knowingly.** The 9 KB
+came from the hero becoming a real scroll stage (`HeroV2`, `HeroStage`,
+`VideoStage`, the vehicle/part path split) and was accepted at P9.S5 when
+it landed; the plan's own budget line (fableTasks §6) then set "hold at
+≤188 KB, aspire back toward 180". The honest figure is 189 KB and it has
+not moved since: S13 measured 189, S15 measured 189, S16 measured 189,
+and this clean rebuild measures 189. Three steps of new work — a second
+video stage, a whole new route, a regression suite — added zero route JS,
+because all of it is server components, CSS, or test code.
+
+The two routes added since are separate entries and do not touch this
+budget: `/vehicle/[make]` is 122 KB and `/vehicle/[make]/[model]/[gen]`
+is 143 KB.
+
+### Framer Motion sub-budget (§5: "under 45KB gzipped. Measure it.")
+
+**39.9 KB gzipped** (122.8 KB raw), chunk `9357-*.js`, identified the
+same way as at P4.S7 — the app-build-manifest entry for
+`/[locale]/(shop)/page`, confirmed by the `prefers-reduced-motion` string
+that `useReducedMotion` carries. Re-grepped for `zustand`, `@tanstack`,
+`next-intl` and `IntlMessageFormat`: zero matches, so this is motion's
+own weight, not a shared vendor chunk. Essentially unchanged from
+P4.S7's 39.6 KB despite the rebuild adding scroll-driven motion to the
+hero and two `VideoStage` mounts — the new work reuses hooks that were
+already in the bundle rather than pulling in new APIs.
+
+## Core Web Vitals
+
+Lighthouse 13.4.1, mobile 360x640 DPR 2, `--throttling-method=devtools`
+against `pnpm --filter web start`.
+
+| Metric | Budget | P4.S7 | **P9.S17** |
+|---|---|---|---|
+| LCP | ≤ 2.0s | 1.7s | **1.9s ✓** |
+| CLS | ≤ 0.05 | 0.036 | **0.032 ✓** |
+| INP (TBT proxy) | ≤ 200ms | 130ms | **130ms ✓** |
+| Speed Index | — | — | 2.0s |
+| Max Potential FID | — | 110ms | 110ms |
+| Lighthouse perf | ≥ 90 | 98 | **97** |
+| Lighthouse a11y | — | 100 | **100** |
+| Lighthouse SEO | — | — | **100** |
+
+LCP moved 1.7s → 1.9s and stays inside the 2.0s budget with 100ms of
+margin — thinner than before, and worth stating plainly rather than
+rounding away. The LCP element is the hero car cutout, served from the
+pre-built AVIF set at 14.2 KB.
+
+## Transfer weight (fableTasks §6 budget)
+
+| Type | Transfer | Budget |
+|---|---|---|
+| Script | 221.4 KB | — |
+| Font | 130.7 KB | two families, already configured |
+| **Image** | **88.9 KB** (10 requests) | ≤ 1.2 MB per view ✓ |
+| Document | 42.9 KB | — |
+| Other | 25.2 KB | — |
+| Stylesheet | 8.1 KB | — |
+| Fetch | 7.9 KB | — |
+| **Total** | **525 KB / 43 requests** | — |
+
+**Zero video bytes on mobile, measured rather than asserted.** The
+network log for this run contains no `.mp4` at all, with two clips on the
+page. That is the same guarantee `e2e/landing-sections.spec.ts` checks in
+a browser, now confirmed in a real production run: `VideoStage` does not
+render the element below 1024px, so nothing is fetched.
+
+Every image on the page is from the hero's own pre-built AVIF set —
+`car-768.avif` plus nine part cutouts at 480w, 88.9 KB combined.
+
+## Two findings from this pass
+
+**Fixed: a WCAG 2.5.3 (Label in Name, level A) failure the e2e suite
+could not see.** The hero's ten system links carried
+`aria-label="سیستم موتور — مشاهده قطعات"` while reading
+`SYS-01 موتور ۳۲ قطعه` on screen, so a voice-control user saying the
+visible words would not match the accessible name. The action moved into
+an `sr-only` span inside the link, which appends to the name instead of
+replacing it. Worth knowing **why the suite missed it**:
+`label-content-name-mismatch` is in axe's experimental set and off by
+default in `@axe-core/playwright`, while Lighthouse enables it. Axe at
+zero violations is necessary, not sufficient.
+
+**Open, small: two console errors on first load.**
+`GET /api/v1/auth/me` returns 401 for a signed-out visitor — correct
+behaviour, but the browser logs every failed request, so it costs a
+Lighthouse best-practices point (96/100). Silencing it means either not
+calling the endpoint without a session cookie or having it answer 200
+with `{ authenticated: false }`, which is an API contract change, not a
+frontend tweak. `GET /favicon.ico` 404s because no icon file exists yet
+(`app/icon.*` is unset) — that needs a real brand mark, an owner asset.
+Neither affects a real visitor beyond a console line.
+
+## How this was measured
+
+Identical to the P4.S7 commands above, with one addition worth recording:
+`npx lighthouse` exits with an `EPERM ... Permission denied` while
+cleaning up its own Chrome temp directory on this Windows machine. The
+reports are already written by then — check for the output files before
+treating that error as a failed run.

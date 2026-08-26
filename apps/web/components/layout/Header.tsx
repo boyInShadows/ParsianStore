@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { CATALOG_SYSTEMS } from "schemas";
 import { Drawer, Modal } from "@/components/primitives";
 import { ThemeToggle } from "@/components/theme/theme-toggle";
 import { VehicleSelectorLazy } from "@/components/garage";
@@ -19,15 +20,32 @@ export interface HeaderMessages {
 
 type Props = { messages: HeaderMessages };
 
-// Real system-category vocabulary from masterPlan.md §1.2 / §3.1 -- the
-// mechanic persona's own terms, not invented labels.
-const CATEGORIES = [
-  { label: "موتوری", slug: "engine" },
-  { label: "جلوبندی", slug: "suspension" },
-  { label: "برقی", slug: "electrical" },
-  { label: "بدنه", slug: "body" },
-  { label: "ترمز", slug: "brake" },
-];
+// The five systems this nav surfaces, named by their catalogue code and
+// resolved to a real slug at module load -- P9.S16's link sweep found three of
+// the five hardcoded slugs here ("suspension", "body", "brake") 404ing, the
+// exact drift the footer had already been fixed for: the real slugs are
+// "suspension-steering", "body-exterior" and "brakes"
+// (packages/schemas/catalogSystems.ts). Taking the slug from the source of
+// truth means the link cannot rot again; a code that stops existing throws at
+// import rather than shipping a dead menu entry.
+//
+// The labels stay local and stay short: this is the mechanic persona's own
+// shorthand (masterPlan §1.2 / §3.1), deliberately terser than the catalogue's
+// full names, which are written for a category page heading and are too long
+// for a nav row.
+const NAV_SYSTEMS = [
+  { code: "SYS-01", label: "موتوری" },
+  { code: "SYS-03", label: "جلوبندی" },
+  { code: "SYS-05", label: "برقی" },
+  { code: "SYS-06", label: "بدنه" },
+  { code: "SYS-04", label: "ترمز" },
+] as const;
+
+const CATEGORIES = NAV_SYSTEMS.map(({ code, label }) => {
+  const system = CATALOG_SYSTEMS.find((entry) => entry.code === code);
+  if (!system) throw new Error(`Header nav references unknown catalog system ${code}`);
+  return { label, slug: system.slug };
+});
 
 export function Header({ messages }: Props) {
   const [categoriesOpen, setCategoriesOpen] = useState(false);
@@ -64,18 +82,18 @@ export function Header({ messages }: Props) {
   }
 
   return (
-    <header className="sticky top-0 z-40 border-b border-border bg-surface">
+    <header className="sticky top-0 z-40 border-b border-graphite-800 bg-graphite-950 text-graphite-100 shadow-md">
       <div className="mx-auto flex max-w-container items-center justify-between gap-4 px-4 py-3">
         <button
           type="button"
           onClick={() => setMobileMenuOpen(true)}
           aria-label="باز کردن منو"
-          className="h-9 w-9 inline-flex items-center justify-center rounded-md text-text md:hidden"
+          className="inline-flex h-12 w-12 items-center justify-center border border-graphite-800 text-graphite-100 md:hidden"
         >
           <MenuIcon />
         </button>
 
-        <Link href="/" className="font-display text-h3 font-black text-brand">
+        <Link href="/" className="font-display text-h3 font-black text-graphite-0">
           پارسیان
         </Link>
 
@@ -84,12 +102,12 @@ export function Header({ messages }: Props) {
             type="button"
             onClick={() => setCategoriesOpen((open) => !open)}
             aria-expanded={categoriesOpen}
-            className="rounded-md px-3 py-2 text-body-sm font-medium text-text hover:bg-surface-raised"
+            className="px-3 py-2 text-body-sm font-medium text-graphite-200 hover:bg-graphite-850 hover:text-graphite-0"
           >
             دسته‌بندی‌ها
           </button>
           {categoriesOpen ? (
-            <ul className="w-48 absolute top-full z-10 mt-1 rounded-md border border-border bg-surface p-2 shadow-md">
+            <ul className="w-64 absolute top-full z-10 mt-1 rounded-md border border-border bg-surface p-2 shadow-md">
               {CATEGORIES.map((category) => (
                 <li key={category.slug}>
                   <Link
@@ -113,7 +131,7 @@ export function Header({ messages }: Props) {
             name="q"
             type="search"
             placeholder="جستجوی قطعه یا کد فنی"
-            className="w-full rounded-md border border-border bg-bg px-3 py-2 text-body-sm text-text placeholder:text-text-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus"
+            className="w-full border border-graphite-700 bg-graphite-900 px-4 py-3 font-mono text-body-sm text-graphite-0 placeholder:text-graphite-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus"
           />
         </form>
 
@@ -126,7 +144,7 @@ export function Header({ messages }: Props) {
             aria-label={
               activeVehicle ? `تعویض خودرو، فعلاً ${activeVehicle.label}` : "انتخاب خودرو"
             }
-            className="hidden items-center gap-1 rounded-full border border-border px-3 py-1 text-body-sm text-text-muted hover:text-text sm:inline-flex"
+            className="hidden items-center gap-2 border border-graphite-700 px-3 py-2 text-body-sm text-graphite-300 hover:border-steel-400 hover:text-graphite-0 sm:inline-flex"
           >
             <CarIcon />
             {activeVehicle?.label ?? "انتخاب خودرو"}
@@ -134,13 +152,13 @@ export function Header({ messages }: Props) {
           <Link
             href="/cart"
             aria-label={cartItemCount > 0 ? `سبد خرید، ${cartItemCount} قلم` : "سبد خرید"}
-            className="h-9 w-9 relative inline-flex items-center justify-center rounded-md text-text hover:bg-surface-raised"
+            className="relative inline-flex h-12 w-12 items-center justify-center text-graphite-100 hover:bg-graphite-850"
           >
             <CartIcon />
             {cartItemCount > 0 ? (
               <span
                 aria-hidden="true"
-                className="absolute -end-1 -top-1 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-cta px-1 font-mono text-[10px] leading-none text-cta-fg"
+                className="absolute -end-1 -top-1 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-cta px-1 font-mono text-caption leading-none text-cta-fg"
               >
                 {cartItemCount > 99 ? "99+" : cartItemCount}
               </span>
@@ -148,17 +166,15 @@ export function Header({ messages }: Props) {
           </Link>
           {isAuthenticated ? (
             <>
-              {/* P7.S1: the account icon is now a real link into the
-                  account area -- /orders is Phase 7's first (and so far
-                  only) page, so it's the direct target rather than a
-                  dropdown hub with nothing else to list yet. */}
+              {/* The account overview is the stable entry point for every
+                  customer self-service page. */}
               <Link
-                href="/orders"
+                href="/account"
                 aria-label={
                   authUser ? `${messages.signedInAria} ${authUser.phone}` : messages.signedInAria
                 }
                 title={authUser?.phone}
-                className="h-9 w-9 inline-flex items-center justify-center rounded-md text-brand hover:bg-surface-raised"
+                className="inline-flex h-12 w-12 items-center justify-center text-steel-300 hover:bg-graphite-850"
               >
                 <AccountIcon />
               </Link>
@@ -166,7 +182,7 @@ export function Header({ messages }: Props) {
                 type="button"
                 onClick={() => void handleSignOut()}
                 aria-label={messages.signOutAria}
-                className="h-9 w-9 inline-flex items-center justify-center rounded-md text-text hover:bg-surface-raised"
+                className="inline-flex h-12 w-12 items-center justify-center text-graphite-100 hover:bg-graphite-850"
               >
                 <SignOutIcon />
               </button>
@@ -175,7 +191,7 @@ export function Header({ messages }: Props) {
             <Link
               href="/auth/login"
               aria-label={messages.signInAria}
-              className="h-9 w-9 inline-flex items-center justify-center rounded-md text-text hover:bg-surface-raised"
+              className="inline-flex h-12 w-12 items-center justify-center text-graphite-100 hover:bg-graphite-850"
             >
               <AccountIcon />
             </Link>

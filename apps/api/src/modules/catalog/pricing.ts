@@ -44,11 +44,23 @@ export function toPublicProductJson(
   };
   const { wholesalePriceRial, compareAtRial, ...rest } = json;
   const isWholesalePrice = accountType === "wholesale" && wholesalePriceRial != null;
+  const variants = doc.variants.map((variant) => {
+    const variantWholesale = accountType === "wholesale" ? variant.wholesalePriceRial : undefined;
+    return {
+      id: variant._id!.toString(),
+      name: variant.name,
+      sku: variant.sku,
+      priceRial: variantWholesale ?? variant.priceRial,
+      isWholesalePrice: variantWholesale != null,
+      stock: variant.stock,
+    };
+  });
 
   return {
     ...rest,
     priceRial: resolveEffectivePriceRial(doc, accountType),
     isWholesalePrice,
     compareAtRial: isWholesalePrice ? undefined : compareAtRial,
+    variants,
   };
 }

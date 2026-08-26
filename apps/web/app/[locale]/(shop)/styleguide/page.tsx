@@ -5,6 +5,7 @@ import {
   Badge,
   Breadcrumb,
   Button,
+  ButtonLink,
   Card,
   Checkbox,
   Chip,
@@ -21,6 +22,14 @@ import {
   Toaster,
   Tooltip,
 } from "@/components/primitives";
+// By file path, not the barrel -- see the note in primitives/index.ts: these
+// six cost every client-tree consumer of the barrel +8KB if exported there.
+import { PageHeader } from "@/components/primitives/PageHeader";
+import { Sheet } from "@/components/primitives/Sheet";
+import { Receipt } from "@/components/primitives/Receipt";
+import { PriceTag } from "@/components/primitives/PriceTag";
+import { LinkPagination } from "@/components/primitives/LinkPagination";
+import { OrderStatusRail } from "@/components/account/OrderStatus";
 import { CountUp, Marquee, Reveal, Stagger } from "@/components/motion";
 import { useToastStore } from "@/stores/toast-store";
 
@@ -168,6 +177,103 @@ export default function StyleguidePage() {
           </span>
         ))}
       </Marquee>
+
+      {/* ---- Workshop Docket: the document surfaces added for the
+           account/commerce design pass. Kept here so e2e/styleguide-a11y
+           covers them for free, and so the emphasis scale is visible in one
+           place rather than inferred from call sites. */}
+      <section className="flex flex-col gap-6">
+        <PageHeader
+          code="STY-01"
+          titleAs="h2"
+          title="سطوح سندی"
+          meta={
+            <Badge variant="dot" tone="info">
+              نمونه
+            </Badge>
+          }
+          actions={<ButtonLink href="/styleguide">اقدام اصلی</ButtonLink>}
+        />
+
+        <div className="grid gap-6 lg:grid-cols-[1fr_360px]">
+          <Sheet>
+            <Sheet.Header code="ITM" title="ردیف‌های سند" />
+            <Sheet.Rows>
+              <Sheet.Row href="/styleguide">
+                <span className="flex flex-1 flex-col">
+                  <span className="font-mono text-body font-medium text-text">PS-۱۴۰۴-۰۴۸۲۱</span>
+                  <span className="text-caption text-text-muted">ردیف قابل کلیک</span>
+                </span>
+                <PriceTag priceRial={12500000} size="lg" />
+              </Sheet.Row>
+              <Sheet.Row>
+                <span className="flex flex-1 flex-col">
+                  <span className="text-body text-text">ردیف ساده</span>
+                  <span className="font-mono text-caption text-text-muted">SKU-00912</span>
+                </span>
+                <PriceTag
+                  priceRial={4200000}
+                  compareAtRial={5100000}
+                  isWholesale
+                  wholesaleLabel="قیمت همکار"
+                />
+              </Sheet.Row>
+            </Sheet.Rows>
+          </Sheet>
+
+          <Receipt title="جمع سفارش" code="SUM">
+            <Receipt.Line label="جمع کالاها" value="۱۶٬۷۰۰٬۰۰۰ تومان" mono />
+            <Receipt.Line label="تخفیف" value="-۱٬۲۰۰٬۰۰۰ تومان" mono emphasis="muted" />
+            <Receipt.Line label="ارسال" value="۳۵۰٬۰۰۰ تومان" mono />
+            <Receipt.Total label="مبلغ قابل پرداخت" value="۱۵٬۸۵۰٬۰۰۰ تومان" />
+          </Receipt>
+        </div>
+
+        <Sheet>
+          <Sheet.Header code="TRK" title="روند سفارش" />
+          <div className="p-4">
+            <OrderStatusRail
+              currentStatus="shipped"
+              currentLabel="وضعیت فعلی"
+              labels={{
+                pending: "در انتظار پرداخت",
+                paid: "پرداخت شد",
+                processing: "در حال آماده‌سازی",
+                shipped: "ارسال شد",
+                delivered: "تحویل شد",
+                cancelled: "لغو شد",
+                refunded: "مسترد شد",
+              }}
+              history={[
+                { status: "pending", at: "2026-07-30T09:12:00.000Z" },
+                { status: "paid", at: "2026-07-30T09:14:00.000Z" },
+                { status: "processing", at: "2026-07-31T07:40:00.000Z" },
+                { status: "shipped", at: "2026-08-01T11:05:00.000Z", note: "کد رهگیری صادر شد" },
+              ]}
+            />
+          </div>
+        </Sheet>
+
+        <div className="flex flex-wrap items-center gap-3">
+          <Button size="sm" variant="outline">
+            کوچک
+          </Button>
+          <Button size="md">متوسط</Button>
+          <Button size="lg" variant="cta">
+            بزرگ
+          </Button>
+          <Button size="icon" variant="ghost" aria-label="افزودن">
+            +
+          </Button>
+        </div>
+
+        <LinkPagination
+          page={2}
+          pageCount={5}
+          hrefFor={(target) => `/styleguide?page=${target}`}
+          labels={{ previous: "قبلی", next: "بعدی", status: "صفحه‌بندی نمونه" }}
+        />
+      </section>
 
       <Toaster />
     </main>

@@ -27,6 +27,17 @@ test-results/
 # local-disk StorageProvider (P2.S8) — uploaded/rendered images, dev-only
 apps/api/uploads/
 
+# landing-page render sources (P9.S2) — 113MB of 2048² PNGs and 1440p MP4s that
+# feed scripts/optimize-landing.mjs. Only the optimized outputs it emits into
+# apps/web/public/landing/ are committed; these masters live on the owner's disk.
+# Inventory and provenance: docs/landing-assets.md.
+/landing-src/
+
+# Raw masters dropped into the output dir by mistake (this happened at P9.S5).
+# The pipeline only ever emits <name>-<width>.avif/.webp there, so a .png under
+# public/landing/ is always a misplaced source, never shipped output.
+apps/web/public/landing/**/*.png
+
 # misc
 .DS_Store
 *.pem
@@ -57,5 +68,6 @@ next-env.d.ts
 # Code sessions, deliberately not pushed to GitHub. masterPlan.md, README.md,
 # and docs/audit.md are real product docs and stay tracked; these aren't.
 /CLAUDE.md
+/AGENTS.md
 /docs/decisions/
 /screenshots/

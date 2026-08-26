@@ -113,6 +113,7 @@ export default async function CategoryPage({ params, searchParams }: Props) {
       noPhoto: string;
       wholesalePriceBadge: string;
       wishlist: { add: string; remove: string; error: string };
+      compare: { add: string; open: string; limit: string };
     };
   };
 
@@ -207,7 +208,7 @@ export default async function CategoryPage({ params, searchParams }: Props) {
           </div>
 
           <ProductGrid
-            categorySlug={slug}
+            clearFiltersHref={`/c/${slug}`}
             products={productsResult.data.data}
             nextCursor={productsResult.data.nextCursor}
             filters={gridFilters}

@@ -11,7 +11,7 @@ import { env } from "../config/env.js";
 const sharedOptions: Partial<Options> = {
   standardHeaders: true,
   legacyHeaders: false,
-  skip: () => env.NODE_ENV === "test",
+  skip: () => env.NODE_ENV === "test" || env.RATE_LIMIT_DISABLED,
   handler: (_req, res) => {
     res.status(429).json({ ok: false, error: { message: "تعداد درخواست‌ها بیش از حد مجاز است" } });
   },

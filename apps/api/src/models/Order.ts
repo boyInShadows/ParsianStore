@@ -27,6 +27,8 @@ export type OrderStatus = (typeof ORDER_STATUSES)[number];
 
 export interface OrderItem {
   productId: Types.ObjectId;
+  variantId?: Types.ObjectId;
+  variantNameSnapshot?: LocalizedName;
   nameSnapshot: LocalizedName;
   skuSnapshot: string;
   qty: number;
@@ -93,6 +95,8 @@ const localizedNameSchema = {
 const orderItemSchema = new Schema<OrderItem>(
   {
     productId: { type: Schema.Types.ObjectId, ref: "Product", required: true },
+    variantId: { type: Schema.Types.ObjectId },
+    variantNameSnapshot: { type: localizedNameSchema },
     nameSnapshot: { type: localizedNameSchema, required: true },
     skuSnapshot: { type: String, required: true },
     qty: { type: Number, required: true, min: 1 },

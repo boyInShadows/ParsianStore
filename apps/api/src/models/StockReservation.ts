@@ -9,6 +9,7 @@ import { applyBasePlugins, type WithSoftDelete, type WithTimestamps } from "./pl
 // functions rather than touching Product.stock directly.
 export interface StockReservation extends WithTimestamps, WithSoftDelete {
   productId: Types.ObjectId;
+  variantId?: Types.ObjectId;
   qty: number;
   // A cart/order id once those models exist; opaque today.
   refId?: string;
@@ -19,6 +20,7 @@ type StockReservationModelType = Model<StockReservation>;
 
 const stockReservationSchema = new Schema<StockReservation, StockReservationModelType>({
   productId: { type: Schema.Types.ObjectId, ref: "Product", required: true, index: true },
+  variantId: { type: Schema.Types.ObjectId },
   qty: { type: Number, required: true, min: 1 },
   refId: { type: String },
   expiresAt: { type: Date, required: true },

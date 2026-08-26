@@ -7,8 +7,16 @@ import { Reveal } from "@/components/motion";
 // authored copy) linking straight to that system's real category. Not a
 // diagnostic tool -- a fast, honest shortcut into the right shelf, per
 // the "cheap to build, disproportionately useful" note in the spec.
+//
+// P9.S12: the visible SYS-xx code is gone from each card. With it, this
+// section read as a second copy of the hero's system index -- the same ten
+// destinations, the same mono codes, only the labels differed -- which is the
+// duplication audit item 4 was about (found at S9, recorded in tasks.md).
+// Without it the card is what it is meant to be: the Driver describing a
+// symptom, not the Mechanic reading an index. Destinations are unchanged, so
+// this is a one-line reversal if the owner prefers the code visible.
 export async function SymptomFinder() {
-  const t = await getTranslations("Landing.sections.symptomFinder");
+  const t = await getTranslations("Landing.beats.symptomFinder");
   const items = t.raw("items") as string[];
 
   return (
@@ -29,10 +37,9 @@ export async function SymptomFinder() {
           <li key={system.code}>
             <a
               href={`/c/${system.slug}`}
-              className="flex items-center justify-between gap-3 rounded-lg border border-border bg-surface p-3 text-body-sm text-text transition-colors hover:border-brand motion-reduce:transition-none"
+              className="flex min-h-12 items-center gap-3 rounded-lg border border-border bg-surface p-3 text-body-sm text-text transition-colors hover:border-brand focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus motion-reduce:transition-none"
             >
               <span>{items[index]}</span>
-              <span className="font-mono text-caption text-text-muted">{system.code}</span>
             </a>
           </li>
         ))}

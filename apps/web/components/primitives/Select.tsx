@@ -1,4 +1,5 @@
 import { useId, type ReactNode, type SelectHTMLAttributes } from "react";
+import { cn } from "@/lib/cn";
 
 type Props = SelectHTMLAttributes<HTMLSelectElement> & {
   label: string;
@@ -26,7 +27,11 @@ export function Select({ label, error, helperText, id, className = "", children,
           id={selectId}
           aria-invalid={Boolean(error)}
           aria-describedby={describedBy || undefined}
-          className={`pe-9 w-full appearance-none rounded-md border bg-surface py-2 ps-3 text-body text-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus disabled:opacity-50 ${error ? "border-danger" : "border-border"} ${className}`}
+          className={cn(
+            "pe-9 w-full appearance-none rounded-md border bg-surface py-2 ps-3 text-body text-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus disabled:opacity-50",
+            error ? "border-danger" : "border-border",
+            className,
+          )}
           {...rest}
         >
           {children}

@@ -1,0 +1,57 @@
+# The development database.
+#
+# `pnpm dev` no longer calls this directly -- `scripts/dev-db.mjs` checks the
+# port first and only reaches for compose when nothing is answering. That is
+# because this service cannot start on every machine: MongoDB 8.0 aborts on
+# Linux kernel 6.19 and newer (SERVER-121912), which on Windows means a Docker
+# Desktop WSL2 backend on a current kernel restart-loops with
+# "MongoDB cannot start: Linux kernel versions 6.19 and newer has a known
+# incompatibility with this version of MongoDB" and never becomes healthy.
+#
+# Where that bites, run any MongoDB on host port 27018 instead and point
+# `apps/api/.env`'s MONGODB_URI at it; nothing in the app knows the difference.
+# Only one of the two can hold the port at a time.
+
+services:
+  mongodb:
+    image: mongo:8.0
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:27018:27017"
+    volumes:
+      - parsianstore-mongodb:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      interval: 2s
+      timeout: 5s
+      retries: 15
+      start_period: 5s
+
+  # The destination of the Mongo migration (tasks.md). Present so a fresh
+  # clone has a one-command database; on the machine this was written on,
+  # PostgreSQL 18 is installed natively and `pnpm db:setup` targets that
+  # instead, because Docker is not running there and the mongo image above
+  # cannot start on its kernel at all.
+  postgres:
+    image: postgres:18
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:5432:5432"
+    environment:
+      POSTGRES_DB: parsian_store
+      POSTGRES_USER: parsianstore
+      # Compose-only convenience credential. The real password lives in
+      # apps/api/.env's DATABASE_URL and never enters git.
+      POSTGRES_PASSWORD: parsianstore
+    volumes:
+      - parsianstore-postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U parsianstore -d parsian_store"]
+      interval: 2s
+      timeout: 5s
+      retries: 15
+      start_period: 5s
+
+volumes:
+  parsianstore-mongodb:
+  parsianstore-postgres:

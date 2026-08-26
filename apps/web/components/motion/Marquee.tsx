@@ -7,6 +7,13 @@ type Props = {
   children: ReactNode;
   className?: string;
   durationSeconds?: number;
+  /**
+   * Accessible name for the scrolling region. Without one the track is an
+   * unlabelled run of links: the section heading names the *section*, not the
+   * group inside it, and the duplicate copy that makes the loop seamless is
+   * `inert` + `aria-hidden`, so what a screen reader reaches is a bare list.
+   */
+  label?: string;
 };
 
 // Continuous horizontal loop (brand wall, masterPlan.md §5 section 05).
@@ -18,11 +25,14 @@ type Props = {
 // assistive tech but does NOT stop keyboard Tab from reaching it, so a
 // sighted keyboard user would tab into invisible duplicate links without
 // `inert` (caught by axe's aria-hidden-focus rule).
-export function Marquee({ children, className = "", durationSeconds = 30 }: Props) {
+export function Marquee({ children, className = "", durationSeconds = 30, label }: Props) {
   const reduceMotion = useReducedMotion();
 
   return (
-    <div className={`group overflow-hidden ${className}`}>
+    <div
+      className={`group overflow-hidden ${className}`}
+      {...(label ? { role: "group", "aria-label": label } : {})}
+    >
       <div
         className="motion-marquee-track flex w-max gap-8 group-hover:[animation-play-state:paused]"
         style={

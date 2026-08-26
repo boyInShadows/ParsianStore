@@ -16,6 +16,8 @@ import { FitmentBanner } from "@/components/pdp/FitmentBanner";
 import { RelatedProducts } from "@/components/pdp/RelatedProducts";
 import { WishlistButton } from "@/components/wishlist/WishlistButton";
 import { AddToCartForm } from "@/components/cart/AddToCartForm";
+import { ProductFeedback } from "@/components/pdp/ProductFeedback";
+import { fetchProductFeedback } from "@/lib/fetchers/feedback";
 
 type Props = {
   params: Promise<{ locale: (typeof routing.locales)[number]; slug: string }>;
@@ -44,6 +46,7 @@ interface CatalogMessages {
     noPhoto: string;
     wholesalePriceBadge: string;
     wishlist: { add: string; remove: string; error: string };
+    compare: { add: string; open: string; limit: string };
     addToCart: {
       qtyLabel: string;
       addButton: string;
@@ -68,6 +71,7 @@ interface CatalogMessages {
     fitment: { exact: string; likely: string; check: string; checkVehicle: string };
     related: { title: string };
     brandLink: string;
+    feedback: Parameters<typeof ProductFeedback>[0]["messages"];
   };
 }
 
@@ -100,6 +104,7 @@ export default async function ProductPage({ params }: Props) {
 
   const product = result.data;
   const related = await fetchRelatedProducts(slug, 8, cookieHeader);
+  const feedback = await fetchProductFeedback(product.id);
 
   const breadcrumbItems = [
     { label: catalogMessages.breadcrumbHome, href: localizedPath(locale, "/") },
@@ -123,15 +128,9 @@ export default async function ProductPage({ params }: Props) {
 
         <div className="flex flex-col gap-4">
           <div>
-            {/* Brand pages don't exist yet (their own separate Phase 5
-                item) -- this links to the brand's products within the
-                current category, the closest real destination available
-                today, rather than a dedicated /b/[slug] that doesn't
-                exist. Needs both brand and category since the PLP route
-                is category-scoped. */}
-            {product.brand && product.category ? (
+            {product.brand ? (
               <Link
-                href={`/c/${product.category.slug}?brand=${product.brand.slug}`}
+                href={`/brand/${product.brand.slug}`}
                 className="text-body-sm text-brand hover:underline"
               >
                 {t("pdp.brandLink", { brand: product.brand.name.fa })}
@@ -148,7 +147,7 @@ export default async function ProductPage({ params }: Props) {
               </span>
             ) : null}
             {product.isWholesalePrice ? (
-              <span className="bg-brand/10 py-0.5 rounded-full px-2 text-caption font-medium text-brand">
+              <span className="rounded-full bg-brand-subtle px-2 py-1 text-caption font-medium text-brand">
                 {catalogMessages.product.wholesalePriceBadge}
               </span>
             ) : null}
@@ -168,6 +167,7 @@ export default async function ProductPage({ params }: Props) {
           <AddToCartForm
             productId={product.id}
             inStock={product.stock > 0}
+            variants={product.variants}
             messages={catalogMessages.product.addToCart}
           />
 
@@ -199,6 +199,12 @@ export default async function ProductPage({ params }: Props) {
         title={catalogMessages.pdp.related.title}
         products={related}
         messages={catalogMessages.product}
+      />
+      <ProductFeedback
+        productId={product.id}
+        reviews={feedback.reviews}
+        questions={feedback.questions}
+        messages={catalogMessages.pdp.feedback}
       />
     </main>
   );

@@ -28,9 +28,12 @@ export async function adjustStock(
   reason: InventoryMoveReason,
   options: AdjustStockOptions = {},
 ): Promise<HydratedDocument<Product>> {
-  const exists = await ProductModel.exists({ _id: productId });
-  if (!exists) {
+  const existing = await ProductModel.findById(productId, "variants");
+  if (!existing) {
     throw new ApiError(404, "محصول یافت نشد");
+  }
+  if (existing.variants.length > 0) {
+    throw new ApiError(409, "موجودی محصول گونه‌دار باید از مدیر گونه‌ها تغییر کند");
   }
 
   const filter: FilterQuery<Product> = { _id: productId };
@@ -69,10 +72,22 @@ export async function reserveStock(
   qty: number,
   ttlMs: number,
   refId?: string,
+  variantId?: string,
 ): Promise<HydratedDocument<StockReservation>> {
-  await adjustStock(productId, -qty, "reservation", { refId });
+  if (variantId) {
+    const product = await ProductModel.findOneAndUpdate(
+      { _id: productId, variants: { $elemMatch: { _id: variantId, stock: { $gte: qty } } } },
+      { $inc: { stock: -qty, "variants.$.stock": -qty } },
+      { new: true },
+    );
+    if (!product) throw new ApiError(409, "موجودی گونه کافی نیست");
+    await InventoryMoveModel.create({ productId, delta: -qty, reason: "reservation", refId });
+  } else {
+    await adjustStock(productId, -qty, "reservation", { refId });
+  }
   return StockReservationModel.create({
     productId,
+    variantId,
     qty,
     refId,
     expiresAt: new Date(Date.now() + ttlMs),
@@ -92,9 +107,24 @@ async function findReservationOrThrow(
 /** Failure/timeout/cancel path — restores the reserved quantity. */
 export async function releaseReservation(reservationId: string): Promise<void> {
   const reservation = await findReservationOrThrow(reservationId);
-  await adjustStock(reservation.productId.toString(), reservation.qty, "reservation-released", {
-    refId: reservationId,
-  });
+  if (reservation.variantId) {
+    const product = await ProductModel.findOneAndUpdate(
+      { _id: reservation.productId, "variants._id": reservation.variantId },
+      { $inc: { stock: reservation.qty, "variants.$.stock": reservation.qty } },
+      { new: true },
+    );
+    if (!product) throw new ApiError(404, "گونه محصول یافت نشد");
+    await InventoryMoveModel.create({
+      productId: reservation.productId,
+      delta: reservation.qty,
+      reason: "reservation-released",
+      refId: reservationId,
+    });
+  } else {
+    await adjustStock(reservation.productId.toString(), reservation.qty, "reservation-released", {
+      refId: reservationId,
+    });
+  }
   await StockReservationModel.deleteOne({ _id: reservationId });
 }
 

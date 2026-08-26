@@ -1,0 +1,810 @@
+{
+  "cutouts": [
+    {
+      "name": "air-filter",
+      "intrinsic": {
+        "width": 2048,
+        "height": 2048
+      },
+      "hasAlpha": true,
+      "mirrored": false,
+      "trim": null,
+      "variants": [
+        {
+          "width": 480,
+          "height": 480,
+          "avif": 9526,
+          "webp": 15558
+        },
+        {
+          "width": 768,
+          "height": 768,
+          "avif": 18742,
+          "webp": 30822
+        },
+        {
+          "width": 1024,
+          "height": 1024,
+          "avif": 28057,
+          "webp": 47270
+        },
+        {
+          "width": 1440,
+          "height": 1440,
+          "avif": 43091,
+          "webp": 81686
+        }
+      ]
+    },
+    {
+      "name": "alternator",
+      "intrinsic": {
+        "width": 2048,
+        "height": 2048
+      },
+      "hasAlpha": true,
+      "mirrored": false,
+      "trim": null,
+      "variants": [
+        {
+          "width": 480,
+          "height": 480,
+          "avif": 11330,
+          "webp": 17654
+        },
+        {
+          "width": 768,
+          "height": 768,
+          "avif": 20465,
+          "webp": 32370
+        },
+        {
+          "width": 1024,
+          "height": 1024,
+          "avif": 30632,
+          "webp": 48914
+        },
+        {
+          "width": 1440,
+          "height": 1440,
+          "avif": 57484,
+          "webp": 94844
+        }
+      ]
+    },
+    {
+      "name": "bumper",
+      "intrinsic": {
+        "width": 2048,
+        "height": 2048
+      },
+      "hasAlpha": true,
+      "mirrored": false,
+      "trim": null,
+      "variants": [
+        {
+          "width": 480,
+          "height": 480,
+          "avif": 5930,
+          "webp": 9126
+        },
+        {
+          "width": 768,
+          "height": 768,
+          "avif": 9085,
+          "webp": 15934
+        },
+        {
+          "width": 1024,
+          "height": 1024,
+          "avif": 11570,
+          "webp": 22628
+        },
+        {
+          "width": 1440,
+          "height": 1440,
+          "avif": 16024,
+          "webp": 36320
+        }
+      ]
+    },
+    {
+      "name": "car",
+      "intrinsic": {
+        "width": 2048,
+        "height": 2048
+      },
+      "hasAlpha": true,
+      "mirrored": false,
+      "trim": null,
+      "variants": [
+        {
+          "width": 480,
+          "height": 480,
+          "avif": 8099,
+          "webp": 13492
+        },
+        {
+          "width": 768,
+          "height": 768,
+          "avif": 14210,
+          "webp": 25716
+        },
+        {
+          "width": 1024,
+          "height": 1024,
+          "avif": 20892,
+          "webp": 38586
+        },
+        {
+          "width": 1440,
+          "height": 1440,
+          "avif": 30694,
+          "webp": 64782
+        }
+      ]
+    },
+    {
+      "name": "door",
+      "intrinsic": {
+        "width": 2048,
+        "height": 2048
+      },
+      "hasAlpha": true,
+      "mirrored": false,
+      "trim": null,
+      "variants": [
+        {
+          "width": 480,
+          "height": 480,
+          "avif": 7115,
+          "webp": 13506
+        },
+        {
+          "width": 768,
+          "height": 768,
+          "avif": 11420,
+          "webp": 24052
+        },
+        {
+          "width": 1024,
+          "height": 1024,
+          "avif": 15519,
+          "webp": 35004
+        },
+        {
+          "width": 1440,
+          "height": 1440,
+          "avif": 23448,
+          "webp": 57962
+        }
+      ]
+    },
+    {
+      "name": "fender",
+      "intrinsic": {
+        "width": 2048,
+        "height": 2048
+      },
+      "hasAlpha": true,
+      "mirrored": false,
+      "trim": null,
+      "variants": [
+        {
+          "width": 480,
+          "height": 480,
+          "avif": 9261,
+          "webp": 14454
+        },
+        {
+          "width": 768,
+          "height": 768,
+          "avif": 15040,
+          "webp": 25426
+        },
+        {
+          "width": 1024,
+          "height": 1024,
+          "avif": 19660,
+          "webp": 36208
+        },
+        {
+          "width": 1440,
+          "height": 1440,
+          "avif": 28466,
+          "webp": 59730
+        }
+      ]
+    },
+    {
+      "name": "headlight",
+      "intrinsic": {
+        "width": 2048,
+        "height": 2048
+      },
+      "hasAlpha": true,
+      "mirrored": false,
+      "trim": null,
+      "variants": [
+        {
+          "width": 480,
+          "height": 480,
+          "avif": 10447,
+          "webp": 17590
+        },
+        {
+          "width": 768,
+          "height": 768,
+          "avif": 20023,
+          "webp": 35786
+        },
+        {
+          "width": 1024,
+          "height": 1024,
+          "avif": 29831,
+          "webp": 55622
+        },
+        {
+          "width": 1440,
+          "height": 1440,
+          "avif": 48704,
+          "webp": 98958
+        }
+      ]
+    },
+    {
+      "name": "hood",
+      "intrinsic": {
+        "width": 2048,
+        "height": 2048
+      },
+      "hasAlpha": true,
+      "mirrored": false,
+      "trim": null,
+      "variants": [
+        {
+          "width": 480,
+          "height": 480,
+          "avif": 6761,
+          "webp": 9006
+        },
+        {
+          "width": 768,
+          "height": 768,
+          "avif": 10572,
+          "webp": 15860
+        },
+        {
+          "width": 1024,
+          "height": 1024,
+          "avif": 12982,
+          "webp": 21848
+        },
+        {
+          "width": 1440,
+          "height": 1440,
+          "avif": 16371,
+          "webp": 36322
+        }
+      ]
+    },
+    {
+      "name": "piston",
+      "intrinsic": {
+        "width": 2048,
+        "height": 2048
+      },
+      "hasAlpha": true,
+      "mirrored": false,
+      "trim": null,
+      "variants": [
+        {
+          "width": 480,
+          "height": 480,
+          "avif": 7632,
+          "webp": 12828
+        },
+        {
+          "width": 768,
+          "height": 768,
+          "avif": 12798,
+          "webp": 23130
+        },
+        {
+          "width": 1024,
+          "height": 1024,
+          "avif": 18896,
+          "webp": 34636
+        },
+        {
+          "width": 1440,
+          "height": 1440,
+          "avif": 32578,
+          "webp": 63142
+        }
+      ]
+    },
+    {
+      "name": "windshield",
+      "intrinsic": {
+        "width": 2048,
+        "height": 2048
+      },
+      "hasAlpha": true,
+      "mirrored": false,
+      "trim": null,
+      "variants": [
+        {
+          "width": 480,
+          "height": 480,
+          "avif": 5996,
+          "webp": 11378
+        },
+        {
+          "width": 768,
+          "height": 768,
+          "avif": 9597,
+          "webp": 21354
+        },
+        {
+          "width": 1024,
+          "height": 1024,
+          "avif": 14135,
+          "webp": 32158
+        },
+        {
+          "width": 1440,
+          "height": 1440,
+          "avif": 20515,
+          "webp": 53476
+        }
+      ]
+    }
+  ],
+  "hero": [
+    {
+      "name": "car-stripped",
+      "intrinsic": {
+        "width": 823,
+        "height": 367
+      },
+      "hasAlpha": true,
+      "mirrored": false,
+      "trim": {
+        "canvas": {
+          "width": 1024,
+          "height": 1024
+        },
+        "left": 103,
+        "top": 333
+      },
+      "variants": [
+        {
+          "width": 480,
+          "height": 214,
+          "avif": 11062,
+          "webp": 18962
+        },
+        {
+          "width": 823,
+          "height": 367,
+          "avif": 20403,
+          "webp": 34624
+        }
+      ]
+    },
+    {
+      "name": "sprite-bumper",
+      "intrinsic": {
+        "width": 374,
+        "height": 100
+      },
+      "hasAlpha": true,
+      "mirrored": false,
+      "trim": {
+        "canvas": {
+          "width": 1024,
+          "height": 1024
+        },
+        "left": 98,
+        "top": 529
+      },
+      "variants": [
+        {
+          "width": 374,
+          "height": 100,
+          "avif": 2621,
+          "webp": 4676
+        }
+      ]
+    },
+    {
+      "name": "sprite-door",
+      "intrinsic": {
+        "width": 158,
+        "height": 232
+      },
+      "hasAlpha": true,
+      "mirrored": false,
+      "trim": {
+        "canvas": {
+          "width": 1024,
+          "height": 1024
+        },
+        "left": 642,
+        "top": 351
+      },
+      "variants": [
+        {
+          "width": 158,
+          "height": 232,
+          "avif": 3784,
+          "webp": 7828
+        }
+      ]
+    },
+    {
+      "name": "sprite-fender",
+      "intrinsic": {
+        "width": 291,
+        "height": 190
+      },
+      "hasAlpha": true,
+      "mirrored": false,
+      "trim": {
+        "canvas": {
+          "width": 1024,
+          "height": 1024
+        },
+        "left": 363,
+        "top": 438
+      },
+      "variants": [
+        {
+          "width": 291,
+          "height": 190,
+          "avif": 4475,
+          "webp": 7762
+        }
+      ]
+    },
+    {
+      "name": "sprite-grille",
+      "intrinsic": {
+        "width": 242,
+        "height": 77
+      },
+      "hasAlpha": true,
+      "mirrored": false,
+      "trim": {
+        "canvas": {
+          "width": 1024,
+          "height": 1024
+        },
+        "left": 135,
+        "top": 473
+      },
+      "variants": [
+        {
+          "width": 242,
+          "height": 77,
+          "avif": 3197,
+          "webp": 6020
+        }
+      ]
+    },
+    {
+      "name": "sprite-headlights",
+      "intrinsic": {
+        "width": 680,
+        "height": 306
+      },
+      "hasAlpha": true,
+      "mirrored": false,
+      "trim": {
+        "canvas": {
+          "width": 1024,
+          "height": 1024
+        },
+        "left": 171,
+        "top": 359
+      },
+      "variants": [
+        {
+          "width": 480,
+          "height": 216,
+          "avif": 13590,
+          "webp": 25060
+        },
+        {
+          "width": 680,
+          "height": 306,
+          "avif": 18420,
+          "webp": 37220
+        }
+      ]
+    },
+    {
+      "name": "sprite-hood",
+      "intrinsic": {
+        "width": 737,
+        "height": 208
+      },
+      "hasAlpha": true,
+      "mirrored": false,
+      "trim": {
+        "canvas": {
+          "width": 1024,
+          "height": 1024
+        },
+        "left": 142,
+        "top": 412
+      },
+      "variants": [
+        {
+          "width": 480,
+          "height": 135,
+          "avif": 5854,
+          "webp": 9722
+        },
+        {
+          "width": 737,
+          "height": 208,
+          "avif": 6129,
+          "webp": 10606
+        }
+      ]
+    },
+    {
+      "name": "sprite-windshield",
+      "intrinsic": {
+        "width": 762,
+        "height": 345
+      },
+      "hasAlpha": true,
+      "mirrored": false,
+      "trim": {
+        "canvas": {
+          "width": 1024,
+          "height": 1024
+        },
+        "left": 131,
+        "top": 339
+      },
+      "variants": [
+        {
+          "width": 480,
+          "height": 217,
+          "avif": 6342,
+          "webp": 11540
+        },
+        {
+          "width": 762,
+          "height": 345,
+          "avif": 8156,
+          "webp": 17496
+        }
+      ]
+    }
+  ],
+  "plates": [
+    {
+      "name": "plate-body",
+      "intrinsic": {
+        "width": 1376,
+        "height": 768
+      },
+      "hasAlpha": false,
+      "mirrored": true,
+      "trim": null,
+      "variants": [
+        {
+          "width": 480,
+          "height": 268,
+          "avif": 3893,
+          "webp": 4554
+        },
+        {
+          "width": 768,
+          "height": 429,
+          "avif": 7475,
+          "webp": 8692
+        },
+        {
+          "width": 1024,
+          "height": 572,
+          "avif": 10574,
+          "webp": 13164
+        },
+        {
+          "width": 1376,
+          "height": 768,
+          "avif": 15284,
+          "webp": 20346
+        }
+      ]
+    },
+    {
+      "name": "plate-engine",
+      "intrinsic": {
+        "width": 1376,
+        "height": 768
+      },
+      "hasAlpha": false,
+      "mirrored": true,
+      "trim": null,
+      "variants": [
+        {
+          "width": 480,
+          "height": 268,
+          "avif": 9793,
+          "webp": 14216
+        },
+        {
+          "width": 768,
+          "height": 429,
+          "avif": 20237,
+          "webp": 29834
+        },
+        {
+          "width": 1024,
+          "height": 572,
+          "avif": 30452,
+          "webp": 46194
+        },
+        {
+          "width": 1376,
+          "height": 768,
+          "avif": 46395,
+          "webp": 70568
+        }
+      ]
+    },
+    {
+      "name": "plate-front",
+      "intrinsic": {
+        "width": 1376,
+        "height": 768
+      },
+      "hasAlpha": false,
+      "mirrored": true,
+      "trim": null,
+      "variants": [
+        {
+          "width": 480,
+          "height": 268,
+          "avif": 3742,
+          "webp": 4964
+        },
+        {
+          "width": 768,
+          "height": 429,
+          "avif": 7445,
+          "webp": 9620
+        },
+        {
+          "width": 1024,
+          "height": 572,
+          "avif": 10591,
+          "webp": 14752
+        },
+        {
+          "width": 1376,
+          "height": 768,
+          "avif": 16007,
+          "webp": 22846
+        }
+      ]
+    },
+    {
+      "name": "plate-overhead",
+      "intrinsic": {
+        "width": 1376,
+        "height": 768
+      },
+      "hasAlpha": false,
+      "mirrored": true,
+      "trim": null,
+      "variants": [
+        {
+          "width": 480,
+          "height": 268,
+          "avif": 2582,
+          "webp": 2968
+        },
+        {
+          "width": 768,
+          "height": 429,
+          "avif": 4899,
+          "webp": 6056
+        },
+        {
+          "width": 1024,
+          "height": 572,
+          "avif": 7500,
+          "webp": 9354
+        },
+        {
+          "width": 1376,
+          "height": 768,
+          "avif": 11201,
+          "webp": 14508
+        }
+      ]
+    }
+  ],
+  "video": [
+    {
+      "name": "chapter-2",
+      "mp4": {
+        "bytes": 1476432
+      },
+      "poster": {
+        "name": "chapter-2-poster",
+        "intrinsic": {
+          "width": 1920,
+          "height": 1080
+        },
+        "hasAlpha": false,
+        "mirrored": false,
+        "trim": null,
+        "variants": [
+          {
+            "width": 768,
+            "height": 432,
+            "avif": 20791,
+            "webp": 30176
+          },
+          {
+            "width": 1024,
+            "height": 576,
+            "avif": 31177,
+            "webp": 46466
+          },
+          {
+            "width": 1440,
+            "height": 810,
+            "avif": 50220,
+            "webp": 73920
+          }
+        ]
+      }
+    },
+    {
+      "name": "chapter-4",
+      "mp4": {
+        "bytes": 1395592
+      },
+      "poster": {
+        "name": "chapter-4-poster",
+        "intrinsic": {
+          "width": 1920,
+          "height": 1080
+        },
+        "hasAlpha": false,
+        "mirrored": false,
+        "trim": null,
+        "variants": [
+          {
+            "width": 768,
+            "height": 432,
+            "avif": 8190,
+            "webp": 10224
+          },
+          {
+            "width": 1024,
+            "height": 576,
+            "avif": 11898,
+            "webp": 15768
+          },
+          {
+            "width": 1440,
+            "height": 810,
+            "avif": 19880,
+            "webp": 26232
+          }
+        ]
+      }
+    }
+  ]
+}

@@ -55,6 +55,15 @@ export interface ProductRating {
   count: number;
 }
 
+export interface ProductVariant {
+  _id?: Types.ObjectId;
+  name: LocalizedName;
+  sku: string;
+  priceRial: number;
+  wholesalePriceRial?: number;
+  stock: number;
+}
+
 export interface Product extends WithTimestamps, WithSoftDelete {
   name: LocalizedName;
   slug: string;
@@ -65,6 +74,7 @@ export interface Product extends WithTimestamps, WithSoftDelete {
   categoryId: Types.ObjectId;
   attributes: ProductAttributeValue[];
   media: string[];
+  variants: ProductVariant[];
   priceRial: number;
   compareAtRial?: number;
   // P6.S1: account-type-based wholesale pricing (§3.2, added ahead of
@@ -112,6 +122,18 @@ const productSchema = new Schema<Product, ProductModelType, SoftDeleteMethods>({
     default: [],
   },
   media: { type: [String], default: [] },
+  variants: {
+    type: [
+      {
+        name: { fa: { type: String, required: true }, en: { type: String, required: true } },
+        sku: { type: String, required: true },
+        priceRial: { type: Number, required: true, min: 0 },
+        wholesalePriceRial: { type: Number, min: 0 },
+        stock: { type: Number, required: true, min: 0 },
+      },
+    ],
+    default: [],
+  },
   priceRial: { type: Number, required: true, min: 0 },
   compareAtRial: { type: Number, min: 0 },
   wholesalePriceRial: {

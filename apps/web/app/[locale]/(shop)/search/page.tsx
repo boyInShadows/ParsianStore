@@ -83,6 +83,11 @@ export default async function SearchPage({ searchParams }: Props) {
       remove: t("product.wishlist.remove"),
       error: t("product.wishlist.error"),
     },
+    compare: {
+      add: t("product.compare.add"),
+      open: t("product.compare.open"),
+      limit: t("product.compare.limit"),
+    },
   };
 
   return (

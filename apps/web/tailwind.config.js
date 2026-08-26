@@ -78,13 +78,29 @@ module.exports = {
       warning: "var(--color-warning)",
       danger: "var(--color-danger)",
       info: "var(--color-info)",
+      // Contrast-safe text ON the filled status colors above (§6.4) --
+      // white fails AA on success in both themes and on danger in dark.
+      "success-fg": "var(--success-fg)",
+      "danger-fg": "var(--danger-fg)",
+      "info-fg": "var(--info-fg)",
       bg: "var(--bg)",
       surface: "var(--surface)",
       "surface-raised": "var(--surface-raised)",
+      "surface-sunken": "var(--surface-sunken)",
       text: "var(--text)",
       "text-muted": "var(--text-muted)",
       border: "var(--border)",
+      // Divider inside a surface -- always lighter than `border`, which is
+      // the container edge (§6.8). Gives `border-rule` and `divide-rule`.
+      rule: "var(--rule)",
+      // §6.3's "Marigold owns prices", finally implemented -- `cta` itself
+      // fails contrast as text, so money uses this instead (§6.8).
+      price: "var(--price)",
       brand: "var(--brand)",
+      // Tinted ground for a brand chip / selected row / rail halo. Exists
+      // because `bg-brand/10` generates no CSS -- Tailwind cannot apply an
+      // opacity modifier to an opaque var() color (§6.8).
+      "brand-subtle": "var(--brand-subtle)",
       "brand-solid": "var(--brand-solid)",
       "brand-fg": "var(--brand-fg)",
       cta: "var(--cta)",
@@ -136,6 +152,14 @@ module.exports = {
       },
       maxWidth: {
         container: "var(--container-max)",
+      },
+      // `w-rail` / `basis-rail` -- one card inside a horizontal snap rail.
+      // See tokens.css on why this is a named token, not a spacing step.
+      width: {
+        rail: "var(--rail-card)",
+      },
+      flexBasis: {
+        rail: "var(--rail-card)",
       },
       // Type scale -- masterPlan.md §6.5. fontFamily/fontWeight compose with
       // these: e.g. `font-display text-display-1` or `font-mono text-data`.

@@ -8,15 +8,13 @@ import {
   AuthenticityStory,
   BestSellers,
   BrandWall,
+  ClosingBeat,
   Deals,
   GuidesTeaser,
-  Hero,
-  HowItWorks,
+  HeroV2,
+  InterstitialPlate,
   Newsletter,
-  Numbers,
-  ShopBySystem,
   ShopByVehicle,
-  Support,
   SymptomFinder,
   TrustStrip,
 } from "@/components/landing";
@@ -63,19 +61,17 @@ export default function LandingPage() {
   return (
     <main>
       <JsonLd data={[organizationJsonLd(), websiteJsonLd()]} />
-      <Hero />
+      <HeroV2 />
       <TrustStrip />
-      <ShopBySystem />
       <BestSellers />
-      <BrandWall />
       <AuthenticityStory />
-      <Deals />
       <ShopByVehicle />
       <SymptomFinder />
-      <Numbers />
-      <HowItWorks />
+      <InterstitialPlate />
+      <BrandWall />
+      <Deals />
+      <ClosingBeat />
       <GuidesTeaser />
-      <Support />
       <Newsletter />
     </main>
   );

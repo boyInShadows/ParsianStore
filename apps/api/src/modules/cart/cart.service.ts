@@ -38,10 +38,13 @@ export async function findOrCreateCart(identity: CartIdentity): Promise<Hydrated
  * priceRialSnapshot to the current price on every touch. */
 async function incrementOrPushItem(
   filter: FilterQuery<Cart>,
-  item: Pick<CartItem, "productId" | "qty" | "priceRialSnapshot">,
+  item: Pick<CartItem, "productId" | "variantId" | "qty" | "priceRialSnapshot">,
 ): Promise<HydratedDocument<Cart> | null> {
+  const lineMatch = item.variantId
+    ? { productId: item.productId, variantId: item.variantId }
+    : { productId: item.productId, variantId: { $exists: false } };
   const incremented = await CartModel.findOneAndUpdate(
-    { ...filter, "items.productId": item.productId },
+    { ...filter, items: { $elemMatch: lineMatch } },
     {
       $inc: { "items.$.qty": item.qty },
       $set: {
@@ -66,21 +69,34 @@ export async function addItem(
   productId: string,
   qty: number,
   accountType: AccountType | undefined,
+  variantId?: string,
 ): Promise<void> {
   const product = await ProductModel.findById(productId).select("+wholesalePriceRial");
   if (!product) {
     throw new ApiError(404, "محصول یافت نشد");
   }
+  const variant = variantId
+    ? product.variants.find((item) => item._id?.toString() === variantId)
+    : undefined;
+  if (variantId && !variant) throw new ApiError(404, "گونه محصول یافت نشد");
+  if (product.variants.length > 0 && !variant)
+    throw new ApiError(400, "انتخاب گونه محصول الزامی است");
+  const priceRialSnapshot = variant
+    ? accountType === "wholesale" && variant.wholesalePriceRial != null
+      ? variant.wholesalePriceRial
+      : variant.priceRial
+    : resolveEffectivePriceRial(product, accountType);
   await findOrCreateCart(identity);
   await incrementOrPushItem(identityFilter(identity), {
     productId: product._id,
+    variantId: variant?._id,
     qty,
     // Snapshots the EFFECTIVE (tier-resolved) price this identity saw at
     // add-time, not always retail -- priceRialSnapshot's only purpose is
     // the "price changed since you added it" UI hint, and it must compare
     // apples to apples against whichever price getCart resolves later for
     // the same accountType.
-    priceRialSnapshot: resolveEffectivePriceRial(product, accountType),
+    priceRialSnapshot,
   });
 }
 
@@ -126,6 +142,7 @@ export async function mergeGuestCartIntoUser(anonId: string, userId: string): Pr
   for (const item of guestCart.items) {
     await incrementOrPushItem(filter, {
       productId: item.productId,
+      variantId: item.variantId,
       qty: item.qty,
       priceRialSnapshot: item.priceRialSnapshot,
     });
@@ -145,6 +162,8 @@ export async function clearCart(identity: CartIdentity): Promise<void> {
 export interface CartItemView {
   id: string;
   productId: string;
+  variantId?: string;
+  variant?: { name: { fa: string; en: string }; sku: string };
   qty: number;
   priceRialSnapshot: number;
   // Already shaped via toPublicProductJson -- never the raw Mongoose
@@ -204,14 +223,25 @@ export async function getCart(
     // wishlist.service.ts's listWishlist already uses.
     if (!product) continue;
 
-    const availableQty = product.backorderable ? item.qty : Math.min(item.qty, product.stock);
-    const stockOk = product.backorderable || product.stock >= item.qty;
-    const effectivePriceRial = resolveEffectivePriceRial(product, accountType);
+    const variant = item.variantId
+      ? product.variants.find((entry) => entry._id?.toString() === item.variantId?.toString())
+      : undefined;
+    if (item.variantId && !variant) continue;
+    const liveStock = variant?.stock ?? product.stock;
+    const availableQty = product.backorderable ? item.qty : Math.min(item.qty, liveStock);
+    const stockOk = product.backorderable || liveStock >= item.qty;
+    const effectivePriceRial = variant
+      ? accountType === "wholesale" && variant.wholesalePriceRial != null
+        ? variant.wholesalePriceRial
+        : variant.priceRial
+      : resolveEffectivePriceRial(product, accountType);
     const lineTotalRial = effectivePriceRial * item.qty;
 
     items.push({
       id: item._id!.toString(),
       productId: item.productId.toString(),
+      variantId: item.variantId?.toString(),
+      variant: variant ? { name: variant.name, sku: variant.sku } : undefined,
       qty: item.qty,
       priceRialSnapshot: item.priceRialSnapshot,
       product: toPublicProductJson(product, accountType),

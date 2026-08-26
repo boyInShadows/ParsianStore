@@ -29,13 +29,17 @@ type Props = {
   active:
     | "dashboard"
     | "orders"
+    | "payments"
+    | "reports"
     | "products"
     | "catalog"
     | "discounts"
     | "customers"
     | "vehicles"
     | "shipping"
-    | "audit";
+    | "feedback"
+    | "audit"
+    | "design-system";
   children: ReactNode;
 };
 
@@ -46,6 +50,8 @@ type Props = {
 const AUDIT_ROLES = new Set(["admin", "superadmin"]);
 
 const NAV_ITEMS = [
+  { key: "reports" as const, href: "/admin/reports", label: "گزارش‌ها" },
+  { key: "payments" as const, href: "/admin/payments", label: "پرداخت‌ها" },
   // P8.S5. First entry, not appended: /admin is now a real overview page
   // and the place staff land after signing in.
   { key: "dashboard" as const, href: "/admin", label: "داشبورد" },
@@ -68,7 +74,12 @@ const NAV_ITEMS = [
   // P8.S9. The courier method list itself is a static const; this route
   // configures the weight/price ladder behind it.
   { key: "shipping" as const, href: "/admin/shipping", label: "ارسال" },
+  { key: "feedback" as const, href: "/admin/feedback", label: "نظرات و پرسش‌ها" },
   { key: "audit" as const, href: "/admin/audit", label: "گزارش رویدادها" },
+  // P11.S1. Last entry, deliberately: it is a reference surface, not a
+  // daily operational one, and pushing it above the working screens would
+  // repeat exactly the mistake the `catalog` note above avoids.
+  { key: "design-system" as const, href: "/admin/design-system", label: "سیستم طراحی" },
 ];
 
 export function AdminShell({ active, children }: Props) {

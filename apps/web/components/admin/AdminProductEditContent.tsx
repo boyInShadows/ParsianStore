@@ -18,6 +18,9 @@ import {
   adjustAdminProductStock,
   archiveAdminProduct,
   fetchAdminProduct,
+  uploadAdminProductMedia,
+  removeAdminProductMedia,
+  updateAdminProduct,
 } from "@/lib/fetchers/admin-products";
 import { useToastStore } from "@/stores/toast-store";
 import { AdminProductFormContent } from "./AdminProductFormContent";
@@ -96,6 +99,212 @@ function StockAdjustPanel({
   );
 }
 
+function MediaPanel({
+  product,
+  onChange,
+}: {
+  product: AdminProductDetailDto;
+  onChange(product: AdminProductDetailDto): void;
+}) {
+  const showToast = useToastStore((state) => state.show);
+  const [busy, setBusy] = useState(false);
+  async function upload(file?: File) {
+    if (!file) return;
+    setBusy(true);
+    const result = await uploadAdminProductMedia(product.id, file);
+    setBusy(false);
+    if (result.ok) onChange(result.data);
+    else showToast(result.message, "danger");
+  }
+  async function remove(url: string) {
+    setBusy(true);
+    const result = await removeAdminProductMedia(product.id, url);
+    setBusy(false);
+    if (result.ok) onChange(result.data);
+    else showToast(result.message, "danger");
+  }
+  return (
+    <Card variant="outlined">
+      <CardContent>
+        <Typography variant="subtitle1" component="h3" fontWeight={700}>
+          رسانه محصول
+        </Typography>
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+          تصویر اصلی به‌صورت خودکار در اندازه‌ها و قالب‌های بهینه تولید می‌شود.
+        </Typography>
+        <Button component="label" variant="contained" disabled={busy}>
+          افزودن تصویر
+          <input
+            hidden
+            type="file"
+            accept="image/jpeg,image/png,image/webp,image/avif"
+            onChange={(event) => void upload(event.target.files?.[0])}
+          />
+        </Button>
+        <Box
+          sx={{
+            mt: 2,
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fill,minmax(140px,1fr))",
+            gap: 2,
+          }}
+        >
+          {product.media.map((url) => (
+            <Box key={url} sx={{ border: 1, borderColor: "divider", borderRadius: 2, p: 1 }}>
+              <Box
+                component="img"
+                src={url}
+                alt=""
+                sx={{ width: "100%", aspectRatio: "1", objectFit: "contain" }}
+              />
+              <Button color="error" size="small" onClick={() => void remove(url)} disabled={busy}>
+                حذف
+              </Button>
+            </Box>
+          ))}
+        </Box>
+      </CardContent>
+    </Card>
+  );
+}
+
+function VariantsPanel({
+  product,
+  onChange,
+}: {
+  product: AdminProductDetailDto;
+  onChange(product: AdminProductDetailDto): void;
+}) {
+  const showToast = useToastStore((state) => state.show);
+  const [variants, setVariants] = useState(product.variants);
+  const [saving, setSaving] = useState(false);
+  const update = (
+    index: number,
+    field: "fa" | "en" | "sku" | "priceRial" | "wholesalePriceRial" | "stock",
+    value: string,
+  ) =>
+    setVariants((current) =>
+      current.map((variant, itemIndex) =>
+        itemIndex !== index
+          ? variant
+          : field === "fa" || field === "en"
+            ? { ...variant, name: { ...variant.name, [field]: value } }
+            : {
+                ...variant,
+                [field]:
+                  field === "sku"
+                    ? value
+                    : value === "" && field === "wholesalePriceRial"
+                      ? undefined
+                      : Number(value),
+              },
+      ),
+    );
+  async function save() {
+    setSaving(true);
+    const result = await updateAdminProduct(product.id, {
+      variants: variants.map((variant) => ({
+        name: variant.name,
+        sku: variant.sku,
+        priceRial: variant.priceRial,
+        wholesalePriceRial: variant.wholesalePriceRial,
+        stock: variant.stock,
+      })),
+    });
+    setSaving(false);
+    if (result.ok) {
+      setVariants(result.data.variants);
+      onChange(result.data);
+      showToast("گونه‌ها ذخیره شدند", "success");
+    } else showToast(result.message, "danger");
+  }
+  return (
+    <Card variant="outlined">
+      <CardContent>
+        <Typography variant="subtitle1" fontWeight={700}>
+          گونه‌های محصول
+        </Typography>
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+          هر گونه قیمت، کد کالا و موجودی مستقل دارد.
+        </Typography>
+        <Stack spacing={2}>
+          {variants.map((variant, index) => (
+            <Box
+              key={variant.id || index}
+              sx={{
+                display: "grid",
+                gridTemplateColumns: { xs: "1fr", md: "1fr 1fr 1fr 1fr 1fr auto" },
+                gap: 1,
+              }}
+            >
+              <TextField
+                size="small"
+                label="نام فارسی"
+                value={variant.name.fa}
+                onChange={(e) => update(index, "fa", e.target.value)}
+              />
+              <TextField
+                size="small"
+                label="نام انگلیسی"
+                value={variant.name.en}
+                onChange={(e) => update(index, "en", e.target.value)}
+              />
+              <TextField
+                size="small"
+                label="SKU"
+                value={variant.sku}
+                onChange={(e) => update(index, "sku", e.target.value)}
+              />
+              <TextField
+                size="small"
+                type="number"
+                label="قیمت"
+                value={variant.priceRial}
+                onChange={(e) => update(index, "priceRial", e.target.value)}
+              />
+              <TextField
+                size="small"
+                type="number"
+                label="موجودی"
+                value={variant.stock}
+                onChange={(e) => update(index, "stock", e.target.value)}
+              />
+              <Button
+                color="error"
+                onClick={() => setVariants((current) => current.filter((_, i) => i !== index))}
+              >
+                حذف
+              </Button>
+            </Box>
+          ))}
+        </Stack>
+        <Stack direction="row" spacing={1} sx={{ mt: 2 }}>
+          <Button
+            variant="outlined"
+            onClick={() =>
+              setVariants((current) => [
+                ...current,
+                {
+                  id: `new-${Date.now()}`,
+                  name: { fa: "", en: "" },
+                  sku: "",
+                  priceRial: product.priceRial,
+                  stock: 0,
+                },
+              ])
+            }
+          >
+            افزودن گونه
+          </Button>
+          <Button variant="contained" disabled={saving} onClick={() => void save()}>
+            {saving ? "در حال ذخیره…" : "ذخیره گونه‌ها"}
+          </Button>
+        </Stack>
+      </CardContent>
+    </Card>
+  );
+}
+
 export function AdminProductEditContent({ id }: { id: string }) {
   const showToast = useToastStore((state) => state.show);
   const [product, setProduct] = useState<AdminProductDetailDto | null | undefined>(undefined);
@@ -128,6 +337,8 @@ export function AdminProductEditContent({ id }: { id: string }) {
         currentStock={product.stock}
         onAdjusted={(stock) => setProduct({ ...product, stock })}
       />
+      <MediaPanel product={product} onChange={setProduct} />
+      <VariantsPanel product={product} onChange={setProduct} />
       <AdminProductFormContent mode="edit" product={product} />
       {product.status !== "archived" ? (
         <Box>
