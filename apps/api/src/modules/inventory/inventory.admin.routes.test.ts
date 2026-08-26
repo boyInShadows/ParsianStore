@@ -48,7 +48,12 @@ function staffCookie(role: UserRole = "admin"): Record<string, string> {
   return { cookie: `accessToken=${token}` };
 }
 
-async function waitForAuditEntry(entity: string, timeoutMs = 1000): Promise<void> {
+// The audit entry is written fire-and-forget, so this polls rather than
+// awaiting. The budget is generous on purpose: it costs nothing on the happy
+// path (the loop returns the moment the entry lands, typically first tick),
+// and 1000ms was tight enough to flake under a full parallel suite sharing
+// one MongoDB -- passing this file in isolation while failing in `pnpm test`.
+async function waitForAuditEntry(entity: string, timeoutMs = 10_000): Promise<void> {
   const start = Date.now();
   while (Date.now() - start < timeoutMs) {
     if ((await AuditLogModel.countDocuments({ entity })) > 0) return;
@@ -124,7 +129,10 @@ describe("POST /admin/inventory/adjust", () => {
     const moves = await InventoryMoveModel.find({ productId: product._id });
     expect(moves).toHaveLength(1);
     expect(moves[0]!.byUserId).toBeDefined();
-  });
+    // Explicit timeout above waitForAuditEntry's poll budget: without it the
+    // 5s default fires first and reports a bare "Test timed out" instead of
+    // the helper's message naming the audit entity that never arrived.
+  }, 15_000);
 
   it("rejects a system-internal reason like 'reservation'", async () => {
     const product = await seedProduct(10);
