@@ -1,28 +1,18 @@
+import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
-import mongoose from "mongoose";
-import type { Server } from "node:http";
-import { app } from "../../app.js";
-import { testDbUri } from "../../config/testDbUri.js";
+import { disconnectDB, resetDb, startTestServer } from "../../../config/testDb.js";
 import { BrandModel } from "../../models/Brand.js";
 import { CategoryModel } from "../../models/Category.js";
 import { ProductModel } from "../../models/Product.js";
 import type { UserRole } from "../../models/User.js";
 import { signAccessToken } from "../../utils/jwt.js";
 
-const TEST_URI = testDbUri("parsian-store-test-products-admin-routes");
-let server: Server;
 let baseUrl: string;
+let close: () => void;
 
 beforeAll(async () => {
-  await mongoose.connect(TEST_URI);
-  await new Promise<void>((resolve) => {
-    server = app.listen(0, () => resolve());
-  });
-  const address = server.address();
-  if (address === null || typeof address === "string") {
-    throw new Error("Expected server to bind to a TCP port");
-  }
-  baseUrl = `http://127.0.0.1:${address.port}`;
+  await resetDb();
+  ({ baseUrl, close } = await startTestServer());
 });
 
 beforeEach(async () => {
@@ -34,9 +24,8 @@ beforeEach(async () => {
 });
 
 afterAll(async () => {
-  server.close();
-  await mongoose.connection.dropDatabase();
-  await mongoose.disconnect();
+  close();
+  await disconnectDB();
 });
 
 interface Envelope<T> {
@@ -47,7 +36,7 @@ interface Envelope<T> {
 
 function staffCookie(role: UserRole = "admin"): Record<string, string> {
   const token = signAccessToken({
-    sub: new mongoose.Types.ObjectId().toString(),
+    sub: randomUUID(),
     role,
     accountType: "retail",
   });
@@ -57,12 +46,12 @@ function staffCookie(role: UserRole = "admin"): Record<string, string> {
 async function seedBrandAndCategory() {
   const brand = await BrandModel.create({
     name: { fa: "بوش", en: "Bosch" },
-    slug: `bosch-${new mongoose.Types.ObjectId().toString()}`,
+    slug: `bosch-${randomUUID()}`,
     country: "Germany",
   });
   const category = await CategoryModel.create({
     name: { fa: "ترمز", en: "Brakes" },
-    slug: `brakes-${new mongoose.Types.ObjectId().toString()}`,
+    slug: `brakes-${randomUUID()}`,
     systemCode: "SYS-04",
   });
   return { brand, category };
@@ -172,7 +161,7 @@ describe("POST /admin/catalog/products", () => {
 
   it("400s when brandId doesn't exist", async () => {
     const { category } = await seedBrandAndCategory();
-    const input = validProductInput(new mongoose.Types.ObjectId().toString(), category.id);
+    const input = validProductInput(randomUUID(), category.id);
 
     const res = await fetch(`${baseUrl}/api/v1/admin/catalog/products`, {
       method: "POST",
@@ -236,14 +225,11 @@ describe("PATCH /admin/catalog/products/:id", () => {
   });
 
   it("404s for a nonexistent product", async () => {
-    const res = await fetch(
-      `${baseUrl}/api/v1/admin/catalog/products/${new mongoose.Types.ObjectId()}`,
-      {
-        method: "PATCH",
-        headers: { "content-type": "application/json", ...staffCookie() },
-        body: JSON.stringify({ stock: 5 }),
-      },
-    );
+    const res = await fetch(`${baseUrl}/api/v1/admin/catalog/products/${randomUUID()}`, {
+      method: "PATCH",
+      headers: { "content-type": "application/json", ...staffCookie() },
+      body: JSON.stringify({ stock: 5 }),
+    });
     expect(res.status).toBe(404);
   });
 });

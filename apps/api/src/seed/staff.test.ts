@@ -1,13 +1,10 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
-import mongoose from "mongoose";
-import { testDbUri } from "../config/testDbUri.js";
+import { disconnectDB, resetDb } from "../../config/testDb.js";
 import { UserModel } from "../models/User.js";
 import { seedStaff } from "./staff.js";
 
-const TEST_URI = testDbUri("parsian-store-test-seed-staff");
-
 beforeAll(async () => {
-  await mongoose.connect(TEST_URI);
+  await resetDb();
 });
 
 beforeEach(async () => {
@@ -15,8 +12,7 @@ beforeEach(async () => {
 });
 
 afterAll(async () => {
-  await mongoose.connection.dropDatabase();
-  await mongoose.disconnect();
+  await disconnectDB();
 });
 
 describe("seedStaff", () => {

@@ -1,23 +1,20 @@
+import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import mongoose from "mongoose";
-import { testDbUri } from "../config/testDbUri.js";
+import { disconnectDB, resetDb } from "../../config/testDb.js";
 import { VehicleGenModel } from "./VehicleGen.js";
 
-const TEST_URI = testDbUri("parsian-store-test-vehicle-gen");
-
 beforeAll(async () => {
-  await mongoose.connect(TEST_URI);
+  await resetDb();
 });
 
 afterAll(async () => {
-  await mongoose.connection.dropDatabase();
-  await mongoose.disconnect();
+  await disconnectDB();
 });
 
 describe("VehicleGenModel", () => {
   it("defaults facelift to false and allows a null yearTo for an ongoing model", async () => {
     const gen = await VehicleGenModel.create({
-      modelId: new mongoose.Types.ObjectId(),
+      modelId: randomUUID(),
       name: { fa: "پایه", en: "Base" },
       yearFrom: 2018,
       yearTo: null,
@@ -29,7 +26,7 @@ describe("VehicleGenModel", () => {
   it("requires yearFrom", async () => {
     await expect(
       VehicleGenModel.create({
-        modelId: new mongoose.Types.ObjectId(),
+        modelId: randomUUID(),
         name: { fa: "x", en: "x" },
       }),
     ).rejects.toThrow();

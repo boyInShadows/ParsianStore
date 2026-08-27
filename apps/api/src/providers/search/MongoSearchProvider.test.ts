@@ -1,6 +1,6 @@
+import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
-import mongoose from "mongoose";
-import { testDbUri } from "../../config/testDbUri.js";
+import { disconnectDB, resetDb } from "../../../config/testDb.js";
 import { AttributeModel } from "../../models/Attribute.js";
 import { BrandModel } from "../../models/Brand.js";
 import { CategoryModel } from "../../models/Category.js";
@@ -8,11 +8,10 @@ import { FitmentModel } from "../../models/Fitment.js";
 import { ProductModel, type Product } from "../../models/Product.js";
 import { MongoSearchProvider } from "./MongoSearchProvider.js";
 
-const TEST_URI = testDbUri("parsian-store-test-mongo-search-provider");
 const provider = new MongoSearchProvider();
 
 beforeAll(async () => {
-  await mongoose.connect(TEST_URI);
+  await resetDb();
   await ProductModel.init();
 });
 
@@ -27,8 +26,7 @@ beforeEach(async () => {
 });
 
 afterAll(async () => {
-  await mongoose.connection.dropDatabase();
-  await mongoose.disconnect();
+  await disconnectDB();
 });
 
 async function seedCatalog() {
@@ -46,7 +44,7 @@ async function seedCatalog() {
 }
 
 function productInput(overrides: Partial<Product> & Record<string, unknown>) {
-  const sku = (overrides.sku as string) ?? `SKU-${new mongoose.Types.ObjectId().toString()}`;
+  const sku = (overrides.sku as string) ?? `SKU-${randomUUID()}`;
   return {
     weightGram: 800,
     dimensions: { lengthMm: 150, widthMm: 100, heightMm: 40 },
@@ -154,8 +152,8 @@ describe("MongoSearchProvider.searchProducts", () => {
         priceRial: 1_000_000,
       }),
     );
-    const makeId = new mongoose.Types.ObjectId();
-    const modelId = new mongoose.Types.ObjectId();
+    const makeId = randomUUID();
+    const modelId = randomUUID();
     await FitmentModel.create({
       productId: fitting._id,
       makeId,
@@ -171,7 +169,7 @@ describe("MongoSearchProvider.searchProducts", () => {
         vehicle: {
           makeId: makeId.toString(),
           modelId: modelId.toString(),
-          genId: new mongoose.Types.ObjectId().toString(),
+          genId: randomUUID(),
           year: 2018,
         },
       },

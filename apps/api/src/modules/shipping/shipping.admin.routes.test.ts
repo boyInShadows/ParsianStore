@@ -1,28 +1,18 @@
+import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
-import mongoose from "mongoose";
-import type { Server } from "node:http";
-import { app } from "../../app.js";
-import { testDbUri } from "../../config/testDbUri.js";
+import { disconnectDB, resetDb, startTestServer } from "../../../config/testDb.js";
 import { ShippingRateModel } from "../../models/ShippingRate.js";
 import type { UserRole } from "../../models/User.js";
 import { signAccessToken } from "../../utils/jwt.js";
 import type { AdminShippingRateDto } from "schemas";
 
-const TEST_URI = testDbUri("parsian-store-test-shipping-admin-routes");
 const BASE_PATH = "/api/v1/admin/shipping/rates";
-let server: Server;
 let baseUrl: string;
+let close: () => void;
 
 beforeAll(async () => {
-  await mongoose.connect(TEST_URI);
-  await new Promise<void>((resolve) => {
-    server = app.listen(0, () => resolve());
-  });
-  const address = server.address();
-  if (address === null || typeof address === "string") {
-    throw new Error("Expected server to bind to a TCP port");
-  }
-  baseUrl = `http://127.0.0.1:${address.port}`;
+  await resetDb();
+  ({ baseUrl, close } = await startTestServer());
 });
 
 beforeEach(async () => {
@@ -30,14 +20,13 @@ beforeEach(async () => {
 });
 
 afterAll(async () => {
-  server.close();
-  await mongoose.connection.dropDatabase();
-  await mongoose.disconnect();
+  close();
+  await disconnectDB();
 });
 
 function staffCookie(role: UserRole = "admin"): Record<string, string> {
   const token = signAccessToken({
-    sub: new mongoose.Types.ObjectId().toString(),
+    sub: randomUUID(),
     role,
     accountType: "retail",
   });
@@ -277,7 +266,7 @@ describe("admin shipping rate routes", () => {
   });
 
   it("returns 404 for an unknown rate id", async () => {
-    const res = await fetch(`${baseUrl}${BASE_PATH}/${new mongoose.Types.ObjectId().toString()}`, {
+    const res = await fetch(`${baseUrl}${BASE_PATH}/${randomUUID()}`, {
       headers: staffCookie(),
     });
     expect(res.status).toBe(404);

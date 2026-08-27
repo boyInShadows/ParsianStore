@@ -1,23 +1,20 @@
+import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import mongoose from "mongoose";
-import { testDbUri } from "../config/testDbUri.js";
+import { disconnectDB, resetDb } from "../../config/testDb.js";
 import { InventoryMoveModel } from "./InventoryMove.js";
 
-const TEST_URI = testDbUri("parsian-store-test-inventory-move");
-
 beforeAll(async () => {
-  await mongoose.connect(TEST_URI);
+  await resetDb();
 });
 
 afterAll(async () => {
-  await mongoose.connection.dropDatabase();
-  await mongoose.disconnect();
+  await disconnectDB();
 });
 
 describe("InventoryMoveModel", () => {
   it("records a positive or negative delta with a fixed reason", async () => {
     const move = await InventoryMoveModel.create({
-      productId: new mongoose.Types.ObjectId(),
+      productId: randomUUID(),
       delta: -3,
       reason: "reservation",
       refId: "res-1",
@@ -29,7 +26,7 @@ describe("InventoryMoveModel", () => {
   it("rejects a reason outside the fixed enum", async () => {
     await expect(
       InventoryMoveModel.create({
-        productId: new mongoose.Types.ObjectId(),
+        productId: randomUUID(),
         delta: 1,
         reason: "because-i-said-so",
       }),

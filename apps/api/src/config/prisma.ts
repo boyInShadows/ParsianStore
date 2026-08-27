@@ -124,3 +124,25 @@ export async function disconnectDB(): Promise<void> {
 export function softDeleteData(): { deletedAt: Date } {
   return { deletedAt: new Date() };
 }
+
+/**
+ * Spread into a `where` to see live *and* soft-deleted rows in one query --
+ * what an admin screen with an "any state" filter needs.
+ *
+ * It reads oddly, so: the extension above leaves a query alone the moment the
+ * caller names `deletedAt` themselves, and Prisma drops a filter whose only
+ * operand is `undefined`. Together those mean this opts out of the soft-delete
+ * filter without adding any condition of its own. The Mongoose equivalent was
+ * `{ deletedAt: { $exists: true } }` and was equally non-obvious; naming it
+ * once here beats re-deriving it in each of the four admin modules that need it.
+ */
+export const ANY_STATE = { deletedAt: { not: undefined } } as const;
+
+/** The `state` filter every admin list endpoint accepts, as a `where` fragment. */
+export function stateFilter(state: "active" | "deleted" | "any" | undefined): {
+  deletedAt: unknown;
+} {
+  if (state === "deleted") return { deletedAt: { not: null } };
+  if (state === "any") return ANY_STATE;
+  return { deletedAt: null };
+}

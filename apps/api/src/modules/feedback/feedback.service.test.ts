@@ -1,6 +1,5 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
-import mongoose from "mongoose";
-import { testDbUri } from "../../config/testDbUri.js";
+import { disconnectDB } from "../../../config/testDb.js";
 import { BrandModel } from "../../models/Brand.js";
 import { CategoryModel } from "../../models/Category.js";
 import { OrderModel } from "../../models/Order.js";
@@ -27,8 +26,7 @@ beforeEach(async () => {
   ]);
 });
 afterAll(async () => {
-  await mongoose.connection.dropDatabase();
-  await mongoose.disconnect();
+  await disconnectDB();
 });
 
 async function seed() {

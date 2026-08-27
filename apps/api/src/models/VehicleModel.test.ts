@@ -1,19 +1,15 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import mongoose from "mongoose";
-import { testDbUri } from "../config/testDbUri.js";
+import { disconnectDB, resetDb } from "../../config/testDb.js";
 import { VehicleMakeModel } from "./VehicleMake.js";
 import { VehicleModelModel } from "./VehicleModel.js";
 
-const TEST_URI = testDbUri("parsian-store-test-vehicle-model");
-
 beforeAll(async () => {
-  await mongoose.connect(TEST_URI);
+  await resetDb();
   await VehicleModelModel.init();
 });
 
 afterAll(async () => {
-  await mongoose.connection.dropDatabase();
-  await mongoose.disconnect();
+  await disconnectDB();
 });
 
 describe("VehicleModelModel", () => {

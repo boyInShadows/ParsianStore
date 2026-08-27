@@ -1,22 +1,19 @@
+import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import mongoose from "mongoose";
-import { testDbUri } from "../config/testDbUri.js";
+import { disconnectDB, resetDb } from "../../config/testDb.js";
 import { AuditLogModel } from "./AuditLog.js";
 
-const TEST_URI = testDbUri("parsian-store-test-audit-log");
-
 beforeAll(async () => {
-  await mongoose.connect(TEST_URI);
+  await resetDb();
 });
 
 afterAll(async () => {
-  await mongoose.connection.dropDatabase();
-  await mongoose.disconnect();
+  await disconnectDB();
 });
 
 describe("AuditLogModel", () => {
   it("stores actor/action/entity/entityId/ip and timestamps", async () => {
-    const actorId = new mongoose.Types.ObjectId();
+    const actorId = randomUUID();
     const entry = await AuditLogModel.create({
       actorId,
       action: "PATCH /api/v1/admin/products/123",
@@ -40,7 +37,7 @@ describe("AuditLogModel", () => {
     // the deletedAt convention other collections use.
     const before = await AuditLogModel.countDocuments({});
     await AuditLogModel.create({
-      actorId: new mongoose.Types.ObjectId(),
+      actorId: randomUUID(),
       action: "DELETE /api/v1/admin/products/999",
       entity: "product",
       entityId: "999",

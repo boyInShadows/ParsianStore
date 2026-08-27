@@ -1,23 +1,20 @@
+import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import mongoose from "mongoose";
-import { testDbUri } from "../config/testDbUri.js";
+import { disconnectDB, resetDb } from "../../config/testDb.js";
 import { VehicleEngineModel } from "./VehicleEngine.js";
 
-const TEST_URI = testDbUri("parsian-store-test-vehicle-engine");
-
 beforeAll(async () => {
-  await mongoose.connect(TEST_URI);
+  await resetDb();
 });
 
 afterAll(async () => {
-  await mongoose.connection.dropDatabase();
-  await mongoose.disconnect();
+  await disconnectDB();
 });
 
 describe("VehicleEngineModel", () => {
   it("stores displacement in liters and rejects an unknown fuel type", async () => {
     const engine = await VehicleEngineModel.create({
-      genId: new mongoose.Types.ObjectId(),
+      genId: randomUUID(),
       code: "M15",
       displacement: 1.5,
       fuel: "petrol",
@@ -27,7 +24,7 @@ describe("VehicleEngineModel", () => {
 
     await expect(
       VehicleEngineModel.create({
-        genId: new mongoose.Types.ObjectId(),
+        genId: randomUUID(),
         code: "bad-fuel",
         displacement: 1.5,
         fuel: "hydrogen" as never,

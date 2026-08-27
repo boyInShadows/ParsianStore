@@ -1,23 +1,20 @@
+import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import mongoose from "mongoose";
-import { testDbUri } from "../config/testDbUri.js";
+import { disconnectDB, resetDb } from "../../config/testDb.js";
 import { CityModel } from "./City.js";
 
-const TEST_URI = testDbUri("parsian-store-test-city");
-
 beforeAll(async () => {
-  await mongoose.connect(TEST_URI);
+  await resetDb();
   await CityModel.init();
 });
 
 afterAll(async () => {
-  await mongoose.connection.dropDatabase();
-  await mongoose.disconnect();
+  await disconnectDB();
 });
 
 describe("CityModel", () => {
   it("requires a provinceId and enforces a unique slug per province", async () => {
-    const provinceId = new mongoose.Types.ObjectId();
+    const provinceId = randomUUID();
     const city = await CityModel.create({
       provinceId,
       name: { fa: "کرج", en: "Karaj" },
@@ -35,8 +32,8 @@ describe("CityModel", () => {
   });
 
   it("allows the same slug to be reused across two different provinces", async () => {
-    const provinceA = new mongoose.Types.ObjectId();
-    const provinceB = new mongoose.Types.ObjectId();
+    const provinceA = randomUUID();
+    const provinceB = randomUUID();
 
     await CityModel.create({
       provinceId: provinceA,

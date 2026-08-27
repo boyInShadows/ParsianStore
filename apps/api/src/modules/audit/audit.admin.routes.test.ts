@@ -1,27 +1,17 @@
+import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
-import mongoose from "mongoose";
-import type { Server } from "node:http";
-import { app } from "../../app.js";
-import { testDbUri } from "../../config/testDbUri.js";
+import { disconnectDB, resetDb, startTestServer } from "../../../config/testDb.js";
 import { AuditLogModel } from "../../models/AuditLog.js";
 import { UserModel, type UserRole } from "../../models/User.js";
 import { signAccessToken } from "../../utils/jwt.js";
 import type { AdminAuditLogDto } from "schemas";
 
-const TEST_URI = testDbUri("parsian-store-test-audit-admin-routes");
-let server: Server;
 let baseUrl: string;
+let close: () => void;
 
 beforeAll(async () => {
-  await mongoose.connect(TEST_URI);
-  await new Promise<void>((resolve) => {
-    server = app.listen(0, () => resolve());
-  });
-  const address = server.address();
-  if (address === null || typeof address === "string") {
-    throw new Error("Expected server to bind to a TCP port");
-  }
-  baseUrl = `http://127.0.0.1:${address.port}`;
+  await resetDb();
+  ({ baseUrl, close } = await startTestServer());
 });
 
 beforeEach(async () => {
@@ -29,12 +19,11 @@ beforeEach(async () => {
 });
 
 afterAll(async () => {
-  server.close();
-  await mongoose.connection.dropDatabase();
-  await mongoose.disconnect();
+  close();
+  await disconnectDB();
 });
 
-function cookieFor(role: UserRole, sub = new mongoose.Types.ObjectId().toString()) {
+function cookieFor(role: UserRole, sub = randomUUID()) {
   const token = signAccessToken({ sub, role, accountType: "retail" });
   return { cookie: `accessToken=${token}` };
 }
@@ -117,7 +106,7 @@ describe("admin audit routes", () => {
   // An audit trail that hides what a since-removed admin did defeats its
   // own purpose.
   it("still lists an entry whose actor no longer exists", async () => {
-    await seedEntry({ actorId: new mongoose.Types.ObjectId() });
+    await seedEntry({ actorId: randomUUID() });
 
     const { data } = await list();
 
@@ -127,7 +116,7 @@ describe("admin audit routes", () => {
 
   it("splits the stored action into method and path", async () => {
     await seedEntry({
-      actorId: new mongoose.Types.ObjectId(),
+      actorId: randomUUID(),
       action: "DELETE /api/v1/admin/catalog/brands/xyz",
     });
 
@@ -138,7 +127,7 @@ describe("admin audit routes", () => {
   });
 
   it("does not produce an undefined path for a malformed action", async () => {
-    await seedEntry({ actorId: new mongoose.Types.ObjectId(), action: "LEGACY" });
+    await seedEntry({ actorId: randomUUID(), action: "LEGACY" });
 
     const { data } = await list();
 
@@ -147,7 +136,7 @@ describe("admin audit routes", () => {
   });
 
   it("filters by entity", async () => {
-    const actor = new mongoose.Types.ObjectId();
+    const actor = randomUUID();
     await seedEntry({ actorId: actor, entity: "product" });
     await seedEntry({ actorId: actor, entity: "coupon" });
 
@@ -158,7 +147,7 @@ describe("admin audit routes", () => {
   });
 
   it("filters by HTTP method without matching a method that merely contains it", async () => {
-    const actor = new mongoose.Types.ObjectId();
+    const actor = randomUUID();
     await seedEntry({ actorId: actor, action: "POST /api/v1/admin/coupons" });
     await seedEntry({ actorId: actor, action: "DELETE /api/v1/admin/coupons/POST-like" });
 
@@ -169,7 +158,7 @@ describe("admin audit routes", () => {
   });
 
   it("filters by the entity id a route actually touched", async () => {
-    const actor = new mongoose.Types.ObjectId();
+    const actor = randomUUID();
     await seedEntry({ actorId: actor, entityId: "aaa" });
     await seedEntry({ actorId: actor, entityId: "bbb" });
 
@@ -180,7 +169,7 @@ describe("admin audit routes", () => {
   });
 
   it("filters by a date window", async () => {
-    const actor = new mongoose.Types.ObjectId();
+    const actor = randomUUID();
     await seedEntry({ actorId: actor, createdAt: new Date(Date.now() - 10 * DAY_MS) });
     await seedEntry({ actorId: actor });
 
@@ -198,7 +187,7 @@ describe("admin audit routes", () => {
   });
 
   it("returns newest first", async () => {
-    const actor = new mongoose.Types.ObjectId();
+    const actor = randomUUID();
     await seedEntry({ actorId: actor, entity: "old", createdAt: new Date(Date.now() - DAY_MS) });
     await seedEntry({ actorId: actor, entity: "new" });
 
@@ -209,7 +198,7 @@ describe("admin audit routes", () => {
 
   it("passes through a service-recorded before/after pair", async () => {
     await seedEntry({
-      actorId: new mongoose.Types.ObjectId(),
+      actorId: randomUUID(),
       before: { stock: 5 },
       after: { stock: 3 },
     });

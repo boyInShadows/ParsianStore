@@ -1,12 +1,9 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import mongoose from "mongoose";
-import { testDbUri } from "../config/testDbUri.js";
+import { disconnectDB, resetDb } from "../../config/testDb.js";
 import { OtpTokenModel } from "./OtpToken.js";
 
-const TEST_URI = testDbUri("parsian-store-test-otp-token");
-
 beforeAll(async () => {
-  await mongoose.connect(TEST_URI);
+  await resetDb();
   // Mongoose builds indexes in the background after connecting; without
   // waiting here, the unique/TTL assertions below can race a not-yet-built
   // index and see the collection as if it had none.
@@ -14,8 +11,7 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
-  await mongoose.connection.dropDatabase();
-  await mongoose.disconnect();
+  await disconnectDB();
 });
 
 describe("OtpTokenModel", () => {

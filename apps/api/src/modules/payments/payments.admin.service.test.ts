@@ -1,6 +1,6 @@
-import mongoose from "mongoose";
+import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
-import { testDbUri } from "../../config/testDbUri.js";
+import { disconnectDB } from "../../../config/testDb.js";
 import { OrderModel } from "../../models/Order.js";
 import { PaymentModel } from "../../models/Payment.js";
 import { reconcilePayments } from "./payments.admin.service.js";
@@ -8,13 +8,12 @@ import { reconcilePayments } from "./payments.admin.service.js";
 beforeAll(() => mongoose.connect(testDbUri("parsian-store-test-reconciliation")));
 beforeEach(() => Promise.all([OrderModel.deleteMany({}), PaymentModel.deleteMany({})]));
 afterAll(async () => {
-  await mongoose.connection.dropDatabase();
-  await mongoose.disconnect();
+  await disconnectDB();
 });
 
 describe("payment reconciliation", () => {
   it("flags amount and status mismatches", async () => {
-    const orderId = new mongoose.Types.ObjectId();
+    const orderId = randomUUID();
     await OrderModel.collection.insertOne({
       _id: orderId,
       code: "PS-1405-10001",
@@ -31,7 +30,7 @@ describe("payment reconciliation", () => {
   });
 
   it("flags stale initiated payments without authority", async () => {
-    const orderId = new mongoose.Types.ObjectId();
+    const orderId = randomUUID();
     await OrderModel.collection.insertOne({
       _id: orderId,
       code: "PS-1405-10002",

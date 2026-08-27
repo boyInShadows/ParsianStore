@@ -1,17 +1,14 @@
+import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import mongoose from "mongoose";
-import { testDbUri } from "../config/testDbUri.js";
+import { disconnectDB, resetDb } from "../../config/testDb.js";
 import { StockReservationModel } from "./StockReservation.js";
 
-const TEST_URI = testDbUri("parsian-store-test-stock-reservation");
-
 beforeAll(async () => {
-  await mongoose.connect(TEST_URI);
+  await resetDb();
 });
 
 afterAll(async () => {
-  await mongoose.connection.dropDatabase();
-  await mongoose.disconnect();
+  await disconnectDB();
 });
 
 describe("StockReservationModel", () => {
@@ -22,7 +19,7 @@ describe("StockReservationModel", () => {
   it("rejects a qty below 1", async () => {
     await expect(
       StockReservationModel.create({
-        productId: new mongoose.Types.ObjectId(),
+        productId: randomUUID(),
         qty: 0,
         expiresAt: new Date(),
       }),
@@ -31,7 +28,7 @@ describe("StockReservationModel", () => {
 
   it("stores a reservation with an optional refId", async () => {
     const reservation = await StockReservationModel.create({
-      productId: new mongoose.Types.ObjectId(),
+      productId: randomUUID(),
       qty: 2,
       refId: "cart-123",
       expiresAt: new Date(Date.now() + 60_000),

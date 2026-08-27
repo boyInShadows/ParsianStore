@@ -1,9 +1,7 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import mongoose, { Schema } from "mongoose";
-import { testDbUri } from "../config/testDbUri.js";
+import { disconnectDB, resetDb } from "../../config/testDb.js";
 import { cursorPaginate } from "./cursorPaginate.js";
-
-const TEST_URI = testDbUri("parsian-store-test-cursor-paginate");
 
 interface Widget {
   name: string;
@@ -15,7 +13,7 @@ type WidgetModel = mongoose.Model<Widget>;
 let Widget: WidgetModel;
 
 beforeAll(async () => {
-  await mongoose.connect(TEST_URI);
+  await resetDb();
   const schema = new Schema<Widget, WidgetModel>(
     { name: { type: String, required: true }, priceRial: { type: Number, required: true } },
     { timestamps: true },
@@ -28,8 +26,7 @@ beforeEach(async () => {
 });
 
 afterAll(async () => {
-  await mongoose.connection.dropDatabase();
-  await mongoose.disconnect();
+  await disconnectDB();
 });
 
 describe("cursorPaginate", () => {

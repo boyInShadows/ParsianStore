@@ -1,21 +1,17 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import mongoose from "mongoose";
-import { testDbUri } from "../config/testDbUri.js";
+import { disconnectDB, resetDb } from "../../config/testDb.js";
 import { BrandModel } from "../models/Brand.js";
 import { CategoryModel } from "../models/Category.js";
 import { ProductModel } from "../models/Product.js";
 import { parseCsv, seedVisualCatalog } from "./visualCatalog.js";
 
-const TEST_URI = testDbUri("parsian-store-test-visual-catalog");
-
 beforeAll(async () => {
-  await mongoose.connect(TEST_URI);
+  await resetDb();
   await ProductModel.init();
 });
 
 afterAll(async () => {
-  await mongoose.connection.dropDatabase();
-  await mongoose.disconnect();
+  await disconnectDB();
 });
 
 describe("visual catalog seed", () => {

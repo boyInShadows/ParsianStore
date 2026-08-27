@@ -1,20 +1,17 @@
+import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import mongoose from "mongoose";
-import { testDbUri } from "../config/testDbUri.js";
+import { disconnectDB, resetDb } from "../../config/testDb.js";
 import { UserModel } from "./User.js";
 
-const TEST_URI = testDbUri("parsian-store-test-user");
-
 beforeAll(async () => {
-  await mongoose.connect(TEST_URI);
+  await resetDb();
   // Waits for background index builds — see OtpToken.test.ts for why this
   // matters for the uniqueness assertion below.
   await UserModel.init();
 });
 
 afterAll(async () => {
-  await mongoose.connection.dropDatabase();
-  await mongoose.disconnect();
+  await disconnectDB();
 });
 
 describe("UserModel", () => {
@@ -71,8 +68,8 @@ describe("UserModel", () => {
   // round-trips correctly through toJSON with a real `id`, same style as
   // the top-level user object's own toJSON check above.
   it("round-trips an embedded address with provinceId/cityId through toJSON", async () => {
-    const provinceId = new mongoose.Types.ObjectId();
-    const cityId = new mongoose.Types.ObjectId();
+    const provinceId = randomUUID();
+    const cityId = randomUUID();
     const user = await UserModel.create({
       phone: "+989120000007",
       name: "Has Address",

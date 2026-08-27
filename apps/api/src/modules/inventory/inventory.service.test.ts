@@ -1,6 +1,6 @@
+import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
-import mongoose from "mongoose";
-import { testDbUri } from "../../config/testDbUri.js";
+import { disconnectDB, resetDb } from "../../../config/testDb.js";
 import { InventoryMoveModel } from "../../models/InventoryMove.js";
 import { ProductModel, type Product } from "../../models/Product.js";
 import { StockReservationModel } from "../../models/StockReservation.js";
@@ -13,10 +13,8 @@ import {
   reserveStock,
 } from "./inventory.service.js";
 
-const TEST_URI = testDbUri("parsian-store-test-inventory-service");
-
 beforeAll(async () => {
-  await mongoose.connect(TEST_URI);
+  await resetDb();
 });
 
 beforeEach(async () => {
@@ -28,12 +26,11 @@ beforeEach(async () => {
 });
 
 afterAll(async () => {
-  await mongoose.connection.dropDatabase();
-  await mongoose.disconnect();
+  await disconnectDB();
 });
 
 function productInput(overrides: Partial<Product> & Record<string, unknown>) {
-  const sku = (overrides.sku as string) ?? `SKU-${new mongoose.Types.ObjectId().toString()}`;
+  const sku = (overrides.sku as string) ?? `SKU-${randomUUID()}`;
   return {
     name: { fa: "لنت ترمز", en: "Brake pad" },
     slug: `brake-pad-${sku}`,
@@ -43,8 +40,8 @@ function productInput(overrides: Partial<Product> & Record<string, unknown>) {
     status: "active",
     stock: 10,
     lowStockAt: 5,
-    brandId: new mongoose.Types.ObjectId(),
-    categoryId: new mongoose.Types.ObjectId(),
+    brandId: randomUUID(),
+    categoryId: randomUUID(),
     priceRial: 1_000_000,
     authenticity: {
       supplyRoute: "oem",
@@ -85,9 +82,7 @@ describe("adjustStock", () => {
   });
 
   it("throws 404 for an unknown product", async () => {
-    await expect(
-      adjustStock(new mongoose.Types.ObjectId().toString(), 1, "restock"),
-    ).rejects.toThrow();
+    await expect(adjustStock(randomUUID(), 1, "restock")).rejects.toThrow();
   });
 });
 

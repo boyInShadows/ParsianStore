@@ -1,6 +1,5 @@
-import mongoose from "mongoose";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
-import { testDbUri } from "../../config/testDbUri.js";
+import { disconnectDB } from "../../../config/testDb.js";
 import { BrandModel } from "../../models/Brand.js";
 import { CategoryModel } from "../../models/Category.js";
 import { ProductModel } from "../../models/Product.js";
@@ -15,8 +14,7 @@ beforeEach(() =>
   ]),
 );
 afterAll(async () => {
-  await mongoose.connection.dropDatabase();
-  await mongoose.disconnect();
+  await disconnectDB();
 });
 
 describe("product CSV import", () => {

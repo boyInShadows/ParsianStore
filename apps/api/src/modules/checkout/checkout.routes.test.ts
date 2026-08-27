@@ -1,8 +1,6 @@
+import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
-import mongoose from "mongoose";
-import type { Server } from "node:http";
-import { app } from "../../app.js";
-import { testDbUri } from "../../config/testDbUri.js";
+import { disconnectDB, resetDb, startTestServer } from "../../../config/testDb.js";
 import { BrandModel } from "../../models/Brand.js";
 import { CartModel } from "../../models/Cart.js";
 import { CategoryModel } from "../../models/Category.js";
@@ -18,20 +16,12 @@ import { StockReservationModel } from "../../models/StockReservation.js";
 import { UserModel } from "../../models/User.js";
 import { signAccessToken } from "../../utils/jwt.js";
 
-const TEST_URI = testDbUri("parsian-store-test-checkout-routes");
-let server: Server;
 let baseUrl: string;
+let close: () => void;
 
 beforeAll(async () => {
-  await mongoose.connect(TEST_URI);
-  await new Promise<void>((resolve) => {
-    server = app.listen(0, () => resolve());
-  });
-  const address = server.address();
-  if (address === null || typeof address === "string") {
-    throw new Error("Expected server to bind to a TCP port");
-  }
-  baseUrl = `http://127.0.0.1:${address.port}`;
+  await resetDb();
+  ({ baseUrl, close } = await startTestServer());
 });
 
 beforeEach(async () => {
@@ -53,9 +43,8 @@ beforeEach(async () => {
 });
 
 afterAll(async () => {
-  server.close();
-  await mongoose.connection.dropDatabase();
-  await mongoose.disconnect();
+  close();
+  await disconnectDB();
 });
 
 interface Envelope<T> {
@@ -77,15 +66,15 @@ function customerCookie(userId: string, accountType: "retail" | "wholesale" = "r
 async function seedProduct(overrides: Record<string, unknown> = {}) {
   const brand = await BrandModel.create({
     name: { fa: "بوش", en: "Bosch" },
-    slug: `bosch-${new mongoose.Types.ObjectId().toString()}`,
+    slug: `bosch-${randomUUID()}`,
     country: "Germany",
   });
   const category = await CategoryModel.create({
     name: { fa: "ترمز", en: "Brakes" },
-    slug: `brakes-${new mongoose.Types.ObjectId().toString()}`,
+    slug: `brakes-${randomUUID()}`,
     systemCode: "SYS-04",
   });
-  const sku = `SKU-${new mongoose.Types.ObjectId().toString()}`;
+  const sku = `SKU-${randomUUID()}`;
   return ProductModel.create({
     name: { fa: "لنت ترمز جلو", en: "Front brake pad" },
     slug: `front-brake-pad-${sku}`,
@@ -190,7 +179,7 @@ describe("POST /checkout/initiate", () => {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
-        addressId: new mongoose.Types.ObjectId().toString(),
+        addressId: randomUUID(),
         shippingMethodCode: "intracity",
       }),
     });
@@ -324,7 +313,7 @@ describe("GET /payments/callback", () => {
 
   it("404s for an unknown order/authority pair", async () => {
     const res = await fetch(
-      `${baseUrl}/api/v1/payments/callback?orderId=${new mongoose.Types.ObjectId().toString()}&Authority=nope&Status=OK`,
+      `${baseUrl}/api/v1/payments/callback?orderId=${randomUUID()}&Authority=nope&Status=OK`,
     );
     expect(res.status).toBe(404);
   });

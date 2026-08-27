@@ -1,29 +1,19 @@
+import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
-import mongoose from "mongoose";
-import type { Server } from "node:http";
 import { buildVehicleKey } from "schemas";
-import { app } from "../../app.js";
-import { testDbUri } from "../../config/testDbUri.js";
+import { disconnectDB, resetDb, startTestServer } from "../../../config/testDb.js";
 import { BrandModel } from "../../models/Brand.js";
 import { CategoryModel } from "../../models/Category.js";
 import { FitmentModel } from "../../models/Fitment.js";
 import { ProductModel, type Product } from "../../models/Product.js";
 import { signAccessToken } from "../../utils/jwt.js";
 
-const TEST_URI = testDbUri("parsian-store-test-products-routes");
-let server: Server;
 let baseUrl: string;
+let close: () => void;
 
 beforeAll(async () => {
-  await mongoose.connect(TEST_URI);
-  await new Promise<void>((resolve) => {
-    server = app.listen(0, () => resolve());
-  });
-  const address = server.address();
-  if (address === null || typeof address === "string") {
-    throw new Error("Expected server to bind to a TCP port");
-  }
-  baseUrl = `http://127.0.0.1:${address.port}`;
+  await resetDb();
+  ({ baseUrl, close } = await startTestServer());
 });
 
 beforeEach(async () => {
@@ -36,9 +26,8 @@ beforeEach(async () => {
 });
 
 afterAll(async () => {
-  server.close();
-  await mongoose.connection.dropDatabase();
-  await mongoose.disconnect();
+  close();
+  await disconnectDB();
 });
 
 interface Envelope<T> {
@@ -62,7 +51,7 @@ async function seedCatalog() {
 }
 
 function productInput(overrides: Partial<Product> & Record<string, unknown>) {
-  const sku = (overrides.sku as string) ?? `SKU-${new mongoose.Types.ObjectId().toString()}`;
+  const sku = (overrides.sku as string) ?? `SKU-${randomUUID()}`;
   return {
     weightGram: 800,
     dimensions: { lengthMm: 150, widthMm: 100, heightMm: 40 },
@@ -82,7 +71,7 @@ function productInput(overrides: Partial<Product> & Record<string, unknown>) {
 
 function accountCookie(accountType: "retail" | "wholesale"): string {
   const token = signAccessToken({
-    sub: new mongoose.Types.ObjectId().toString(),
+    sub: randomUUID(),
     role: "customer",
     accountType,
   });
@@ -345,8 +334,8 @@ describe("GET /catalog/products", () => {
         priceRial: 1_000_000,
       }),
     );
-    const makeId = new mongoose.Types.ObjectId();
-    const modelId = new mongoose.Types.ObjectId();
+    const makeId = randomUUID();
+    const modelId = randomUUID();
     await FitmentModel.create({
       productId: fitting._id,
       makeId,
@@ -359,7 +348,7 @@ describe("GET /catalog/products", () => {
     const vehicleKey = buildVehicleKey({
       makeId: makeId.toString(),
       modelId: modelId.toString(),
-      genId: new mongoose.Types.ObjectId().toString(),
+      genId: randomUUID(),
       year: 2018,
     });
     const res = await fetch(`${baseUrl}/api/v1/catalog/products?vehicle=${vehicleKey}`);

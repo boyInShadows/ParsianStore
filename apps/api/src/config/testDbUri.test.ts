@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 import { env } from "./env.js";
-import { testDbUri } from "./testDbUri.js";
 
 describe("testDbUri", () => {
   it("swaps in the given database name while keeping host, port, credentials, and query", () => {

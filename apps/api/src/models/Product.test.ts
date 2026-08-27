@@ -1,18 +1,15 @@
+import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import mongoose from "mongoose";
-import { testDbUri } from "../config/testDbUri.js";
+import { disconnectDB, resetDb } from "../../config/testDb.js";
 import { ProductModel } from "./Product.js";
 
-const TEST_URI = testDbUri("parsian-store-test-product");
-
 beforeAll(async () => {
-  await mongoose.connect(TEST_URI);
+  await resetDb();
   await ProductModel.init();
 });
 
 afterAll(async () => {
-  await mongoose.connection.dropDatabase();
-  await mongoose.disconnect();
+  await disconnectDB();
 });
 
 // verificationCode defaults from `sku` so every distinct-sku call across
@@ -25,8 +22,8 @@ function baseProduct(overrides: Record<string, unknown> = {}) {
     name: { fa: "لنت ترمز جلو", en: "Front brake pad" },
     slug: "front-brake-pad",
     sku,
-    brandId: new mongoose.Types.ObjectId(),
-    categoryId: new mongoose.Types.ObjectId(),
+    brandId: randomUUID(),
+    categoryId: randomUUID(),
     priceRial: 1_500_000,
     weightGram: 800,
     dimensions: { lengthMm: 150, widthMm: 100, heightMm: 40 },
@@ -141,8 +138,8 @@ describe("ProductModel", () => {
         name: { fa: "x", en: "x" },
         slug: "missing-fields",
         sku: "SKU-MISSING",
-        brandId: new mongoose.Types.ObjectId(),
-        categoryId: new mongoose.Types.ObjectId(),
+        brandId: randomUUID(),
+        categoryId: randomUUID(),
       }),
     ).rejects.toThrow();
   });

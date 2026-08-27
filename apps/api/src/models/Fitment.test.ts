@@ -1,26 +1,23 @@
+import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import mongoose from "mongoose";
-import { testDbUri } from "../config/testDbUri.js";
+import { disconnectDB, resetDb } from "../../config/testDb.js";
 import { FitmentModel } from "./Fitment.js";
 
-const TEST_URI = testDbUri("parsian-store-test-fitment");
-
 beforeAll(async () => {
-  await mongoose.connect(TEST_URI);
+  await resetDb();
   await FitmentModel.init();
 });
 
 afterAll(async () => {
-  await mongoose.connection.dropDatabase();
-  await mongoose.disconnect();
+  await disconnectDB();
 });
 
 describe("FitmentModel", () => {
   it("allows genId/engineId to be omitted and yearTo to be null (ongoing fitment)", async () => {
     const fitment = await FitmentModel.create({
-      productId: new mongoose.Types.ObjectId(),
-      makeId: new mongoose.Types.ObjectId(),
-      modelId: new mongoose.Types.ObjectId(),
+      productId: randomUUID(),
+      makeId: randomUUID(),
+      modelId: randomUUID(),
       yearFrom: 2015,
       yearTo: null,
       confidence: "likely",
@@ -33,9 +30,9 @@ describe("FitmentModel", () => {
   it("rejects a confidence outside exact|likely|check", async () => {
     await expect(
       FitmentModel.create({
-        productId: new mongoose.Types.ObjectId(),
-        makeId: new mongoose.Types.ObjectId(),
-        modelId: new mongoose.Types.ObjectId(),
+        productId: randomUUID(),
+        makeId: randomUUID(),
+        modelId: randomUUID(),
         yearFrom: 2015,
         confidence: "maybe",
       }),

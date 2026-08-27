@@ -1,28 +1,18 @@
+import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
-import mongoose from "mongoose";
-import type { Server } from "node:http";
-import { app } from "../../app.js";
-import { testDbUri } from "../../config/testDbUri.js";
+import { disconnectDB, resetDb, startTestServer } from "../../../config/testDb.js";
 import { AuditLogModel } from "../../models/AuditLog.js";
 import { InventoryMoveModel } from "../../models/InventoryMove.js";
 import { ProductModel } from "../../models/Product.js";
 import type { UserRole } from "../../models/User.js";
 import { signAccessToken } from "../../utils/jwt.js";
 
-const TEST_URI = testDbUri("parsian-store-test-inventory-admin-routes");
-let server: Server;
 let baseUrl: string;
+let close: () => void;
 
 beforeAll(async () => {
-  await mongoose.connect(TEST_URI);
-  await new Promise<void>((resolve) => {
-    server = app.listen(0, () => resolve());
-  });
-  const address = server.address();
-  if (address === null || typeof address === "string") {
-    throw new Error("Expected server to bind to a TCP port");
-  }
-  baseUrl = `http://127.0.0.1:${address.port}`;
+  await resetDb();
+  ({ baseUrl, close } = await startTestServer());
 });
 
 beforeEach(async () => {
@@ -34,14 +24,13 @@ beforeEach(async () => {
 });
 
 afterAll(async () => {
-  server.close();
-  await mongoose.connection.dropDatabase();
-  await mongoose.disconnect();
+  close();
+  await disconnectDB();
 });
 
 function staffCookie(role: UserRole = "admin"): Record<string, string> {
   const token = signAccessToken({
-    sub: new mongoose.Types.ObjectId().toString(),
+    sub: randomUUID(),
     role,
     accountType: "retail",
   });
@@ -72,8 +61,8 @@ async function seedProduct(stock: number) {
     name: { fa: "لنت ترمز", en: "Brake pad" },
     slug: "brake-pad",
     sku: "SKU-INV-1",
-    brandId: new mongoose.Types.ObjectId(),
-    categoryId: new mongoose.Types.ObjectId(),
+    brandId: randomUUID(),
+    categoryId: randomUUID(),
     priceRial: 1_000_000,
     weightGram: 800,
     dimensions: { lengthMm: 150, widthMm: 100, heightMm: 40 },
@@ -96,7 +85,7 @@ describe("POST /admin/inventory/adjust", () => {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
-        productId: new mongoose.Types.ObjectId().toString(),
+        productId: randomUUID(),
         delta: 1,
         reason: "restock",
       }),

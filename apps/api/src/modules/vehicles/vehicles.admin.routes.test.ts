@@ -1,8 +1,6 @@
+import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
-import mongoose from "mongoose";
-import type { Server } from "node:http";
-import { app } from "../../app.js";
-import { testDbUri } from "../../config/testDbUri.js";
+import { disconnectDB, resetDb, startTestServer } from "../../../config/testDb.js";
 import { FitmentModel } from "../../models/Fitment.js";
 import { VehicleEngineModel } from "../../models/VehicleEngine.js";
 import { VehicleGenModel } from "../../models/VehicleGen.js";
@@ -17,21 +15,13 @@ import type {
   AdminVehicleModelDto,
 } from "schemas";
 
-const TEST_URI = testDbUri("parsian-store-test-vehicles-admin-routes");
 const BASE = "/api/v1/admin/vehicles";
-let server: Server;
 let baseUrl: string;
+let close: () => void;
 
 beforeAll(async () => {
-  await mongoose.connect(TEST_URI);
-  await new Promise<void>((resolve) => {
-    server = app.listen(0, () => resolve());
-  });
-  const address = server.address();
-  if (address === null || typeof address === "string") {
-    throw new Error("Expected server to bind to a TCP port");
-  }
-  baseUrl = `http://127.0.0.1:${address.port}`;
+  await resetDb();
+  ({ baseUrl, close } = await startTestServer());
 });
 
 beforeEach(async () => {
@@ -45,14 +35,13 @@ beforeEach(async () => {
 });
 
 afterAll(async () => {
-  server.close();
-  await mongoose.connection.dropDatabase();
-  await mongoose.disconnect();
+  close();
+  await disconnectDB();
 });
 
 function staffCookie(role: UserRole = "admin"): Record<string, string> {
   const token = signAccessToken({
-    sub: new mongoose.Types.ObjectId().toString(),
+    sub: randomUUID(),
     role,
     accountType: "retail",
   });
@@ -120,7 +109,7 @@ async function seedEngine(genId: string, overrides: Record<string, unknown> = {}
 
 async function seedFitment(refs: Record<string, unknown>) {
   return FitmentModel.create({
-    productId: new mongoose.Types.ObjectId(),
+    productId: randomUUID(),
     yearFrom: 2010,
     yearTo: 2015,
     confidence: "exact",
@@ -164,7 +153,7 @@ describe("admin vehicle routes", () => {
 
   it("refuses to create a model under a make that does not exist", async () => {
     const res = await send("/models", "POST", {
-      makeId: new mongoose.Types.ObjectId().toString(),
+      makeId: randomUUID(),
       name: { fa: "پراید", en: "Pride" },
       slug: "pride",
       bodyType: "hatchback",
@@ -202,7 +191,7 @@ describe("admin vehicle routes", () => {
     const make = await seedMake();
     await seedFitment({
       makeId: make.id,
-      modelId: new mongoose.Types.ObjectId(),
+      modelId: randomUUID(),
     });
 
     const res = await send(`/makes/${make.id}`, "DELETE");
@@ -342,7 +331,7 @@ describe("admin vehicle routes", () => {
   });
 
   it("returns 404 for an unknown make id", async () => {
-    const res = await send(`/makes/${new mongoose.Types.ObjectId().toString()}`, "PATCH", {
+    const res = await send(`/makes/${randomUUID()}`, "PATCH", {
       country: "ایران",
     });
     expect(res.status).toBe(404);

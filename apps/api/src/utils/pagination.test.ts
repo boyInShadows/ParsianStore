@@ -1,6 +1,5 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import mongoose, { Schema } from "mongoose";
-import { testDbUri } from "../config/testDbUri.js";
 import { clampLimit, paginate, paginationQuerySchema, toSkip } from "./pagination.js";
 
 describe("paginationQuerySchema", () => {

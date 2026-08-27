@@ -1,28 +1,18 @@
+import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
-import mongoose from "mongoose";
-import type { Server } from "node:http";
-import { app } from "../../app.js";
-import { testDbUri } from "../../config/testDbUri.js";
+import { disconnectDB, resetDb, startTestServer } from "../../../config/testDb.js";
 import { OrderModel, type OrderStatus } from "../../models/Order.js";
 import { ProductModel } from "../../models/Product.js";
 import { UserModel, type UserRole } from "../../models/User.js";
 import { signAccessToken } from "../../utils/jwt.js";
 import type { AdminDashboardDto } from "schemas";
 
-const TEST_URI = testDbUri("parsian-store-test-dashboard-admin-routes");
-let server: Server;
 let baseUrl: string;
+let close: () => void;
 
 beforeAll(async () => {
-  await mongoose.connect(TEST_URI);
-  await new Promise<void>((resolve) => {
-    server = app.listen(0, () => resolve());
-  });
-  const address = server.address();
-  if (address === null || typeof address === "string") {
-    throw new Error("Expected server to bind to a TCP port");
-  }
-  baseUrl = `http://127.0.0.1:${address.port}`;
+  await resetDb();
+  ({ baseUrl, close } = await startTestServer());
 });
 
 beforeEach(async () => {
@@ -34,14 +24,13 @@ beforeEach(async () => {
 });
 
 afterAll(async () => {
-  server.close();
-  await mongoose.connection.dropDatabase();
-  await mongoose.disconnect();
+  close();
+  await disconnectDB();
 });
 
 function staffCookie(role: UserRole = "admin"): Record<string, string> {
   const token = signAccessToken({
-    sub: new mongoose.Types.ObjectId().toString(),
+    sub: randomUUID(),
     role,
     accountType: "retail",
   });
@@ -63,10 +52,10 @@ async function seedOrder(options: {
   orderCounter += 1;
   const order = await OrderModel.create({
     code: `PS-${String(orderCounter).padStart(5, "0")}`,
-    userId: new mongoose.Types.ObjectId(),
+    userId: randomUUID(),
     items: [
       {
-        productId: options.productId ?? new mongoose.Types.ObjectId(),
+        productId: options.productId ?? randomUUID(),
         nameSnapshot: LOCALIZED,
         skuSnapshot: `SKU-${orderCounter}`,
         qty: options.qty ?? 1,
@@ -105,8 +94,8 @@ async function seedProduct(overrides: { sku: string; stock: number; lowStockAt: 
     name: LOCALIZED,
     slug: overrides.sku.toLowerCase(),
     sku: overrides.sku,
-    brandId: new mongoose.Types.ObjectId(),
-    categoryId: new mongoose.Types.ObjectId(),
+    brandId: randomUUID(),
+    categoryId: randomUUID(),
     priceRial: 1_000_000,
     stock: overrides.stock,
     lowStockAt: overrides.lowStockAt,
@@ -247,8 +236,8 @@ describe("admin dashboard routes", () => {
   });
 
   it("ranks top products by quantity sold using the order-line snapshot", async () => {
-    const hot = new mongoose.Types.ObjectId();
-    const cold = new mongoose.Types.ObjectId();
+    const hot = randomUUID();
+    const cold = randomUUID();
     await seedOrder({ status: "paid", totalRial: 100, productId: hot, qty: 5, priceRial: 20 });
     await seedOrder({ status: "paid", totalRial: 40, productId: cold, qty: 2, priceRial: 20 });
 

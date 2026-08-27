@@ -1,27 +1,17 @@
+import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
-import mongoose from "mongoose";
-import type { Server } from "node:http";
-import { app } from "../../app.js";
-import { testDbUri } from "../../config/testDbUri.js";
+import { disconnectDB, resetDb, startTestServer } from "../../../config/testDb.js";
 import { OrderModel, type Order } from "../../models/Order.js";
 import { UserModel } from "../../models/User.js";
 import type { UserRole } from "../../models/User.js";
 import { signAccessToken } from "../../utils/jwt.js";
 
-const TEST_URI = testDbUri("parsian-store-test-orders-admin-routes");
-let server: Server;
 let baseUrl: string;
+let close: () => void;
 
 beforeAll(async () => {
-  await mongoose.connect(TEST_URI);
-  await new Promise<void>((resolve) => {
-    server = app.listen(0, () => resolve());
-  });
-  const address = server.address();
-  if (address === null || typeof address === "string") {
-    throw new Error("Expected server to bind to a TCP port");
-  }
-  baseUrl = `http://127.0.0.1:${address.port}`;
+  await resetDb();
+  ({ baseUrl, close } = await startTestServer());
 });
 
 beforeEach(async () => {
@@ -29,9 +19,8 @@ beforeEach(async () => {
 });
 
 afterAll(async () => {
-  server.close();
-  await mongoose.connection.dropDatabase();
-  await mongoose.disconnect();
+  close();
+  await disconnectDB();
 });
 
 interface Envelope<T> {
@@ -42,7 +31,7 @@ interface Envelope<T> {
 
 function staffCookie(role: UserRole = "admin"): Record<string, string> {
   const token = signAccessToken({
-    sub: new mongoose.Types.ObjectId().toString(),
+    sub: randomUUID(),
     role,
     accountType: "retail",
   });
@@ -59,7 +48,7 @@ async function seedOrder(
     userId,
     items: [
       {
-        productId: new mongoose.Types.ObjectId(),
+        productId: randomUUID(),
         nameSnapshot: { fa: "لنت ترمز", en: "Brake pad" },
         skuSnapshot: "SKU-1",
         qty: 2,
@@ -135,7 +124,7 @@ describe("GET /admin/orders", () => {
 
 describe("GET /admin/orders/:id", () => {
   it("rejects with no session", async () => {
-    const res = await fetch(`${baseUrl}/api/v1/admin/orders/${new mongoose.Types.ObjectId()}`);
+    const res = await fetch(`${baseUrl}/api/v1/admin/orders/${randomUUID()}`);
     expect(res.status).toBe(401);
   });
 
@@ -158,7 +147,7 @@ describe("GET /admin/orders/:id", () => {
   });
 
   it("404s for a well-formed but nonexistent id", async () => {
-    const res = await fetch(`${baseUrl}/api/v1/admin/orders/${new mongoose.Types.ObjectId()}`, {
+    const res = await fetch(`${baseUrl}/api/v1/admin/orders/${randomUUID()}`, {
       headers: staffCookie(),
     });
     expect(res.status).toBe(404);
@@ -174,26 +163,20 @@ describe("GET /admin/orders/:id", () => {
 
 describe("PATCH /admin/orders/:id/status", () => {
   it("rejects with no session", async () => {
-    const res = await fetch(
-      `${baseUrl}/api/v1/admin/orders/${new mongoose.Types.ObjectId()}/status`,
-      {
-        method: "PATCH",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ status: "shipped" }),
-      },
-    );
+    const res = await fetch(`${baseUrl}/api/v1/admin/orders/${randomUUID()}/status`, {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ status: "shipped" }),
+    });
     expect(res.status).toBe(401);
   });
 
   it("rejects a customer role with 403", async () => {
-    const res = await fetch(
-      `${baseUrl}/api/v1/admin/orders/${new mongoose.Types.ObjectId()}/status`,
-      {
-        method: "PATCH",
-        headers: { "content-type": "application/json", ...staffCookie("customer") },
-        body: JSON.stringify({ status: "shipped" }),
-      },
-    );
+    const res = await fetch(`${baseUrl}/api/v1/admin/orders/${randomUUID()}/status`, {
+      method: "PATCH",
+      headers: { "content-type": "application/json", ...staffCookie("customer") },
+      body: JSON.stringify({ status: "shipped" }),
+    });
     expect(res.status).toBe(403);
   });
 
@@ -232,14 +215,11 @@ describe("PATCH /admin/orders/:id/status", () => {
   });
 
   it("404s for a nonexistent order", async () => {
-    const res = await fetch(
-      `${baseUrl}/api/v1/admin/orders/${new mongoose.Types.ObjectId()}/status`,
-      {
-        method: "PATCH",
-        headers: { "content-type": "application/json", ...staffCookie() },
-        body: JSON.stringify({ status: "shipped" }),
-      },
-    );
+    const res = await fetch(`${baseUrl}/api/v1/admin/orders/${randomUUID()}/status`, {
+      method: "PATCH",
+      headers: { "content-type": "application/json", ...staffCookie() },
+      body: JSON.stringify({ status: "shipped" }),
+    });
     expect(res.status).toBe(404);
   });
 });

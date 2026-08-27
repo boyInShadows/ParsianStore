@@ -1,21 +1,16 @@
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
-import mongoose from "mongoose";
 import argon2 from "argon2";
-import type { Server } from "node:http";
-import { app } from "../../app.js";
 import { env } from "../../config/env.js";
-import { testDbUri } from "../../config/testDbUri.js";
+import { disconnectDB, resetDb, startTestServer } from "../../../config/testDb.js";
 import { OtpTokenModel } from "../../models/OtpToken.js";
 import { RefreshTokenModel } from "../../models/RefreshToken.js";
 import { UserModel } from "../../models/User.js";
 
-const TEST_URI = testDbUri("parsian-store-test-auth-routes");
-
 // Full HTTP round trip through the real app (ephemeral port + native
 // fetch — the same pattern app.test.ts uses, no supertest needed) against
 // the real dev/test MongoDB the app itself already connects to.
-let server: Server;
 let baseUrl: string;
+let close: () => void;
 
 function extractCookie(headers: Headers, name: string): string {
   const setCookies = headers.getSetCookie();
@@ -43,15 +38,8 @@ async function seedKnownOtp(phone: string, code: string): Promise<void> {
 }
 
 beforeAll(async () => {
-  await mongoose.connect(TEST_URI);
-  await new Promise<void>((resolve) => {
-    server = app.listen(0, () => resolve());
-  });
-  const address = server.address();
-  if (address === null || typeof address === "string") {
-    throw new Error("Expected server to bind to a TCP port");
-  }
-  baseUrl = `http://127.0.0.1:${address.port}`;
+  await resetDb();
+  ({ baseUrl, close } = await startTestServer());
 });
 
 beforeEach(async () => {
@@ -63,9 +51,8 @@ beforeEach(async () => {
 });
 
 afterAll(async () => {
-  server.close();
-  await mongoose.connection.dropDatabase();
-  await mongoose.disconnect();
+  close();
+  await disconnectDB();
 });
 
 describe("POST /auth/otp/request", () => {

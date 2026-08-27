@@ -1,32 +1,22 @@
+import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
-import mongoose from "mongoose";
-import type { Server } from "node:http";
-import { app } from "../../app.js";
-import { testDbUri } from "../../config/testDbUri.js";
+import { disconnectDB, resetDb, startTestServer } from "../../../config/testDb.js";
 import { CouponModel } from "../../models/Coupon.js";
 import { OrderModel } from "../../models/Order.js";
 import type { UserRole } from "../../models/User.js";
 import { signAccessToken } from "../../utils/jwt.js";
 import { validateCoupon } from "./coupon.service.js";
 
-const TEST_URI = testDbUri("parsian-store-test-coupons-admin-routes");
-let server: Server;
 let baseUrl: string;
+let close: () => void;
 
 beforeAll(async () => {
-  await mongoose.connect(TEST_URI);
+  await resetDb();
   // The `code` unique index must be fully built before the duplicate-code
   // test writes twice in quick succession -- P8.S2 hit exactly this flake
   // under the full parallel run and fixed it the same way, not with a sleep.
   await CouponModel.init();
-  await new Promise<void>((resolve) => {
-    server = app.listen(0, () => resolve());
-  });
-  const address = server.address();
-  if (address === null || typeof address === "string") {
-    throw new Error("Expected server to bind to a TCP port");
-  }
-  baseUrl = `http://127.0.0.1:${address.port}`;
+  ({ baseUrl, close } = await startTestServer());
 });
 
 beforeEach(async () => {
@@ -34,9 +24,8 @@ beforeEach(async () => {
 });
 
 afterAll(async () => {
-  server.close();
-  await mongoose.connection.dropDatabase();
-  await mongoose.disconnect();
+  close();
+  await disconnectDB();
 });
 
 interface Envelope<T> {
@@ -59,7 +48,7 @@ interface CouponBody {
 
 function staffCookie(role: UserRole = "admin"): Record<string, string> {
   const token = signAccessToken({
-    sub: new mongoose.Types.ObjectId().toString(),
+    sub: randomUUID(),
     role,
     accountType: "retail",
   });
@@ -257,10 +246,9 @@ describe("admin coupons routes", () => {
   });
 
   it("returns 404 for an unknown coupon id", async () => {
-    const res = await fetch(
-      `${baseUrl}/api/v1/admin/coupons/${new mongoose.Types.ObjectId().toString()}`,
-      { headers: staffCookie() },
-    );
+    const res = await fetch(`${baseUrl}/api/v1/admin/coupons/${randomUUID()}`, {
+      headers: staffCookie(),
+    });
     expect(res.status).toBe(404);
   });
 

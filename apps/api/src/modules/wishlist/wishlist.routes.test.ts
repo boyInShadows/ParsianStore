@@ -1,28 +1,18 @@
+import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
-import mongoose from "mongoose";
-import type { Server } from "node:http";
-import { app } from "../../app.js";
-import { testDbUri } from "../../config/testDbUri.js";
+import { disconnectDB, resetDb, startTestServer } from "../../../config/testDb.js";
 import { BrandModel } from "../../models/Brand.js";
 import { CategoryModel } from "../../models/Category.js";
 import { ProductModel } from "../../models/Product.js";
 import { WishlistModel } from "../../models/Wishlist.js";
 import { signAccessToken } from "../../utils/jwt.js";
 
-const TEST_URI = testDbUri("parsian-store-test-wishlist-routes");
-let server: Server;
 let baseUrl: string;
+let close: () => void;
 
 beforeAll(async () => {
-  await mongoose.connect(TEST_URI);
-  await new Promise<void>((resolve) => {
-    server = app.listen(0, () => resolve());
-  });
-  const address = server.address();
-  if (address === null || typeof address === "string") {
-    throw new Error("Expected server to bind to a TCP port");
-  }
-  baseUrl = `http://127.0.0.1:${address.port}`;
+  await resetDb();
+  ({ baseUrl, close } = await startTestServer());
 });
 
 beforeEach(async () => {
@@ -35,9 +25,8 @@ beforeEach(async () => {
 });
 
 afterAll(async () => {
-  server.close();
-  await mongoose.connection.dropDatabase();
-  await mongoose.disconnect();
+  close();
+  await disconnectDB();
 });
 
 interface Envelope<T> {
@@ -54,15 +43,15 @@ function customerCookie(userId: string): Record<string, string> {
 async function seedProduct(overrides: Record<string, unknown> = {}) {
   const brand = await BrandModel.create({
     name: { fa: "بوش", en: "Bosch" },
-    slug: `bosch-${new mongoose.Types.ObjectId().toString()}`,
+    slug: `bosch-${randomUUID()}`,
     country: "Germany",
   });
   const category = await CategoryModel.create({
     name: { fa: "ترمز", en: "Brakes" },
-    slug: `brakes-${new mongoose.Types.ObjectId().toString()}`,
+    slug: `brakes-${randomUUID()}`,
     systemCode: "SYS-04",
   });
-  const sku = `SKU-${new mongoose.Types.ObjectId().toString()}`;
+  const sku = `SKU-${randomUUID()}`;
   return ProductModel.create({
     name: { fa: "لنت ترمز جلو", en: "Front brake pad" },
     slug: `front-brake-pad-${sku}`,
@@ -97,7 +86,7 @@ describe("POST/DELETE/GET /me/wishlist", () => {
   });
 
   it("saves a product and lists it back, hydrated", async () => {
-    const userId = new mongoose.Types.ObjectId().toString();
+    const userId = randomUUID();
     const product = await seedProduct();
 
     const addRes = await fetch(`${baseUrl}/api/v1/me/wishlist/${product._id.toString()}`, {
@@ -127,7 +116,7 @@ describe("POST/DELETE/GET /me/wishlist", () => {
   });
 
   it("resolves the wholesale price for a wholesale account, same as the catalog list", async () => {
-    const userId = new mongoose.Types.ObjectId().toString();
+    const userId = randomUUID();
     const product = await seedProduct({ wholesalePriceRial: 1_200_000 });
     const token = signAccessToken({ sub: userId, role: "customer", accountType: "wholesale" });
 
@@ -146,7 +135,7 @@ describe("POST/DELETE/GET /me/wishlist", () => {
   });
 
   it("is idempotent on a repeat add — no duplicate entries, no error", async () => {
-    const userId = new mongoose.Types.ObjectId().toString();
+    const userId = randomUUID();
     const product = await seedProduct();
     const cookie = customerCookie(userId);
 
@@ -165,16 +154,16 @@ describe("POST/DELETE/GET /me/wishlist", () => {
   });
 
   it("404s adding a nonexistent product", async () => {
-    const userId = new mongoose.Types.ObjectId().toString();
-    const res = await fetch(
-      `${baseUrl}/api/v1/me/wishlist/${new mongoose.Types.ObjectId().toString()}`,
-      { method: "POST", headers: customerCookie(userId) },
-    );
+    const userId = randomUUID();
+    const res = await fetch(`${baseUrl}/api/v1/me/wishlist/${randomUUID()}`, {
+      method: "POST",
+      headers: customerCookie(userId),
+    });
     expect(res.status).toBe(404);
   });
 
   it("removes a saved product, and is idempotent when it wasn't saved", async () => {
-    const userId = new mongoose.Types.ObjectId().toString();
+    const userId = randomUUID();
     const product = await seedProduct();
     const cookie = customerCookie(userId);
 
@@ -197,8 +186,8 @@ describe("POST/DELETE/GET /me/wishlist", () => {
   });
 
   it("only ever returns the requesting user's own saved products", async () => {
-    const userA = new mongoose.Types.ObjectId().toString();
-    const userB = new mongoose.Types.ObjectId().toString();
+    const userA = randomUUID();
+    const userB = randomUUID();
     const product = await seedProduct();
 
     await fetch(`${baseUrl}/api/v1/me/wishlist/${product._id.toString()}`, {

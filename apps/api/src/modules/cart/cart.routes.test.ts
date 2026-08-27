@@ -1,8 +1,6 @@
+import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
-import mongoose from "mongoose";
-import type { Server } from "node:http";
-import { app } from "../../app.js";
-import { testDbUri } from "../../config/testDbUri.js";
+import { disconnectDB, resetDb, startTestServer } from "../../../config/testDb.js";
 import { BrandModel } from "../../models/Brand.js";
 import { CartModel } from "../../models/Cart.js";
 import { CategoryModel } from "../../models/Category.js";
@@ -15,20 +13,12 @@ import { ShippingRateModel } from "../../models/ShippingRate.js";
 import { UserModel } from "../../models/User.js";
 import { signAccessToken } from "../../utils/jwt.js";
 
-const TEST_URI = testDbUri("parsian-store-test-cart-routes");
-let server: Server;
 let baseUrl: string;
+let close: () => void;
 
 beforeAll(async () => {
-  await mongoose.connect(TEST_URI);
-  await new Promise<void>((resolve) => {
-    server = app.listen(0, () => resolve());
-  });
-  const address = server.address();
-  if (address === null || typeof address === "string") {
-    throw new Error("Expected server to bind to a TCP port");
-  }
-  baseUrl = `http://127.0.0.1:${address.port}`;
+  await resetDb();
+  ({ baseUrl, close } = await startTestServer());
 });
 
 beforeEach(async () => {
@@ -47,9 +37,8 @@ beforeEach(async () => {
 });
 
 afterAll(async () => {
-  server.close();
-  await mongoose.connection.dropDatabase();
-  await mongoose.disconnect();
+  close();
+  await disconnectDB();
 });
 
 interface Envelope<T> {
@@ -90,15 +79,15 @@ function customerCookie(userId: string, accountType: "retail" | "wholesale" = "r
 async function seedProduct(overrides: Record<string, unknown> = {}) {
   const brand = await BrandModel.create({
     name: { fa: "بوش", en: "Bosch" },
-    slug: `bosch-${new mongoose.Types.ObjectId().toString()}`,
+    slug: `bosch-${randomUUID()}`,
     country: "Germany",
   });
   const category = await CategoryModel.create({
     name: { fa: "ترمز", en: "Brakes" },
-    slug: `brakes-${new mongoose.Types.ObjectId().toString()}`,
+    slug: `brakes-${randomUUID()}`,
     systemCode: "SYS-04",
   });
-  const sku = `SKU-${new mongoose.Types.ObjectId().toString()}`;
+  const sku = `SKU-${randomUUID()}`;
   return ProductModel.create({
     name: { fa: "لنت ترمز جلو", en: "Front brake pad" },
     slug: `front-brake-pad-${sku}`,
@@ -176,7 +165,7 @@ describe("POST/PATCH/DELETE /cart/items (guest)", () => {
     const res = await fetch(`${baseUrl}/api/v1/cart/items`, {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ productId: new mongoose.Types.ObjectId().toString(), qty: 1 }),
+      body: JSON.stringify({ productId: randomUUID(), qty: 1 }),
     });
     expect(res.status).toBe(404);
   });
@@ -211,14 +200,11 @@ describe("POST/PATCH/DELETE /cart/items (guest)", () => {
   });
 
   it("404s updating a nonexistent item id", async () => {
-    const res = await fetch(
-      `${baseUrl}/api/v1/cart/items/${new mongoose.Types.ObjectId().toString()}`,
-      {
-        method: "PATCH",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ qty: 2 }),
-      },
-    );
+    const res = await fetch(`${baseUrl}/api/v1/cart/items/${randomUUID()}`, {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ qty: 2 }),
+    });
     expect(res.status).toBe(404);
   });
 
@@ -247,7 +233,7 @@ describe("guest -> auth cart merge", () => {
     const anonCookie = extractCookie(addRes.headers, "anonId");
     const anonId = anonCookie.split("=")[1]!;
 
-    const userId = new mongoose.Types.ObjectId().toString();
+    const userId = randomUUID();
     const mergedRes = await fetch(`${baseUrl}/api/v1/cart`, {
       headers: { cookie: `${anonCookie}; ${customerCookie(userId)}` },
     });
@@ -262,7 +248,7 @@ describe("guest -> auth cart merge", () => {
 
   it("sums quantities when the user already had the same product in their own cart", async () => {
     const product = await seedProduct();
-    const userId = new mongoose.Types.ObjectId().toString();
+    const userId = randomUUID();
     const userCookie = customerCookie(userId);
 
     await fetch(`${baseUrl}/api/v1/cart/items`, {
@@ -295,7 +281,7 @@ interface WholesaleCartItemDto extends CartItemDto {
 describe("P6.S1: wholesale pricing in the cart", () => {
   it("a wholesale account's addItem/getCart resolve the wholesale price, snapshotted and re-read consistently", async () => {
     const product = await seedProduct({ priceRial: 1_000_000, wholesalePriceRial: 850_000 });
-    const userId = new mongoose.Types.ObjectId().toString();
+    const userId = randomUUID();
     const wholesaleCookie = customerCookie(userId, "wholesale");
 
     const addRes = await fetch(`${baseUrl}/api/v1/cart/items`, {
@@ -333,7 +319,7 @@ describe("P6.S1: wholesale pricing in the cart", () => {
     expect(guestBody.data.items[0]!.product.priceRial).toBe(1_000_000);
     expect(guestBody.data.items[0]!.product.isWholesalePrice).toBe(false);
 
-    const retailUserId = new mongoose.Types.ObjectId().toString();
+    const retailUserId = randomUUID();
     const retailRes = await fetch(`${baseUrl}/api/v1/cart/items`, {
       method: "POST",
       headers: {
@@ -349,7 +335,7 @@ describe("P6.S1: wholesale pricing in the cart", () => {
 
   it("never leaks the raw wholesalePriceRial field in the cart response, for any viewer", async () => {
     const product = await seedProduct({ priceRial: 1_000_000, wholesalePriceRial: 850_000 });
-    const userId = new mongoose.Types.ObjectId().toString();
+    const userId = randomUUID();
 
     const res = await fetch(`${baseUrl}/api/v1/cart/items`, {
       method: "POST",
@@ -462,7 +448,7 @@ describe("POST /cart/estimate-shipping", () => {
     const res = await fetch(`${baseUrl}/api/v1/cart/estimate-shipping`, {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ addressId: new mongoose.Types.ObjectId().toString() }),
+      body: JSON.stringify({ addressId: randomUUID() }),
     });
     expect(res.status).toBe(401);
   });

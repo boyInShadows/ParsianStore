@@ -1,18 +1,14 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import mongoose from "mongoose";
-import { testDbUri } from "../config/testDbUri.js";
+import { disconnectDB, resetDb } from "../../config/testDb.js";
 import { ShippingRateModel } from "../models/ShippingRate.js";
 import { seedShipping } from "./shipping.js";
 
-const TEST_URI = testDbUri("parsian-store-test-seed-shipping");
-
 beforeAll(async () => {
-  await mongoose.connect(TEST_URI);
+  await resetDb();
 });
 
 afterAll(async () => {
-  await mongoose.connection.dropDatabase();
-  await mongoose.disconnect();
+  await disconnectDB();
 });
 
 describe("seedShipping", () => {

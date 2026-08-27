@@ -1,26 +1,23 @@
+import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import mongoose from "mongoose";
-import { testDbUri } from "../config/testDbUri.js";
+import { disconnectDB, resetDb } from "../../config/testDb.js";
 import { RefreshTokenModel } from "./RefreshToken.js";
 
-const TEST_URI = testDbUri("parsian-store-test-refresh-token");
-
 beforeAll(async () => {
-  await mongoose.connect(TEST_URI);
+  await resetDb();
   // See OtpToken.test.ts — waits for background index builds so the
   // unique/TTL assertions below don't race an as-yet-unbuilt index.
   await RefreshTokenModel.init();
 });
 
 afterAll(async () => {
-  await mongoose.connection.dropDatabase();
-  await mongoose.disconnect();
+  await disconnectDB();
 });
 
 describe("RefreshTokenModel", () => {
   it("defaults revokedAt to null", async () => {
     const token = await RefreshTokenModel.create({
-      userId: new mongoose.Types.ObjectId(),
+      userId: randomUUID(),
       tokenHash: "hashed-token-1",
       expiresAt: new Date(Date.now() + 86_400_000),
     });
@@ -28,7 +25,7 @@ describe("RefreshTokenModel", () => {
   });
 
   it("enforces a unique tokenHash", async () => {
-    const userId = new mongoose.Types.ObjectId();
+    const userId = randomUUID();
     await RefreshTokenModel.create({
       userId,
       tokenHash: "duplicate-hash",

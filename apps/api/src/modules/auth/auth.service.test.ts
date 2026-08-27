@@ -1,13 +1,11 @@
+import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
-import mongoose from "mongoose";
-import { testDbUri } from "../../config/testDbUri.js";
+import { disconnectDB, resetDb } from "../../../config/testDb.js";
 import { OtpTokenModel } from "../../models/OtpToken.js";
 import { RefreshTokenModel } from "../../models/RefreshToken.js";
 import { UserModel } from "../../models/User.js";
 import type { SmsProvider } from "../../providers/sms/index.js";
 import * as authService from "./auth.service.js";
-
-const TEST_URI = testDbUri("parsian-store-test-auth-service");
 
 // Captures the OTP code the service actually generated, since it's random
 // — a real integration test needs the real code to drive verifyOtp(),
@@ -26,7 +24,7 @@ function spyProvider(): { provider: SmsProvider; sentCodes: string[] } {
 }
 
 beforeAll(async () => {
-  await mongoose.connect(TEST_URI);
+  await resetDb();
 });
 
 beforeEach(async () => {
@@ -38,8 +36,7 @@ beforeEach(async () => {
 });
 
 afterAll(async () => {
-  await mongoose.connection.dropDatabase();
-  await mongoose.disconnect();
+  await disconnectDB();
 });
 
 describe("requestOtp + verifyOtp", () => {
@@ -177,7 +174,7 @@ describe("getUserById", () => {
   });
 
   it("throws for a well-formed but nonexistent id", async () => {
-    const fakeId = new mongoose.Types.ObjectId().toString();
+    const fakeId = randomUUID();
     await expect(authService.getUserById(fakeId)).rejects.toThrow();
   });
 });

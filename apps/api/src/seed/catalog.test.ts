@@ -1,7 +1,7 @@
+import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import mongoose from "mongoose";
 import { buildVehicleKey, parseVehicleKey } from "schemas";
-import { testDbUri } from "../config/testDbUri.js";
+import { disconnectDB, resetDb } from "../../config/testDb.js";
 import { checkFitment } from "../modules/fitment/fitment.service.js";
 import { BrandModel } from "../models/Brand.js";
 import { CategoryModel } from "../models/Category.js";
@@ -12,16 +12,13 @@ import { MongoSearchProvider } from "../providers/search/MongoSearchProvider.js"
 import { CATEGORY_TEMPLATES } from "./catalog.data.js";
 import { seedCatalog } from "./catalog.js";
 
-const TEST_URI = testDbUri("parsian-store-test-seed-catalog");
-
 beforeAll(async () => {
-  await mongoose.connect(TEST_URI);
+  await resetDb();
   await ProductModel.init();
 }, 60_000);
 
 afterAll(async () => {
-  await mongoose.connection.dropDatabase();
-  await mongoose.disconnect();
+  await disconnectDB();
 });
 
 describe("seedCatalog", () => {
@@ -82,9 +79,9 @@ describe("seedCatalog", () => {
 
       // An unrelated random vehicle must never false-positive.
       const unrelatedKey = buildVehicleKey({
-        makeId: new mongoose.Types.ObjectId().toString(),
-        modelId: new mongoose.Types.ObjectId().toString(),
-        genId: new mongoose.Types.ObjectId().toString(),
+        makeId: randomUUID(),
+        modelId: randomUUID(),
+        genId: randomUUID(),
         year: fitment!.yearFrom,
       });
       const unrelatedVerdict = await checkFitment(
