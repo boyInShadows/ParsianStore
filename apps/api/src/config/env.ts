@@ -24,16 +24,12 @@ const envSchema = z.object({
   LOG_LEVEL: z.enum(["trace", "debug", "info", "warn", "error", "fatal", "silent"]).default("info"),
   MONGODB_URI: z.string().min(1).default("mongodb://localhost:27017/parsian-store"),
 
-  // The PostgreSQL migration's destination. Optional on purpose *for now*:
-  // both databases coexist while phase 2 moves the data layer module by
-  // module, and a developer who has not created the Postgres role yet must
-  // still be able to boot the API on Mongo. It becomes required in phase 3,
-  // when Mongo comes out and this is the only database left.
-  //
-  // No default, unlike MONGODB_URI: this URL carries a password, and a
-  // hardcoded fallback containing credentials is the thing the secret rule
-  // exists to prevent.
-  DATABASE_URL: z.string().min(1).optional(),
+  // The only database. Required, and with no default: this URL carries a
+  // password, and a hardcoded fallback containing credentials is exactly what
+  // the secret-management rule exists to prevent. An API that cannot reach its
+  // database should refuse to boot, loudly, rather than start serving traffic
+  // and fail one request at a time.
+  DATABASE_URL: z.string().min(1, "DATABASE_URL is required"),
 
   // P2.S4 — auth. Secrets get NO default: a hardcoded fallback secret in
   // source is itself the vulnerability (CLAUDE.md's secret-management

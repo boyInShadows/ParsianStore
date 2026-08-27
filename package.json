@@ -9,7 +9,7 @@
   "scripts": {
     "predev": "node scripts/dev-db.mjs",
     "dev": "turbo run dev",
-    "dev:infra": "docker compose up -d --wait mongodb",
+    "dev:infra": "docker compose up -d --wait postgres",
     "dev:stop": "docker compose down",
     "db:setup": "node scripts/setup-postgres.mjs",
     "dev:api": "turbo run dev --filter=api",

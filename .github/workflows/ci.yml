@@ -15,19 +15,27 @@ jobs:
     runs-on: ubuntu-latest
     env:
       CI: true
-    # P2.S2 added Mongoose-backed tests (base plugins, db connection) that
-    # run against a real MongoDB rather than a mock, matching local dev
-    # (see docs/db-indexes.md). CI needs the same service dev already has.
+      # Matches the `services.postgres` block below. A development-scoped
+      # credential for a database that exists only for the length of this job.
+      DATABASE_URL: postgresql://parsianstore:parsianstore@localhost:5432/parsian_store?schema=public
+    # The data-layer tests run against a real database rather than a mock,
+    # matching local dev. Since the Postgres migration this is postgres:18 --
+    # the same major the compose service and production run, because a schema
+    # that only ever gets applied on one major is a schema nobody has tested.
     services:
-      mongodb:
-        image: mongo:7
+      postgres:
+        image: postgres:18
         ports:
-          - 27017:27017
+          - 5432:5432
+        env:
+          POSTGRES_DB: parsian_store
+          POSTGRES_USER: parsianstore
+          POSTGRES_PASSWORD: parsianstore
         options: >-
-          --health-cmd "mongosh --eval 'db.runCommand({ ping: 1 })'"
-          --health-interval 10s
+          --health-cmd "pg_isready -U parsianstore -d parsian_store"
+          --health-interval 5s
           --health-timeout 5s
-          --health-retries 5
+          --health-retries 10
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -56,6 +64,9 @@ jobs:
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+
+      - name: Apply database migrations
+        run: pnpm --filter api db:deploy
 
       - name: Lint
         run: pnpm lint

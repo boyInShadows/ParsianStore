@@ -7,15 +7,15 @@ import { promisify } from "node:util";
 
 const run = promisify(execFile);
 const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
-const DEFAULT_PORT = 27018;
+const DEFAULT_PORT = 5433;
 
 /**
  * Make sure something is answering on the development database port, then get
  * out of the way.
  *
- * This replaced a bare `docker compose up -d --wait mongodb` as `predev`. That
- * command is right for a fresh clone and wrong for every machine where Mongo is
- * already running some other way: it fails hard when the Docker daemon is not
+ * This replaced a bare `docker compose up -d --wait postgres` as `predev`. That
+ * command is right for a fresh clone and wrong for every machine where Postgres
+ * is already running some other way: it fails hard when the Docker daemon is not
  * up, and `pnpm dev` refuses to start over a database that was never missing.
  *
  * The order here is "is it already there?" first, "start the container" second,
@@ -26,8 +26,8 @@ const DEFAULT_PORT = 27018;
 async function resolvePort() {
   try {
     const env = await readFile(path.join(ROOT, "apps/api/.env"), "utf8");
-    const uri = /^MONGODB_URI=(.+)$/m.exec(env)?.[1]?.trim();
-    const port = uri ? Number(new URL(uri.replace(/^mongodb:/, "http:")).port) : NaN;
+    const uri = /^DATABASE_URL=(.+)$/m.exec(env)?.[1]?.trim();
+    const port = uri ? Number(new URL(uri.replace(/^postgres(ql)?:/, "http:")).port) : NaN;
     return Number.isInteger(port) && port > 0 ? port : DEFAULT_PORT;
   } catch {
     return DEFAULT_PORT;
@@ -61,7 +61,7 @@ async function main() {
 
   console.log(`db: nothing on 127.0.0.1:${port}, trying the compose service…`);
   try {
-    await run("docker", ["compose", "up", "-d", "--wait", "mongodb"], { cwd: ROOT });
+    await run("docker", ["compose", "up", "-d", "--wait", "postgres"], { cwd: ROOT });
     console.log("db: compose service is up.");
     return;
   } catch (error) {
@@ -73,9 +73,9 @@ async function main() {
       .split("\n")[0];
     console.warn(
       `db: could not start the compose service — ${detail}\n` +
-        `db: continuing anyway. If the API cannot connect, bring up any MongoDB on ` +
+        `db: continuing anyway. If the API cannot connect, bring up any PostgreSQL 18 on ` +
         `127.0.0.1:${port}\n` +
-        `db: (compose.yaml notes one host where the image itself refuses to boot).`,
+        `db: and run "pnpm --filter api db:deploy" against it.`,
     );
   }
 }
