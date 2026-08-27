@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { idSchema } from "./id.js";
 
 // §3.4 "My Garage": the active vehicle is reflected in the URL as
 // `?v=<vehicleKey>` so results are shareable/crawlable, and §9's
@@ -13,8 +14,13 @@ export interface VehicleKeyParts {
   engineId?: string;
 }
 
+// "." stays a safe separator after the move to UUID ids: a UUID's only
+// non-alphanumeric character is "-", so no segment can ever contain one.
 const SEPARATOR = ".";
-const OBJECT_ID_RE = /^[0-9a-fA-F]{24}$/;
+
+function isId(value: string): boolean {
+  return idSchema.safeParse(value).success;
+}
 
 /** Encodes a Garage entry (§3.2's `{ makeId, modelId, genId, engineId?,
  * year }`) into the compact string carried in `?v=`. */
@@ -43,8 +49,8 @@ export function parseVehicleKey(key: string): VehicleKeyParts {
   const year = Number(yearRaw);
 
   if (
-    ![makeId, modelId, genId].every((id) => OBJECT_ID_RE.test(id)) ||
-    (engineId !== undefined && !OBJECT_ID_RE.test(engineId)) ||
+    ![makeId, modelId, genId].every(isId) ||
+    (engineId !== undefined && !isId(engineId)) ||
     !Number.isInteger(year)
   ) {
     throw new Error("کلید خودرو نامعتبر است");

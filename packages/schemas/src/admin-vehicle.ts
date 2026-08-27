@@ -1,10 +1,12 @@
 import { z } from "zod";
+import { idSchema } from "./id.js";
 
 // P8.S6: admin CRUD over the four vehicle collections. Own file, same
 // bundle-budget reasoning as every other admin-*.ts schema -- vehicles.ts
 // stays the shop-facing read shape and is not extended here.
 
-const objectId = z.string().regex(/^[0-9a-fA-F]{24}$/, "شناسه معتبر نیست");
+// The shared UUID id schema; see packages/schemas/src/id.ts.
+const objectId = idSchema;
 
 const localizedNameSchema = z.object({
   fa: z.string().min(1, "نام فارسی الزامی است"),

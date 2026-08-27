@@ -23,5 +23,11 @@ export default defineConfig({
     // without this the real assertion failures get buried. Override on the
     // command line (`LOG_LEVEL=debug pnpm test`) when debugging a test.
     env: { LOG_LEVEL: "silent" },
+    // The integration suites share one migrated PostgreSQL database and
+    // truncate between files (see src/config/testDb.ts). Two files running at
+    // once would therefore see each other's rows -- and worse, one would
+    // truncate the other's fixtures mid-assertion. Under Mongo each file had
+    // its own throwaway database and parallelism was free; here it is not.
+    fileParallelism: false,
   },
 });

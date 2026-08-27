@@ -1,11 +1,13 @@
 import { z } from "zod";
 import { paginationQuerySchema } from "../../utils/pagination.js";
+import { idSchema } from "schemas";
 
 // Shopper-facing only as of P8.S4. The admin create/update shapes moved to
 // packages/schemas (admin-category.ts) so apps/web's new admin form validates
 // against the exact same rules and Persian messages the API enforces —
 // the same split products already had since P8.S2.
-const objectId = z.string().regex(/^[0-9a-fA-F]{24}$/, "شناسه معتبر نیست");
+// The shared UUID id schema; see packages/schemas/src/id.ts.
+const objectId = idSchema;
 const slugField = z
   .string()
   .min(1, "نامک الزامی است")

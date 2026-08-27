@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { SUPPLY_ROUTES } from "./products.js";
+import { idSchema } from "./id.js";
 
 // P8.S2: admin-only product CRUD -- deliberately its own file, not
 // appended to products.ts, per the real bundle-budget lesson P8.S1's
@@ -13,7 +14,8 @@ export const productStatusSchema = z.enum(PRODUCT_STATUSES);
 export type ProductStatusDto = z.infer<typeof productStatusSchema>;
 
 const localizedNameSchema = z.object({ fa: z.string(), en: z.string() });
-const objectId = z.string().regex(/^[0-9a-fA-F]{24}$/);
+// The shared UUID id schema; see packages/schemas/src/id.ts.
+const objectId = idSchema;
 const productVariantInputSchema = z.object({
   name: localizedNameSchema,
   sku: z.string().min(1),
