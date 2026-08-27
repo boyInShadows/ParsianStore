@@ -2,7 +2,7 @@ import type { FilterQuery, HydratedDocument } from "mongoose";
 import { resolveEffectivePriceRial, toPublicProductJson } from "../catalog/pricing.js";
 import { CartModel, nextCartExpiry, type Cart, type CartItem } from "../../models/Cart.js";
 import { ProductModel } from "../../models/Product.js";
-import type { AccountType } from "../../models/User.js";
+import type { AccountType } from "@prisma/client";
 import { ApiError } from "../../utils/ApiError.js";
 import {
   computeDiscountRial,

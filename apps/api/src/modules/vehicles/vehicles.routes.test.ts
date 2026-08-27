@@ -1,41 +1,37 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import mongoose from "mongoose";
-import type { Server } from "node:http";
-import { app } from "../../app.js";
-import { testDbUri } from "../../config/testDbUri.js";
-import { VehicleGenModel } from "../../models/VehicleGen.js";
-import { VehicleMakeModel } from "../../models/VehicleMake.js";
-import { VehicleModelModel } from "../../models/VehicleModel.js";
+import { disconnectDB, prisma, resetDb, startTestServer } from "../../config/testDb.js";
 import { seedVehicles } from "../../seed/vehicles.js";
 
-const TEST_URI = testDbUri("parsian-store-test-vehicles-routes");
-let server: Server;
 let baseUrl: string;
+let close: () => void;
 
 beforeAll(async () => {
-  await mongoose.connect(TEST_URI);
+  await resetDb();
   await seedVehicles();
-
-  await new Promise<void>((resolve) => {
-    server = app.listen(0, () => resolve());
-  });
-  const address = server.address();
-  if (address === null || typeof address === "string") {
-    throw new Error("Expected server to bind to a TCP port");
-  }
-  baseUrl = `http://127.0.0.1:${address.port}`;
+  ({ baseUrl, close } = await startTestServer());
 });
 
 afterAll(async () => {
-  server.close();
-  await mongoose.connection.dropDatabase();
-  await mongoose.disconnect();
+  close();
+  await disconnectDB();
 });
 
 interface Envelope<T> {
   ok: boolean;
   data: T;
   meta?: { total: number; page: number; limit: number };
+}
+
+async function saipaId(): Promise<string> {
+  const saipa = await prisma.vehicleMake.findUnique({ where: { slug: "saipa" } });
+  return saipa!.id;
+}
+
+async function tibaId(): Promise<string> {
+  const tiba = await prisma.vehicleModel.findUnique({
+    where: { makeId_slug: { makeId: await saipaId(), slug: "tiba" } },
+  });
+  return tiba!.id;
 }
 
 describe("GET /vehicles/makes", () => {
@@ -45,6 +41,13 @@ describe("GET /vehicles/makes", () => {
     const body = (await res.json()) as Envelope<{ slug: string }[]>;
     expect(body.meta).toEqual({ total: 2, page: 1, limit: 20 });
     expect(body.data.map((m) => m.slug).sort()).toEqual(["iran-khodro", "saipa"]);
+  });
+
+  it("does not leak row timestamps or the soft-delete column to the browser", async () => {
+    const res = await fetch(`${baseUrl}/api/v1/vehicles/makes?limit=1`);
+    const body = (await res.json()) as Envelope<Record<string, unknown>[]>;
+    expect(Object.keys(body.data[0]!)).not.toContain("deletedAt");
+    expect(Object.keys(body.data[0]!)).not.toContain("createdAt");
   });
 
   it("respects page/limit", async () => {
@@ -63,27 +66,23 @@ describe("GET /vehicles/makes", () => {
 
 describe("GET /vehicles/models", () => {
   it("filters by makeId", async () => {
-    const saipa = await VehicleMakeModel.findOne({ slug: "saipa" });
-    const res = await fetch(`${baseUrl}/api/v1/vehicles/models?makeId=${saipa!._id.toString()}`);
+    const makeId = await saipaId();
+    const res = await fetch(`${baseUrl}/api/v1/vehicles/models?makeId=${makeId}`);
     expect(res.status).toBe(200);
     const body = (await res.json()) as Envelope<{ makeId: string }[]>;
     expect(body.data.length).toBeGreaterThan(0);
-    expect(body.data.every((m) => m.makeId === saipa!._id.toString())).toBe(true);
+    expect(body.data.every((m) => m.makeId === makeId)).toBe(true);
   });
 
   it("rejects a malformed makeId", async () => {
-    const res = await fetch(`${baseUrl}/api/v1/vehicles/models?makeId=not-an-object-id`);
+    const res = await fetch(`${baseUrl}/api/v1/vehicles/models?makeId=not-a-uuid`);
     expect(res.status).toBe(400);
   });
 });
 
 describe("GET /vehicles/generations", () => {
   it("filters by modelId", async () => {
-    const saipa = await VehicleMakeModel.findOne({ slug: "saipa" });
-    const tiba = await VehicleModelModel.findOne({ makeId: saipa!._id, slug: "tiba" });
-    const res = await fetch(
-      `${baseUrl}/api/v1/vehicles/generations?modelId=${tiba!._id.toString()}`,
-    );
+    const res = await fetch(`${baseUrl}/api/v1/vehicles/generations?modelId=${await tibaId()}`);
     expect(res.status).toBe(200);
     const body = (await res.json()) as Envelope<{ yearFrom: number }[]>;
     expect(body.data).toHaveLength(1);
@@ -93,10 +92,8 @@ describe("GET /vehicles/generations", () => {
 
 describe("GET /vehicles/engines", () => {
   it("filters by genId", async () => {
-    const saipa = await VehicleMakeModel.findOne({ slug: "saipa" });
-    const tiba = await VehicleModelModel.findOne({ makeId: saipa!._id, slug: "tiba" });
-    const gen = await VehicleGenModel.findOne({ modelId: tiba!._id });
-    const res = await fetch(`${baseUrl}/api/v1/vehicles/engines?genId=${gen!._id.toString()}`);
+    const gen = await prisma.vehicleGen.findFirst({ where: { modelId: await tibaId() } });
+    const res = await fetch(`${baseUrl}/api/v1/vehicles/engines?genId=${gen!.id}`);
     expect(res.status).toBe(200);
     const body = (await res.json()) as Envelope<{ code: string }[]>;
     expect(body.data).toHaveLength(1);

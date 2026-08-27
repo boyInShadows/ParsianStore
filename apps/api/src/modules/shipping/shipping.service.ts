@@ -5,7 +5,7 @@ import { ShippingRateModel } from "../../models/ShippingRate.js";
 import { ApiError } from "../../utils/ApiError.js";
 import * as addressesService from "../addresses/addresses.service.js";
 import * as cartService from "../cart/cart.service.js";
-import type { AccountType } from "../../models/User.js";
+import type { AccountType } from "@prisma/client";
 
 export interface ShippingEstimate {
   totalWeightGram: number;

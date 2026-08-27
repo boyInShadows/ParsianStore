@@ -1,4 +1,4 @@
-import type { SupplyRoute } from "../models/Product.js";
+import type { SupplyRoute } from "@prisma/client";
 
 export interface BrandSeed {
   name: { fa: string; en: string };

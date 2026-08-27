@@ -1,5 +1,4 @@
-import type { BodyType } from "../models/VehicleModel.js";
-import type { FuelType } from "../models/VehicleEngine.js";
+import type { BodyType, FuelType } from "@prisma/client";
 
 export interface EngineSeed {
   code: string;

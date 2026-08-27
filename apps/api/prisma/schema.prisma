@@ -255,6 +255,11 @@ model VehicleGen {
   fitments Fitment[]
   garage   GarageEntry[]
 
+  // The seed's natural key. A model cannot have two generations beginning in
+  // the same year, and the seed already relied on that being true -- under
+  // Mongoose it was an assumption living only in an upsert filter, which is
+  // exactly the kind of invariant a database should be enforcing.
+  @@unique([modelId, yearFrom])
   @@index([modelId])
   @@index([deletedAt])
 }
@@ -274,6 +279,8 @@ model VehicleEngine {
   fitments   Fitment[]
   garage     GarageEntry[]
 
+  // The seed's natural key: an engine code is unique within a generation.
+  @@unique([genId, code])
   @@index([genId])
   @@index([deletedAt])
 }
@@ -768,7 +775,11 @@ model ShippingRate {
   updatedAt      DateTime     @updatedAt
   deletedAt      DateTime?
 
-  @@index([methodCode, zone, minWeightGram])
+  // One rate per method, zone and weight band. This was the seed's upsert key
+  // and a plain index; a second row for the same band is not a slow query, it
+  // is an ambiguous price, so the constraint belongs in the database. The
+  // unique brings its own index, replacing the one that was here.
+  @@unique([methodCode, zone, minWeightGram])
   @@index([deletedAt])
 }
 

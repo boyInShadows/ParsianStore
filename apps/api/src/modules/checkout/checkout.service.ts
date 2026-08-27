@@ -4,7 +4,7 @@ import { env } from "../../config/env.js";
 import { OrderModel, type OrderItem } from "../../models/Order.js";
 import { PaymentModel } from "../../models/Payment.js";
 import { ProductModel } from "../../models/Product.js";
-import type { AccountType } from "../../models/User.js";
+import type { AccountType } from "@prisma/client";
 import { UserModel } from "../../models/User.js";
 import { paymentProvider } from "../../providers/payment/index.js";
 import { ApiError } from "../../utils/ApiError.js";

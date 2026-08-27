@@ -1,5 +1,5 @@
 import type { RequestHandler } from "express";
-import type { UserRole } from "../models/User.js";
+import type { UserRole } from "@prisma/client";
 import { USER_ROLES } from "../models/User.js";
 import { ApiError } from "../utils/ApiError.js";
 
