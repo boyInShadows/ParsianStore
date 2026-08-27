@@ -946,77 +946,92 @@ P9 tail. Three decisions confirmed the same day:
 Measured surface: **289 API TypeScript files** (80 of them tests), **22 models**,
 **20 modules**, 30 files hard-coding the id format.
 
-### Phase 1 — infra and schema (in progress)
+### Phase 1 — infra and schema — DONE 2026-08-27
 
-- [x] **Prisma installed, CLI and client both pinned to 7.10.0.** `npx prisma`
-      resolves `8.0.0-rc.12` from the registry — a release candidate, and a
-      major ahead of the client. Always invoke it through the workspace
-      (`pnpm --filter api exec prisma`), never `npx`.
-- [x] **`apps/api/prisma/schema.prisma`** — all 22 models, validating. The
-      shape decisions, written up in the file header: embedded documents become
-      real tables (`Product.variants`, `User.addresses`, `Order.items`) because
-      that is what makes them queryable and constrainable; genuinely
-      unstructured payloads stay `Json` (`Payment.raw`, `AuditLog.before/after`,
-      `Coupon.scope`); `LocalizedName` becomes two columns rather than a blob;
-      enums become real Postgres enums, so the database refuses a bad value
-      instead of trusting a write-time validator.
-- [x] **`apps/api/prisma.config.ts`** — Prisma 7 removed `datasource.url` from
-      the schema. Migrate reads the URL from this file; the client takes a
-      driver adapter instead of a URL string.
-- [x] **`DATABASE_URL`** added to `apps/api/.env` (generated password, never
-      committed) and to the env schema as **optional** — both databases coexist
-      through phase 2, so a developer without the Postgres role yet must still
-      be able to boot the API on Mongo. It becomes required in phase 3.
-- [x] **`pnpm db:setup`** (`scripts/setup-postgres.mjs`) — creates the role and
-      database idempotently. It prompts for the *superuser* password in the
-      operator's own terminal and never reads or logs it; the application
-      role's password is read from `.env` and passed to `psql` as a bound
-      variable, so it cannot reach shell history or a query log.
-- [x] **`postgres:18` added to compose.yaml** for a fresh clone. On this
-      machine it is not what runs: **PostgreSQL 18.2 is already installed
-      natively** on port 5432 and `pnpm db:setup` targets that, because Docker
-      is not running here and the mongo image cannot start on this kernel.
-- [ ] **BLOCKED — the owner must run `pnpm db:setup` once.** `pg_hba.conf` is
-      `scram-sha-256` for every local connection, so creating the role needs the
-      PostgreSQL superuser password. That is the owner's to type, not mine to
-      guess, and editing `pg_hba.conf` to `trust` would be a security downgrade
-      of their machine made without asking.
-- [ ] **First migration** — `prisma migrate dev --name init`, after the above.
-- [ ] **Port the seeds** to Prisma: geo, vehicles, catalog systems, shipping
-      rates, staff. Cannot be written against a database that does not exist
-      yet, so it follows the migration.
+- [x] Prisma CLI and client both pinned to 7.10.0. `npx prisma` resolves an
+      8.0.0 release candidate; always `pnpm --filter api exec prisma`.
+- [x] `apps/api/prisma/schema.prisma` — all 22 models, validating.
+- [x] `apps/api/prisma.config.ts`.
+- [x] `DATABASE_URL` — now **required**, not optional. Mongo is going, and an
+      API that cannot reach its database should refuse to boot.
+- [x] **Unblocked without the superuser password.** The owner chose the compose
+      `postgres:18` service over the native install, published on host port
+      **5433** because a native PostgreSQL 18 already holds 5432. Docker
+      Desktop had to be started; `pnpm db:setup` was never needed.
+- [x] **Fixed a compose bug nobody had hit**: the phase-1 file mounted the
+      volume at `/var/lib/postgresql/data`, which makes a `postgres:18`
+      container refuse to boot — 18+ stores data under a major-version
+      subdirectory. It had never been started, so nobody knew.
+- [x] `prisma migrate dev --name init` applied. Four migrations exist now.
+- [x] Driver adapter added (`@prisma/adapter-pg`, `pg`, `@types/pg`) —
+      owner-confirmed. Prisma 7's client cannot connect without one.
 
-### Phase 2 — swap the data layer, one module at a time
+### Phase 2 — swap the data layer — IN PROGRESS (about 40% of the API)
 
-20 modules, suite green at every step. Suggested order, dependencies first:
-geo → vehicles → catalog → fitment → auth/users → cart → checkout/orders →
-payments → coupons → shipping → inventory → wishlist → feedback → audit →
-reports/dashboard.
+**Done and verified against the live database:**
 
-**The single biggest correctness risk, flagged now:** Mongoose's soft-delete
-plugin *silently* filtered `deletedAt: null` in a `pre(/^(find|countDocuments)/)`
-hook, so **every query in the app is written assuming that filter exists and
-none of them say so.** Prisma has no equivalent hook. Every read has to add
-`deletedAt: null` explicitly, and a missed one silently resurrects deleted rows
-rather than failing. Consider a Prisma client extension to re-impose it centrally
-rather than trusting 20 modules of hand-editing.
+- Soft-delete client extension (`config/prisma.ts`), deriving the
+  soft-deletable model list from Prisma's own DMMF so a new model carrying
+  `deletedAt` cannot be forgotten. `ANY_STATE` and `stateFilter()` live there
+  too. **Known gap, documented: extensions do not reach nested relation reads**,
+  so every `include`/`select` of a soft-deletable relation states
+  `deletedAt: null` itself.
+- One shared `idSchema` (uuid) replacing the 24-hex regex in **27** files, and
+  one shared `localizedNameSchema`.
+- `paginate()` and `cursorPaginate()` on Prisma. Two behaviour notes in the
+  code: unknown `?sort=` fields are dropped rather than thrown (Prisma throws
+  where Mongo ignored — otherwise `?sort=garbage` is a 500), and `id` is
+  appended as a tiebreaker so a page boundary inside equal sort values is
+  deterministic.
+- Test isolation rebuilt: one shared migrated database plus `resetDb()`, with
+  `fileParallelism: false`. Per-file throwaway databases do not port.
+- **Modules migrated:** geo, vehicles (public + admin + usage counters),
+  catalog taxonomy (categories, brands, attributes, catalogUsage), product read
+  path (pricing/DTO mappers, productFilter, products.service + controller),
+  search (provider, service, controller).
+- **Seeds migrated:** geo, vehicles, catalog. 320 products and 320 fitments
+  seed clean and idempotently.
+- **Search rewritten on Postgres**: `Product.searchVector`, a `GENERATED
+  ALWAYS ... STORED` tsvector with a GIN index, plus a substring branch and an
+  OEM-exact branch. `MongoSearchProvider` is deleted.
+- CI runs `postgres:18` and applies migrations; the mongo service is gone.
 
-Second risk: **two Mongo TTL indexes have no Postgres equivalent** —
-`OtpToken.expiresAt` and `StockReservation.expiresAt` both expired rows
-automatically. Postgres will not, so the existing cron jobs must take over the
-sweep or expired OTPs and stale reservations accumulate forever.
+**Three real bugs found and fixed, all of the same shape** — a Prisma enum
+member cannot contain a hyphen, so `CatalogSystemCode`, `SupplyRoute` and
+`InventoryMoveReason` would each have stored underscored values while the whole
+application spoke hyphenated ones, converted nowhere, with no type error
+anywhere. All three are `@map`ped; the PostgreSQL labels were read back to
+confirm. `utils/serialize.ts` holds the only bridge.
 
-Third: **search**. `Product.searchText` is derived on write and read by the
-Mongo-backed `SearchProvider`. Postgres wants `tsvector` + GIN, which changes
-both the derive hook and the read path. Decide the order against the separate
-open task to swap in Meilisearch behind the same interface — doing both at once
-is one rewrite instead of two.
+**Still on Mongoose — 34 source files, 57 test files:**
 
-### Phase 3 — remove Mongo
+fitment · cart · checkout · orders · payments · coupons · shipping · inventory ·
+wishlist · feedback · addresses · auth · users · audit · dashboard · reports ·
+products.admin · products.import · `utils/auditLog.ts` · `middleware/rbac.ts` ·
+`config/db.ts` · both `scripts/*` · seeds for shipping, staff and visualCatalog.
 
-Delete `src/models/`, drop `mongoose` and `express-mongo-sanitize`, remove the
-mongo service from compose, make `DATABASE_URL` required, retire
-`scripts/dev-db.mjs`'s Mongo branch, and update `docs/db-indexes.md`.
+**Next, in dependency order:** fitment (productFilter already calls it) → auth
+and users → cart → checkout and orders → payments → coupons → shipping →
+inventory → wishlist → feedback → addresses → audit → reports and dashboard →
+products.admin and products.import.
+
+**Watch for, in the modules not yet touched:**
+- The two Mongo TTL indexes (`OtpToken.expiresAt`, `StockReservation.expiresAt`)
+  have no Postgres equivalent. The cron jobs must take over the sweep or
+  expired rows accumulate forever. **Not yet done.**
+- `checkout`/`inventory` lean on Mongo semantics for stock reservation.
+  Postgres offers real transactions; taking them means rewriting, not porting.
+- `dashboard` and `reports` are aggregation pipelines, the least mechanical
+  translation left.
+
+### Phase 3 — remove Mongo — NOT STARTED
+
+Delete `src/models/` (22 models plus their 16 unit tests, which test Mongoose
+schema behaviour that no longer exists), drop `mongoose` and
+`express-mongo-sanitize`, delete `config/db.ts` and `config/testDbUri.ts`,
+retire the Mongo branch of `scripts/dev-db.mjs` (**already done**), update
+`docs/db-indexes.md`, and update masterPlan §4's manifest, which still lists
+mongoose and does not list Prisma.
 
 ## Superseded — the original deferred note
 
