@@ -1,9 +1,8 @@
-import type { FilterQuery, HydratedDocument } from "mongoose";
 import type { AdminBrandDto } from "schemas";
-import { BrandModel, type Brand } from "../../models/Brand.js";
+import { ANY_STATE, prisma, softDeleteData, stateFilter } from "../../config/prisma.js";
 import { ApiError } from "../../utils/ApiError.js";
-import { paginate, type PaginationQuery } from "../../utils/pagination.js";
-import { escapeRegExp } from "../../utils/regex.js";
+import { paginate, type PaginationQuery, type Where } from "../../utils/pagination.js";
+import { localized, optional, seo, seoColumns, toColumns } from "../../utils/serialize.js";
 import { assertBrandDeletable, countProductsByBrand } from "./catalogUsage.js";
 import type {
   AdminBrandListQuery,
@@ -13,49 +12,54 @@ import type {
 
 const NOT_FOUND = "برند یافت نشد";
 
-/** See categories.admin.service.ts for why this shape, not `$in: [null, ...]`. */
-const ANY_STATE = { deletedAt: { $exists: true } } as const;
-
 type ListFilters = Omit<AdminBrandListQuery, keyof PaginationQuery>;
 
-function buildListFilter(filters: ListFilters): FilterQuery<Brand> {
-  const filter: FilterQuery<Brand> =
-    filters.state === "deleted" ? { deletedAt: { $ne: null } } : { deletedAt: null };
-
-  if (filters.isOEM) filter.isOEM = filters.isOEM === "true";
-  if (filters.q) {
-    const escaped = escapeRegExp(filters.q);
-    filter.$or = [
-      { "name.fa": { $regex: escaped } },
-      { "name.en": { $regex: escaped, $options: "i" } },
-      { slug: { $regex: escaped, $options: "i" } },
-    ];
-  }
-  return filter;
+interface BrandRow {
+  id: string;
+  nameFa: string;
+  nameEn: string;
+  slug: string;
+  logo: string | null;
+  country: string;
+  isOEM: boolean;
+  description: string | null;
+  seoTitle: string | null;
+  seoDescription: string | null;
+  deletedAt: Date | null;
 }
 
-function toDto(doc: HydratedDocument<Brand>, productCount: number): AdminBrandDto {
+function buildListFilter(filters: ListFilters): Where {
+  const where: Where = stateFilter(filters.state);
+  if (filters.isOEM) where.isOEM = filters.isOEM === "true";
+  if (filters.q) {
+    const contains = { contains: filters.q, mode: "insensitive" as const };
+    where.OR = [{ nameFa: contains }, { nameEn: contains }, { slug: contains }];
+  }
+  return where;
+}
+
+function toDto(row: BrandRow, productCount: number): AdminBrandDto {
   return {
-    id: String(doc._id),
-    name: { fa: doc.name.fa, en: doc.name.en },
-    slug: doc.slug,
-    logo: doc.logo,
-    country: doc.country,
-    isOEM: doc.isOEM,
-    description: doc.description,
-    seo: doc.seo,
+    id: row.id,
+    name: localized(row),
+    slug: row.slug,
+    logo: optional(row.logo),
+    country: row.country,
+    isOEM: row.isOEM,
+    description: optional(row.description),
+    seo: seo(row),
     productCount,
-    deletedAt: doc.deletedAt ? doc.deletedAt.toISOString() : null,
+    deletedAt: row.deletedAt ? row.deletedAt.toISOString() : null,
   };
 }
 
-async function hydrate(docs: HydratedDocument<Brand>[]): Promise<AdminBrandDto[]> {
-  const counts = await countProductsByBrand(docs.map((doc) => String(doc._id)));
-  return docs.map((doc) => toDto(doc, counts.get(String(doc._id)) ?? 0));
+async function hydrate(rows: BrandRow[]): Promise<AdminBrandDto[]> {
+  const counts = await countProductsByBrand(rows.map((row) => row.id));
+  return rows.map((row) => toDto(row, counts.get(row.id) ?? 0));
 }
 
-async function hydrateOne(doc: HydratedDocument<Brand>): Promise<AdminBrandDto> {
-  const [dto] = await hydrate([doc]);
+async function hydrateOne(row: BrandRow): Promise<AdminBrandDto> {
+  const [dto] = await hydrate([row]);
   if (!dto) throw new ApiError(404, NOT_FOUND);
   return dto;
 }
@@ -64,7 +68,7 @@ export async function listAdminBrands(
   pagination: PaginationQuery,
   filters: ListFilters,
 ): Promise<{ data: AdminBrandDto[]; meta: { total: number; page: number; limit: number } }> {
-  const { data, meta } = await paginate(BrandModel, buildListFilter(filters), {
+  const { data, meta } = await paginate<BrandRow>(prisma.brand, "Brand", buildListFilter(filters), {
     ...pagination,
     sort: pagination.sort ?? "slug",
   });
@@ -72,8 +76,14 @@ export async function listAdminBrands(
 }
 
 /** Finds regardless of soft-delete state, so edit/restore can reach a deleted row. */
-async function findAnyById(id: string): Promise<HydratedDocument<Brand>> {
-  const brand = await BrandModel.findOne({ _id: id, ...ANY_STATE });
+async function findAnyById(id: string): Promise<BrandRow> {
+  const brand = await prisma.brand.findFirst({ where: { id, ...ANY_STATE } });
+  if (!brand) throw new ApiError(404, NOT_FOUND);
+  return brand;
+}
+
+async function findLiveById(id: string): Promise<BrandRow> {
+  const brand = await prisma.brand.findUnique({ where: { id } });
   if (!brand) throw new ApiError(404, NOT_FOUND);
   return brand;
 }
@@ -83,27 +93,37 @@ export async function getAdminBrandById(id: string): Promise<AdminBrandDto> {
 }
 
 export async function createBrand(input: CreateBrandInput): Promise<AdminBrandDto> {
-  return hydrateOne(await BrandModel.create(input));
+  const { name, seo: seoInput, ...rest } = input;
+  // Spelled out rather than spread through a Record<string, unknown> helper:
+  // `create` is the one call whose required columns the compiler can actually
+  // check, and widening the payload to unknown throws that away.
+  return hydrateOne(
+    await prisma.brand.create({
+      data: { ...rest, ...toColumns(name), ...seoColumns(seoInput) },
+    }),
+  );
 }
 
 export async function updateBrand(id: string, input: UpdateBrandInput): Promise<AdminBrandDto> {
-  const brand = await BrandModel.findById(id);
-  if (!brand) throw new ApiError(404, NOT_FOUND);
-  Object.assign(brand, input);
-  await brand.save();
-  return hydrateOne(brand);
+  await findLiveById(id);
+  const { name, seo: seoInput, ...rest } = input;
+  return hydrateOne(
+    await prisma.brand.update({
+      where: { id },
+      data: { ...rest, ...(name ? toColumns(name) : {}), ...seoColumns(seoInput) },
+    }),
+  );
 }
 
 export async function deleteBrand(id: string): Promise<void> {
-  const brand = await BrandModel.findById(id);
-  if (!brand) throw new ApiError(404, NOT_FOUND);
+  await findLiveById(id);
   await assertBrandDeletable(id);
-  await brand.softDelete();
+  await prisma.brand.update({ where: { id }, data: softDeleteData() });
 }
 
 export async function restoreBrand(id: string): Promise<AdminBrandDto> {
-  const brand = await findAnyById(id);
-  brand.deletedAt = null;
-  await brand.save();
-  return hydrateOne(brand);
+  await findAnyById(id);
+  return hydrateOne(
+    await prisma.brand.update({ where: { id, ...ANY_STATE }, data: { deletedAt: null } }),
+  );
 }

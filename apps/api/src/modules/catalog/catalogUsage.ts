@@ -1,7 +1,5 @@
-import { Types } from "mongoose";
 import { toPersianDigits } from "schemas";
-import { CategoryModel } from "../../models/Category.js";
-import { ProductModel } from "../../models/Product.js";
+import { prisma } from "../../config/prisma.js";
 import { ApiError } from "../../utils/ApiError.js";
 
 /**
@@ -12,16 +10,14 @@ import { ApiError } from "../../utils/ApiError.js";
  * P3.S1) soft-deleted unconditionally, even though products.service.ts's own
  * comment already claimed "admin CRUD guards deletion of a category/brand
  * still in use". It did not. That was invisible only because no UI had ever
- * exposed a delete button; this step ships three of them.
+ * exposed a delete button; P8.S4 shipped three of them.
  *
- * Two Mongoose behaviours this file exists to get right exactly once:
- *
- * 1. `aggregate` is never covered by query middleware, so the soft-delete
- *    plugin does NOT filter these pipelines — every `$match` states
- *    `deletedAt: null` for itself.
- * 2. `countDocuments` IS covered as of P8.S4 (see models/plugins.ts), but
- *    the filters below still say `deletedAt: null` explicitly: it is
- *    self-documenting next to the pipelines and behaves identically.
+ * The two Mongoose caveats this file used to carry are gone. `aggregate` was
+ * never covered by the soft-delete plugin so every `$match` restated
+ * `deletedAt: null`; Prisma's `groupBy` and `count` *are* covered by the client
+ * extension, so the filter is stated exactly once, centrally. The one place it
+ * still appears by hand is inside a relation filter -- extensions do not reach
+ * nested reads, which is the documented gap in config/prisma.ts.
  *
  * "In use" counts every live product regardless of `status` — an archived
  * product still stores the id, and archiving is reversible (P8.S2), so
@@ -29,63 +25,79 @@ import { ApiError } from "../../utils/ApiError.js";
  * reference the moment staff un-archived it.
  */
 
-async function countByField(
-  field: "brandId" | "categoryId",
-  ids: string[],
-): Promise<Map<string, number>> {
-  if (ids.length === 0) return new Map();
-  const rows = await ProductModel.aggregate<{ _id: Types.ObjectId; count: number }>([
-    {
-      $match: {
-        [field]: { $in: ids.map((id) => new Types.ObjectId(id)) },
-        deletedAt: null,
-      },
-    },
-    { $group: { _id: `$${field}`, count: { $sum: 1 } } },
-  ]);
-  return new Map(rows.map((row) => [String(row._id), row.count]));
+function tally(rows: { key: string; _count: number }[]): Map<string, number> {
+  return new Map(rows.map((row) => [row.key, row._count]));
 }
 
 /** productCount per brand id, for the current page of the admin brands list. */
-export function countProductsByBrand(brandIds: string[]): Promise<Map<string, number>> {
-  return countByField("brandId", brandIds);
+export async function countProductsByBrand(brandIds: string[]): Promise<Map<string, number>> {
+  if (brandIds.length === 0) return new Map();
+  const rows = await prisma.product.groupBy({
+    by: ["brandId"],
+    where: { brandId: { in: brandIds } },
+    _count: true,
+  });
+  return tally(rows.map((row) => ({ key: row.brandId, _count: row._count })));
 }
 
 /** productCount per category id, for the current page of the admin list. */
-export function countProductsByCategory(categoryIds: string[]): Promise<Map<string, number>> {
-  return countByField("categoryId", categoryIds);
+export async function countProductsByCategory(categoryIds: string[]): Promise<Map<string, number>> {
+  if (categoryIds.length === 0) return new Map();
+  const rows = await prisma.product.groupBy({
+    by: ["categoryId"],
+    where: { categoryId: { in: categoryIds } },
+    _count: true,
+  });
+  return tally(rows.map((row) => ({ key: row.categoryId, _count: row._count })));
 }
 
 /** Direct-children count per category id — a category with children cannot be deleted. */
 export async function countChildCategories(parentIds: string[]): Promise<Map<string, number>> {
   if (parentIds.length === 0) return new Map();
-  const rows = await CategoryModel.aggregate<{ _id: Types.ObjectId; count: number }>([
-    {
-      $match: {
-        parentId: { $in: parentIds.map((id) => new Types.ObjectId(id)) },
-        deletedAt: null,
-      },
-    },
-    { $group: { _id: "$parentId", count: { $sum: 1 } } },
-  ]);
-  return new Map(rows.map((row) => [String(row._id), row.count]));
+  const rows = await prisma.category.groupBy({
+    by: ["parentId"],
+    where: { parentId: { in: parentIds } },
+    _count: true,
+  });
+  return tally(
+    rows
+      .filter((row): row is typeof row & { parentId: string } => row.parentId !== null)
+      .map((row) => ({ key: row.parentId, _count: row._count })),
+  );
 }
 
 /**
- * usageCount per attribute key. `Product.attributes[].key` is a plain string,
- * not a ref (P3.S2) — deleting or renaming a key silently degrades the PDP
- * specs table and PLP facets to the raw machine key ("color" instead of
- * "رنگ"), which is exactly the failure this counting prevents.
+ * usageCount per attribute key.
+ *
+ * This is the one counter the migration genuinely changed. Under Mongo,
+ * `Product.attributes[]` was an inline sub-document array holding the
+ * attribute *key* as a plain string, so the count meant unwinding that array
+ * and matching strings. `ProductAttributeValue` is now a real table with a
+ * foreign key to `Attribute`, so the same question is a join.
+ *
+ * `product: { deletedAt: null }` is written out because it is a relation
+ * filter, and the soft-delete extension does not reach nested reads. Without
+ * it a soft-deleted product would still count as "using" the attribute and
+ * would block a legitimate delete.
  */
 export async function countProductsByAttributeKey(keys: string[]): Promise<Map<string, number>> {
   if (keys.length === 0) return new Map();
-  const rows = await ProductModel.aggregate<{ _id: string; count: number }>([
-    { $match: { "attributes.key": { $in: keys }, deletedAt: null } },
-    { $unwind: "$attributes" },
-    { $match: { "attributes.key": { $in: keys } } },
-    { $group: { _id: "$attributes.key", count: { $sum: 1 } } },
-  ]);
-  return new Map(rows.map((row) => [row._id, row.count]));
+  const rows = await prisma.productAttributeValue.groupBy({
+    by: ["attributeId"],
+    where: { attribute: { key: { in: keys } }, product: { deletedAt: null } },
+    _count: true,
+  });
+  if (rows.length === 0) return new Map();
+  const attributes = await prisma.attribute.findMany({
+    where: { id: { in: rows.map((row) => row.attributeId) } },
+    select: { id: true, key: true },
+  });
+  const keyById = new Map(attributes.map((a) => [a.id, a.key]));
+  return tally(
+    rows
+      .filter((row) => keyById.has(row.attributeId))
+      .map((row) => ({ key: keyById.get(row.attributeId)!, _count: row._count })),
+  );
 }
 
 // 409, not 400: this is a genuine state conflict (the resource exists and the
@@ -120,6 +132,17 @@ export async function assertCategoryDeletable(categoryId: string): Promise<void>
   }
 }
 
+/**
+ * Both branches are kept, but only one is still load-bearing.
+ *
+ * The `rename` guard existed because a product stored the attribute *key* as a
+ * plain string: renaming the key silently degraded the PDP specs table and PLP
+ * facets to the raw machine key. With `ProductAttributeValue.attributeId` as a
+ * foreign key, a rename no longer breaks anything and this guard now blocks a
+ * safe operation. Left in place because relaxing it is a product decision about
+ * what staff are allowed to do, not a consequence of changing databases -- but
+ * it is the first thing to drop if the admin panel ever needs renames.
+ */
 export async function assertAttributeKeyUnused(
   key: string,
   action: "delete" | "rename",

@@ -77,17 +77,27 @@ enum FuelType {
   cng
 }
 
+/// The ten catalog systems (packages/schemas/src/catalogSystems.ts).
+///
+/// Every member is `@map`ped because the wire values are hyphenated -- "SYS-01"
+/// -- and a Prisma enum member cannot contain a hyphen. Without the map the
+/// database would store "SYS_01" while every schema, route and admin screen in
+/// the project uses "SYS-01": the same value in two spellings, converted
+/// nowhere, and wrong in a way no type error would catch. The map keeps the
+/// PostgreSQL enum labels identical to the wire values; only the TypeScript
+/// identifier differs, and `systemCodeToWire`/`systemCodeFromWire` in
+/// utils/serialize.ts are the single place that bridges the two.
 enum CatalogSystemCode {
-  SYS_01
-  SYS_02
-  SYS_03
-  SYS_04
-  SYS_05
-  SYS_06
-  SYS_07
-  SYS_08
-  SYS_09
-  SYS_10
+  SYS_01 @map("SYS-01")
+  SYS_02 @map("SYS-02")
+  SYS_03 @map("SYS-03")
+  SYS_04 @map("SYS-04")
+  SYS_05 @map("SYS-05")
+  SYS_06 @map("SYS-06")
+  SYS_07 @map("SYS-07")
+  SYS_08 @map("SYS-08")
+  SYS_09 @map("SYS-09")
+  SYS_10 @map("SYS-10")
 }
 
 enum AttributeType {

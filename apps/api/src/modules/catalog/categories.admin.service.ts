@@ -1,9 +1,16 @@
-import type { FilterQuery, HydratedDocument } from "mongoose";
 import type { AdminCategoryDto } from "schemas";
-import { CategoryModel, type Category } from "../../models/Category.js";
+import { ANY_STATE, prisma, softDeleteData, stateFilter } from "../../config/prisma.js";
 import { ApiError } from "../../utils/ApiError.js";
-import { paginate, type PaginationQuery } from "../../utils/pagination.js";
-import { escapeRegExp } from "../../utils/regex.js";
+import { paginate, type PaginationQuery, type Where } from "../../utils/pagination.js";
+import {
+  localized,
+  optional,
+  seo,
+  seoColumns,
+  systemCodeFromWire,
+  systemCodeToWire,
+  toColumns,
+} from "../../utils/serialize.js";
 import {
   assertCategoryDeletable,
   countChildCategories,
@@ -17,101 +24,91 @@ import type {
 
 const NOT_FOUND = "دسته‌بندی یافت نشد";
 
-/**
- * Reaches soft-deleted rows as well as live ones. The soft-delete plugin
- * steps aside for any query that mentions `deletedAt` at all, and
- * `$exists: true` is true for both `null` and a real date since the field
- * carries `default: null`. (`$in: [null, {$ne: null}]` looks equivalent but
- * is not valid Mongo — `$in` takes literal values, not operators.)
- */
-const ANY_STATE = { deletedAt: { $exists: true } } as const;
-
 type ListFilters = Omit<AdminCategoryListQuery, keyof PaginationQuery>;
 
-function buildListFilter(filters: ListFilters): FilterQuery<Category> {
-  // Stated explicitly rather than left to the soft-delete plugin: the
-  // plugin steps aside entirely once a query mentions `deletedAt`, which is
-  // exactly how the "deleted" view reaches its rows.
-  const filter: FilterQuery<Category> =
-    filters.state === "deleted" ? { deletedAt: { $ne: null } } : { deletedAt: null };
+interface CategoryRow {
+  id: string;
+  nameFa: string;
+  nameEn: string;
+  slug: string;
+  parentId: string | null;
+  systemCode: string;
+  icon: string | null;
+  path: string[];
+  order: number;
+  seoTitle: string | null;
+  seoDescription: string | null;
+  deletedAt: Date | null;
+}
 
-  if (filters.parentId) filter.parentId = filters.parentId;
-  if (filters.systemCode) filter.systemCode = filters.systemCode;
+function buildListFilter(filters: ListFilters): Where {
+  const where: Where = stateFilter(filters.state);
+  if (filters.parentId) where.parentId = filters.parentId;
+  if (filters.systemCode) where.systemCode = systemCodeFromWire(filters.systemCode);
   if (filters.q) {
-    const escaped = escapeRegExp(filters.q);
-    filter.$or = [
-      { "name.fa": { $regex: escaped } },
-      { "name.en": { $regex: escaped, $options: "i" } },
-      { slug: { $regex: escaped, $options: "i" } },
-    ];
+    const contains = { contains: filters.q, mode: "insensitive" as const };
+    where.OR = [{ nameFa: contains }, { nameEn: contains }, { slug: contains }];
   }
-  return filter;
+  return where;
 }
 
 /**
  * `Category.path` stores ancestor *slugs*, which are useless as a breadcrumb
  * label in an all-Persian admin table. Resolve them to names in ONE batched
- * query for the whole page — a separate query, never `.populate()`, matching
+ * query for the whole page — a separate query, never a join, matching
  * getProductDetailBySlug's own precedent.
  */
-async function resolveAncestorNames(
-  docs: HydratedDocument<Category>[],
-): Promise<Map<string, string>> {
-  const slugs = [...new Set(docs.flatMap((doc) => doc.path))];
+async function resolveAncestorNames(rows: CategoryRow[]): Promise<Map<string, string>> {
+  const slugs = [...new Set(rows.flatMap((row) => row.path))];
   if (slugs.length === 0) return new Map();
-  // ANY_STATE rather than the plugin's implicit `deletedAt: null`: an
+  // ANY_STATE rather than the extension's implicit `deletedAt: null`: an
   // ancestor may itself have been soft-deleted, and showing its real Persian
   // name still beats falling back to a raw slug.
-  const ancestors = await CategoryModel.find({
-    slug: { $in: slugs },
-    ...ANY_STATE,
-  }).select("slug name");
-  return new Map(ancestors.map((doc) => [doc.slug, doc.name.fa]));
+  const ancestors = await prisma.category.findMany({
+    where: { slug: { in: slugs }, ...ANY_STATE },
+    select: { slug: true, nameFa: true },
+  });
+  return new Map(ancestors.map((row) => [row.slug, row.nameFa]));
 }
 
 function toDto(
-  doc: HydratedDocument<Category>,
+  row: CategoryRow,
   ancestorNames: Map<string, string>,
   productCount: number,
   childCount: number,
 ): AdminCategoryDto {
   return {
-    id: String(doc._id),
-    name: { fa: doc.name.fa, en: doc.name.en },
-    slug: doc.slug,
-    parentId: doc.parentId ? String(doc.parentId) : null,
-    systemCode: doc.systemCode,
-    icon: doc.icon,
-    order: doc.order,
-    path: doc.path,
-    seo: doc.seo,
-    depth: doc.path.length,
-    ancestorNames: doc.path.map((slug) => ancestorNames.get(slug) ?? slug),
+    id: row.id,
+    name: localized(row),
+    slug: row.slug,
+    parentId: row.parentId,
+    systemCode: systemCodeToWire(row.systemCode),
+    icon: optional(row.icon),
+    order: row.order,
+    path: row.path,
+    seo: seo(row),
+    depth: row.path.length,
+    ancestorNames: row.path.map((slug) => ancestorNames.get(slug) ?? slug),
     productCount,
     childCount,
-    deletedAt: doc.deletedAt ? doc.deletedAt.toISOString() : null,
+    deletedAt: row.deletedAt ? row.deletedAt.toISOString() : null,
   };
 }
 
-async function hydrate(docs: HydratedDocument<Category>[]): Promise<AdminCategoryDto[]> {
-  const ids = docs.map((doc) => String(doc._id));
+async function hydrate(rows: CategoryRow[]): Promise<AdminCategoryDto[]> {
+  const ids = rows.map((row) => row.id);
   const [ancestorNames, productCounts, childCounts] = await Promise.all([
-    resolveAncestorNames(docs),
+    resolveAncestorNames(rows),
     countProductsByCategory(ids),
     countChildCategories(ids),
   ]);
-  return docs.map((doc) =>
-    toDto(
-      doc,
-      ancestorNames,
-      productCounts.get(String(doc._id)) ?? 0,
-      childCounts.get(String(doc._id)) ?? 0,
-    ),
+  return rows.map((row) =>
+    toDto(row, ancestorNames, productCounts.get(row.id) ?? 0, childCounts.get(row.id) ?? 0),
   );
 }
 
-async function hydrateOne(doc: HydratedDocument<Category>): Promise<AdminCategoryDto> {
-  const [dto] = await hydrate([doc]);
+async function hydrateOne(row: CategoryRow): Promise<AdminCategoryDto> {
+  const [dto] = await hydrate([row]);
   if (!dto) throw new ApiError(404, NOT_FOUND);
   return dto;
 }
@@ -120,32 +117,42 @@ export async function listAdminCategories(
   pagination: PaginationQuery,
   filters: ListFilters,
 ): Promise<{ data: AdminCategoryDto[]; meta: { total: number; page: number; limit: number } }> {
-  const { data, meta } = await paginate(CategoryModel, buildListFilter(filters), {
-    ...pagination,
-    // Groups a system's categories together and keeps paging deterministic;
-    // NOT a true tree ordering — that would need a materialized scalar path,
-    // deliberately not added while the real taxonomy is 10 flat roots.
-    sort: pagination.sort ?? "systemCode order slug",
-  });
+  const { data, meta } = await paginate<CategoryRow>(
+    prisma.category,
+    "Category",
+    buildListFilter(filters),
+    {
+      ...pagination,
+      // Groups a system's categories together and keeps paging deterministic;
+      // NOT a true tree ordering — that would need a materialized scalar path,
+      // deliberately not added while the real taxonomy is 10 flat roots.
+      sort: pagination.sort ?? "systemCode order slug",
+    },
+  );
   return { data: await hydrate(data), meta };
 }
 
 /** Finds regardless of soft-delete state, so the edit/restore paths can reach a deleted row. */
-async function findAnyById(id: string): Promise<HydratedDocument<Category>> {
-  const category = await CategoryModel.findOne({ _id: id, ...ANY_STATE });
+async function findAnyById(id: string): Promise<CategoryRow> {
+  const category = await prisma.category.findFirst({ where: { id, ...ANY_STATE } });
+  if (!category) throw new ApiError(404, NOT_FOUND);
+  return category;
+}
+
+async function findLiveById(id: string): Promise<CategoryRow> {
+  const category = await prisma.category.findUnique({ where: { id } });
   if (!category) throw new ApiError(404, NOT_FOUND);
   return category;
 }
 
 export async function getAdminCategoryById(id: string): Promise<AdminCategoryDto> {
-  const category = await findAnyById(id);
-  return hydrateOne(category);
+  return hydrateOne(await findAnyById(id));
 }
 
 /** Root-first ancestor slugs, self excluded — see Category.path's doc comment. */
 async function resolvePath(parentId: string | undefined): Promise<string[]> {
   if (!parentId) return [];
-  const parent = await CategoryModel.findById(parentId);
+  const parent = await prisma.category.findUnique({ where: { id: parentId } });
   if (!parent) {
     throw new ApiError(400, "دسته‌بندی والد یافت نشد");
   }
@@ -154,16 +161,32 @@ async function resolvePath(parentId: string | undefined): Promise<string[]> {
 
 export async function createCategory(input: CreateCategoryInput): Promise<AdminCategoryDto> {
   const path = await resolvePath(input.parentId);
-  const created = await CategoryModel.create({ ...input, path });
-  return hydrateOne(created);
+  const { name, seo: seoInput, parentId, ...rest } = input;
+  return hydrateOne(
+    await prisma.category.create({
+      // `parentId` is spelled out as `string | null` rather than left optional
+      // on purpose. Prisma generates two create-input shapes -- one taking the
+      // `parent` relation, one taking the raw foreign key -- and an optional
+      // `parentId?: string | undefined` matches neither well enough for TS to
+      // choose, so it picks the relation branch, where parentId must be
+      // undefined, and the whole payload fails to typecheck.
+      data: {
+        ...rest,
+        ...toColumns(name),
+        ...seoColumns(seoInput),
+        systemCode: systemCodeFromWire(rest.systemCode),
+        parentId: parentId ?? null,
+        path,
+      },
+    }),
+  );
 }
 
 export async function updateCategory(
   id: string,
   input: UpdateCategoryInput,
 ): Promise<AdminCategoryDto> {
-  const category = await CategoryModel.findById(id);
-  if (!category) throw new ApiError(404, NOT_FOUND);
+  const category = await findLiveById(id);
 
   const childCount = (await countChildCategories([id])).get(id) ?? 0;
 
@@ -175,7 +198,7 @@ export async function updateCategory(
       throw new ApiError(400, "دسته‌بندی نمی‌تواند والد خودش باشد");
     }
     if (input.parentId) {
-      const parent = await CategoryModel.findById(input.parentId);
+      const parent = await prisma.category.findUnique({ where: { id: input.parentId } });
       if (!parent) throw new ApiError(400, "دسته‌بندی والد یافت نشد");
       if (parent.path.includes(category.slug)) {
         throw new ApiError(400, "دسته‌بندی را نمی‌توان زیرمجموعه یکی از فرزندان خودش کرد");
@@ -192,29 +215,62 @@ export async function updateCategory(
 
   const previousSlug = category.slug;
   const path = "parentId" in input ? await resolvePath(input.parentId) : category.path;
-  Object.assign(category, input, { path });
-  await category.save();
+  const { name, seo: seoInput, parentId, systemCode, ...rest } = input;
 
-  // Descendants store the ancestor's slug, not its id, so a rename would
-  // otherwise break every descendant breadcrumb. Slugs are unique, so at most
-  // one array element can match the positional operator.
+  const updated = await prisma.category.update({
+    where: { id },
+    data: {
+      ...rest,
+      ...(name ? toColumns(name) : {}),
+      ...seoColumns(seoInput),
+      ...(systemCode ? { systemCode: systemCodeFromWire(systemCode) } : {}),
+      // Same create-input branch problem as createCategory, and the same fix.
+      // Only written when the caller actually asked to re-parent, so an update
+      // that does not mention parentId leaves it alone rather than nulling it.
+      ...("parentId" in input ? { parentId: parentId ?? null } : {}),
+      path,
+    },
+  });
+
   if (input.slug && input.slug !== previousSlug) {
-    await CategoryModel.updateMany({ path: previousSlug }, { $set: { "path.$": input.slug } });
+    await renameSlugInDescendantPaths(previousSlug, input.slug);
   }
 
-  return hydrateOne(category);
+  return hydrateOne(updated);
+}
+
+/**
+ * Descendants store the ancestor's slug, not its id, so a rename would
+ * otherwise break every descendant breadcrumb.
+ *
+ * Raw SQL, and this is the honest place for it: Mongo did this with the
+ * positional operator (`$set: { "path.$": newSlug }`), and Prisma has no
+ * equivalent for replacing one element of a scalar list in place -- its list
+ * operations are `set`, `push` and nothing else, so the alternative is reading
+ * every matching row into Node, rewriting the array and writing it back. That
+ * is a read-modify-write race for something Postgres does atomically in one
+ * statement. `array_replace` is exactly the positional operator's counterpart.
+ *
+ * Both values are bound parameters, not interpolated, so a slug cannot carry
+ * SQL with it -- and slugs are already constrained to [a-z0-9-] by the schema.
+ */
+async function renameSlugInDescendantPaths(previous: string, next: string): Promise<void> {
+  await prisma.$executeRaw`
+    UPDATE "Category"
+    SET path = array_replace(path, ${previous}, ${next})
+    WHERE ${previous} = ANY(path)
+  `;
 }
 
 export async function deleteCategory(id: string): Promise<void> {
-  const category = await CategoryModel.findById(id);
-  if (!category) throw new ApiError(404, NOT_FOUND);
+  await findLiveById(id);
   await assertCategoryDeletable(id);
-  await category.softDelete();
+  await prisma.category.update({ where: { id }, data: softDeleteData() });
 }
 
 export async function restoreCategory(id: string): Promise<AdminCategoryDto> {
-  const category = await findAnyById(id);
-  category.deletedAt = null;
-  await category.save();
-  return hydrateOne(category);
+  await findAnyById(id);
+  return hydrateOne(
+    await prisma.category.update({ where: { id, ...ANY_STATE }, data: { deletedAt: null } }),
+  );
 }

@@ -1,13 +1,12 @@
-import type { FilterQuery, HydratedDocument } from "mongoose";
 import {
   SELECT_NEEDS_OPTIONS_MESSAGE,
   isValidAttributeShape,
   type AdminAttributeDto,
 } from "schemas";
-import { AttributeModel, type Attribute } from "../../models/Attribute.js";
+import { ANY_STATE, prisma, softDeleteData, stateFilter } from "../../config/prisma.js";
 import { ApiError } from "../../utils/ApiError.js";
-import { paginate, type PaginationQuery } from "../../utils/pagination.js";
-import { escapeRegExp } from "../../utils/regex.js";
+import { paginate, type PaginationQuery, type Where } from "../../utils/pagination.js";
+import { optional } from "../../utils/serialize.js";
 import { assertAttributeKeyUnused, countProductsByAttributeKey } from "./catalogUsage.js";
 import type {
   CreateAttributeInput,
@@ -17,43 +16,48 @@ import type {
 
 const NOT_FOUND = "ویژگی یافت نشد";
 
-/** See categories.admin.service.ts for why this shape, not `$in: [null, ...]`. */
-const ANY_STATE = { deletedAt: { $exists: true } } as const;
-
 type ListFilters = Omit<ListAttributesQuery, keyof PaginationQuery>;
 
-function buildListFilter(filters: ListFilters): FilterQuery<Attribute> {
-  const filter: FilterQuery<Attribute> =
-    filters.state === "deleted" ? { deletedAt: { $ne: null } } : { deletedAt: null };
-
-  if (filters.type) filter.type = filters.type;
-  if (filters.q) {
-    const escaped = escapeRegExp(filters.q);
-    filter.$or = [{ name: { $regex: escaped } }, { key: { $regex: escaped, $options: "i" } }];
-  }
-  return filter;
+interface AttributeRow {
+  id: string;
+  name: string;
+  key: string;
+  type: string;
+  unit: string | null;
+  options: string[];
+  deletedAt: Date | null;
 }
 
-function toDto(doc: HydratedDocument<Attribute>, usageCount: number): AdminAttributeDto {
+function buildListFilter(filters: ListFilters): Where {
+  const where: Where = stateFilter(filters.state);
+  if (filters.type) where.type = filters.type;
+  if (filters.q) {
+    const contains = { contains: filters.q, mode: "insensitive" as const };
+    where.OR = [{ name: contains }, { key: contains }];
+  }
+  return where;
+}
+
+function toDto(row: AttributeRow, usageCount: number): AdminAttributeDto {
   return {
-    id: String(doc._id),
-    name: doc.name,
-    key: doc.key,
-    type: doc.type,
-    unit: doc.unit,
-    options: doc.options,
+    id: row.id,
+    name: row.name,
+    key: row.key,
+    type: row.type as AdminAttributeDto["type"],
+    unit: optional(row.unit),
+    options: row.options,
     usageCount,
-    deletedAt: doc.deletedAt ? doc.deletedAt.toISOString() : null,
+    deletedAt: row.deletedAt ? row.deletedAt.toISOString() : null,
   };
 }
 
-async function hydrate(docs: HydratedDocument<Attribute>[]): Promise<AdminAttributeDto[]> {
-  const counts = await countProductsByAttributeKey(docs.map((doc) => doc.key));
-  return docs.map((doc) => toDto(doc, counts.get(doc.key) ?? 0));
+async function hydrate(rows: AttributeRow[]): Promise<AdminAttributeDto[]> {
+  const counts = await countProductsByAttributeKey(rows.map((row) => row.key));
+  return rows.map((row) => toDto(row, counts.get(row.key) ?? 0));
 }
 
-async function hydrateOne(doc: HydratedDocument<Attribute>): Promise<AdminAttributeDto> {
-  const [dto] = await hydrate([doc]);
+async function hydrateOne(row: AttributeRow): Promise<AdminAttributeDto> {
+  const [dto] = await hydrate([row]);
   if (!dto) throw new ApiError(404, NOT_FOUND);
   return dto;
 }
@@ -62,16 +66,24 @@ export async function listAttributes(
   pagination: PaginationQuery,
   filters: ListFilters,
 ): Promise<{ data: AdminAttributeDto[]; meta: { total: number; page: number; limit: number } }> {
-  const { data, meta } = await paginate(AttributeModel, buildListFilter(filters), {
-    ...pagination,
-    sort: pagination.sort ?? "key",
-  });
+  const { data, meta } = await paginate<AttributeRow>(
+    prisma.attribute,
+    "Attribute",
+    buildListFilter(filters),
+    { ...pagination, sort: pagination.sort ?? "key" },
+  );
   return { data: await hydrate(data), meta };
 }
 
 /** Finds regardless of soft-delete state, so edit/restore can reach a deleted row. */
-async function findAnyById(id: string): Promise<HydratedDocument<Attribute>> {
-  const attribute = await AttributeModel.findOne({ _id: id, ...ANY_STATE });
+async function findAnyById(id: string): Promise<AttributeRow> {
+  const attribute = await prisma.attribute.findFirst({ where: { id, ...ANY_STATE } });
+  if (!attribute) throw new ApiError(404, NOT_FOUND);
+  return attribute;
+}
+
+async function findLiveById(id: string): Promise<AttributeRow> {
+  const attribute = await prisma.attribute.findUnique({ where: { id } });
   if (!attribute) throw new ApiError(404, NOT_FOUND);
   return attribute;
 }
@@ -81,63 +93,72 @@ export async function getAttributeById(id: string): Promise<AdminAttributeDto> {
 }
 
 export async function createAttribute(input: CreateAttributeInput): Promise<AdminAttributeDto> {
-  return hydrateOne(await AttributeModel.create(input));
+  return hydrateOne(await prisma.attribute.create({ data: input }));
 }
 
 export async function updateAttribute(
   id: string,
   input: UpdateAttributeInput,
 ): Promise<AdminAttributeDto> {
-  const attribute = await AttributeModel.findById(id);
-  if (!attribute) throw new ApiError(404, NOT_FOUND);
+  const attribute = await findLiveById(id);
 
-  // Product.attributes[].key is a plain string, not a ref (P3.S2), so a
-  // rename silently orphans every product carrying the old key — the PDP
-  // specs table and PLP facets would fall back to the raw machine key.
+  // See assertAttributeKeyUnused's own comment: with ProductAttributeValue
+  // holding a foreign key rather than a copied string, a rename no longer
+  // orphans anything. The guard is kept because relaxing it is a product
+  // decision, not a consequence of changing databases.
   if (input.key && input.key !== attribute.key) {
     await assertAttributeKeyUnused(attribute.key, "rename");
   }
 
-  // Re-checked against the MERGED document, not the patch body: `{options: []}`
+  // Re-checked against the MERGED row, not the patch body: `{options: []}`
   // is invalid only if the stored attribute is (or is becoming) a select.
   // Same two-place cross-field pattern P8.S3's coupon rules established, and
   // both sites call the one exported predicate so they cannot drift.
   const merged = {
-    type: input.type ?? attribute.type,
+    type: input.type ?? (attribute.type as CreateAttributeInput["type"]),
     options: input.options ?? attribute.options,
   };
   if (!isValidAttributeShape(merged)) {
     throw new ApiError(400, SELECT_NEEDS_OPTIONS_MESSAGE);
   }
 
-  Object.assign(attribute, input);
-  await attribute.save();
-  return hydrateOne(attribute);
+  return hydrateOne(await prisma.attribute.update({ where: { id }, data: input }));
 }
 
 export async function deleteAttribute(id: string): Promise<void> {
-  const attribute = await AttributeModel.findById(id);
-  if (!attribute) throw new ApiError(404, NOT_FOUND);
+  const attribute = await findLiveById(id);
   await assertAttributeKeyUnused(attribute.key, "delete");
-  await attribute.softDelete();
+  await prisma.attribute.update({ where: { id }, data: softDeleteData() });
 }
 
 export async function restoreAttribute(id: string): Promise<AdminAttributeDto> {
-  const attribute = await findAnyById(id);
-  attribute.deletedAt = null;
-  await attribute.save();
-  return hydrateOne(attribute);
+  await findAnyById(id);
+  return hydrateOne(
+    await prisma.attribute.update({ where: { id, ...ANY_STATE }, data: { deletedAt: null } }),
+  );
+}
+
+/** A validated attribute pair, resolved to the row it points at. */
+export interface ResolvedAttributePair {
+  attributeId: string;
+  key: string;
+  value: string;
 }
 
 /**
  * Validates a product's `attributes[{key,value}]` against this dictionary.
- * Used by the product admin form (P8.S4) — before this step nothing ever
- * wrote Product.attributes at all, so a key could not be checked against
- * anything. Returns the normalized pairs; throws on the first problem.
+ * Used by the product admin form (P8.S4) — before that step nothing ever
+ * wrote a product's attributes at all, so a key could not be checked against
+ * anything. Throws on the first problem.
+ *
+ * It now returns the resolved `attributeId` alongside each pair rather than
+ * echoing the input back. That is what the migration actually changed here: a
+ * product used to store the key as a copied string, and now stores a foreign
+ * key, so the caller needs the id and this function is already holding it.
  */
 export async function validateProductAttributes(
   pairs: { key: string; value: string }[],
-): Promise<{ key: string; value: string }[]> {
+): Promise<ResolvedAttributePair[]> {
   if (pairs.length === 0) return [];
 
   const keys = pairs.map((pair) => pair.key);
@@ -146,10 +167,10 @@ export async function validateProductAttributes(
     throw new ApiError(400, `ویژگی «${duplicate}» تکراری است`);
   }
 
-  const defined = await AttributeModel.find({ key: { $in: keys } });
-  const byKey = new Map(defined.map((doc) => [doc.key, doc]));
+  const defined = await prisma.attribute.findMany({ where: { key: { in: keys } } });
+  const byKey = new Map(defined.map((row) => [row.key, row]));
 
-  for (const pair of pairs) {
+  return pairs.map((pair) => {
     const attribute = byKey.get(pair.key);
     if (!attribute) {
       throw new ApiError(400, `ویژگی «${pair.key}» تعریف نشده است`);
@@ -165,7 +186,6 @@ export async function validateProductAttributes(
     if (attribute.type === "bool" && !["true", "false"].includes(pair.value)) {
       throw new ApiError(400, `مقدار ویژگی «${attribute.name}» باید بله یا خیر باشد`);
     }
-  }
-
-  return pairs;
+    return { attributeId: attribute.id, key: pair.key, value: pair.value };
+  });
 }
