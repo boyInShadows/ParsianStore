@@ -113,11 +113,13 @@ enum ProductStatus {
   archived
 }
 
+/// Wire values are hyphenated; see CatalogSystemCode above for why every
+/// hyphen-bearing enum has to be `@map`ped and what goes wrong without it.
 enum SupplyRoute {
   oem
-  genuine_imported
+  genuine_imported   @map("genuine-imported")
   domestic
-  grade1_aftermarket
+  grade1_aftermarket @map("grade1-aftermarket")
 }
 
 enum FitmentConfidence {
@@ -154,12 +156,13 @@ enum ModerationStatus {
   rejected
 }
 
+/// Wire values are hyphenated; see CatalogSystemCode above.
 enum InventoryMoveReason {
-  manual_adjustment
+  manual_adjustment     @map("manual-adjustment")
   restock
   reservation
-  reservation_released
-  reservation_confirmed
+  reservation_released  @map("reservation-released")
+  reservation_confirmed @map("reservation-confirmed")
 }
 
 enum ShippingZone {

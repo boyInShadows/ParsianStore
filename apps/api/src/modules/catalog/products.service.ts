@@ -1,11 +1,17 @@
-import type { HydratedDocument } from "mongoose";
-import { AttributeModel } from "../../models/Attribute.js";
-import { BrandModel, type Brand } from "../../models/Brand.js";
-import { CategoryModel, type Category } from "../../models/Category.js";
-import { ProductModel, type Product } from "../../models/Product.js";
+import type { AccountType } from "@prisma/client";
+import type { ProductDetailDto, ProductListItemDto } from "schemas";
+import { prisma } from "../../config/prisma.js";
 import { ApiError } from "../../utils/ApiError.js";
 import { cursorPaginate, type CursorPageResult } from "../../utils/cursorPaginate.js";
 import { paginate, type PaginatedResult } from "../../utils/pagination.js";
+import { localized } from "../../utils/serialize.js";
+import {
+  toProductDetail,
+  toProductListItem,
+  type ProductDetailAttribute,
+  type ProductRow,
+  type ProductWithVariants,
+} from "./pricing.js";
 import { buildProductFilter, type ProductFilterInput } from "./productFilter.js";
 import type { ProductSortOption } from "./products.schema.js";
 
@@ -25,82 +31,111 @@ export async function listProducts(
   sort: ProductSortOption,
   cursor: string | undefined,
   limit: number,
-): Promise<CursorPageResult<HydratedDocument<Product>>> {
-  const filter = await buildProductFilter(filters);
-
+  accountType: AccountType | undefined,
+): Promise<CursorPageResult<ProductListItemDto>> {
+  const where = await buildProductFilter(filters);
   const { field, valueType, direction } = SORT_CONFIG[sort];
-  return cursorPaginate(ProductModel, filter, {
+  // No `select` narrowing the columns any more: Mongoose needed
+  // `+wholesalePriceRial` to opt back into a `select: false` field, and Prisma
+  // has no such concept -- every scalar comes back. Keeping the wholesale
+  // price off the wire is now entirely pricing.ts's job, which is why that
+  // mapper builds the DTO field by field instead of spreading the row.
+  const { data, meta } = await cursorPaginate<ProductRow & { id: string }>(prisma.product, where, {
     sortField: field,
     valueType,
     direction,
     cursor,
     limit,
-    // P6.S1: needed so products.controller.ts can resolve each viewer's
-    // effective price via pricing.ts. Sort/filter above still operate on
-    // the plain (retail) `priceRial` field, unchanged -- see pricing.ts's
-    // own doc comment for why that's an accepted limitation, not a bug.
-    select: "+wholesalePriceRial",
   });
+  return { data: data.map((row) => toProductListItem(row, accountType)), meta };
 }
 
-export async function getProductBySlug(slug: string): Promise<HydratedDocument<Product>> {
-  const product = await ProductModel.findOne({ slug, status: "active" }).select(
-    "+wholesalePriceRial",
-  );
+async function findActiveBySlug(slug: string): Promise<ProductWithVariants> {
+  const product = await prisma.product.findFirst({
+    where: { slug, status: "active" },
+    include: { variants: { where: { deletedAt: null } } },
+  });
   if (!product) {
     throw new ApiError(404, "محصول یافت نشد");
   }
   return product;
 }
 
-export interface ProductDetailAttribute {
-  key: string;
-  keyLabel: string;
-  unit?: string;
-  value: string;
+export async function getProductBySlug(
+  slug: string,
+  accountType: AccountType | undefined,
+): Promise<ProductListItemDto> {
+  return toProductListItem(await findActiveBySlug(slug), accountType);
 }
 
-export interface ProductDetail {
-  product: HydratedDocument<Product>;
-  brand: HydratedDocument<Brand> | null;
-  category: HydratedDocument<Category> | null;
-  attributes: ProductDetailAttribute[];
-}
-
-// The PDP (P5.S2) needs the brand name/slug and category name/slug/path
-// to render, but Product only stores brandId/categoryId, and neither
-// brands nor categories has a public by-id lookup (only by-slug) -- no
-// existing mechanism resolves a single arbitrary product's brand/category
-// names. Two extra by-id queries, same "separate query, not populate"
-// pattern as getFittingProductIds/hydrateFacetBuckets elsewhere in this
-// module. A soft-deleted or missing brand/category (shouldn't happen in
-// practice, admin CRUD guards deletion of a category/brand still in use)
-// degrades to null rather than a 500 -- the PDP can still render without
-// a brand/category label rather than crash over a data-integrity edge case.
-//
-// `product.attributes` is only {key,value} pairs -- `key` is an internal
-// machine key ("color"), never the Persian display label ("رنگ", per
-// Attribute.ts's own doc comment) -- same gap P5.S1 already hit and fixed
-// for facets (MongoSearchProvider's hydrateAttributeBuckets), resolved the
-// same way here: one batch lookup against the Attribute model.
-export async function getProductDetailBySlug(slug: string): Promise<ProductDetail> {
-  const product = await getProductBySlug(slug);
-  const [brand, category, attributeDocs] = await Promise.all([
-    BrandModel.findById(product.brandId),
-    CategoryModel.findById(product.categoryId),
-    AttributeModel.find({ key: { $in: product.attributes.map((a) => a.key) } }),
-  ]);
-  const attributeMeta = new Map(attributeDocs.map((doc) => [doc.key, doc]));
-  const attributes = product.attributes.map((attribute) => {
-    const meta = attributeMeta.get(attribute.key);
-    return {
-      key: attribute.key,
-      keyLabel: meta?.name ?? attribute.key,
-      unit: meta?.unit,
-      value: attribute.value,
-    };
+/**
+ * The PDP (P5.S2) needs the brand and category names alongside the product,
+ * and the Persian display label for each attribute key.
+ *
+ * Under Mongo this was the product query plus three more: brand by id,
+ * category by id, and a batch lookup of Attribute rows to turn machine keys
+ * ("color") into Persian labels ("رنگ"), because `Product.attributes[]` stored
+ * only `{key, value}` and the label lived elsewhere. Postgres has real foreign
+ * keys, so all of it is one query with `include` -- and the attribute label
+ * arrives with the value rather than being reunited with it by hand.
+ *
+ * A soft-deleted brand or category still degrades to `null` rather than a 500.
+ * Admin CRUD refuses to delete either while products point at them, so this is
+ * a data-integrity edge case, and a PDP that renders without a brand label
+ * beats one that crashes.
+ *
+ * The relation filters spell out `deletedAt: null` because the soft-delete
+ * extension does not reach nested reads -- the documented gap in
+ * config/prisma.ts, and the one place in this module it matters.
+ */
+export async function getProductDetailBySlug(
+  slug: string,
+  accountType: AccountType | undefined,
+): Promise<ProductDetailDto> {
+  const product = await prisma.product.findFirst({
+    where: { slug, status: "active" },
+    include: {
+      variants: { where: { deletedAt: null } },
+      brand: true,
+      category: true,
+      attributes: { include: { attribute: true } },
+    },
   });
-  return { product, brand, category, attributes };
+  if (!product) {
+    throw new ApiError(404, "محصول یافت نشد");
+  }
+
+  const attributes: ProductDetailAttribute[] = product.attributes.map((row) => ({
+    key: row.attribute.key,
+    keyLabel: row.attribute.name,
+    ...(row.attribute.unit ? { unit: row.attribute.unit } : {}),
+    value: row.value,
+  }));
+
+  return toProductDetail(
+    product,
+    {
+      brand:
+        product.brand.deletedAt === null
+          ? {
+              id: product.brand.id,
+              name: localized(product.brand),
+              slug: product.brand.slug,
+            }
+          : null,
+      category:
+        product.category.deletedAt === null
+          ? {
+              id: product.category.id,
+              name: localized(product.category),
+              slug: product.category.slug,
+              path: product.category.path,
+            }
+          : null,
+      attributes,
+    },
+    accountType,
+  );
 }
 
 /** Same category, excluding the product itself — a small bounded widget,
@@ -109,12 +144,14 @@ export async function getProductDetailBySlug(slug: string): Promise<ProductDetai
 export async function getRelatedProducts(
   slug: string,
   limit: number,
-): Promise<PaginatedResult<HydratedDocument<Product>>> {
-  const product = await getProductBySlug(slug);
-  return paginate(
-    ProductModel,
-    { categoryId: product.categoryId, status: "active", _id: { $ne: product._id } },
+  accountType: AccountType | undefined,
+): Promise<PaginatedResult<ProductListItemDto>> {
+  const product = await findActiveBySlug(slug);
+  const { data, meta } = await paginate<ProductRow>(
+    prisma.product,
+    "Product",
+    { categoryId: product.categoryId, status: "active", id: { not: product.id } },
     { page: 1, limit },
-    { select: "+wholesalePriceRial" },
   );
+  return { data: data.map((row) => toProductListItem(row, accountType)), meta };
 }

@@ -1,4 +1,4 @@
-import type { CatalogSystemCode } from "@prisma/client";
+import type { CatalogSystemCode, InventoryMoveReason, SupplyRoute } from "@prisma/client";
 import type { LocalizedName } from "schemas";
 
 /**
@@ -69,29 +69,59 @@ export function optional<T>(value: T | null): T | undefined {
 }
 
 /**
- * The two spellings of a catalog system code, bridged in one place.
+ * The two spellings of an enum value, bridged in one place.
  *
- * The wire value is hyphenated (`"SYS-01"`) and always has been -- it is what
- * `packages/schemas` validates and what the admin panel and storefront both
- * send. A Prisma enum member cannot contain a hyphen, so the generated
- * TypeScript identifier is `SYS_01` while the PostgreSQL label is `@map`ped
- * back to `"SYS-01"`. Only the identifier differs, and only here.
+ * Several of this project's enum values are hyphenated on the wire --
+ * "SYS-01", "genuine-imported", "manual-adjustment" -- and a Prisma enum
+ * member cannot contain a hyphen. Each of those members is `@map`ped in
+ * `schema.prisma` so the PostgreSQL labels stay exactly the wire values;
+ * only the generated TypeScript identifier differs, substituting an
+ * underscore. These two functions are the entire bridge.
  *
- * A plain character swap rather than a lookup table: the shape is fixed at
- * `SYS_NN`, so a table would be ten lines that can drift from the enum.
+ * This is worth understanding rather than pattern-matching past, because the
+ * failure it prevents is silent: without the map the database stores one
+ * spelling while every route, schema and admin screen speaks the other, and
+ * nothing -- no type error, no constraint -- ever says so.
+ *
+ * A character swap rather than a lookup table per enum: the mapping is
+ * mechanical and total, and three hand-written tables are three things that
+ * can drift from the schema.
  */
+function toWire(value: string): string {
+  return value.replaceAll("_", "-");
+}
+
+function fromWire(value: string): string {
+  return value.replaceAll("-", "_");
+}
+
 export function systemCodeToWire(code: CatalogSystemCode | string): string {
-  return code.replace("_", "-");
+  return toWire(code);
 }
 
 /**
- * The one cast in this direction, and it belongs here rather than at each call
- * site: the input has already been validated against `CATALOG_SYSTEM_CODES` by
- * the route's Zod schema, so the only thing the compiler is missing is that
- * swapping the hyphen yields a member of the generated enum. Doing it here
- * means the callers stay honest and there is exactly one place to look if the
- * enum ever gains a member that does not fit the `SYS_NN` shape.
+ * The casts below are the only ones in this direction, and they belong here
+ * rather than at each call site: the input has already been validated against
+ * the shared const-array by the route's Zod schema, so the one thing the
+ * compiler is missing is that swapping the hyphen yields a member of the
+ * generated enum.
  */
 export function systemCodeFromWire(code: string): CatalogSystemCode {
-  return code.replace("-", "_") as CatalogSystemCode;
+  return fromWire(code) as CatalogSystemCode;
+}
+
+export function supplyRouteToWire(route: SupplyRoute | string): string {
+  return toWire(route);
+}
+
+export function supplyRouteFromWire(route: string): SupplyRoute {
+  return fromWire(route) as SupplyRoute;
+}
+
+export function moveReasonToWire(reason: InventoryMoveReason | string): string {
+  return toWire(reason);
+}
+
+export function moveReasonFromWire(reason: string): InventoryMoveReason {
+  return fromWire(reason) as InventoryMoveReason;
 }
