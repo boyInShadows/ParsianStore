@@ -402,9 +402,35 @@ model Product {
   ratingCount Int          @default(0)
 
   /// Derived on write from name, sku, oem numbers and brand — the same job the
-  /// Mongoose pre-save hook does today. In Postgres this is what the tsvector
-  /// index is built from; see the migration note in docs/engineering-standards.
+  /// Mongoose pre-save hook used to do.
   searchText String @default("")
+
+  /// The full-text index, and the reason the derive hook shrank.
+  ///
+  /// `Unsupported` because Prisma Client has no tsvector type -- which is fine,
+  /// since nothing in the application ever reads or writes this column. It is a
+  /// `GENERATED ALWAYS ... STORED` column: PostgreSQL recomputes it from
+  /// `searchText` on every insert and update, so it cannot drift the way a
+  /// hand-maintained derived field can. The migration that adds it is
+  /// hand-edited for exactly that reason -- Prisma would otherwise create a
+  /// plain nullable column and leave the generation to us.
+  ///
+  /// Configured `simple`, not a language dictionary: PostgreSQL ships no
+  /// Persian configuration, and `simple` does no stemming, which is the honest
+  /// behaviour here rather than stemming Persian text with English rules.
+  ///
+  /// ## Read this before generating the next migration
+  ///
+  /// `prisma migrate diff` does not understand generated columns. It reads the
+  /// generation expression as a column default and emits
+  ///
+  ///     ALTER TABLE "Product" ALTER COLUMN "searchVector" DROP DEFAULT;
+  ///
+  /// on every diff, forever. That statement **fails** -- PostgreSQL answers
+  /// `column "searchVector" of relation "Product" is a generated column`
+  /// (42601), verified by running it. Delete that line from any generated
+  /// migration before applying it. It is the only false drift in this schema.
+  searchVector Unsupported("tsvector")?
 
   seoTitle       String?
   seoDescription String?
@@ -429,6 +455,7 @@ model Product {
   @@index([categoryId])
   @@index([status])
   @@index([oemNumbers], type: Gin)
+  @@index([searchVector], type: Gin)
   @@index([deletedAt])
 }
 

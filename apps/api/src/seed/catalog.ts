@@ -1,48 +1,53 @@
 import { pathToFileURL } from "node:url";
 import { CATALOG_SYSTEMS } from "schemas";
-import { connectDB, disconnectDB } from "../config/db.js";
 import { logger } from "../config/logger.js";
-import { BrandModel } from "../models/Brand.js";
-import { CategoryModel } from "../models/Category.js";
-import { FitmentModel } from "../models/Fitment.js";
-import { computeProductSearchText, ProductModel } from "../models/Product.js";
-import { VehicleGenModel } from "../models/VehicleGen.js";
-import { VehicleModelModel } from "../models/VehicleModel.js";
+import { connectDB, disconnectDB, prisma } from "../config/prisma.js";
+import { computeProductSearchText } from "../modules/catalog/searchText.js";
+import { supplyRouteFromWire, systemCodeFromWire, toColumns } from "../utils/serialize.js";
 import { BRAND_SEED_DATA, CATEGORY_TEMPLATES, SUPPLY_ROUTE_ROTATION } from "./catalog.data.js";
 import { seedVehicles } from "./vehicles.js";
-import type { Types } from "mongoose";
 
 const VARIANTS_PER_TEMPLATE = 4;
 
 interface FlatModel {
-  makeId: Types.ObjectId;
-  modelId: Types.ObjectId;
+  makeId: string;
+  modelId: string;
   modelSlug: string;
-  genId: Types.ObjectId;
+  genId: string;
   yearFrom: number;
   yearTo: number | null;
 }
 
-/** Every seeded VehicleModel paired with its first generation — the
- * fitment target each generated product/Fitment pair uses. Real vehicles
- * from the actual P2.S6 seed tree, queried at seed time rather than
- * hardcoded, so this never drifts from whatever seedVehicles() produces. */
+/**
+ * Every seeded VehicleModel paired with its first generation — the fitment
+ * target each generated product/Fitment pair uses. Real vehicles from the
+ * actual P2.S6 seed tree, queried at seed time rather than hardcoded, so this
+ * never drifts from whatever seedVehicles() produces.
+ *
+ * One query with the generations included, where Mongo needed a query per
+ * model. `take: 1` with the ordering does the "earliest generation" pick in
+ * the database rather than in a loop.
+ */
 async function loadFlatModels(): Promise<FlatModel[]> {
-  const models = await VehicleModelModel.find({});
-  const flat: FlatModel[] = [];
-  for (const model of models) {
-    const gen = await VehicleGenModel.findOne({ modelId: model._id }).sort({ yearFrom: 1 });
-    if (!gen) continue;
-    flat.push({
-      makeId: model.makeId,
-      modelId: model._id,
-      modelSlug: model.slug,
-      genId: gen._id,
-      yearFrom: gen.yearFrom,
-      yearTo: gen.yearTo,
-    });
-  }
-  return flat;
+  const models = await prisma.vehicleModel.findMany({
+    include: {
+      generations: { where: { deletedAt: null }, orderBy: { yearFrom: "asc" }, take: 1 },
+    },
+  });
+  return models.flatMap((model) => {
+    const gen = model.generations[0];
+    if (!gen) return [];
+    return [
+      {
+        makeId: model.makeId,
+        modelId: model.id,
+        modelSlug: model.slug,
+        genId: gen.id,
+        yearFrom: gen.yearFrom,
+        yearTo: gen.yearTo,
+      },
+    ];
+  });
 }
 
 function warrantyText(months: number): string {
@@ -60,19 +65,26 @@ export async function seedCatalog(): Promise<void> {
   await seedVehicles();
 
   for (const system of CATALOG_SYSTEMS) {
-    await CategoryModel.findOneAndUpdate(
-      { slug: system.slug },
-      { name: system.name, slug: system.slug, systemCode: system.code, parentId: null, path: [] },
-      { upsert: true, new: true },
-    );
+    const fields = {
+      ...toColumns(system.name),
+      systemCode: systemCodeFromWire(system.code),
+      parentId: null,
+      path: [],
+    };
+    await prisma.category.upsert({
+      where: { slug: system.slug },
+      update: fields,
+      create: { ...fields, slug: system.slug },
+    });
   }
 
   for (const brand of BRAND_SEED_DATA) {
-    await BrandModel.findOneAndUpdate(
-      { slug: brand.slug },
-      { name: brand.name, slug: brand.slug, country: brand.country, isOEM: brand.isOEM },
-      { upsert: true, new: true },
-    );
+    const fields = { ...toColumns(brand.name), country: brand.country, isOEM: brand.isOEM };
+    await prisma.brand.upsert({
+      where: { slug: brand.slug },
+      update: fields,
+      create: { ...fields, slug: brand.slug },
+    });
   }
 
   const flatModels = await loadFlatModels();
@@ -80,19 +92,35 @@ export async function seedCatalog(): Promise<void> {
     throw new Error("seedCatalog: no vehicle models found — seedVehicles() produced nothing");
   }
 
+  // Resolved once instead of per product. The Mongo version re-queried the
+  // brand inside the innermost loop -- roughly 300 extra round trips to look
+  // up fifteen rows.
+  const brandsBySlug = new Map(
+    (await prisma.brand.findMany({ select: { id: true, slug: true } })).map((row) => [
+      row.slug,
+      row.id,
+    ]),
+  );
+  const categoriesBySlug = new Map(
+    (await prisma.category.findMany({ select: { id: true, slug: true } })).map((row) => [
+      row.slug,
+      row.id,
+    ]),
+  );
+
   let productCount = 0;
   let fitmentCount = 0;
   let globalIndex = 0;
 
   for (const group of CATEGORY_TEMPLATES) {
-    const category = await CategoryModel.findOne({ slug: group.categorySlug });
-    if (!category) throw new Error(`seedCatalog: category "${group.categorySlug}" not found`);
+    const categoryId = categoriesBySlug.get(group.categorySlug);
+    if (!categoryId) throw new Error(`seedCatalog: category "${group.categorySlug}" not found`);
 
     for (const template of group.templates) {
       for (let i = 0; i < VARIANTS_PER_TEMPLATE; i += 1) {
         const vehicle = flatModels[(globalIndex * VARIANTS_PER_TEMPLATE + i) % flatModels.length]!;
         const brand = BRAND_SEED_DATA[productCount % BRAND_SEED_DATA.length]!;
-        const brandDoc = await BrandModel.findOne({ slug: brand.slug });
+        const brandId = brandsBySlug.get(brand.slug)!;
         const supplyRoute = SUPPLY_ROUTE_ROTATION[productCount % SUPPLY_ROUTE_ROTATION.length]!;
         const priceRial =
           template.priceMinRial +
@@ -102,9 +130,7 @@ export async function seedCatalog(): Promise<void> {
         // P6.S1: dev/test data for wholesale pricing -- 15% off retail
         // (a real, defensible trade-discount figure, not an arbitrary
         // number), rounded to the nearest 1,000 Rial the same way an
-        // admin would actually round a price. Real wholesale prices are
-        // set per-product via the (still nonexistent) admin CRUD later;
-        // this is only the seed/dev fixture.
+        // admin would actually round a price.
         const wholesalePriceRial = Math.round((priceRial * 0.85) / 1000) * 1000;
         const slug = `${template.slugBase}-${vehicle.modelSlug}`;
         const sku = `SKU-${group.categorySlug}-${template.slugBase}-${vehicle.modelSlug}`
@@ -113,72 +139,68 @@ export async function seedCatalog(): Promise<void> {
 
         const oemNumbers = [`${template.oemPrefix}-${vehicle.modelSlug.toUpperCase()}`];
         const crossRefNumbers = [`XREF-${sku}`];
+        const names = toColumns(template.name);
 
-        const product = await ProductModel.findOneAndUpdate(
-          { slug },
-          {
-            name: template.name,
-            slug,
-            sku,
-            oemNumbers,
-            crossRefNumbers,
-            // findOneAndUpdate is query middleware -- Product's `pre("save")`
-            // hook (document middleware) never fires here, so searchText
-            // must be computed explicitly or it silently stays empty (see
-            // computeProductSearchText's own doc comment for the real bug
-            // this was: search against the seeded catalog was non-functional).
-            searchText: computeProductSearchText({
-              name: template.name,
-              sku,
-              oemNumbers,
-              crossRefNumbers,
-            }),
-            brandId: brandDoc!._id,
-            categoryId: category._id,
-            attributes: [],
-            media: [],
-            priceRial,
-            wholesalePriceRial,
-            taxRate: 9,
-            stock: 5 + (productCount % 20),
-            lowStockAt: 5,
-            backorderable: false,
-            weightGram: template.weightGram,
-            dimensions: template.dimensions,
-            warranty: {
-              months: template.warrantyMonths,
-              text: warrantyText(template.warrantyMonths),
-            },
-            authenticity: {
-              supplyRoute,
-              sourceBrand: brand.name.en,
-              countryOfManufacture: brand.country,
-              verificationCode: `VER-${sku}`,
-            },
-            status: "active",
-          },
-          { upsert: true, new: true },
-        );
+        const fields = {
+          ...names,
+          sku,
+          oemNumbers,
+          crossRefNumbers,
+          // Still computed explicitly, and still for the reason the original
+          // comment gave: the derive step is not automatic. `searchVector` is
+          // a generated column now, but it generates from `searchText`, and
+          // `searchText` is this.
+          searchText: computeProductSearchText({ ...names, sku, oemNumbers, crossRefNumbers }),
+          brandId,
+          categoryId,
+          media: [],
+          priceRial,
+          wholesalePriceRial,
+          taxRate: 9,
+          stock: 5 + (productCount % 20),
+          lowStockAt: 5,
+          backorderable: false,
+          weightGram: template.weightGram,
+          lengthMm: template.dimensions.lengthMm,
+          widthMm: template.dimensions.widthMm,
+          heightMm: template.dimensions.heightMm,
+          warrantyMonths: template.warrantyMonths,
+          warrantyText: warrantyText(template.warrantyMonths),
+          supplyRoute: supplyRouteFromWire(supplyRoute),
+          sourceBrand: brand.name.en,
+          countryOfManufacture: brand.country,
+          verificationCode: `VER-${sku}`,
+          status: "active" as const,
+        };
+
+        const product = await prisma.product.upsert({
+          where: { slug },
+          update: fields,
+          create: { ...fields, slug },
+        });
         productCount += 1;
 
-        await FitmentModel.findOneAndUpdate(
-          {
-            productId: product._id,
-            makeId: vehicle.makeId,
-            modelId: vehicle.modelId,
-            genId: vehicle.genId,
-          },
-          {
-            productId: product._id,
-            makeId: vehicle.makeId,
-            modelId: vehicle.modelId,
-            genId: vehicle.genId,
-            yearFrom: vehicle.yearFrom,
-            yearTo: vehicle.yearTo,
-            confidence: "exact",
-          },
-          { upsert: true, new: true },
-        );
+        // Fitment has no unique constraint on this key on purpose -- a product
+        // legitimately has several fitment rows for one model across different
+        // year ranges and engines -- so this is find-then-write rather than an
+        // upsert. See the note in schema.prisma.
+        const fitmentFields = {
+          yearFrom: vehicle.yearFrom,
+          yearTo: vehicle.yearTo,
+          confidence: "exact" as const,
+        };
+        const key = {
+          productId: product.id,
+          makeId: vehicle.makeId,
+          modelId: vehicle.modelId,
+          genId: vehicle.genId,
+        };
+        const existing = await prisma.fitment.findFirst({ where: key, select: { id: true } });
+        if (existing) {
+          await prisma.fitment.update({ where: { id: existing.id }, data: fitmentFields });
+        } else {
+          await prisma.fitment.create({ data: { ...key, ...fitmentFields } });
+        }
         fitmentCount += 1;
       }
       globalIndex += 1;

@@ -54,10 +54,10 @@ const envSchema = z.object({
   STORAGE_DRIVER: z.enum(["local"]).default("local"),
   PUBLIC_URL: z.string().url().default("http://localhost:4000"),
 
-  // P3.S4 — search. Only "mongo" is implemented (§4 manifest anticipates
+  // P3.S4 — search. Only "postgres" is implemented (§4 manifest anticipates
   // a Meilisearch driver via MEILI_HOST/MEILI_KEY later, same enum-of-one
   // pattern as STORAGE_DRIVER above until that second driver actually exists).
-  SEARCH_DRIVER: z.enum(["mongo"]).default("mongo"),
+  SEARCH_DRIVER: z.enum(["postgres"]).default("postgres"),
 
   // P6.S3 — payment. ZARINPAL_MERCHANT_ID stays optional here (same
   // "required-if-selected" split as KAVENEGAR_API_KEY above) -- enforced
