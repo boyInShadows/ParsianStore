@@ -10,16 +10,6 @@ import type {
   RemoveProductMediaInput,
 } from "./products.admin.schema.js";
 
-function adminProductJson(product: { toJSON(): Record<string, unknown> }) {
-  const json = product.toJSON() as Record<string, unknown> & {
-    variants?: Array<Record<string, unknown>>;
-  };
-  return {
-    ...json,
-    variants: (json.variants ?? []).map(({ _id, ...variant }) => ({ ...variant, id: String(_id) })),
-  };
-}
-
 export async function importProductsHandler(req: Request, res: Response, next: NextFunction) {
   try {
     if (!req.is("text/csv")) throw new ApiError(415, "فایل CSV الزامی است");
@@ -76,9 +66,7 @@ export async function addProductMediaHandler(req: Request, res: Response, next: 
       (req.params as unknown as AdminProductIdParam).id,
       await readImage(req),
     );
-    res
-      .status(201)
-      .json({ ok: true, data: { product: adminProductJson(data.product), image: data.stored } });
+    res.status(201).json({ ok: true, data: { product: data.product, image: data.stored } });
   } catch (e) {
     next(e);
   }
@@ -89,7 +77,7 @@ export async function removeProductMediaHandler(req: Request, res: Response, nex
       (req.params as unknown as AdminProductIdParam).id,
       (req.body as RemoveProductMediaInput).url,
     );
-    res.json({ ok: true, data: adminProductJson(data) });
+    res.json({ ok: true, data: data });
   } catch (e) {
     next(e);
   }
@@ -103,7 +91,7 @@ export async function getAdminProductHandler(
   try {
     const { id } = req.params as unknown as AdminProductIdParam;
     const data = await productsAdminService.getAdminProductById(id);
-    res.json({ ok: true, data: adminProductJson(data) });
+    res.json({ ok: true, data: data });
   } catch (err) {
     next(err);
   }
@@ -116,7 +104,7 @@ export async function createProductHandler(
 ): Promise<void> {
   try {
     const data = await productsAdminService.createProduct(req.body as CreateProductInput);
-    res.status(201).json({ ok: true, data: adminProductJson(data) });
+    res.status(201).json({ ok: true, data: data });
   } catch (err) {
     next(err);
   }
@@ -130,7 +118,7 @@ export async function updateProductHandler(
   try {
     const { id } = req.params as unknown as AdminProductIdParam;
     const data = await productsAdminService.updateProduct(id, req.body as UpdateProductInput);
-    res.json({ ok: true, data: adminProductJson(data) });
+    res.json({ ok: true, data: data });
   } catch (err) {
     next(err);
   }
@@ -144,7 +132,7 @@ export async function archiveProductHandler(
   try {
     const { id } = req.params as unknown as AdminProductIdParam;
     const data = await productsAdminService.archiveProduct(id);
-    res.json({ ok: true, data: adminProductJson(data) });
+    res.json({ ok: true, data: data });
   } catch (err) {
     next(err);
   }

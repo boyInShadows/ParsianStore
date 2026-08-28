@@ -1,11 +1,10 @@
 import { readFile } from "node:fs/promises";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { normalizeFa, toEnglishDigits } from "schemas";
-import { connectDB, disconnectDB } from "../config/db.js";
 import { logger } from "../config/logger.js";
-import { BrandModel } from "../models/Brand.js";
-import { CategoryModel } from "../models/Category.js";
-import { computeProductSearchText, ProductModel } from "../models/Product.js";
+import { connectDB, disconnectDB, prisma } from "../config/prisma.js";
+import { computeProductSearchText } from "../modules/catalog/searchText.js";
+import { supplyRouteFromWire, systemCodeFromWire } from "../utils/serialize.js";
 
 const SOURCE_PATH = fileURLToPath(
   new URL("../../../../apps/web/public/products/digikala.csv", import.meta.url),
@@ -98,67 +97,81 @@ function sourceProducts(rows: CsvRow[]): SourceProduct[] {
 
 export async function seedVisualCatalog(): Promise<number> {
   const products = sourceProducts(parseCsv(await readFile(SOURCE_PATH, "utf8")));
-  const category = await CategoryModel.findOneAndUpdate(
-    { slug: CATEGORY_SLUG },
-    {
-      name: { fa: "محصولات نمونه", en: "Visual sample products" },
-      slug: CATEGORY_SLUG,
-      parentId: null,
-      systemCode: "SYS-06",
-      path: [],
-      order: 99,
-      seo: { description: "محصولات موقت برای بررسی نمای بصری فروشگاه" },
-    },
-    { upsert: true, new: true },
-  );
-  const brand = await BrandModel.findOneAndUpdate(
-    { slug: BRAND_SLUG },
-    {
-      name: { fa: "نمونه بازار", en: "Market sample" },
-      slug: BRAND_SLUG,
-      country: "IR",
-      isOEM: false,
-      description: "داده نمایشی موقت برای ارزیابی رابط فروشگاه",
-    },
-    { upsert: true, new: true },
-  );
+  const categoryFields = {
+    nameFa: "محصولات نمونه",
+    nameEn: "Visual sample products",
+    parentId: null,
+    systemCode: systemCodeFromWire("SYS-06"),
+    path: [],
+    order: 99,
+    seoDescription: "محصولات موقت برای بررسی نمای بصری فروشگاه",
+  };
+  const category = await prisma.category.upsert({
+    where: { slug: CATEGORY_SLUG },
+    update: categoryFields,
+    create: { ...categoryFields, slug: CATEGORY_SLUG },
+  });
+
+  const brandFields = {
+    nameFa: "نمونه بازار",
+    nameEn: "Market sample",
+    country: "IR",
+    isOEM: false,
+    description: "داده نمایشی موقت برای ارزیابی رابط فروشگاه",
+  };
+  const brand = await prisma.brand.upsert({
+    where: { slug: BRAND_SLUG },
+    update: brandFields,
+    create: { ...brandFields, slug: BRAND_SLUG },
+  });
 
   for (const [index, source] of products.entries()) {
     const number = String(index + 1).padStart(3, "0");
     const slug = `visual-sample-${number}`;
     const sku = `VISUAL-${number}`;
-    const name = { fa: source.name, en: source.name };
-    await ProductModel.findOneAndUpdate(
-      { slug },
-      {
-        name,
-        slug,
+    const fields = {
+      nameFa: source.name,
+      nameEn: source.name,
+      sku,
+      oemNumbers: [],
+      crossRefNumbers: [],
+      brandId: brand.id,
+      categoryId: category.id,
+      media: [source.image],
+      priceRial: source.priceToman * 10,
+      taxRate: 9,
+      stock: source.stock,
+      lowStockAt: 2,
+      backorderable: false,
+      weightGram: 0,
+      lengthMm: 0,
+      widthMm: 0,
+      heightMm: 0,
+      warrantyMonths: 0,
+      warrantyText: "بدون ضمانت ثبت‌شده",
+      // Hyphenated on the wire, underscored as an enum member -- converted
+      // here for the reason utils/serialize.ts explains.
+      supplyRoute: supplyRouteFromWire("grade1-aftermarket"),
+      sourceBrand: "Visual sample dataset",
+      countryOfManufacture: "IR",
+      verificationCode: `VISUAL-${number}`,
+      status: "active" as const,
+      // Still derived explicitly at the write, exactly as it is everywhere
+      // else -- the derive step is not automatic, and a seeded product with
+      // an empty searchText is invisible to search.
+      searchText: computeProductSearchText({
+        nameFa: source.name,
+        nameEn: source.name,
         sku,
         oemNumbers: [],
         crossRefNumbers: [],
-        searchText: computeProductSearchText({ name, sku, oemNumbers: [], crossRefNumbers: [] }),
-        brandId: brand._id,
-        categoryId: category._id,
-        attributes: [],
-        media: [source.image],
-        priceRial: source.priceToman * 10,
-        taxRate: 9,
-        stock: source.stock,
-        lowStockAt: 2,
-        backorderable: false,
-        weightGram: 0,
-        dimensions: { lengthMm: 0, widthMm: 0, heightMm: 0 },
-        warranty: { months: 0, text: "بدون ضمانت ثبت‌شده" },
-        authenticity: {
-          supplyRoute: "grade1-aftermarket",
-          sourceBrand: "Visual sample dataset",
-          countryOfManufacture: "IR",
-          verificationCode: `VISUAL-${number}`,
-        },
-        status: "active",
-      },
-      { upsert: true, new: true },
-    );
+      }),
+    };
+    await prisma.product.upsert({
+      where: { slug },
+      update: fields,
+      create: { ...fields, slug },
+    });
   }
 
   logger.info(

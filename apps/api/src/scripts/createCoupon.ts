@@ -1,7 +1,11 @@
 import { pathToFileURL } from "node:url";
-import { connectDB, disconnectDB } from "../config/db.js";
+import { CouponType } from "@prisma/client";
 import { logger } from "../config/logger.js";
-import { COUPON_TYPES, CouponModel, type CouponType } from "../models/Coupon.js";
+import { connectDB, disconnectDB, prisma } from "../config/prisma.js";
+
+/** From Prisma's generated enum, so the CLI cannot accept a type the
+ * column would reject. */
+const COUPON_TYPES = Object.values(CouponType);
 
 // P6.S7's sanctioned mechanism for "admin creates a coupon" (same
 // reasoning as scripts/setAccountType.ts, P6.S1 -- no admin CRUD UI
@@ -25,7 +29,7 @@ export async function createCoupon(
   options: CreateCouponOptions = {},
 ): Promise<void> {
   const code = rawCode.trim().toUpperCase();
-  const coupon = await CouponModel.create({ code, type, value, ...options });
+  const coupon = await prisma.coupon.create({ data: { code, type, value, ...options } });
   logger.info({ code: coupon.code, type: coupon.type, value: coupon.value }, "Coupon created");
 }
 

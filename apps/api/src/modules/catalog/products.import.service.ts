@@ -1,7 +1,5 @@
 import { adminCreateProductInputSchema, type AdminCreateProductInput } from "schemas";
-import { ProductModel } from "../../models/Product.js";
-import { BrandModel } from "../../models/Brand.js";
-import { CategoryModel } from "../../models/Category.js";
+import { prisma } from "../../config/prisma.js";
 import { createProduct } from "./products.admin.service.js";
 
 type CsvRow = Record<string, string>;
@@ -98,17 +96,22 @@ export async function importProductsCsv(
     seenSku.add(sku);
     seenSlug.add(source.slug ?? "");
     if (parsed.success && errors.length === 0) {
-      const exists = await ProductModel.exists({
-        $or: [
-          { sku: parsed.data.sku },
-          { slug: parsed.data.slug },
-          { "authenticity.verificationCode": parsed.data.authenticity.verificationCode },
-        ],
+      // `verificationCode` is a plain column now rather than a path into an
+      // embedded document, so the three-way uniqueness check is a flat OR.
+      const exists = await prisma.product.findFirst({
+        where: {
+          OR: [
+            { sku: parsed.data.sku },
+            { slug: parsed.data.slug },
+            { verificationCode: parsed.data.authenticity.verificationCode },
+          ],
+        },
+        select: { id: true },
       });
       if (exists) errors.push("sku, slug, or verificationCode already exists");
       const [brand, category] = await Promise.all([
-        BrandModel.exists({ _id: parsed.data.brandId }),
-        CategoryModel.exists({ _id: parsed.data.categoryId }),
+        prisma.brand.findUnique({ where: { id: parsed.data.brandId }, select: { id: true } }),
+        prisma.category.findUnique({ where: { id: parsed.data.categoryId }, select: { id: true } }),
       ]);
       if (!brand) errors.push("brandId: not found");
       if (!category) errors.push("categoryId: not found");

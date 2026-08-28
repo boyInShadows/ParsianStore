@@ -1,5 +1,3 @@
-import type { SupplyRoute } from "@prisma/client";
-
 export interface BrandSeed {
   name: { fa: string; en: string };
   slug: string;
@@ -45,7 +43,13 @@ export const BRAND_SEED_DATA: BrandSeed[] = [
   { name: { fa: "برمبو", en: "Brembo" }, slug: "brembo", country: "Italy", isOEM: true },
 ];
 
-export const SUPPLY_ROUTE_ROTATION: SupplyRoute[] = [
+/**
+ * Wire spellings, not the generated enum members. A Prisma enum member cannot
+ * contain a hyphen, so these are `@map`ped in the schema and converted at the
+ * write -- seed/catalog.ts calls `supplyRouteFromWire`. Typing this array as
+ * `SupplyRoute` would be the wrong end of that bridge.
+ */
+export const SUPPLY_ROUTE_ROTATION: string[] = [
   "oem",
   "genuine-imported",
   "domestic",

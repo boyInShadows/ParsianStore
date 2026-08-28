@@ -101,7 +101,19 @@ export async function seedProduct(overrides: ProductOverrides = {}) {
     categoryId,
   };
   return prisma.product.create({
-    data: { ...base, searchText: computeProductSearchText(base) },
+    data: {
+      ...base,
+      // The same derive every real write path performs. Spelled out with the
+      // five fields it actually reads, because `base` carries overrides whose
+      // types the helper does not accept.
+      searchText: computeProductSearchText({
+        nameFa: base.nameFa,
+        nameEn: base.nameEn,
+        sku: base.sku,
+        oemNumbers: base.oemNumbers as string[],
+        crossRefNumbers: base.crossRefNumbers as string[],
+      }),
+    },
   });
 }
 
