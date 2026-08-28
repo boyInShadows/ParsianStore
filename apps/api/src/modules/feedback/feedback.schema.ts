@@ -1,8 +1,9 @@
+import { idSchema } from "schemas";
 import { z } from "zod";
 import { paginationQuerySchema } from "../../utils/pagination.js";
 
 export const productFeedbackParamSchema = z.object({
-  productId: z.string().regex(/^[a-f\d]{24}$/i),
+  productId: idSchema,
 });
 export type ProductFeedbackParam = z.infer<typeof productFeedbackParamSchema>;
 export const feedbackListQuerySchema = paginationQuerySchema;

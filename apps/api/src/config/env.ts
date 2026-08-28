@@ -22,7 +22,6 @@ const envSchema = z.object({
     .default("http://localhost:3000")
     .transform((value) => value.split(",").map((origin) => origin.trim())),
   LOG_LEVEL: z.enum(["trace", "debug", "info", "warn", "error", "fatal", "silent"]).default("info"),
-  MONGODB_URI: z.string().min(1).default("mongodb://localhost:27017/parsian-store"),
 
   // The only database. Required, and with no default: this URL carries a
   // password, and a hardcoded fallback containing credentials is exactly what
@@ -33,7 +32,7 @@ const envSchema = z.object({
 
   // P2.S4 — auth. Secrets get NO default: a hardcoded fallback secret in
   // source is itself the vulnerability (CLAUDE.md's secret-management
-  // rule), unlike CORS_ORIGINS/MONGODB_URI above which are non-secret
+  // rule), unlike CORS_ORIGINS/DATABASE_URL above which are non-secret
   // config with a legitimate local-dev default.
   JWT_ACCESS_SECRET: z.string().min(32, "JWT_ACCESS_SECRET must be at least 32 characters"),
   JWT_REFRESH_SECRET: z.string().min(32, "JWT_REFRESH_SECRET must be at least 32 characters"),

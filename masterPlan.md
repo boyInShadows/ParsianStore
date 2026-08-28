@@ -466,12 +466,13 @@ typescript @types/react @types/react-dom @types/node
 ### `apps/api`
 ```
 express@^5 cors helmet compression cookie-parser
-mongoose
+# PostgreSQL, replacing mongoose at P10 (see tasks.md and
+# docs/decisions/0001 for the two schema traps it introduced).
+prisma @prisma/client @prisma/adapter-pg pg
 zod
 argon2 jsonwebtoken
 pino pino-http pino-pretty(dev)
 express-rate-limit
-express-mongo-sanitize
 multer sharp
 dayjs jalaliday
 nanoid
@@ -909,7 +910,7 @@ Rules: Server Components by default — `'use client'` requires a one-line comme
 Keyboard reachable, visible focus ring (`--focus`, 2px offset), semantic landmarks, labelled form controls, live-region errors, ≥ 4.5:1 body contrast, ≥ 44×44px touch targets, `prefers-reduced-motion` honored, RTL screen-reader tested.
 
 ### Security
-Helmet + CSP · CORS allowlist · rate limits (OTP 5/hr/phone, auth 10/15min/IP, API 100/min/IP) · `express-mongo-sanitize` · httpOnly `SameSite=Lax` `Secure` cookies · argon2id · no secrets in the repo, ever · file uploads: MIME + magic-byte checked, re-encoded through sharp, size-capped · admin writes audit-logged · payment verification is **server-side only**, never trusts the client callback.
+Helmet + CSP · CORS allowlist · rate limits (OTP 5/hr/phone, auth 10/15min/IP, API 100/min/IP) · parameterised queries only, never string-built SQL (`express-mongo-sanitize` was removed at P10.S20 along with Mongo: it stripped `$`-prefixed operator keys, which is not a shape Prisma can be attacked through) · httpOnly `SameSite=Lax` `Secure` cookies · argon2id · no secrets in the repo, ever · file uploads: MIME + magic-byte checked, re-encoded through sharp, size-capped · admin writes audit-logged · payment verification is **server-side only**, never trusts the client callback.
 
 ### SEO
 Per-page Persian metadata · canonical · OG + Twitter · JSON-LD (`Product`+`Offer`+`AggregateRating`, `BreadcrumbList`, `Organization`, `FAQPage`) · dynamic `sitemap.xml` split by type · `robots.txt` · `hreflang` fa/en · Persian slugs kept readable (do not transliterate to ASCII) · `/vehicle/[make]/[model]` pages are the primary organic surface — treat them as products, not filters.
@@ -928,12 +929,12 @@ NEXT_PUBLIC_SITE_URL=  NEXT_PUBLIC_API_URL=  NEXT_PUBLIC_DEFAULT_LOCALE=fa
 NEXT_PUBLIC_ENAMAD_ID=  REVALIDATE_SECRET=
 
 # apps/api
-NODE_ENV=  PORT=  MONGODB_URI=  CORS_ORIGINS=
+NODE_ENV=  PORT=  DATABASE_URL=  CORS_ORIGINS=
 JWT_ACCESS_SECRET=  JWT_REFRESH_SECRET=  JWT_ACCESS_TTL=15m  JWT_REFRESH_TTL=30d
 SMS_PROVIDER=kavenegar|mock   KAVENEGAR_API_KEY=  OTP_TEMPLATE=
 PAYMENT_PROVIDER=zarinpal|mock  ZARINPAL_MERCHANT_ID=  ZARINPAL_SANDBOX=true
 STORAGE_DRIVER=local|s3  S3_ENDPOINT=  S3_BUCKET=  S3_KEY=  S3_SECRET=
-SEARCH_DRIVER=mongo|meili  MEILI_HOST=  MEILI_KEY=
+SEARCH_DRIVER=postgres|meili  MEILI_HOST=  MEILI_KEY=
 ADMIN_SEED_PHONE=  LOG_LEVEL=info
 ```
 
