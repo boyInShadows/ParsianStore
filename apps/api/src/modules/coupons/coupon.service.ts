@@ -1,5 +1,7 @@
-import { CouponModel, type Coupon } from "../../models/Coupon.js";
-import { OrderModel } from "../../models/Order.js";
+import type { Coupon } from "@prisma/client";
+import { prisma } from "../../config/prisma.js";
+
+export type { Coupon };
 
 /** Real coupon codes are conventionally case-insensitive -- callers
  * normalize before every read or write (a script creates them
@@ -10,7 +12,7 @@ export function normalizeCouponCode(code: string): string {
 }
 
 export function findCouponByCode(code: string): Promise<Coupon | null> {
-  return CouponModel.findOne({ code: normalizeCouponCode(code) });
+  return prisma.coupon.findUnique({ where: { code: normalizeCouponCode(code) } });
 }
 
 /** percent: value is 0-100 (percentage points), capped by
@@ -32,7 +34,7 @@ export function computeDiscountRial(coupon: Coupon, subtotalRial: number): numbe
 // modules/payments' success branch actually increments Coupon.usedCount
 // for -- the two must stay in lockstep, or usedCount and this count-based
 // perUserLimit check would disagree with each other.
-const REDEEMED_ORDER_STATUSES = ["paid", "processing", "shipped", "delivered"];
+const REDEEMED_ORDER_STATUSES = ["paid", "processing", "shipped", "delivered"] as const;
 
 /**
  * Every real validation a coupon must pass before its discount applies --
@@ -64,10 +66,12 @@ export async function validateCoupon(
     return "ظرفیت استفاده از این کد تخفیف تمام شده است";
   }
   if (userId && coupon.perUserLimit != null) {
-    const usedByUser = await OrderModel.countDocuments({
-      userId,
-      couponCode: coupon.code,
-      status: { $in: REDEEMED_ORDER_STATUSES },
+    const usedByUser = await prisma.order.count({
+      where: {
+        userId,
+        couponCode: coupon.code,
+        status: { in: [...REDEEMED_ORDER_STATUSES] },
+      },
     });
     if (usedByUser >= coupon.perUserLimit) {
       return "شما قبلاً از این کد تخفیف استفاده کرده‌اید";
@@ -80,5 +84,8 @@ export async function validateCoupon(
  * order actually carried a coupon -- a cancelled/failed payment must
  * never consume a limited-use redemption. */
 export async function incrementCouponUsage(code: string): Promise<void> {
-  await CouponModel.updateOne({ code: normalizeCouponCode(code) }, { $inc: { usedCount: 1 } });
+  await prisma.coupon.updateMany({
+    where: { code: normalizeCouponCode(code) },
+    data: { usedCount: { increment: 1 } },
+  });
 }

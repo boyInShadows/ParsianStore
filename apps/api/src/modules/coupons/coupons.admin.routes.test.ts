@@ -1,9 +1,8 @@
 import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import type { UserRole } from "@prisma/client";
+import { prisma } from "../../config/prisma.js";
 import { disconnectDB, resetDb, startTestServer } from "../../config/testDb.js";
-import { CouponModel } from "../../models/Coupon.js";
-import { OrderModel } from "../../models/Order.js";
-import type { UserRole } from "../../models/User.js";
 import { signAccessToken } from "../../utils/jwt.js";
 import { validateCoupon } from "./coupon.service.js";
 
@@ -11,16 +10,15 @@ let baseUrl: string;
 let close: () => void;
 
 beforeAll(async () => {
+  // No index-warmup step any more: the `code` unique constraint exists from
+  // the migration, so the duplicate-code test cannot race it the way it once
+  // raced Mongo's background index build.
   await resetDb();
-  // The `code` unique index must be fully built before the duplicate-code
-  // test writes twice in quick succession -- P8.S2 hit exactly this flake
-  // under the full parallel run and fixed it the same way, not with a sleep.
-  await CouponModel.init();
   ({ baseUrl, close } = await startTestServer());
 });
 
 beforeEach(async () => {
-  await Promise.all([CouponModel.deleteMany({}), OrderModel.deleteMany({})]);
+  await resetDb();
 });
 
 afterAll(async () => {
@@ -122,7 +120,9 @@ describe("admin coupons routes", () => {
   });
 
   it("rejects a PATCH that would push a stored percent coupon over 100", async () => {
-    const created = await CouponModel.create({ code: "PCT", type: "percent", value: 10 });
+    const created = await prisma.coupon.create({
+      data: { code: "PCT", type: "percent", value: 10 },
+    });
 
     // The body alone looks fine -- only the merged document is invalid,
     // which is exactly why this rule lives in the service.
@@ -135,11 +135,13 @@ describe("admin coupons routes", () => {
   });
 
   it("rejects a PATCH endsAt that precedes the stored startsAt", async () => {
-    const created = await CouponModel.create({
-      code: "WINDOW",
-      type: "fixed",
-      value: 1000,
-      startsAt: new Date("2026-09-01T00:00:00.000Z"),
+    const created = await prisma.coupon.create({
+      data: {
+        code: "WINDOW",
+        type: "fixed",
+        value: 1000,
+        startsAt: new Date("2026-09-01T00:00:00.000Z"),
+      },
     });
 
     const res = await fetch(`${baseUrl}/api/v1/admin/coupons/${created.id}`, {
@@ -158,16 +160,18 @@ describe("admin coupons routes", () => {
     });
     expect(res.status).toBe(201);
 
-    const stored = await CouponModel.findOne({ code: "DATED" });
+    const stored = await prisma.coupon.findUnique({ where: { code: "DATED" } });
     expect(stored?.endsAt).toBeInstanceOf(Date);
   });
 
   it("filters the list by active/inactive using the real date window", async () => {
-    await CouponModel.create([
-      { code: "LIVE", type: "percent", value: 5 },
-      { code: "EXPIRED", type: "percent", value: 5, endsAt: new Date("2020-01-01") },
-      { code: "FUTURE", type: "percent", value: 5, startsAt: new Date("2090-01-01") },
-    ]);
+    await prisma.coupon.createMany({
+      data: [
+        { code: "LIVE", type: "percent", value: 5 },
+        { code: "EXPIRED", type: "percent", value: 5, endsAt: new Date("2020-01-01") },
+        { code: "FUTURE", type: "percent", value: 5, startsAt: new Date("2090-01-01") },
+      ],
+    });
 
     const activeRes = await fetch(`${baseUrl}/api/v1/admin/coupons?active=true`, {
       headers: staffCookie(),
@@ -183,12 +187,14 @@ describe("admin coupons routes", () => {
   });
 
   it("counts a fully-redeemed coupon as inactive, not just an expired one", async () => {
-    await CouponModel.create({
-      code: "USEDUP",
-      type: "percent",
-      value: 5,
-      usageLimit: 2,
-      usedCount: 2,
+    await prisma.coupon.create({
+      data: {
+        code: "USEDUP",
+        type: "percent",
+        value: 5,
+        usageLimit: 2,
+        usedCount: 2,
+      },
     });
 
     const res = await fetch(`${baseUrl}/api/v1/admin/coupons?active=true`, {
@@ -199,10 +205,12 @@ describe("admin coupons routes", () => {
   });
 
   it("searches by code prefix, case-insensitively", async () => {
-    await CouponModel.create([
-      { code: "NOWRUZ99", type: "percent", value: 5 },
-      { code: "YALDA10", type: "percent", value: 5 },
-    ]);
+    await prisma.coupon.createMany({
+      data: [
+        { code: "NOWRUZ99", type: "percent", value: 5 },
+        { code: "YALDA10", type: "percent", value: 5 },
+      ],
+    });
 
     const res = await fetch(`${baseUrl}/api/v1/admin/coupons?code=nowruz`, {
       headers: staffCookie(),
@@ -212,10 +220,10 @@ describe("admin coupons routes", () => {
   });
 
   it("treats regex metacharacters in the search as literal text", async () => {
-    await CouponModel.create({ code: "SALE10", type: "percent", value: 5 });
+    await prisma.coupon.create({ data: { code: "SALE10", type: "percent", value: 5 } });
 
-    // Unescaped, "S.*" would match SALE10 -- proving the escape works
-    // means getting zero results, not a 500.
+    // Unescaped, "S.*" would match SALE10. `startsWith` binds the value, so
+    // proving it is literal text means getting zero results, not a 500.
     const res = await fetch(`${baseUrl}/api/v1/admin/coupons?code=${encodeURIComponent("S.*")}`, {
       headers: staffCookie(),
     });
@@ -225,7 +233,9 @@ describe("admin coupons routes", () => {
   });
 
   it("deactivating makes the coupon fail the real validateCoupon check", async () => {
-    const created = await CouponModel.create({ code: "KILLME", type: "fixed", value: 1000 });
+    const created = await prisma.coupon.create({
+      data: { code: "KILLME", type: "fixed", value: 1000 },
+    });
 
     // Valid before -- otherwise the assertion after proves nothing.
     const before = await validateCoupon(created, 500_000);
@@ -237,7 +247,7 @@ describe("admin coupons routes", () => {
     });
     expect(res.status).toBe(200);
 
-    const after = await CouponModel.findById(created.id);
+    const after = await prisma.coupon.findUnique({ where: { id: created.id } });
     expect(after).not.toBeNull();
     // Still present and still carrying its history -- deactivation is an
     // endsAt transition, never a soft delete.

@@ -10,13 +10,29 @@ import { logger } from "../config/logger.js";
 // handler's generic 500 on a duplicate, with no clean 400 anywhere.
 // Fixed once, here, so every existing and future admin CRUD route
 // benefits, not just the one that happened to surface it.
-interface MongoDuplicateKeyError {
-  code: 11000;
-  keyValue?: Record<string, unknown>;
+/**
+ * Prisma reports a unique-constraint violation as a known request error with
+ * code `P2002`, and names the offending column(s) in `meta.target`. That is
+ * the same fact Mongo's `E11000` carried in `keyValue`, so the branch below is
+ * unchanged apart from where it reads the field name from.
+ *
+ * Matched structurally rather than with `instanceof
+ * Prisma.PrismaClientKnownRequestError`: the client is wrapped in an extension,
+ * and an error crossing that boundary is not guaranteed to keep its prototype.
+ */
+interface UniqueConstraintError {
+  code: "P2002";
+  meta?: { target?: string[] | string };
 }
 
-function isDuplicateKeyError(err: unknown): err is MongoDuplicateKeyError {
-  return typeof err === "object" && err !== null && "code" in err && err.code === 11000;
+function isDuplicateKeyError(err: unknown): err is UniqueConstraintError {
+  return typeof err === "object" && err !== null && "code" in err && err.code === "P2002";
+}
+
+function duplicateField(err: UniqueConstraintError): string | undefined {
+  const target = err.meta?.target;
+  if (Array.isArray(target)) return target[0];
+  return typeof target === "string" ? target : undefined;
 }
 
 // Express only recognizes an error-handling middleware by its 4-argument
@@ -44,7 +60,7 @@ export const errorHandler: ErrorRequestHandler = (err, req, res, _next) => {
   }
 
   if (isDuplicateKeyError(err)) {
-    const field = err.keyValue ? Object.keys(err.keyValue)[0] : undefined;
+    const field = duplicateField(err);
     logger.warn({ path: req.originalUrl, field }, "Duplicate key");
     res.status(400).json({
       ok: false,
