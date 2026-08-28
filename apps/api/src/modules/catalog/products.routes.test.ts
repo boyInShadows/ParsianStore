@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { buildVehicleKey } from "schemas";
-import { disconnectDB, resetDb, startTestServer } from "../../../config/testDb.js";
+import { disconnectDB, resetDb, startTestServer } from "../../config/testDb.js";
 import { BrandModel } from "../../models/Brand.js";
 import { CategoryModel } from "../../models/Category.js";
 import { FitmentModel } from "../../models/Fitment.js";

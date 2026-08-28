@@ -1,6 +1,6 @@
 import { afterAll, describe, expect, it } from "vitest";
 import { connectDB, disconnectDB } from "./db.js";
-import { disconnectDB } from "../../config/testDb.js";
+import { disconnectDB } from "./testDb.js";
 
 // Against a real local MongoDB — see plugins.test.ts for why. Dedicated
 // throwaway database, dropped in afterAll.

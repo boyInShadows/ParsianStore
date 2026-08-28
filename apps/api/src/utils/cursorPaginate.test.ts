@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import mongoose, { Schema } from "mongoose";
-import { disconnectDB, resetDb } from "../../config/testDb.js";
+import { disconnectDB, resetDb } from "../config/testDb.js";
 import { cursorPaginate } from "./cursorPaginate.js";
 
 interface Widget {

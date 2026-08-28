@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
-import { disconnectDB } from "../../../config/testDb.js";
+import { disconnectDB } from "../../config/testDb.js";
 import { BrandModel } from "../../models/Brand.js";
 import { CategoryModel } from "../../models/Category.js";
 import { ProductModel } from "../../models/Product.js";

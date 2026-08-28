@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { disconnectDB, resetDb } from "../../config/testDb.js";
+import { disconnectDB, resetDb } from "../config/testDb.js";
 import { CityModel } from "./City.js";
 
 beforeAll(async () => {

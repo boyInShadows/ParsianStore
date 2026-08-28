@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
-import { disconnectDB, resetDb, startTestServer } from "../../../config/testDb.js";
+import { disconnectDB, resetDb, startTestServer } from "../../config/testDb.js";
 import { ShippingRateModel } from "../../models/ShippingRate.js";
 import type { UserRole } from "../../models/User.js";
 import { signAccessToken } from "../../utils/jwt.js";

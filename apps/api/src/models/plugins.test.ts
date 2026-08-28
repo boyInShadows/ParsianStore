@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import mongoose, { Schema } from "mongoose";
 import { applyBasePlugins } from "./plugins.js";
-import { disconnectDB, resetDb } from "../../config/testDb.js";
+import { disconnectDB, resetDb } from "../config/testDb.js";
 
 // Runs against a real local MongoDB (the same one dev/CI already need for
 // P2.S2+ — no mongodb-memory-server in the dependency manifest, and a real

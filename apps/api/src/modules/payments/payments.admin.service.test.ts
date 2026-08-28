@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
-import { disconnectDB } from "../../../config/testDb.js";
+import { disconnectDB } from "../../config/testDb.js";
 import { OrderModel } from "../../models/Order.js";
 import { PaymentModel } from "../../models/Payment.js";
 import { reconcilePayments } from "./payments.admin.service.js";

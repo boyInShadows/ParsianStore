@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { disconnectDB, resetDb } from "../../config/testDb.js";
+import { disconnectDB, resetDb } from "../config/testDb.js";
 import { ShippingRateModel } from "../models/ShippingRate.js";
 import { seedShipping } from "./shipping.js";
 

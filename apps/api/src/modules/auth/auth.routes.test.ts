@@ -1,7 +1,7 @@
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import argon2 from "argon2";
 import { env } from "../../config/env.js";
-import { disconnectDB, resetDb, startTestServer } from "../../../config/testDb.js";
+import { disconnectDB, resetDb, startTestServer } from "../../config/testDb.js";
 import { OtpTokenModel } from "../../models/OtpToken.js";
 import { RefreshTokenModel } from "../../models/RefreshToken.js";
 import { UserModel } from "../../models/User.js";

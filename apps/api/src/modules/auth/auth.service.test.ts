@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
-import { disconnectDB, resetDb } from "../../../config/testDb.js";
+import { disconnectDB, resetDb } from "../../config/testDb.js";
 import { OtpTokenModel } from "../../models/OtpToken.js";
 import { RefreshTokenModel } from "../../models/RefreshToken.js";
 import { UserModel } from "../../models/User.js";
