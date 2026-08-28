@@ -1,15 +1,11 @@
 import { randomUUID } from "node:crypto";
+import type { UserRole } from "@prisma/client";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
-import { disconnectDB, resetDb, startTestServer } from "../../../config/testDb.js";
-import { FitmentModel } from "../../models/Fitment.js";
-import { ProductModel } from "../../models/Product.js";
-import { VehicleEngineModel } from "../../models/VehicleEngine.js";
-import { VehicleGenModel } from "../../models/VehicleGen.js";
-import { VehicleMakeModel } from "../../models/VehicleMake.js";
-import { VehicleModelModel } from "../../models/VehicleModel.js";
-import type { UserRole } from "../../models/User.js";
-import { signAccessToken } from "../../utils/jwt.js";
 import type { AdminFitmentDto } from "schemas";
+import { prisma } from "../../config/prisma.js";
+import { disconnectDB, resetDb, startTestServer } from "../../config/testDb.js";
+import { seedProduct, seedVehicleTree } from "../../test/factories.js";
+import { signAccessToken } from "../../utils/jwt.js";
 
 const BASE = "/api/v1/admin/fitment";
 let baseUrl: string;
@@ -51,100 +47,29 @@ let otherMakeId: string;
 let otherModelId: string;
 let otherGenId: string;
 
-let skuCounter = 0;
-
 async function seedTree(): Promise<void> {
-  skuCounter += 1;
-  const product = await ProductModel.create({
-    name: { fa: "لنت ترمز", en: "Brake pad" },
-    slug: `brake-pad-${skuCounter}`,
-    sku: `BP-${skuCounter}`,
-    brandId: randomUUID(),
-    categoryId: randomUUID(),
-    priceRial: 1_000_000,
-    weightGram: 500,
-    dimensions: { lengthMm: 10, widthMm: 10, heightMm: 10 },
-    warranty: { months: 6, text: "شش ماه" },
-    authenticity: {
-      supplyRoute: "oem",
-      sourceBrand: "SAIPA",
-      countryOfManufacture: "ایران",
-      verificationCode: `VC-${skuCounter}`,
-    },
-    status: "active",
-  });
-  productId = String(product._id);
+  productId = (await seedProduct({ nameFa: "لنت ترمز", nameEn: "Brake pad" })).id;
 
-  const make = await VehicleMakeModel.create({
-    name: { fa: "سایپا", en: "Saipa" },
-    slug: `saipa-${skuCounter}`,
-    country: "ایران",
-    isDomestic: true,
-  });
-  makeId = String(make._id);
-
-  const model = await VehicleModelModel.create({
-    makeId: make._id,
-    name: { fa: "پراید", en: "Pride" },
-    slug: `pride-${skuCounter}`,
-    bodyType: "hatchback",
-  });
-  modelId = String(model._id);
-
-  const generation = await VehicleGenModel.create({
-    modelId: model._id,
-    name: { fa: "۱۳۱", en: "131" },
-    yearFrom: 2008,
-    yearTo: 2018,
-    facelift: false,
-  });
-  genId = String(generation._id);
-
-  const engine = await VehicleEngineModel.create({
-    genId: generation._id,
-    code: "M13",
-    displacement: 1.3,
-    fuel: "petrol",
-    power: 65,
-  });
-  engineId = String(engine._id);
+  const branch = await seedVehicleTree({ engine: { code: "M13" } });
+  makeId = branch.make.id;
+  modelId = branch.model.id;
+  genId = branch.gen.id;
+  engineId = branch.engine.id;
 
   // A second, unrelated branch of the tree, for the cross-parent checks.
-  const otherMake = await VehicleMakeModel.create({
-    name: { fa: "ایران‌خودرو", en: "IKCO" },
-    slug: `ikco-${skuCounter}`,
-    country: "ایران",
-    isDomestic: true,
+  const other = await seedVehicleTree({
+    make: { nameFa: "ایران‌خودرو", nameEn: "IKCO" },
+    model: { nameFa: "پژو ۴۰۵", nameEn: "Peugeot 405", bodyType: "sedan" },
+    gen: { nameFa: "GLX", nameEn: "GLX", yearFrom: 2000, yearTo: null },
+    engine: { code: "XU7", displacement: 1800, power: 100 },
   });
-  otherMakeId = String(otherMake._id);
-
-  const otherModel = await VehicleModelModel.create({
-    makeId: otherMake._id,
-    name: { fa: "پژو ۴۰۵", en: "Peugeot 405" },
-    slug: `peugeot-405-${skuCounter}`,
-    bodyType: "sedan",
-  });
-  otherModelId = String(otherModel._id);
-
-  const otherGen = await VehicleGenModel.create({
-    modelId: otherModel._id,
-    name: { fa: "GLX", en: "GLX" },
-    yearFrom: 2000,
-    yearTo: null,
-    facelift: false,
-  });
-  otherGenId = String(otherGen._id);
+  otherMakeId = other.make.id;
+  otherModelId = other.model.id;
+  otherGenId = other.gen.id;
 }
 
 beforeEach(async () => {
-  await Promise.all([
-    FitmentModel.deleteMany({}),
-    ProductModel.deleteMany({}),
-    VehicleMakeModel.deleteMany({}),
-    VehicleModelModel.deleteMany({}),
-    VehicleGenModel.deleteMany({}),
-    VehicleEngineModel.deleteMany({}),
-  ]);
+  await resetDb();
   await seedTree();
 });
 
@@ -205,7 +130,8 @@ describe("admin fitment routes", () => {
 
   // A record naming a Pride generation under Iran Khodro would simply
   // never match -- the part would quietly fit no car, with nothing
-  // reporting an error anywhere.
+  // reporting an error anywhere. The foreign keys cannot catch this: every
+  // id in it exists, they just do not belong together.
   it("refuses a model that is not under the chosen make", async () => {
     const res = await create({ makeId, modelId: otherModelId });
     expect(res.status).toBe(400);
@@ -222,15 +148,17 @@ describe("admin fitment routes", () => {
   });
 
   it("refuses an engine that is not under the chosen generation", async () => {
-    const otherEngine = await VehicleEngineModel.create({
-      genId: otherGenId,
-      code: "XU7",
-      displacement: 1.8,
-      fuel: "petrol",
-      power: 100,
+    const otherEngine = await prisma.vehicleEngine.create({
+      data: {
+        genId: otherGenId,
+        code: "XU7-alt",
+        displacement: 1800,
+        fuel: "petrol",
+        power: 100,
+      },
     });
 
-    const res = await create({ genId, engineId: String(otherEngine._id) });
+    const res = await create({ genId, engineId: otherEngine.id });
 
     expect(res.status).toBe(400);
   });
@@ -259,7 +187,7 @@ describe("admin fitment routes", () => {
   });
 
   // Broadening a record from one engine to all engines has to actually
-  // clear the field, not leave the old value in place.
+  // clear the column, not leave the old value in place.
   it("clears the engine when an edit omits it", async () => {
     const created = await create({ genId, engineId });
     const { data } = (await created.json()) as { data: AdminFitmentDto };
@@ -269,8 +197,8 @@ describe("admin fitment routes", () => {
 
     expect(res.status).toBe(200);
     expect(updated.data.engineId).toBeUndefined();
-    const stored = await FitmentModel.findById(data.id);
-    expect(stored?.engineId).toBeUndefined();
+    const stored = await prisma.fitment.findUnique({ where: { id: data.id } });
+    expect(stored?.engineId).toBeNull();
   });
 
   it("filters by product and by confidence", async () => {
@@ -301,13 +229,14 @@ describe("admin fitment routes", () => {
     expect(afterRestore.data).toHaveLength(1);
   });
 
-  // The row pointing at a since-deleted generation is exactly what staff
-  // came here to find; hiding its name would hide the problem.
+  // The row pointing at a since-deleted generation is exactly what staff came
+  // here to find; hiding its name would hide the problem. This is also the one
+  // place the soft-delete extension's documented blind spot -- it does not
+  // reach nested reads -- is the behaviour we want.
   it("still resolves a name for a soft-deleted reference", async () => {
     const created = await create({ genId });
     const { data } = (await created.json()) as { data: AdminFitmentDto };
-    const generation = await VehicleGenModel.findById(genId);
-    await generation?.softDelete();
+    await prisma.vehicleGen.update({ where: { id: genId }, data: { deletedAt: new Date() } });
 
     const res = await send(`/${data.id}`, "GET");
     const body = (await res.json()) as { data: AdminFitmentDto };

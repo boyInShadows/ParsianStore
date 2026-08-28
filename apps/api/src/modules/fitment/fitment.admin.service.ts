@@ -1,13 +1,14 @@
-import type { FilterQuery, HydratedDocument } from "mongoose";
+import { Prisma } from "@prisma/client";
 import type { AdminFitmentDto } from "schemas";
-import { FitmentModel, type Fitment } from "../../models/Fitment.js";
-import { ProductModel } from "../../models/Product.js";
-import { VehicleEngineModel } from "../../models/VehicleEngine.js";
-import { VehicleGenModel } from "../../models/VehicleGen.js";
-import { VehicleMakeModel } from "../../models/VehicleMake.js";
-import { VehicleModelModel } from "../../models/VehicleModel.js";
+import { ANY_STATE, prisma, softDeleteData, stateFilter } from "../../config/prisma.js";
 import { ApiError } from "../../utils/ApiError.js";
-import { paginate, type PaginationMeta, type PaginationQuery } from "../../utils/pagination.js";
+import {
+  paginate,
+  type PaginatableDelegate,
+  type PaginationMeta,
+  type PaginationQuery,
+  type Where,
+} from "../../utils/pagination.js";
 import type {
   AdminFitmentListQuery,
   CreateFitmentInput,
@@ -17,198 +18,194 @@ import type {
 const NOT_FOUND = "رکورد سازگاری یافت نشد";
 const UNKNOWN = "—";
 
-/** See categories.admin.service.ts for why this shape, not `$in: [null, ...]`. */
-const ANY_STATE = { deletedAt: { $exists: true } } as const;
-
 type ListFilters = Omit<AdminFitmentListQuery, keyof PaginationQuery>;
 
-function buildListFilter(filters: ListFilters): FilterQuery<Fitment> {
-  const filter: FilterQuery<Fitment> =
-    filters.state === "deleted" ? { deletedAt: { $ne: null } } : { deletedAt: null };
-  if (filters.productId) filter.productId = filters.productId;
-  if (filters.makeId) filter.makeId = filters.makeId;
-  if (filters.modelId) filter.modelId = filters.modelId;
-  if (filters.genId) filter.genId = filters.genId;
-  if (filters.confidence) filter.confidence = filters.confidence;
-  return filter;
-}
-
-interface Lookups {
-  products: Map<string, { name: string; sku: string }>;
-  makes: Map<string, string>;
-  models: Map<string, string>;
-  generations: Map<string, string>;
-  engines: Map<string, string>;
+function buildListFilter(filters: ListFilters): Where {
+  return {
+    ...stateFilter(filters.state),
+    ...(filters.productId ? { productId: filters.productId } : {}),
+    ...(filters.makeId ? { makeId: filters.makeId } : {}),
+    ...(filters.modelId ? { modelId: filters.modelId } : {}),
+    ...(filters.genId ? { genId: filters.genId } : {}),
+    ...(filters.confidence ? { confidence: filters.confidence } : {}),
+  };
 }
 
 /**
- * One query per referenced collection for the whole page, not a populate
- * per row -- a page of fitments for one product would otherwise fetch
- * that product twenty times. Every lookup ignores soft-delete state
- * deliberately: a fitment pointing at a since-deleted generation is
- * exactly the broken row staff came here to find, and hiding its name
- * would hide the problem.
+ * The referenced names, joined in the same query as the row itself.
+ *
+ * Under Mongo this was five extra `find({ _id: { $in: [...] } })` calls plus a
+ * Map per collection, because a `populate` per row would have refetched the
+ * same product twenty times on a page of fitments for one product. A foreign
+ * key makes that plumbing unnecessary -- and it also makes the deliberate part
+ * work by itself: these lookups must ignore soft-delete state, since a fitment
+ * pointing at a since-deleted generation is exactly the broken row staff came
+ * here to find, and blanking its name would hide the problem. Prisma query
+ * extensions do not reach nested reads (see config/prisma.ts), so an `include`
+ * returns the related row whatever its `deletedAt` -- the old ANY_STATE
+ * behaviour, for free rather than by hand.
  */
-async function buildLookups(docs: HydratedDocument<Fitment>[]): Promise<Lookups> {
-  const ids = <T>(values: (T | undefined)[]) => [...new Set(values.filter(Boolean).map(String))];
+const REFERENCES = {
+  product: { select: { nameFa: true, sku: true } },
+  make: { select: { nameFa: true } },
+  model: { select: { nameFa: true } },
+  gen: { select: { nameFa: true } },
+  engine: { select: { code: true } },
+} as const;
 
-  const [products, makes, models, generations, engines] = await Promise.all([
-    ProductModel.find({
-      _id: { $in: ids(docs.map((doc) => doc.productId)) },
-      ...ANY_STATE,
-    }).select("name sku"),
-    VehicleMakeModel.find({
-      _id: { $in: ids(docs.map((doc) => doc.makeId)) },
-      ...ANY_STATE,
-    }).select("name"),
-    VehicleModelModel.find({
-      _id: { $in: ids(docs.map((doc) => doc.modelId)) },
-      ...ANY_STATE,
-    }).select("name"),
-    VehicleGenModel.find({
-      _id: { $in: ids(docs.map((doc) => doc.genId)) },
-      ...ANY_STATE,
-    }).select("name"),
-    VehicleEngineModel.find({
-      _id: { $in: ids(docs.map((doc) => doc.engineId)) },
-      ...ANY_STATE,
-    }).select("code"),
-  ]);
+/**
+ * Derived from the schema rather than hand-written: `GetPayload` reads the
+ * model and the `include` above, so a renamed column or a changed relation is
+ * a compile error here instead of an `undefined` in the admin table.
+ */
+type FitmentRow = Prisma.FitmentGetPayload<{ include: typeof REFERENCES }>;
 
+function toDto(row: FitmentRow): AdminFitmentDto {
   return {
-    products: new Map(
-      products.map((doc) => [String(doc._id), { name: doc.name.fa, sku: doc.sku }]),
-    ),
-    makes: new Map(makes.map((doc) => [String(doc._id), doc.name.fa])),
-    models: new Map(models.map((doc) => [String(doc._id), doc.name.fa])),
-    generations: new Map(generations.map((doc) => [String(doc._id), doc.name.fa])),
-    engines: new Map(engines.map((doc) => [String(doc._id), doc.code])),
+    id: row.id,
+    productId: row.productId,
+    productName: row.product?.nameFa ?? UNKNOWN,
+    productSku: row.product?.sku ?? UNKNOWN,
+    makeId: row.makeId,
+    makeName: row.make?.nameFa ?? UNKNOWN,
+    modelId: row.modelId,
+    modelName: row.model?.nameFa ?? UNKNOWN,
+    ...(row.genId ? { genId: row.genId, genName: row.gen?.nameFa ?? UNKNOWN } : {}),
+    ...(row.engineId ? { engineId: row.engineId, engineCode: row.engine?.code ?? UNKNOWN } : {}),
+    yearFrom: row.yearFrom,
+    yearTo: row.yearTo,
+    ...(row.note ? { note: row.note } : {}),
+    confidence: row.confidence,
+    deletedAt: row.deletedAt ? row.deletedAt.toISOString() : null,
   };
-}
-
-function toDto(doc: HydratedDocument<Fitment>, lookups: Lookups): AdminFitmentDto {
-  const product = lookups.products.get(String(doc.productId));
-  return {
-    id: String(doc._id),
-    productId: String(doc.productId),
-    productName: product?.name ?? UNKNOWN,
-    productSku: product?.sku ?? UNKNOWN,
-    makeId: String(doc.makeId),
-    makeName: lookups.makes.get(String(doc.makeId)) ?? UNKNOWN,
-    modelId: String(doc.modelId),
-    modelName: lookups.models.get(String(doc.modelId)) ?? UNKNOWN,
-    ...(doc.genId
-      ? {
-          genId: String(doc.genId),
-          genName: lookups.generations.get(String(doc.genId)) ?? UNKNOWN,
-        }
-      : {}),
-    ...(doc.engineId
-      ? {
-          engineId: String(doc.engineId),
-          engineCode: lookups.engines.get(String(doc.engineId)) ?? UNKNOWN,
-        }
-      : {}),
-    yearFrom: doc.yearFrom,
-    yearTo: doc.yearTo,
-    ...(doc.note ? { note: doc.note } : {}),
-    confidence: doc.confidence,
-    deletedAt: doc.deletedAt ? doc.deletedAt.toISOString() : null,
-  };
-}
-
-async function hydrate(docs: HydratedDocument<Fitment>[]): Promise<AdminFitmentDto[]> {
-  const lookups = await buildLookups(docs);
-  return docs.map((doc) => toDto(doc, lookups));
-}
-
-async function hydrateOne(doc: HydratedDocument<Fitment>): Promise<AdminFitmentDto> {
-  const [dto] = await hydrate([doc]);
-  if (!dto) throw new ApiError(404, NOT_FOUND);
-  return dto;
 }
 
 /**
- * The vehicle references must be a real chain -- model under make,
- * generation under model, engine under generation. Without this a record
- * can be saved naming a Pride generation under Iran Khodro, which
- * fitment.service.ts's matcher would simply never match: the part would
- * quietly fit no car, with nothing anywhere reporting an error.
+ * The vehicle references must be a real chain -- model under make, generation
+ * under model, engine under generation. The foreign keys now guarantee each id
+ * *exists*; they cannot say anything about whether the four belong together.
+ * Without this check a record can still be saved naming a Pride generation
+ * under Iran Khodro, which fitment.service.ts's matcher would simply never
+ * match: the part would quietly fit no car, with nothing anywhere reporting an
+ * error.
  */
 async function assertVehicleChain(input: CreateFitmentInput): Promise<void> {
-  const product = await ProductModel.exists({ _id: input.productId });
+  const product = await prisma.product.findUnique({
+    where: { id: input.productId },
+    select: { id: true },
+  });
   if (!product) throw new ApiError(400, "محصول انتخاب‌شده یافت نشد");
 
-  const make = await VehicleMakeModel.exists({ _id: input.makeId });
+  const make = await prisma.vehicleMake.findUnique({
+    where: { id: input.makeId },
+    select: { id: true },
+  });
   if (!make) throw new ApiError(400, "برند خودروی انتخاب‌شده یافت نشد");
 
-  const model = await VehicleModelModel.findById(input.modelId);
+  const model = await prisma.vehicleModel.findUnique({
+    where: { id: input.modelId },
+    select: { makeId: true },
+  });
   if (!model) throw new ApiError(400, "مدل انتخاب‌شده یافت نشد");
-  if (String(model.makeId) !== input.makeId) {
+  if (model.makeId !== input.makeId) {
     throw new ApiError(400, "مدل انتخاب‌شده زیرمجموعه این برند خودرو نیست");
   }
 
   if (!input.genId) return;
-  const generation = await VehicleGenModel.findById(input.genId);
+  const generation = await prisma.vehicleGen.findUnique({
+    where: { id: input.genId },
+    select: { modelId: true },
+  });
   if (!generation) throw new ApiError(400, "نسل انتخاب‌شده یافت نشد");
-  if (String(generation.modelId) !== input.modelId) {
+  if (generation.modelId !== input.modelId) {
     throw new ApiError(400, "نسل انتخاب‌شده زیرمجموعه این مدل نیست");
   }
 
   if (!input.engineId) return;
-  const engine = await VehicleEngineModel.findById(input.engineId);
+  const engine = await prisma.vehicleEngine.findUnique({
+    where: { id: input.engineId },
+    select: { genId: true },
+  });
   if (!engine) throw new ApiError(400, "موتور انتخاب‌شده یافت نشد");
-  if (String(engine.genId) !== input.genId) {
+  if (engine.genId !== input.genId) {
     throw new ApiError(400, "موتور انتخاب‌شده زیرمجموعه این نسل نیست");
   }
+}
+
+/** The write payload, spelled out once for create and update alike. */
+function writeData(input: CreateFitmentInput) {
+  return {
+    productId: input.productId,
+    makeId: input.makeId,
+    modelId: input.modelId,
+    genId: input.genId ?? null,
+    engineId: input.engineId ?? null,
+    yearFrom: input.yearFrom,
+    yearTo: input.yearTo ?? null,
+    note: input.note ?? null,
+    confidence: input.confidence,
+  };
 }
 
 export async function listAdminFitments(
   pagination: PaginationQuery,
   filters: ListFilters,
 ): Promise<{ data: AdminFitmentDto[]; meta: PaginationMeta }> {
-  const { data, meta } = await paginate(FitmentModel, buildListFilter(filters), {
-    ...pagination,
-    sort: pagination.sort ?? "-createdAt",
-  });
-  return { data: await hydrate(data), meta };
+  const { data, meta } = await paginate<FitmentRow>(
+    // `include` changes what `findMany` returns, but the generated delegate
+    // type only advertises the bare-column shape until it sees the argument
+    // object -- so the row type has to be asserted here. It is derived from
+    // the schema (above), not written by hand, so it cannot drift from it.
+    prisma.fitment as unknown as PaginatableDelegate<FitmentRow>,
+    "Fitment",
+    buildListFilter(filters),
+    { ...pagination, sort: pagination.sort ?? "-createdAt" },
+    { include: REFERENCES },
+  );
+  return { data: data.map(toDto), meta };
+}
+
+/** Live or soft-deleted -- what the detail view and restore have to find. */
+async function findAnyState(id: string): Promise<FitmentRow> {
+  const row = (await prisma.fitment.findFirst({
+    where: { id, ...ANY_STATE },
+    include: REFERENCES,
+  })) as FitmentRow | null;
+  if (!row) throw new ApiError(404, NOT_FOUND);
+  return row;
 }
 
 export async function getAdminFitmentById(id: string): Promise<AdminFitmentDto> {
-  const doc = await FitmentModel.findOne({ _id: id, ...ANY_STATE });
-  if (!doc) throw new ApiError(404, NOT_FOUND);
-  return hydrateOne(doc);
+  return toDto(await findAnyState(id));
 }
 
 export async function createFitment(input: CreateFitmentInput): Promise<AdminFitmentDto> {
   await assertVehicleChain(input);
-  return hydrateOne(await FitmentModel.create(input));
+  const row = (await prisma.fitment.create({
+    data: writeData(input),
+    include: REFERENCES,
+  })) as FitmentRow;
+  return toDto(row);
 }
 
 export async function updateFitment(
   id: string,
   input: UpdateFitmentInput,
 ): Promise<AdminFitmentDto> {
-  const doc = await FitmentModel.findById(id);
-  if (!doc) throw new ApiError(404, NOT_FOUND);
+  const existing = await prisma.fitment.findUnique({ where: { id }, select: { id: true } });
+  if (!existing) throw new ApiError(404, NOT_FOUND);
   await assertVehicleChain(input);
-  // Every optional field is set explicitly, including to `undefined`.
-  // `Object.assign` with an absent key would leave the old value in
-  // place -- silently keeping a record engine-scoped after staff
-  // deliberately broadened it to every engine.
-  doc.set({
-    productId: input.productId,
-    makeId: input.makeId,
-    modelId: input.modelId,
-    genId: input.genId,
-    engineId: input.engineId,
-    yearFrom: input.yearFrom,
-    yearTo: input.yearTo,
-    note: input.note,
-    confidence: input.confidence,
-  });
-  await doc.save();
-  return hydrateOne(doc);
+  // Every optional field is written explicitly, including as null. Omitting an
+  // absent key would leave the old value in place -- silently keeping a record
+  // engine-scoped after staff deliberately broadened it to every engine. Under
+  // Mongoose the same trap needed `doc.set()` over a full object rather than
+  // `Object.assign`.
+  const row = (await prisma.fitment.update({
+    where: { id },
+    data: writeData(input),
+    include: REFERENCES,
+  })) as FitmentRow;
+  return toDto(row);
 }
 
 /**
@@ -217,15 +214,17 @@ export async function updateFitment(
  * which is the whole point of the button.
  */
 export async function deleteFitment(id: string): Promise<void> {
-  const doc = await FitmentModel.findById(id);
-  if (!doc) throw new ApiError(404, NOT_FOUND);
-  await doc.softDelete();
+  const existing = await prisma.fitment.findUnique({ where: { id }, select: { id: true } });
+  if (!existing) throw new ApiError(404, NOT_FOUND);
+  await prisma.fitment.update({ where: { id }, data: softDeleteData() });
 }
 
 export async function restoreFitment(id: string): Promise<AdminFitmentDto> {
-  const doc = await FitmentModel.findOne({ _id: id, ...ANY_STATE });
-  if (!doc) throw new ApiError(404, NOT_FOUND);
-  doc.deletedAt = null;
-  await doc.save();
-  return hydrateOne(doc);
+  await findAnyState(id);
+  const row = (await prisma.fitment.update({
+    where: { id, ...ANY_STATE },
+    data: { deletedAt: null },
+    include: REFERENCES,
+  })) as FitmentRow;
+  return toDto(row);
 }

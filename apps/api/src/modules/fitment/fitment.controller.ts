@@ -27,6 +27,7 @@ export async function listFittingProductsHandler(
       vehicleKey,
       category,
       pagination,
+      req.user?.accountType,
     );
     res.json({ ok: true, data, meta });
   } catch (err) {
