@@ -17,6 +17,7 @@ import {
   Radio,
   Select,
   Skeleton,
+  Spinner,
   Tabs,
   Textarea,
   Toaster,
@@ -24,6 +25,10 @@ import {
 } from "@/components/primitives";
 // By file path, not the barrel -- see the note in primitives/index.ts: these
 // six cost every client-tree consumer of the barrel +8KB if exported there.
+// P11.S3: by file path, same barrel rule -- see primitives/index.ts.
+import { RadioGroup } from "@/components/primitives/RadioGroup";
+import { SearchField } from "@/components/primitives/SearchField";
+import { Switch } from "@/components/primitives/Switch";
 import { PageHeader } from "@/components/primitives/PageHeader";
 import { Sheet } from "@/components/primitives/Sheet";
 import { Receipt } from "@/components/primitives/Receipt";
@@ -40,6 +45,8 @@ export default function StyleguidePage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [page, setPage] = useState(1);
+  const [shipping, setShipping] = useState("courier");
+  const [searching, setSearching] = useState(false);
   const showToast = useToastStore((state) => state.show);
 
   return (
@@ -76,6 +83,76 @@ export default function StyleguidePage() {
           <Checkbox label="اطلاع‌رسانی موجودی مجدد" defaultChecked />
           <Radio label="پرداخت در محل" name="payment" defaultChecked />
           <Radio label="پرداخت آنلاین" name="payment" />
+        </div>
+      </Card>
+
+      {/* P11.S3 — the form primitives the design system was missing. */}
+      <Card className="gap-5 flex flex-col">
+        <h2 className="text-h3 font-semibold text-text">اجزای فرم</h2>
+
+        <SearchField
+          label="جستجوی قطعه با کد فنی"
+          placeholder="مثلاً 0K9A03328Z"
+          loading={searching}
+          onClear={() => showToast("جستجو پاک شد", "neutral")}
+        />
+        <Button variant="ghost" size="sm" onClick={() => setSearching((busy) => !busy)}>
+          {searching ? "پایان حالت جستجو" : "نمایش حالت جستجو"}
+        </Button>
+
+        <RadioGroup
+          name="shipping-demo"
+          legend="روش ارسال"
+          value={shipping}
+          onChange={setShipping}
+          required
+          options={[
+            {
+              value: "courier",
+              label: "پیک درون‌شهری",
+              description: "تحویل تا ۳ ساعت — ۱۵۰٬۰۰۰ ریال",
+            },
+            {
+              value: "post",
+              label: "پست پیشتاز",
+              description: "تحویل ۲ تا ۴ روز کاری — ۲۵۰٬۰۰۰ ریال",
+            },
+            { value: "pickup", label: "تحویل حضوری", description: "انبار مرکزی، تهران" },
+          ]}
+        />
+
+        <RadioGroup
+          name="warranty-demo"
+          legend="نوع ضمانت"
+          orientation="horizontal"
+          defaultValue="seller"
+          error="برای ادامه، یک گزینه را انتخاب کنید."
+          options={[
+            { value: "seller", label: "ضمانت فروشنده" },
+            { value: "manufacturer", label: "ضمانت کارخانه" },
+          ]}
+        />
+
+        <div className="flex flex-col gap-3">
+          <Switch
+            label="اطلاع‌رسانی پیامکی"
+            helperText="برای تغییر وضعیت سفارش پیامک دریافت کنید."
+            defaultChecked
+          />
+          <Switch label="نمایش قیمت عمده" />
+          <Switch label="حالت غیرفعال" disabled />
+        </div>
+
+        <div className="flex flex-wrap items-center gap-3">
+          <Button variant="cta" loading>
+            در حال ثبت سفارش…
+          </Button>
+          <Button variant="outline" loading>
+            در حال بررسی…
+          </Button>
+          <Spinner size="sm" />
+          <Spinner />
+          <Spinner size="lg" />
         </div>
       </Card>
 
