@@ -1,16 +1,8 @@
 import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { prisma } from "../../config/prisma.js";
 import { disconnectDB, resetDb, startTestServer } from "../../config/testDb.js";
-import { BrandModel } from "../../models/Brand.js";
-import { CartModel } from "../../models/Cart.js";
-import { CategoryModel } from "../../models/Category.js";
-import { CityModel } from "../../models/City.js";
-import { CouponModel } from "../../models/Coupon.js";
-import { OrderModel } from "../../models/Order.js";
-import { ProductModel } from "../../models/Product.js";
-import { ProvinceModel } from "../../models/Province.js";
-import { ShippingRateModel } from "../../models/ShippingRate.js";
-import { UserModel } from "../../models/User.js";
+import { seedOrder, seedProduct, seedUser } from "../../test/factories.js";
 import { signAccessToken } from "../../utils/jwt.js";
 
 let baseUrl: string;
@@ -22,18 +14,7 @@ beforeAll(async () => {
 });
 
 beforeEach(async () => {
-  await Promise.all([
-    CartModel.deleteMany({}),
-    ProductModel.deleteMany({}),
-    CategoryModel.deleteMany({}),
-    BrandModel.deleteMany({}),
-    CityModel.deleteMany({}),
-    ProvinceModel.deleteMany({}),
-    ShippingRateModel.deleteMany({}),
-    UserModel.deleteMany({}),
-    CouponModel.deleteMany({}),
-    OrderModel.deleteMany({}),
-  ]);
+  await resetDb();
 });
 
 afterAll(async () => {
@@ -76,39 +57,6 @@ function customerCookie(userId: string, accountType: "retail" | "wholesale" = "r
   return `accessToken=${token}`;
 }
 
-async function seedProduct(overrides: Record<string, unknown> = {}) {
-  const brand = await BrandModel.create({
-    name: { fa: "بوش", en: "Bosch" },
-    slug: `bosch-${randomUUID()}`,
-    country: "Germany",
-  });
-  const category = await CategoryModel.create({
-    name: { fa: "ترمز", en: "Brakes" },
-    slug: `brakes-${randomUUID()}`,
-    systemCode: "SYS-04",
-  });
-  const sku = `SKU-${randomUUID()}`;
-  return ProductModel.create({
-    name: { fa: "لنت ترمز جلو", en: "Front brake pad" },
-    slug: `front-brake-pad-${sku}`,
-    sku,
-    brandId: brand._id,
-    categoryId: category._id,
-    priceRial: 1_500_000,
-    stock: 10,
-    weightGram: 800,
-    dimensions: { lengthMm: 150, widthMm: 100, heightMm: 40 },
-    warranty: { months: 12, text: "۱۲ ماه" },
-    authenticity: {
-      supplyRoute: "oem",
-      sourceBrand: "Bosch",
-      countryOfManufacture: "Germany",
-      verificationCode: `VER-${sku}`,
-    },
-    ...overrides,
-  });
-}
-
 describe("GET /cart (guest)", () => {
   it("creates a fresh empty cart and sets an anonId cookie", async () => {
     const res = await fetch(`${baseUrl}/api/v1/cart`);
@@ -127,7 +75,7 @@ describe("POST/PATCH/DELETE /cart/items (guest)", () => {
     const addRes = await fetch(`${baseUrl}/api/v1/cart/items`, {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ productId: product._id.toString(), qty: 2 }),
+      body: JSON.stringify({ productId: product.id, qty: 2 }),
     });
     expect(addRes.status).toBe(200);
     const anonCookie = extractCookie(addRes.headers, "anonId");
@@ -147,14 +95,14 @@ describe("POST/PATCH/DELETE /cart/items (guest)", () => {
     const first = await fetch(`${baseUrl}/api/v1/cart/items`, {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ productId: product._id.toString(), qty: 1 }),
+      body: JSON.stringify({ productId: product.id, qty: 1 }),
     });
     const anonCookie = extractCookie(first.headers, "anonId");
 
     const second = await fetch(`${baseUrl}/api/v1/cart/items`, {
       method: "POST",
       headers: { "content-type": "application/json", cookie: anonCookie },
-      body: JSON.stringify({ productId: product._id.toString(), qty: 3 }),
+      body: JSON.stringify({ productId: product.id, qty: 3 }),
     });
     const body = (await second.json()) as Envelope<CartDto>;
     expect(body.data.items).toHaveLength(1);
@@ -175,7 +123,7 @@ describe("POST/PATCH/DELETE /cart/items (guest)", () => {
     const addRes = await fetch(`${baseUrl}/api/v1/cart/items`, {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ productId: product._id.toString(), qty: 1 }),
+      body: JSON.stringify({ productId: product.id, qty: 1 }),
     });
     const anonCookie = extractCookie(addRes.headers, "anonId");
     const addBody = (await addRes.json()) as Envelope<CartDto>;
@@ -213,7 +161,7 @@ describe("POST/PATCH/DELETE /cart/items (guest)", () => {
     const addRes = await fetch(`${baseUrl}/api/v1/cart/items`, {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ productId: product._id.toString(), qty: 5 }),
+      body: JSON.stringify({ productId: product.id, qty: 5 }),
     });
     const body = (await addRes.json()) as Envelope<CartDto>;
     expect(body.data.items[0]!.qty).toBe(5);
@@ -228,12 +176,12 @@ describe("guest -> auth cart merge", () => {
     const addRes = await fetch(`${baseUrl}/api/v1/cart/items`, {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ productId: product._id.toString(), qty: 2 }),
+      body: JSON.stringify({ productId: product.id, qty: 2 }),
     });
     const anonCookie = extractCookie(addRes.headers, "anonId");
     const anonId = anonCookie.split("=")[1]!;
 
-    const userId = randomUUID();
+    const userId = (await seedUser()).id;
     const mergedRes = await fetch(`${baseUrl}/api/v1/cart`, {
       headers: { cookie: `${anonCookie}; ${customerCookie(userId)}` },
     });
@@ -242,25 +190,25 @@ describe("guest -> auth cart merge", () => {
     expect(mergedBody.data.items).toHaveLength(1);
     expect(mergedBody.data.items[0]!.qty).toBe(2);
 
-    expect(await CartModel.exists({ anonId })).toBeNull();
-    expect(await CartModel.exists({ userId })).not.toBeNull();
+    expect(await prisma.cart.findUnique({ where: { anonId } })).toBeNull();
+    expect(await prisma.cart.findUnique({ where: { userId } })).not.toBeNull();
   });
 
   it("sums quantities when the user already had the same product in their own cart", async () => {
     const product = await seedProduct();
-    const userId = randomUUID();
+    const userId = (await seedUser()).id;
     const userCookie = customerCookie(userId);
 
     await fetch(`${baseUrl}/api/v1/cart/items`, {
       method: "POST",
       headers: { "content-type": "application/json", cookie: userCookie },
-      body: JSON.stringify({ productId: product._id.toString(), qty: 1 }),
+      body: JSON.stringify({ productId: product.id, qty: 1 }),
     });
 
     const guestAddRes = await fetch(`${baseUrl}/api/v1/cart/items`, {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ productId: product._id.toString(), qty: 3 }),
+      body: JSON.stringify({ productId: product.id, qty: 3 }),
     });
     const anonCookie = extractCookie(guestAddRes.headers, "anonId");
 
@@ -281,13 +229,13 @@ interface WholesaleCartItemDto extends CartItemDto {
 describe("P6.S1: wholesale pricing in the cart", () => {
   it("a wholesale account's addItem/getCart resolve the wholesale price, snapshotted and re-read consistently", async () => {
     const product = await seedProduct({ priceRial: 1_000_000, wholesalePriceRial: 850_000 });
-    const userId = randomUUID();
+    const userId = (await seedUser()).id;
     const wholesaleCookie = customerCookie(userId, "wholesale");
 
     const addRes = await fetch(`${baseUrl}/api/v1/cart/items`, {
       method: "POST",
       headers: { "content-type": "application/json", cookie: wholesaleCookie },
-      body: JSON.stringify({ productId: product._id.toString(), qty: 2 }),
+      body: JSON.stringify({ productId: product.id, qty: 2 }),
     });
     const addBody = (await addRes.json()) as Envelope<{ items: WholesaleCartItemDto[] }>;
     const item = addBody.data.items[0]!;
@@ -313,20 +261,20 @@ describe("P6.S1: wholesale pricing in the cart", () => {
     const guestRes = await fetch(`${baseUrl}/api/v1/cart/items`, {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ productId: product._id.toString(), qty: 1 }),
+      body: JSON.stringify({ productId: product.id, qty: 1 }),
     });
     const guestBody = (await guestRes.json()) as Envelope<{ items: WholesaleCartItemDto[] }>;
     expect(guestBody.data.items[0]!.product.priceRial).toBe(1_000_000);
     expect(guestBody.data.items[0]!.product.isWholesalePrice).toBe(false);
 
-    const retailUserId = randomUUID();
+    const retailUserId = (await seedUser()).id;
     const retailRes = await fetch(`${baseUrl}/api/v1/cart/items`, {
       method: "POST",
       headers: {
         "content-type": "application/json",
         cookie: customerCookie(retailUserId, "retail"),
       },
-      body: JSON.stringify({ productId: product._id.toString(), qty: 1 }),
+      body: JSON.stringify({ productId: product.id, qty: 1 }),
     });
     const retailBody = (await retailRes.json()) as Envelope<{ items: WholesaleCartItemDto[] }>;
     expect(retailBody.data.items[0]!.product.priceRial).toBe(1_000_000);
@@ -335,12 +283,12 @@ describe("P6.S1: wholesale pricing in the cart", () => {
 
   it("never leaks the raw wholesalePriceRial field in the cart response, for any viewer", async () => {
     const product = await seedProduct({ priceRial: 1_000_000, wholesalePriceRial: 850_000 });
-    const userId = randomUUID();
+    const userId = (await seedUser()).id;
 
     const res = await fetch(`${baseUrl}/api/v1/cart/items`, {
       method: "POST",
       headers: { "content-type": "application/json", cookie: customerCookie(userId, "wholesale") },
-      body: JSON.stringify({ productId: product._id.toString(), qty: 1 }),
+      body: JSON.stringify({ productId: product.id, qty: 1 }),
     });
     expect(await res.text()).not.toContain("wholesalePriceRial");
   });
@@ -358,73 +306,70 @@ interface EstimateShippingDto {
 }
 
 async function seedGeo() {
-  const tehran = await ProvinceModel.create({
-    name: { fa: "تهران", en: "Tehran" },
-    slug: "tehran",
+  // The slug matters: shipping.service.ts resolves the Tehran zone from it.
+  const tehran = await prisma.province.create({
+    data: { nameFa: "تهران", nameEn: "Tehran", slug: "tehran" },
   });
-  const fars = await ProvinceModel.create({ name: { fa: "فارس", en: "Fars" }, slug: "fars" });
-  const tehranCity = await CityModel.create({
-    provinceId: tehran._id,
-    name: { fa: "تهران", en: "Tehran" },
-    slug: "tehran-city",
+  const fars = await prisma.province.create({
+    data: { nameFa: "فارس", nameEn: "Fars", slug: "fars" },
   });
-  const shiraz = await CityModel.create({
-    provinceId: fars._id,
-    name: { fa: "شیراز", en: "Shiraz" },
-    slug: "shiraz",
+  const tehranCity = await prisma.city.create({
+    data: { provinceId: tehran.id, nameFa: "تهران", nameEn: "Tehran", slug: "tehran-city" },
+  });
+  const shiraz = await prisma.city.create({
+    data: { provinceId: fars.id, nameFa: "شیراز", nameEn: "Shiraz", slug: "shiraz" },
   });
   return { tehran, fars, tehranCity, shiraz };
 }
 
 async function seedShippingRates() {
-  await ShippingRateModel.insertMany([
-    {
-      methodCode: "post-pishtaz",
-      zone: "tehran",
-      minWeightGram: 0,
-      maxWeightGram: 1000,
-      priceRial: 250_000,
-    },
-    {
-      methodCode: "post-pishtaz",
-      zone: "tehran",
-      minWeightGram: 1000,
-      maxWeightGram: null,
-      priceRial: 400_000,
-    },
-    {
-      methodCode: "post-pishtaz",
-      zone: "other",
-      minWeightGram: 0,
-      maxWeightGram: 1000,
-      priceRial: 350_000,
-    },
-    {
-      methodCode: "post-pishtaz",
-      zone: "other",
-      minWeightGram: 1000,
-      maxWeightGram: null,
-      priceRial: 550_000,
-    },
-    {
-      methodCode: "intracity",
-      zone: "tehran",
-      minWeightGram: 0,
-      maxWeightGram: null,
-      priceRial: 150_000,
-    },
-  ]);
+  await prisma.shippingRate.createMany({
+    data: [
+      {
+        methodCode: "post-pishtaz",
+        zone: "tehran",
+        minWeightGram: 0,
+        maxWeightGram: 1000,
+        priceRial: 250_000,
+      },
+      {
+        methodCode: "post-pishtaz",
+        zone: "tehran",
+        minWeightGram: 1000,
+        maxWeightGram: null,
+        priceRial: 400_000,
+      },
+      {
+        methodCode: "post-pishtaz",
+        zone: "other",
+        minWeightGram: 0,
+        maxWeightGram: 1000,
+        priceRial: 350_000,
+      },
+      {
+        methodCode: "post-pishtaz",
+        zone: "other",
+        minWeightGram: 1000,
+        maxWeightGram: null,
+        priceRial: 550_000,
+      },
+      {
+        methodCode: "intracity",
+        zone: "tehran",
+        minWeightGram: 0,
+        maxWeightGram: null,
+        priceRial: 150_000,
+      },
+    ],
+  });
 }
 
 async function createUserWithAddress(
   provinceId: string,
   cityId: string,
 ): Promise<{ userId: string; addressId: string; cookie: string }> {
-  const user = await UserModel.create({
-    phone: `+989${Math.floor(100000000 + Math.random() * 800000000)}`,
-    name: "Checkout Test User",
-  });
-  const userId = user.id as string;
+  const user = await seedUser({ name: "Checkout Test User" });
+  const userId = user.id;
   const cookie = customerCookie(userId);
 
   const res = await fetch(`${baseUrl}/api/v1/me/addresses`, {
@@ -457,15 +402,12 @@ describe("POST /cart/estimate-shipping", () => {
     const { tehran, tehranCity } = await seedGeo();
     await seedShippingRates();
     const product = await seedProduct({ weightGram: 500 });
-    const { addressId, cookie } = await createUserWithAddress(
-      tehran._id.toString(),
-      tehranCity._id.toString(),
-    );
+    const { addressId, cookie } = await createUserWithAddress(tehran.id, tehranCity.id);
 
     await fetch(`${baseUrl}/api/v1/cart/items`, {
       method: "POST",
       headers: { cookie, "content-type": "application/json" },
-      body: JSON.stringify({ productId: product._id.toString(), qty: 1 }),
+      body: JSON.stringify({ productId: product.id, qty: 1 }),
     });
 
     const res = await fetch(`${baseUrl}/api/v1/cart/estimate-shipping`, {
@@ -486,15 +428,12 @@ describe("POST /cart/estimate-shipping", () => {
     const { fars, shiraz } = await seedGeo();
     await seedShippingRates();
     const product = await seedProduct({ weightGram: 1500 });
-    const { addressId, cookie } = await createUserWithAddress(
-      fars._id.toString(),
-      shiraz._id.toString(),
-    );
+    const { addressId, cookie } = await createUserWithAddress(fars.id, shiraz.id);
 
     await fetch(`${baseUrl}/api/v1/cart/items`, {
       method: "POST",
       headers: { cookie, "content-type": "application/json" },
-      body: JSON.stringify({ productId: product._id.toString(), qty: 1 }),
+      body: JSON.stringify({ productId: product.id, qty: 1 }),
     });
 
     const res = await fetch(`${baseUrl}/api/v1/cart/estimate-shipping`, {
@@ -512,10 +451,7 @@ describe("POST /cart/estimate-shipping", () => {
   it("400s for an empty cart", async () => {
     const { tehran, tehranCity } = await seedGeo();
     await seedShippingRates();
-    const { addressId, cookie } = await createUserWithAddress(
-      tehran._id.toString(),
-      tehranCity._id.toString(),
-    );
+    const { addressId, cookie } = await createUserWithAddress(tehran.id, tehranCity.id);
 
     const res = await fetch(`${baseUrl}/api/v1/cart/estimate-shipping`, {
       method: "POST",
@@ -529,17 +465,14 @@ describe("POST /cart/estimate-shipping", () => {
     const { tehran, tehranCity } = await seedGeo();
     await seedShippingRates();
     const product = await seedProduct({ weightGram: 500 });
-    const owner = await createUserWithAddress(tehran._id.toString(), tehranCity._id.toString());
-    const strangerUser = await UserModel.create({
-      phone: `+989${Math.floor(100000000 + Math.random() * 800000000)}`,
-      name: "Stranger",
-    });
-    const strangerCookie = customerCookie(strangerUser.id as string);
+    const owner = await createUserWithAddress(tehran.id, tehranCity.id);
+    const strangerUser = await seedUser({ name: "Stranger" });
+    const strangerCookie = customerCookie(strangerUser.id);
 
     await fetch(`${baseUrl}/api/v1/cart/items`, {
       method: "POST",
       headers: { cookie: strangerCookie, "content-type": "application/json" },
-      body: JSON.stringify({ productId: product._id.toString(), qty: 1 }),
+      body: JSON.stringify({ productId: product.id, qty: 1 }),
     });
 
     const res = await fetch(`${baseUrl}/api/v1/cart/estimate-shipping`, {
@@ -565,7 +498,7 @@ describe("POST/DELETE /cart/coupon", () => {
     const addRes = await fetch(`${baseUrl}/api/v1/cart/items`, {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ productId: product._id.toString(), qty: 1 }),
+      body: JSON.stringify({ productId: product.id, qty: 1 }),
     });
     const anonCookie = extractCookie(addRes.headers, "anonId");
 
@@ -578,17 +511,19 @@ describe("POST/DELETE /cart/coupon", () => {
   });
 
   it("400s when the cart subtotal is below the coupon's minSubtotalRial", async () => {
-    await CouponModel.create({
-      code: "BIGONLY",
-      type: "fixed",
-      value: 100_000,
-      minSubtotalRial: 5_000_000,
+    await prisma.coupon.create({
+      data: {
+        code: "BIGONLY",
+        type: "fixed",
+        value: 100_000,
+        minSubtotalRial: 5_000_000,
+      },
     });
     const product = await seedProduct({ priceRial: 1_000_000 });
     const addRes = await fetch(`${baseUrl}/api/v1/cart/items`, {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ productId: product._id.toString(), qty: 1 }),
+      body: JSON.stringify({ productId: product.id, qty: 1 }),
     });
     const anonCookie = extractCookie(addRes.headers, "anonId");
 
@@ -601,17 +536,19 @@ describe("POST/DELETE /cart/coupon", () => {
   });
 
   it("400s for an expired coupon", async () => {
-    await CouponModel.create({
-      code: "OLD10",
-      type: "percent",
-      value: 10,
-      endsAt: new Date(Date.now() - 86_400_000),
+    await prisma.coupon.create({
+      data: {
+        code: "OLD10",
+        type: "percent",
+        value: 10,
+        endsAt: new Date(Date.now() - 86_400_000),
+      },
     });
     const product = await seedProduct({ priceRial: 1_000_000 });
     const addRes = await fetch(`${baseUrl}/api/v1/cart/items`, {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ productId: product._id.toString(), qty: 1 }),
+      body: JSON.stringify({ productId: product.id, qty: 1 }),
     });
     const anonCookie = extractCookie(addRes.headers, "anonId");
 
@@ -624,17 +561,19 @@ describe("POST/DELETE /cart/coupon", () => {
   });
 
   it("applies a percent coupon (case-insensitive), caps it at maxDiscountRial, and DELETE removes it", async () => {
-    await CouponModel.create({
-      code: "SAVE10",
-      type: "percent",
-      value: 10,
-      maxDiscountRial: 50_000,
+    await prisma.coupon.create({
+      data: {
+        code: "SAVE10",
+        type: "percent",
+        value: 10,
+        maxDiscountRial: 50_000,
+      },
     });
     const product = await seedProduct({ priceRial: 1_000_000 });
     const addRes = await fetch(`${baseUrl}/api/v1/cart/items`, {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ productId: product._id.toString(), qty: 1 }),
+      body: JSON.stringify({ productId: product.id, qty: 1 }),
     });
     const anonCookie = extractCookie(addRes.headers, "anonId");
 
@@ -661,12 +600,12 @@ describe("POST/DELETE /cart/coupon", () => {
   });
 
   it("a fixed coupon never discounts past the subtotal itself", async () => {
-    await CouponModel.create({ code: "HUGE", type: "fixed", value: 5_000_000 });
+    await prisma.coupon.create({ data: { code: "HUGE", type: "fixed", value: 5_000_000 } });
     const product = await seedProduct({ priceRial: 200_000 });
     const addRes = await fetch(`${baseUrl}/api/v1/cart/items`, {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ productId: product._id.toString(), qty: 1 }),
+      body: JSON.stringify({ productId: product.id, qty: 1 }),
     });
     const anonCookie = extractCookie(addRes.headers, "anonId");
 
@@ -681,18 +620,20 @@ describe("POST/DELETE /cart/coupon", () => {
   });
 
   it("400s once usageLimit is exhausted", async () => {
-    await CouponModel.create({
-      code: "ONEUSE",
-      type: "fixed",
-      value: 10_000,
-      usageLimit: 1,
-      usedCount: 1,
+    await prisma.coupon.create({
+      data: {
+        code: "ONEUSE",
+        type: "fixed",
+        value: 10_000,
+        usageLimit: 1,
+        usedCount: 1,
+      },
     });
     const product = await seedProduct({ priceRial: 1_000_000 });
     const addRes = await fetch(`${baseUrl}/api/v1/cart/items`, {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ productId: product._id.toString(), qty: 1 }),
+      body: JSON.stringify({ productId: product.id, qty: 1 }),
     });
     const anonCookie = extractCookie(addRes.headers, "anonId");
 
@@ -705,41 +646,26 @@ describe("POST/DELETE /cart/coupon", () => {
   });
 
   it("400s once a signed-in user has already redeemed perUserLimit times", async () => {
-    await CouponModel.create({ code: "ONCE", type: "fixed", value: 10_000, perUserLimit: 1 });
-    const user = await UserModel.create({
-      phone: `+989${Math.floor(100000000 + Math.random() * 800000000)}`,
-      name: "Repeat Shopper",
+    await prisma.coupon.create({
+      data: { code: "ONCE", type: "fixed", value: 10_000, perUserLimit: 1 },
     });
+    const user = await seedUser({ name: "Repeat Shopper" });
     // A prior real (paid) order that already redeemed this code.
-    await OrderModel.create({
+    await seedOrder(user.id, {
       code: "PS-1404-00001",
-      userId: user._id,
-      items: [],
       subtotalRial: 1_000_000,
       discountRial: 10_000,
       couponCode: "ONCE",
-      shippingRial: 0,
-      taxRial: 0,
       totalRial: 990_000,
-      address: {
-        province: { fa: "تهران", en: "Tehran" },
-        city: { fa: "تهران", en: "Tehran" },
-        line: "x",
-        postalCode: "1234567890",
-        receiverName: "x",
-        receiverPhone: "09121234567",
-      },
-      shippingMethod: { code: "intracity", name: { fa: "پیک", en: "Courier" }, priceRial: 0 },
       status: "paid",
-      statusHistory: [{ status: "paid", at: new Date() }],
     });
 
-    const cookie = customerCookie(user.id as string);
+    const cookie = customerCookie(user.id);
     const product = await seedProduct({ priceRial: 1_000_000 });
     await fetch(`${baseUrl}/api/v1/cart/items`, {
       method: "POST",
       headers: { cookie, "content-type": "application/json" },
-      body: JSON.stringify({ productId: product._id.toString(), qty: 1 }),
+      body: JSON.stringify({ productId: product.id, qty: 1 }),
     });
 
     const res = await fetch(`${baseUrl}/api/v1/cart/coupon`, {

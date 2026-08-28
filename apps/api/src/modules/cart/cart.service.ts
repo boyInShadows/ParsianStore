@@ -1,9 +1,13 @@
-import type { FilterQuery, HydratedDocument } from "mongoose";
-import { resolveEffectivePriceRial, toPublicProductJson } from "../catalog/pricing.js";
-import { CartModel, nextCartExpiry, type Cart, type CartItem } from "../../models/Cart.js";
-import { ProductModel } from "../../models/Product.js";
 import type { AccountType } from "@prisma/client";
+import type { ProductListItemDto } from "schemas";
+import { prisma } from "../../config/prisma.js";
 import { ApiError } from "../../utils/ApiError.js";
+import { localized } from "../../utils/serialize.js";
+import {
+  resolveEffectivePriceRial,
+  toProductListItem,
+  type ProductRow,
+} from "../catalog/pricing.js";
 import {
   computeDiscountRial,
   findCouponByCode,
@@ -11,57 +15,79 @@ import {
   validateCoupon,
 } from "../coupons/coupon.service.js";
 
+const CART_TTL_MS = 30 * 24 * 60 * 60 * 1000;
+
+export function nextCartExpiry(): Date {
+  return new Date(Date.now() + CART_TTL_MS);
+}
+
 export type CartIdentity = { userId: string } | { anonId: string };
 
-function identityFilter(identity: CartIdentity): FilterQuery<Cart> {
+/** Both columns are unique, so this doubles as a `findUnique`/`upsert` key. */
+function identityWhere(identity: CartIdentity): { userId: string } | { anonId: string } {
   return "userId" in identity ? { userId: identity.userId } : { anonId: identity.anonId };
 }
 
-/** Atomic upsert (matches wishlist.service.ts's addToWishlist shape) --
- * plain "find, then create if missing" would let two near-simultaneous
- * first requests from the same brand-new guest each mint a different
- * anonId and collide on the sparse-unique index. */
-export async function findOrCreateCart(identity: CartIdentity): Promise<HydratedDocument<Cart>> {
-  const filter = identityFilter(identity);
-  const cart = await CartModel.findOneAndUpdate(
-    filter,
-    { $setOnInsert: { ...filter, items: [], expiresAt: nextCartExpiry() } },
-    { upsert: true, new: true, setDefaultsOnInsert: true },
-  );
-  return cart!;
+interface CartRow {
+  id: string;
+  couponCode: string | null;
 }
 
-/** Increment the matching line's qty, or push a new line if the product
- * isn't already in the cart -- one atomic update either way, never a
- * load-mutate-save round trip (a plan-review finding: the merge below can
- * race a just-logged-in client's own concurrent addItem call). Refreshes
- * priceRialSnapshot to the current price on every touch. */
-async function incrementOrPushItem(
-  filter: FilterQuery<Cart>,
-  item: Pick<CartItem, "productId" | "variantId" | "qty" | "priceRialSnapshot">,
-): Promise<HydratedDocument<Cart> | null> {
-  const lineMatch = item.variantId
-    ? { productId: item.productId, variantId: item.variantId }
-    : { productId: item.productId, variantId: { $exists: false } };
-  const incremented = await CartModel.findOneAndUpdate(
-    { ...filter, items: { $elemMatch: lineMatch } },
-    {
-      $inc: { "items.$.qty": item.qty },
-      $set: {
-        expiresAt: nextCartExpiry(),
-        "items.$.priceRialSnapshot": item.priceRialSnapshot,
-      },
-    },
-    { new: true },
-  );
-  if (incremented) {
-    return incremented;
-  }
-  return CartModel.findOneAndUpdate(
-    filter,
-    { $push: { items: item }, $set: { expiresAt: nextCartExpiry() } },
-    { new: true },
-  );
+/**
+ * Upsert rather than "find, then create if missing": two near-simultaneous
+ * first requests from the same brand-new guest would otherwise both find
+ * nothing and both insert.
+ *
+ * This is also why P10.S13's migration put a unique constraint back on
+ * `userId` and `anonId`. Mongo had a sparse unique index there and the
+ * schema translation had dropped it to a plain index, which quietly turned
+ * "one cart per identity" from something the database enforced into
+ * something this function merely hoped for.
+ *
+ * A cart is never soft-deleted anywhere in the app, which matters because
+ * `upsert` is the one operation the soft-delete extension deliberately
+ * leaves alone (see config/prisma.ts).
+ */
+export async function findOrCreateCart(identity: CartIdentity): Promise<CartRow> {
+  const where = identityWhere(identity);
+  return prisma.cart.upsert({
+    where,
+    create: { ...where, expiresAt: nextCartExpiry() },
+    update: {},
+    select: { id: true, couponCode: true },
+  });
+}
+
+/**
+ * Add to the matching line's qty, or write a new line -- and refresh
+ * `priceRialSnapshot` on every touch either way.
+ *
+ * Read-then-write, where Mongo did it in one atomic `$inc`/`$push`. The
+ * compound unique on (cartId, productId, variantId) cannot close that gap by
+ * itself: PostgreSQL does not consider two nulls equal, so it constrains
+ * variant lines but not the plain product lines that carry a null variantId.
+ * Both statements run inside one transaction, which is what actually keeps a
+ * concurrent add from interleaving between the read and the write.
+ */
+async function incrementOrAddItem(
+  cartId: string,
+  item: { productId: string; variantId: string | null; qty: number; priceRialSnapshot: number },
+): Promise<void> {
+  await prisma.$transaction(async (tx) => {
+    const existing = await tx.cartItem.findFirst({
+      where: { cartId, productId: item.productId, variantId: item.variantId },
+      select: { id: true },
+    });
+    if (existing) {
+      await tx.cartItem.update({
+        where: { id: existing.id },
+        data: { qty: { increment: item.qty }, priceRialSnapshot: item.priceRialSnapshot },
+      });
+    } else {
+      await tx.cartItem.create({ data: { cartId, ...item } });
+    }
+    await tx.cart.update({ where: { id: cartId }, data: { expiresAt: nextCartExpiry() } });
+  });
 }
 
 export async function addItem(
@@ -71,25 +97,28 @@ export async function addItem(
   accountType: AccountType | undefined,
   variantId?: string,
 ): Promise<void> {
-  const product = await ProductModel.findById(productId).select("+wholesalePriceRial");
+  const product = await prisma.product.findUnique({
+    where: { id: productId },
+    include: { variants: { where: { deletedAt: null } } },
+  });
   if (!product) {
     throw new ApiError(404, "محصول یافت نشد");
   }
-  const variant = variantId
-    ? product.variants.find((item) => item._id?.toString() === variantId)
-    : undefined;
+  const variant = variantId ? product.variants.find((entry) => entry.id === variantId) : undefined;
   if (variantId && !variant) throw new ApiError(404, "گونه محصول یافت نشد");
   if (product.variants.length > 0 && !variant)
     throw new ApiError(400, "انتخاب گونه محصول الزامی است");
+
   const priceRialSnapshot = variant
     ? accountType === "wholesale" && variant.wholesalePriceRial != null
       ? variant.wholesalePriceRial
       : variant.priceRial
     : resolveEffectivePriceRial(product, accountType);
-  await findOrCreateCart(identity);
-  await incrementOrPushItem(identityFilter(identity), {
-    productId: product._id,
-    variantId: variant?._id,
+
+  const cart = await findOrCreateCart(identity);
+  await incrementOrAddItem(cart.id, {
+    productId: product.id,
+    variantId: variant?.id ?? null,
     qty,
     // Snapshots the EFFECTIVE (tier-resolved) price this identity saw at
     // add-time, not always retail -- priceRialSnapshot's only purpose is
@@ -100,47 +129,62 @@ export async function addItem(
   });
 }
 
+/**
+ * The line is addressed by its own id *and* the caller's cart, so one
+ * shopper cannot edit another's line by guessing an id. `updateMany` rather
+ * than `update` for exactly that reason: `update` takes a unique where, and
+ * the id alone is the only unique thing here.
+ */
 export async function updateItemQty(
   identity: CartIdentity,
   itemId: string,
   qty: number,
 ): Promise<void> {
-  const updated = await CartModel.findOneAndUpdate(
-    { ...identityFilter(identity), "items._id": itemId },
-    { $set: { "items.$.qty": qty, expiresAt: nextCartExpiry() } },
-  );
-  if (!updated) {
+  const cart = await findOrCreateCart(identity);
+  const { count } = await prisma.cartItem.updateMany({
+    where: { id: itemId, cartId: cart.id },
+    data: { qty },
+  });
+  if (count === 0) {
     throw new ApiError(404, "قلم سبد خرید یافت نشد");
   }
+  await prisma.cart.update({ where: { id: cart.id }, data: { expiresAt: nextCartExpiry() } });
 }
 
 export async function removeItem(identity: CartIdentity, itemId: string): Promise<void> {
-  const updated = await CartModel.findOneAndUpdate(identityFilter(identity), {
-    $pull: { items: { _id: itemId } },
-    $set: { expiresAt: nextCartExpiry() },
-  });
-  if (!updated) {
-    throw new ApiError(404, "سبد خرید یافت نشد");
-  }
+  const cart = await findOrCreateCart(identity);
+  await prisma.cartItem.deleteMany({ where: { id: itemId, cartId: cart.id } });
+  await prisma.cart.update({ where: { id: cart.id }, data: { expiresAt: nextCartExpiry() } });
 }
 
-/** Called from cart.controller.ts's getCartHandler (never from
- * modules/auth -- a plan-review finding: routing this through
- * auth.controller.ts would be new, unprecedented cross-module coupling
- * with no failure isolation from login itself). findOneAndDelete makes
- * the fetch-and-remove atomic: two concurrent triggers of the same merge
- * (e.g. two tabs) can't both read the same not-yet-deleted anon cart and
- * double-count quantities -- only the first caller gets a non-null
- * result, the second gets null and no-ops. */
+/**
+ * Called from cart.controller.ts's getCartHandler (never from modules/auth --
+ * a plan-review finding: routing this through auth.controller.ts would be
+ * new, unprecedented cross-module coupling with no failure isolation from
+ * login itself).
+ *
+ * The guest cart is deleted *before* its lines are merged, and the merge only
+ * proceeds if this call is the one that deleted it. That reproduces what
+ * `findOneAndDelete` gave us: two concurrent triggers of the same merge (two
+ * tabs, say) cannot both read the same not-yet-deleted anon cart and
+ * double-count its quantities.
+ */
 export async function mergeGuestCartIntoUser(anonId: string, userId: string): Promise<void> {
-  const guestCart = await CartModel.findOneAndDelete({ anonId });
+  const guestCart = await prisma.cart.findUnique({
+    where: { anonId },
+    select: { id: true, items: true },
+  });
   if (!guestCart || guestCart.items.length === 0) {
+    if (guestCart) await prisma.cart.deleteMany({ where: { id: guestCart.id } });
     return;
   }
-  await findOrCreateCart({ userId });
-  const filter: FilterQuery<Cart> = { userId };
+
+  const { count } = await prisma.cart.deleteMany({ where: { id: guestCart.id } });
+  if (count === 0) return;
+
+  const userCart = await findOrCreateCart({ userId });
   for (const item of guestCart.items) {
-    await incrementOrPushItem(filter, {
+    await incrementOrAddItem(userCart.id, {
       productId: item.productId,
       variantId: item.variantId,
       qty: item.qty,
@@ -154,9 +198,13 @@ export async function mergeGuestCartIntoUser(anonId: string, userId: string): Pr
  * that produced it is emptied rather than left stale for the shopper to
  * clear by hand. */
 export async function clearCart(identity: CartIdentity): Promise<void> {
-  await CartModel.updateOne(identityFilter(identity), {
-    $set: { items: [], expiresAt: nextCartExpiry() },
+  const cart = await prisma.cart.findUnique({
+    where: identityWhere(identity),
+    select: { id: true },
   });
+  if (!cart) return;
+  await prisma.cartItem.deleteMany({ where: { cartId: cart.id } });
+  await prisma.cart.update({ where: { id: cart.id }, data: { expiresAt: nextCartExpiry() } });
 }
 
 export interface CartItemView {
@@ -166,10 +214,9 @@ export interface CartItemView {
   variant?: { name: { fa: string; en: string }; sku: string };
   qty: number;
   priceRialSnapshot: number;
-  // Already shaped via toPublicProductJson -- never the raw Mongoose
-  // document, so a wholesale-selected wholesalePriceRial can't leak into
-  // the cart response either.
-  product: Record<string, unknown>;
+  // Shaped through pricing.ts, never the raw row -- a wholesale-only
+  // wholesalePriceRial must not reach the cart response either.
+  product: ProductListItemDto;
   availableQty: number;
   stockOk: boolean;
   priceChanged: boolean;
@@ -191,42 +238,46 @@ export interface CartView {
   couponIssue?: string;
 }
 
-/** Separate-query hydration, not `.populate()` (same convention as
- * wishlist.service.ts/products.service.ts). Money rule discipline: every
- * total is computed from LIVE Product.priceRial, never the stored
- * snapshot -- §3.6 "cart totals recomputed server-side at every step."
- * Live stock re-validation surfaces mismatches in the read-time view
- * only; the stored qty is never silently clamped -- the UI shows the
- * problem, the shopper decides. Shipping/tax are still not part of this
- * total (§13 P6.S4/checkout resolve those separately); the coupon
- * discount (P6.S7) is, since it's a property of the cart itself. */
+/**
+ * Money rule discipline: every total is computed from LIVE Product.priceRial,
+ * never the stored snapshot -- §3.6 "cart totals recomputed server-side at
+ * every step." Live stock re-validation surfaces mismatches in the read-time
+ * view only; the stored qty is never silently clamped -- the UI shows the
+ * problem, the shopper decides. Shipping/tax are still not part of this total
+ * (§13 P6.S4/checkout resolve those separately); the coupon discount (P6.S7)
+ * is, since it's a property of the cart itself.
+ *
+ * One query with joins, where Mongo needed the cart plus a second lookup of
+ * every referenced product. The `deletedAt` checks below are explicit because
+ * the soft-delete extension does not reach nested reads: a line whose product
+ * or variant has since been deleted is dropped from the *view* rather than
+ * crashing it, the same orphan-drop convention wishlist.service.ts uses.
+ */
 export async function getCart(
   identity: CartIdentity,
   accountType: AccountType | undefined,
 ): Promise<CartView> {
-  const cart = await findOrCreateCart(identity);
-  if (cart.items.length === 0) {
-    return { id: cart._id.toString(), items: [], subtotalRial: 0, discountRial: 0, totalRial: 0 };
-  }
-
-  const productIds = cart.items.map((item) => item.productId);
-  const products = await ProductModel.find({ _id: { $in: productIds } }).select(
-    "+wholesalePriceRial",
-  );
-  const productById = new Map(products.map((product) => [product._id.toString(), product]));
+  const { id } = await findOrCreateCart(identity);
+  const cart = await prisma.cart.findUniqueOrThrow({
+    where: { id },
+    include: {
+      items: {
+        orderBy: { createdAt: "asc" },
+        include: {
+          product: { include: { variants: { where: { deletedAt: null } } } },
+          variant: true,
+        },
+      },
+    },
+  });
 
   const items: CartItemView[] = [];
   for (const item of cart.items) {
-    const product = productById.get(item.productId.toString());
-    // A product removed/soft-deleted since being added -- drop the line
-    // from the view rather than crash, same orphan-drop convention
-    // wishlist.service.ts's listWishlist already uses.
-    if (!product) continue;
+    const product = item.product;
+    if (product.deletedAt !== null) continue;
+    if (item.variantId && (!item.variant || item.variant.deletedAt !== null)) continue;
+    const variant = item.variant;
 
-    const variant = item.variantId
-      ? product.variants.find((entry) => entry._id?.toString() === item.variantId?.toString())
-      : undefined;
-    if (item.variantId && !variant) continue;
     const liveStock = variant?.stock ?? product.stock;
     const availableQty = product.backorderable ? item.qty : Math.min(item.qty, liveStock);
     const stockOk = product.backorderable || liveStock >= item.qty;
@@ -235,20 +286,19 @@ export async function getCart(
         ? variant.wholesalePriceRial
         : variant.priceRial
       : resolveEffectivePriceRial(product, accountType);
-    const lineTotalRial = effectivePriceRial * item.qty;
 
     items.push({
-      id: item._id!.toString(),
-      productId: item.productId.toString(),
-      variantId: item.variantId?.toString(),
-      variant: variant ? { name: variant.name, sku: variant.sku } : undefined,
+      id: item.id,
+      productId: item.productId,
+      ...(item.variantId ? { variantId: item.variantId } : {}),
+      ...(variant ? { variant: { name: localized(variant), sku: variant.sku } } : {}),
       qty: item.qty,
       priceRialSnapshot: item.priceRialSnapshot,
-      product: toPublicProductJson(product, accountType),
+      product: toProductListItem(product as ProductRow, accountType),
       availableQty,
       stockOk,
       priceChanged: effectivePriceRial !== item.priceRialSnapshot,
-      lineTotalRial,
+      lineTotalRial: effectivePriceRial * item.qty,
     });
   }
 
@@ -274,13 +324,13 @@ export async function getCart(
   }
 
   return {
-    id: cart._id.toString(),
+    id: cart.id,
     items,
     subtotalRial,
     discountRial,
     totalRial: subtotalRial - discountRial,
-    couponCode,
-    couponIssue,
+    ...(couponCode ? { couponCode } : {}),
+    ...(couponIssue ? { couponIssue } : {}),
   };
 }
 
@@ -307,8 +357,9 @@ export async function applyCoupon(
     throw new ApiError(400, issue);
   }
 
-  await CartModel.updateOne(identityFilter(identity), {
-    $set: { couponCode: normalizeCouponCode(rawCode) },
+  await prisma.cart.update({
+    where: identityWhere(identity),
+    data: { couponCode: normalizeCouponCode(rawCode) },
   });
   return getCart(identity, accountType);
 }
@@ -317,6 +368,6 @@ export async function removeCoupon(
   identity: CartIdentity,
   accountType: AccountType | undefined,
 ): Promise<CartView> {
-  await CartModel.updateOne(identityFilter(identity), { $unset: { couponCode: "" } });
+  await prisma.cart.updateMany({ where: identityWhere(identity), data: { couponCode: null } });
   return getCart(identity, accountType);
 }

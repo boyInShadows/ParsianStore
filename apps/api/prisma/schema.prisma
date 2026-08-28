@@ -641,9 +641,14 @@ model RefreshToken {
 
 model Cart {
   id         String    @id @default(uuid(7)) @db.Uuid
-  userId     String?   @db.Uuid
+  /// One live cart per identity, which the application has always assumed:
+  /// `findOrCreateCart` upserts on it, and two carts for one shopper would
+  /// silently split their items. Mongo enforced it with a sparse unique index;
+  /// a unique column that is nullable is the same thing here, since PostgreSQL
+  /// does not consider two nulls equal.
+  userId     String?   @unique @db.Uuid
   /// The guest identity cookie. Exactly one of userId/anonId is set.
-  anonId     String?
+  anonId     String?   @unique
   couponCode String?
   expiresAt  DateTime
   createdAt  DateTime  @default(now())
@@ -653,8 +658,6 @@ model Cart {
   user  User?      @relation(fields: [userId], references: [id], onDelete: Cascade)
   items CartItem[]
 
-  @@index([userId])
-  @@index([anonId])
   @@index([expiresAt])
 }
 
@@ -815,11 +818,20 @@ model ShippingRate {
   updatedAt      DateTime     @updatedAt
   deletedAt      DateTime?
 
-  // One rate per method, zone and weight band. This was the seed's upsert key
-  // and a plain index; a second row for the same band is not a slow query, it
-  // is an ambiguous price, so the constraint belongs in the database. The
-  // unique brings its own index, replacing the one that was here.
-  @@unique([methodCode, zone, minWeightGram])
+  // No unique on (methodCode, zone, minWeightGram), deliberately, and it is
+  // worth knowing why the obvious one is wrong here.
+  //
+  // Rates are soft-deleted, and a plain unique counts tombstoned rows: delete
+  // the "۰ تا ۱۰۰۰ گram" band and staff can never create that band again,
+  // because the dead row still owns the key. What is actually wanted is
+  // "unique among live rows", which is a partial index Prisma cannot declare
+  // -- and writing one by hand would make `migrate diff` fight it on every
+  // future migration.
+  //
+  // `assertNoOverlap` in shipping.admin.service.ts is the real guard, and it
+  // is strictly stronger: it rejects any overlapping band, not merely one
+  // starting at the same gram. The invariant is enforced, just not here.
+  @@index([methodCode, zone])
   @@index([deletedAt])
 }
 

@@ -1,8 +1,8 @@
 import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import type { UserRole } from "@prisma/client";
+import { prisma } from "../../config/prisma.js";
 import { disconnectDB, resetDb, startTestServer } from "../../config/testDb.js";
-import { ShippingRateModel } from "../../models/ShippingRate.js";
-import type { UserRole } from "../../models/User.js";
 import { signAccessToken } from "../../utils/jwt.js";
 import type { AdminShippingRateDto } from "schemas";
 
@@ -16,7 +16,7 @@ beforeAll(async () => {
 });
 
 beforeEach(async () => {
-  await ShippingRateModel.deleteMany({});
+  await resetDb();
 });
 
 afterAll(async () => {
@@ -188,7 +188,7 @@ describe("admin shipping rate routes", () => {
     const res = await patch(rate.id, { ...VALID, priceRial: 700_000 });
 
     expect(res.status).toBe(200);
-    const stored = await ShippingRateModel.findById(rate.id);
+    const stored = await prisma.shippingRate.findUnique({ where: { id: rate.id } });
     expect(stored?.priceRial).toBe(700_000);
   });
 

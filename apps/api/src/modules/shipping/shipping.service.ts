@@ -1,7 +1,5 @@
 import { SHIPPING_METHODS, type ShippingOptionDto, type ShippingZone } from "schemas";
-import { ProductModel } from "../../models/Product.js";
-import { ProvinceModel } from "../../models/Province.js";
-import { ShippingRateModel } from "../../models/ShippingRate.js";
+import { prisma } from "../../config/prisma.js";
 import { ApiError } from "../../utils/ApiError.js";
 import * as addressesService from "../addresses/addresses.service.js";
 import * as cartService from "../cart/cart.service.js";
@@ -26,7 +24,10 @@ export async function estimateShipping(
   accountType: AccountType | undefined,
 ): Promise<ShippingEstimate> {
   const provinceId = await addressesService.getOwnAddressProvinceId(userId, addressId);
-  const province = await ProvinceModel.findById(provinceId);
+  const province = await prisma.province.findUnique({
+    where: { id: provinceId },
+    select: { slug: true },
+  });
   if (!province) {
     throw new ApiError(400, "استان آدرس یافت نشد");
   }
@@ -41,8 +42,11 @@ export async function estimateShipping(
   // Cart's own public product DTO (productListItemSchema), and doesn't
   // need to become part of it just for this internal calculation.
   const productIds = cart.items.map((item) => item.productId);
-  const products = await ProductModel.find({ _id: { $in: productIds } }, "weightGram");
-  const weightById = new Map(products.map((p) => [p._id.toString(), p.weightGram]));
+  const products = await prisma.product.findMany({
+    where: { id: { in: productIds } },
+    select: { id: true, weightGram: true },
+  });
+  const weightById = new Map(products.map((p) => [p.id, p.weightGram]));
   const totalWeightGram = cart.items.reduce(
     (sum, item) => sum + (weightById.get(item.productId) ?? 0) * item.qty,
     0,
@@ -50,7 +54,7 @@ export async function estimateShipping(
 
   // One query for every rate row in this zone, then in-memory bracket
   // matching per method -- avoids an N+1 query per SHIPPING_METHODS entry.
-  const rates = await ShippingRateModel.find({ zone });
+  const rates = await prisma.shippingRate.findMany({ where: { zone } });
 
   const options: ShippingOptionDto[] = [];
   for (const method of SHIPPING_METHODS) {
@@ -62,7 +66,7 @@ export async function estimateShipping(
     if (!zones.includes(zone)) continue;
     const bracket = rates
       .filter((rate) => rate.methodCode === method.code)
-      // P8.S9: sorted, not left in whatever order Mongo returned. Adjacent
+      // P8.S9: sorted, not left in whatever order the database returned. Adjacent
       // brackets conventionally share an endpoint ("۰ تا ۱۰۰۰" then
       // "۱۰۰۰ تا ۲۰۰۰", which is what seed/shipping.ts writes and what
       // /admin/shipping accepts), so a cart landing exactly on a boundary
