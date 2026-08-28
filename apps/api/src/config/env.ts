@@ -30,6 +30,11 @@ const envSchema = z.object({
   // and fail one request at a time.
   DATABASE_URL: z.string().min(1, "DATABASE_URL is required"),
 
+  // Only read when NODE_ENV=test, and optional even then: config/prisma.ts
+  // derives `<database>_test` from DATABASE_URL when this is unset. It exists
+  // for a CI service whose database is not named that way.
+  TEST_DATABASE_URL: z.string().optional(),
+
   // P2.S4 — auth. Secrets get NO default: a hardcoded fallback secret in
   // source is itself the vulnerability (CLAUDE.md's secret-management
   // rule), unlike CORS_ORIGINS/DATABASE_URL above which are non-secret

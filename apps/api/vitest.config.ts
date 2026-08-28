@@ -23,6 +23,11 @@ export default defineConfig({
     // without this the real assertion failures get buried. Override on the
     // command line (`LOG_LEVEL=debug pnpm test`) when debugging a test.
     env: { LOG_LEVEL: "silent" },
+    // Creates and migrates the *test* database before anything connects. It is
+    // a different database from the one `pnpm dev` uses -- see
+    // config/prisma.ts's resolveDatabaseUrl for the incident that made that
+    // separation necessary again.
+    globalSetup: ["./src/config/testDbSetup.ts"],
     // The integration suites share one migrated PostgreSQL database and
     // truncate between files (see src/config/testDb.ts). Two files running at
     // once would therefore see each other's rows -- and worse, one would

@@ -89,11 +89,29 @@ function softDeleteExtension(client: PrismaClient) {
   });
 }
 
+/**
+ * The database this process talks to -- which is deliberately NOT the
+ * development one when the test suite is running.
+ *
+ * Mongo had `config/testDbUri.ts`: same server, a dedicated database name, so
+ * `pnpm test` could never touch `pnpm dev`'s data. Nothing replaced it when
+ * the client moved to Prisma, and `resetDb()` truncates every table -- so a
+ * test run silently wiped the developer's seeded catalogue. Found by running
+ * the e2e suite straight after `pnpm test` and getting an empty storefront.
+ *
+ * `<name>_test` by default, overridable with `TEST_DATABASE_URL` for a CI
+ * service that names its database something else.
+ */
+export function resolveDatabaseUrl(): string {
+  if (env.NODE_ENV !== "test") return env.DATABASE_URL;
+  if (env.TEST_DATABASE_URL) return env.TEST_DATABASE_URL;
+  const url = new URL(env.DATABASE_URL);
+  url.pathname = `${url.pathname.replace(/\/$/, "")}_test`;
+  return url.toString();
+}
+
 function createClient() {
-  if (!env.DATABASE_URL) {
-    throw new Error("DATABASE_URL is required to reach PostgreSQL");
-  }
-  const adapter = new PrismaPg(env.DATABASE_URL);
+  const adapter = new PrismaPg(resolveDatabaseUrl());
   return softDeleteExtension(new PrismaClient({ adapter }));
 }
 
