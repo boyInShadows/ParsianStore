@@ -1,54 +1,64 @@
-import { ProductModel } from "../../models/Product.js";
-import { QuestionModel } from "../../models/Question.js";
-import { ReviewModel, type ModerationStatus } from "../../models/Review.js";
+import type { ModerationStatus, Question, Review } from "@prisma/client";
+import { prisma } from "../../config/prisma.js";
 import { ApiError } from "../../utils/ApiError.js";
 import { paginate, type PaginationQuery } from "../../utils/pagination.js";
 
 export function listAdminReviews(pagination: PaginationQuery, status?: ModerationStatus) {
-  return paginate(ReviewModel, status ? { status } : {}, { ...pagination, sort: "-createdAt" });
+  return paginate<Review>(prisma.review, "Review", status ? { status } : {}, {
+    ...pagination,
+    sort: "-createdAt",
+  });
 }
+
 export function listAdminQuestions(pagination: PaginationQuery, status?: ModerationStatus) {
-  return paginate(QuestionModel, status ? { status } : {}, { ...pagination, sort: "-createdAt" });
+  return paginate<Question>(prisma.question, "Question", status ? { status } : {}, {
+    ...pagination,
+    sort: "-createdAt",
+  });
 }
 
-async function recalculateRating(productId: string) {
-  const [result] = await ReviewModel.aggregate<{ _id: null; avg: number; count: number }>([
-    { $match: { productId: new Types.ObjectId(productId), status: "approved", deletedAt: null } },
-    { $group: { _id: null, avg: { $avg: "$rating" }, count: { $sum: 1 } } },
-  ]);
-  await ProductModel.updateOne(
-    { _id: productId },
-    { $set: { rating: { avg: result?.avg ?? 0, count: result?.count ?? 0 } } },
-  );
+/**
+ * `Product.ratingAvg`/`ratingCount` recomputed from the approved reviews.
+ *
+ * The Mongo version had to repeat `deletedAt: null` in its `$match`, because
+ * the aggregation framework bypassed the soft-delete middleware entirely.
+ * Prisma's client extension does reach `aggregate`, so the filter is applied
+ * for us and the explicit condition is gone rather than merely tidied away.
+ */
+async function recalculateRating(productId: string): Promise<void> {
+  const result = await prisma.review.aggregate({
+    where: { productId, status: "approved" },
+    _avg: { rating: true },
+    _count: { _all: true },
+  });
+  await prisma.product.update({
+    where: { id: productId },
+    data: { ratingAvg: result._avg.rating ?? 0, ratingCount: result._count._all },
+  });
 }
 
-export async function moderateReview(id: string, actorId: string, status: "approved" | "rejected") {
-  const review = await ReviewModel.findById(id);
+export async function moderateReview(id: string, actorId: string, status: ModerationStatus) {
+  const review = await prisma.review.findUnique({ where: { id }, select: { id: true } });
   if (!review) throw new ApiError(404, "نظر یافت نشد");
-  review.status = status;
-  review.moderatedBy = new Types.ObjectId(actorId);
-  review.moderatedAt = new Date();
-  await review.save();
-  await recalculateRating(review.productId.toString());
-  return review;
+  const updated = await prisma.review.update({
+    where: { id },
+    data: { status, moderatedById: actorId, moderatedAt: new Date() },
+  });
+  await recalculateRating(updated.productId);
+  return updated;
 }
+
 export async function moderateQuestion(
   id: string,
   actorId: string,
-  status: "approved" | "rejected",
+  status: ModerationStatus,
   answer?: string,
 ) {
-  const question = await QuestionModel.findById(id);
+  const question = await prisma.question.findUnique({ where: { id }, select: { id: true } });
   if (!question) throw new ApiError(404, "پرسش یافت نشد");
-  question.status = status;
-  question.moderatedBy = new Types.ObjectId(actorId);
-  question.moderatedAt = new Date();
-  if (answer) {
-    question.answer = answer;
-    question.answeredBy = question.moderatedBy;
-    question.answeredAt = new Date();
-  }
-  await question.save();
-  return question;
+  const answered = answer ? { answer, answeredById: actorId, answeredAt: new Date() } : {};
+  return prisma.question.update({
+    where: { id },
+    data: { status, moderatedById: actorId, moderatedAt: new Date(), ...answered },
+  });
 }
-import { Types } from "mongoose";

@@ -1,99 +1,50 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
-import { disconnectDB } from "../../config/testDb.js";
-import { BrandModel } from "../../models/Brand.js";
-import { CategoryModel } from "../../models/Category.js";
-import { OrderModel } from "../../models/Order.js";
-import { ProductModel } from "../../models/Product.js";
-import { QuestionModel } from "../../models/Question.js";
-import { ReviewModel } from "../../models/Review.js";
-import { UserModel } from "../../models/User.js";
-import * as feedback from "./feedback.service.js";
+import { prisma } from "../../config/prisma.js";
+import { disconnectDB, resetDb } from "../../config/testDb.js";
+import { seedOrder, seedProduct, seedUser } from "../../test/factories.js";
 import * as admin from "./feedback.admin.service.js";
+import * as feedback from "./feedback.service.js";
 
-const URI = testDbUri("parsian-store-test-feedback");
 beforeAll(async () => {
-  await mongoose.connect(URI);
+  await resetDb();
 });
+
 beforeEach(async () => {
-  await Promise.all([
-    ReviewModel.deleteMany({}),
-    QuestionModel.deleteMany({}),
-    OrderModel.deleteMany({}),
-    ProductModel.deleteMany({}),
-    BrandModel.deleteMany({}),
-    CategoryModel.deleteMany({}),
-    UserModel.deleteMany({}),
-  ]);
+  await resetDb();
 });
+
 afterAll(async () => {
   await disconnectDB();
 });
 
 async function seed() {
-  const [brand, category, user, staff] = await Promise.all([
-    BrandModel.create({
-      name: { fa: "برند", en: "Brand" },
-      slug: "feedback-brand",
-      country: "Iran",
-    }),
-    CategoryModel.create({
-      name: { fa: "ترمز", en: "Brake" },
-      slug: "feedback-category",
-      systemCode: "SYS-04",
-    }),
-    UserModel.create({ phone: "+989121110001", name: "خریدار" }),
-    UserModel.create({ phone: "+989121110002", name: "مدیر", role: "admin" }),
+  const [user, staff] = await Promise.all([
+    seedUser({ phone: "+989121110001", name: "خریدار" }),
+    seedUser({ phone: "+989121110002", name: "مدیر", role: "admin" }),
   ]);
-  const product = await ProductModel.create({
-    name: { fa: "لنت", en: "Pad" },
-    slug: "feedback-product",
-    sku: "FB-1",
-    brandId: brand._id,
-    categoryId: category._id,
-    priceRial: 1000,
-    stock: 2,
-    weightGram: 100,
-    dimensions: { lengthMm: 1, widthMm: 1, heightMm: 1 },
-    warranty: { months: 1, text: "یک ماه" },
-    authenticity: {
-      supplyRoute: "domestic",
-      sourceBrand: "Brand",
-      countryOfManufacture: "Iran",
-      verificationCode: "FB-V-1",
-    },
-    status: "active",
-  });
+  const product = await seedProduct({ nameFa: "لنت", nameEn: "Pad", stock: 2 });
   return { product, user, staff };
 }
 
-async function delivered(userId: mongoose.Types.ObjectId, productId: mongoose.Types.ObjectId) {
-  await OrderModel.create({
-    code: "FB-ORDER",
-    userId,
-    items: [
-      {
-        productId,
-        nameSnapshot: { fa: "لنت", en: "Pad" },
-        skuSnapshot: "FB-1",
-        qty: 1,
-        priceRial: 1000,
-      },
-    ],
-    subtotalRial: 1000,
-    discountRial: 0,
-    shippingRial: 0,
-    taxRial: 0,
-    totalRial: 1000,
-    address: {
-      province: { fa: "تهران", en: "Tehran" },
-      city: { fa: "تهران", en: "Tehran" },
-      line: "خیابان",
-      postalCode: "1234567890",
-      receiverName: "خریدار",
-      receiverPhone: "+989121110001",
-    },
-    shippingMethod: { code: "post", name: { fa: "پست", en: "Post" }, priceRial: 0 },
+/** A delivered order carrying this product -- the evidence createReview
+ * demands. The order's line items are a table now, so the fixture writes a
+ * real OrderItem row rather than an embedded array. */
+async function delivered(userId: string, productId: string) {
+  await seedOrder(userId, {
     status: "delivered",
+    totalRial: 1000,
+    items: {
+      create: [
+        {
+          productId,
+          nameFaSnapshot: "لنت",
+          nameEnSnapshot: "Pad",
+          skuSnapshot: "FB-1",
+          qty: 1,
+          priceRial: 1000,
+        },
+      ],
+    },
   });
 }
 
@@ -108,9 +59,10 @@ describe("feedback trust and moderation", () => {
       }),
     ).rejects.toMatchObject({ statusCode: 403 });
   });
+
   it("keeps pending content out of public lists", async () => {
     const { product, user } = await seed();
-    await delivered(user._id, product._id);
+    await delivered(user.id, product.id);
     await feedback.createReview(user.id, product.id, {
       rating: 5,
       title: "نظر واقعی",
@@ -119,18 +71,37 @@ describe("feedback trust and moderation", () => {
     const page = await feedback.listReviews(product.id, { page: 1, limit: 20 });
     expect(page.data).toHaveLength(0);
   });
+
   it("publishes approved reviews and recalculates rating", async () => {
     const { product, user, staff } = await seed();
-    await delivered(user._id, product._id);
+    await delivered(user.id, product.id);
     const review = await feedback.createReview(user.id, product.id, {
       rating: 4,
       title: "نظر واقعی",
       body: "متن نظر به اندازه کافی بلند است",
     });
     await admin.moderateReview(review.id, staff.id, "approved");
-    expect((await ProductModel.findById(product.id))?.rating).toMatchObject({ avg: 4, count: 1 });
+    const rated = await prisma.product.findUnique({ where: { id: product.id } });
+    expect(rated).toMatchObject({ ratingAvg: 4, ratingCount: 1 });
     expect((await feedback.listReviews(product.id, { page: 1, limit: 20 })).data).toHaveLength(1);
   });
+
+  it("refuses a second review of the same product by the same customer", async () => {
+    const { product, user } = await seed();
+    await delivered(user.id, product.id);
+    const input = {
+      rating: 4,
+      title: "نظر واقعی",
+      body: "متن نظر به اندازه کافی بلند است",
+    };
+    await feedback.createReview(user.id, product.id, input);
+    // The unique constraint speaks P2002 now where Mongo said 11000; this
+    // asserts the translated branch still produces the same 409.
+    await expect(feedback.createReview(user.id, product.id, input)).rejects.toMatchObject({
+      statusCode: 409,
+    });
+  });
+
   it("publishes an answered question after moderation", async () => {
     const { product, user, staff } = await seed();
     const question = await feedback.createQuestion(user.id, product.id, {

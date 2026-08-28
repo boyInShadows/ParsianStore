@@ -7,19 +7,39 @@ import type {
   ProductFeedbackParam,
 } from "./feedback.schema.js";
 
+/**
+ * What a shopper is allowed to see of somebody else's review or question.
+ *
+ * Built by naming the fields to keep, where the Mongoose version deleted the
+ * fields to hide from a `toObject()` copy. The inversion matters: a column
+ * added to Review or Question later -- an internal note, a moderator's
+ * comment -- is invisible here by default instead of being published until
+ * somebody remembers to add another `delete`.
+ */
 function publicItem(item: {
-  _id: unknown;
+  id: string;
   authorNameSnapshot: string;
   createdAt: Date;
-  toObject(): Record<string, unknown>;
+  productId: string;
+  rating?: number;
+  title?: string;
+  body: string;
+  answer?: string | null;
+  answeredAt?: Date | null;
+  verifiedPurchase?: boolean;
 }) {
-  const raw = item.toObject();
-  delete raw.userId;
-  delete raw.moderatedBy;
-  delete raw.moderatedAt;
-  delete raw.status;
-  delete raw.deletedAt;
-  return { ...raw, id: String(item._id), authorName: item.authorNameSnapshot };
+  return {
+    id: item.id,
+    productId: item.productId,
+    authorName: item.authorNameSnapshot,
+    ...(item.rating === undefined ? {} : { rating: item.rating }),
+    ...(item.title === undefined ? {} : { title: item.title }),
+    body: item.body,
+    ...(item.verifiedPurchase === undefined ? {} : { verifiedPurchase: item.verifiedPurchase }),
+    ...(item.answer ? { answer: item.answer } : {}),
+    ...(item.answeredAt ? { answeredAt: item.answeredAt } : {}),
+    createdAt: item.createdAt,
+  };
 }
 export async function listReviews(req: Request, res: Response, next: NextFunction) {
   try {
@@ -39,7 +59,7 @@ export async function createReview(req: Request, res: Response, next: NextFuncti
       (req.params as unknown as ProductFeedbackParam).productId,
       req.body as CreateReviewInput,
     );
-    res.status(201).json({ ok: true, data: { id: item._id.toString(), status: item.status } });
+    res.status(201).json({ ok: true, data: { id: item.id, status: item.status } });
   } catch (e) {
     next(e);
   }
@@ -62,7 +82,7 @@ export async function createQuestion(req: Request, res: Response, next: NextFunc
       (req.params as unknown as ProductFeedbackParam).productId,
       req.body as CreateQuestionInput,
     );
-    res.status(201).json({ ok: true, data: { id: item._id.toString(), status: item.status } });
+    res.status(201).json({ ok: true, data: { id: item.id, status: item.status } });
   } catch (e) {
     next(e);
   }
