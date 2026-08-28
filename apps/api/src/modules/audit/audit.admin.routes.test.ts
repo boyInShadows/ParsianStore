@@ -1,8 +1,9 @@
 import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import type { UserRole } from "@prisma/client";
+import { prisma } from "../../config/prisma.js";
 import { disconnectDB, resetDb, startTestServer } from "../../config/testDb.js";
-import { AuditLogModel } from "../../models/AuditLog.js";
-import { UserModel, type UserRole } from "../../models/User.js";
+import { seedUser } from "../../test/factories.js";
 import { signAccessToken } from "../../utils/jwt.js";
 import type { AdminAuditLogDto } from "schemas";
 
@@ -14,8 +15,13 @@ beforeAll(async () => {
   ({ baseUrl, close } = await startTestServer());
 });
 
+// Every entry needs a real actor: `actorId` is a foreign key now, where a
+// Mongo document could name any id at all. One staff row per test, reused.
+let actorId: string;
+
 beforeEach(async () => {
-  await Promise.all([AuditLogModel.deleteMany({}), UserModel.deleteMany({})]);
+  await resetDb();
+  actorId = (await seedUser({ role: "admin", name: "مدیر" })).id;
 });
 
 afterAll(async () => {
@@ -28,33 +34,32 @@ function cookieFor(role: UserRole, sub = randomUUID()) {
   return { cookie: `accessToken=${token}` };
 }
 
-async function seedEntry(overrides: {
-  actorId: mongoose.Types.ObjectId;
-  action?: string;
-  entity?: string;
-  entityId?: string;
-  createdAt?: Date;
-  before?: unknown;
-  after?: unknown;
-}) {
-  const doc = await AuditLogModel.create({
-    actorId: overrides.actorId,
-    action: overrides.action ?? "PATCH /api/v1/admin/catalog/products/abc",
-    entity: overrides.entity ?? "product",
-    entityId: overrides.entityId,
-    before: overrides.before,
-    after: overrides.after,
-    ip: "127.0.0.1",
+async function seedEntry(
+  overrides: {
+    actorId?: string;
+    action?: string;
+    entity?: string;
+    entityId?: string;
+    createdAt?: Date;
+    before?: unknown;
+    after?: unknown;
+  } = {},
+) {
+  return prisma.auditLog.create({
+    data: {
+      actorId: overrides.actorId ?? actorId,
+      action: overrides.action ?? "PATCH /api/v1/admin/catalog/products/abc",
+      entity: overrides.entity ?? "product",
+      entityId: overrides.entityId ?? null,
+      ...(overrides.before === undefined ? {} : { before: overrides.before as object }),
+      ...(overrides.after === undefined ? {} : { after: overrides.after as object }),
+      ip: "127.0.0.1",
+      // A plain column, so a fixture can simply state when this happened.
+      // Mongoose needed the raw driver here: its timestamps plugin stripped
+      // a caller-supplied `createdAt` out of an update.
+      ...(overrides.createdAt ? { createdAt: overrides.createdAt } : {}),
+    },
   });
-  if (overrides.createdAt) {
-    // Raw driver: the timestamps plugin strips a caller-supplied createdAt
-    // out of a Mongoose update, leaving the row dated "now".
-    await AuditLogModel.collection.updateOne(
-      { _id: doc._id },
-      { $set: { createdAt: overrides.createdAt } },
-    );
-  }
-  return doc;
 }
 
 async function list(query = ""): Promise<{ status: number; data: AdminAuditLogDto[] }> {
@@ -89,12 +94,12 @@ describe("admin audit routes", () => {
   });
 
   it("resolves the actor's name, phone and role", async () => {
-    const actor = await UserModel.create({
+    const actor = await seedUser({
       phone: "+989120000201",
       name: "مدیر سیستم",
       role: "admin",
     });
-    await seedEntry({ actorId: actor._id });
+    await seedEntry({ actorId: actor.id });
 
     const { data } = await list();
 
@@ -103,10 +108,13 @@ describe("admin audit routes", () => {
     expect(data[0]?.actorRole).toBe("admin");
   });
 
-  // An audit trail that hides what a since-removed admin did defeats its
-  // own purpose.
+  // An audit trail that hides what a since-removed admin did defeats its own
+  // purpose. "No longer exists" means soft-deleted now -- the foreign key
+  // makes a dangling actorId unstorable, and admin CRUD never hard-deletes a
+  // staff account anyway.
   it("still lists an entry whose actor no longer exists", async () => {
-    await seedEntry({ actorId: randomUUID() });
+    await seedEntry();
+    await prisma.user.update({ where: { id: actorId }, data: { deletedAt: new Date() } });
 
     const { data } = await list();
 
@@ -116,7 +124,6 @@ describe("admin audit routes", () => {
 
   it("splits the stored action into method and path", async () => {
     await seedEntry({
-      actorId: randomUUID(),
       action: "DELETE /api/v1/admin/catalog/brands/xyz",
     });
 
@@ -127,7 +134,7 @@ describe("admin audit routes", () => {
   });
 
   it("does not produce an undefined path for a malformed action", async () => {
-    await seedEntry({ actorId: randomUUID(), action: "LEGACY" });
+    await seedEntry({ action: "LEGACY" });
 
     const { data } = await list();
 
@@ -136,9 +143,8 @@ describe("admin audit routes", () => {
   });
 
   it("filters by entity", async () => {
-    const actor = randomUUID();
-    await seedEntry({ actorId: actor, entity: "product" });
-    await seedEntry({ actorId: actor, entity: "coupon" });
+    await seedEntry({ entity: "product" });
+    await seedEntry({ entity: "coupon" });
 
     const { data } = await list("?entity=coupon");
 
@@ -147,9 +153,8 @@ describe("admin audit routes", () => {
   });
 
   it("filters by HTTP method without matching a method that merely contains it", async () => {
-    const actor = randomUUID();
-    await seedEntry({ actorId: actor, action: "POST /api/v1/admin/coupons" });
-    await seedEntry({ actorId: actor, action: "DELETE /api/v1/admin/coupons/POST-like" });
+    await seedEntry({ action: "POST /api/v1/admin/coupons" });
+    await seedEntry({ action: "DELETE /api/v1/admin/coupons/POST-like" });
 
     const { data } = await list("?method=POST");
 
@@ -158,9 +163,8 @@ describe("admin audit routes", () => {
   });
 
   it("filters by the entity id a route actually touched", async () => {
-    const actor = randomUUID();
-    await seedEntry({ actorId: actor, entityId: "aaa" });
-    await seedEntry({ actorId: actor, entityId: "bbb" });
+    await seedEntry({ entityId: "aaa" });
+    await seedEntry({ entityId: "bbb" });
 
     const { data } = await list("?entityId=bbb");
 
@@ -169,9 +173,8 @@ describe("admin audit routes", () => {
   });
 
   it("filters by a date window", async () => {
-    const actor = randomUUID();
-    await seedEntry({ actorId: actor, createdAt: new Date(Date.now() - 10 * DAY_MS) });
-    await seedEntry({ actorId: actor });
+    await seedEntry({ createdAt: new Date(Date.now() - 10 * DAY_MS) });
+    await seedEntry();
 
     const from = new Date(Date.now() - 2 * DAY_MS).toISOString();
     const { data } = await list(`?from=${encodeURIComponent(from)}`);
@@ -187,9 +190,8 @@ describe("admin audit routes", () => {
   });
 
   it("returns newest first", async () => {
-    const actor = randomUUID();
-    await seedEntry({ actorId: actor, entity: "old", createdAt: new Date(Date.now() - DAY_MS) });
-    await seedEntry({ actorId: actor, entity: "new" });
+    await seedEntry({ entity: "old", createdAt: new Date(Date.now() - DAY_MS) });
+    await seedEntry({ entity: "new" });
 
     const { data } = await list();
 
@@ -198,7 +200,6 @@ describe("admin audit routes", () => {
 
   it("passes through a service-recorded before/after pair", async () => {
     await seedEntry({
-      actorId: randomUUID(),
       before: { stock: 5 },
       after: { stock: 3 },
     });

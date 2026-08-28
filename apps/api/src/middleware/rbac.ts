@@ -1,6 +1,5 @@
 import type { RequestHandler } from "express";
-import type { UserRole } from "@prisma/client";
-import { USER_ROLES } from "../models/User.js";
+import { UserRole } from "@prisma/client";
 import { ApiError } from "../utils/ApiError.js";
 
 /** Role checks live here, never inline in a handler (§3.3.6). Must run
@@ -19,7 +18,12 @@ export function requireRole(...allowedRoles: UserRole[]): RequestHandler {
   };
 }
 
-export const STAFF_ROLES: readonly UserRole[] = USER_ROLES.filter((role) => role !== "customer");
+/** Every role the schema declares, minus the one that is not staff. Read from
+ * Prisma's generated enum rather than a hand-kept array, so a role added to
+ * `schema.prisma` is staff here without anyone remembering this file. */
+export const STAFF_ROLES: readonly UserRole[] = Object.values(UserRole).filter(
+  (role) => role !== UserRole.customer,
+);
 
 /** Shorthand for "any staff role" — everything under /admin. */
 export function requireStaff(): RequestHandler {
