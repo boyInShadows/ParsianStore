@@ -65,6 +65,12 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      # Applies them to `parsian_store`. The test suite does NOT run against
+      # this database -- it creates and migrates `parsian_store_test` itself
+      # (apps/api/src/config/testDbSetup.ts), because `resetDb()` truncates
+      # everything and must never be pointed at a database anyone else uses.
+      # This step stays because it is the check that the migrations apply
+      # cleanly to a fresh database at all.
       - name: Apply database migrations
         run: pnpm --filter api db:deploy
 
