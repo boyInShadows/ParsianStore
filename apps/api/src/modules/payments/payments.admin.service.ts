@@ -1,5 +1,4 @@
-import { OrderModel } from "../../models/Order.js";
-import { PaymentModel } from "../../models/Payment.js";
+import { prisma } from "../../config/prisma.js";
 
 const SETTLED_ORDER_STATUSES = new Set(["paid", "processing", "shipped", "delivered"]);
 export type ReconciliationIssue =
@@ -11,14 +10,14 @@ export type ReconciliationIssue =
 
 export async function reconcilePayments(now = new Date()) {
   const [payments, orders] = await Promise.all([
-    PaymentModel.find().sort({ createdAt: -1 }),
-    OrderModel.find(),
+    prisma.payment.findMany({ orderBy: { createdAt: "desc" } }),
+    prisma.order.findMany(),
   ]);
-  const orderById = new Map(orders.map((order) => [order.id as string, order]));
-  const paymentOrderIds = new Set(payments.map((payment) => payment.orderId.toString()));
+  const orderById = new Map(orders.map((order) => [order.id, order]));
+  const paymentOrderIds = new Set(payments.map((payment) => payment.orderId));
   const rows: Array<Record<string, unknown>> = [];
   for (const payment of payments) {
-    const order = orderById.get(payment.orderId.toString());
+    const order = orderById.get(payment.orderId);
     const issues: ReconciliationIssue[] = [];
     if (!order || order.totalRial !== payment.amountRial) issues.push("amount-mismatch");
     if (payment.status === "success" && (!order || !SETTLED_ORDER_STATUSES.has(order.status)))
@@ -39,7 +38,7 @@ export async function reconcilePayments(now = new Date()) {
     if (issues.length)
       rows.push({
         id: payment.id,
-        orderId: payment.orderId.toString(),
+        orderId: payment.orderId,
         orderCode: order?.code,
         orderStatus: order?.status,
         paymentStatus: payment.status,
@@ -53,7 +52,7 @@ export async function reconcilePayments(now = new Date()) {
       });
   }
   for (const order of orders)
-    if (SETTLED_ORDER_STATUSES.has(order.status) && !paymentOrderIds.has(order.id as string))
+    if (SETTLED_ORDER_STATUSES.has(order.status) && !paymentOrderIds.has(order.id))
       rows.push({
         id: `missing-${order.id}`,
         orderId: order.id,

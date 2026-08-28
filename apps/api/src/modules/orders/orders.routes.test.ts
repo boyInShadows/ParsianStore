@@ -1,8 +1,7 @@
-import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import type { Prisma } from "@prisma/client";
 import { disconnectDB, resetDb, startTestServer } from "../../config/testDb.js";
-import { OrderModel, type Order } from "../../models/Order.js";
-import { UserModel } from "../../models/User.js";
+import { seedOrder as seedOrderRow, seedProduct, seedUser } from "../../test/factories.js";
 import { signAccessToken } from "../../utils/jwt.js";
 
 let baseUrl: string;
@@ -14,7 +13,7 @@ beforeAll(async () => {
 });
 
 beforeEach(async () => {
-  await Promise.all([OrderModel.deleteMany({}), UserModel.deleteMany({})]);
+  await resetDb();
 });
 
 afterAll(async () => {
@@ -33,42 +32,46 @@ function customerCookie(userId: string): string {
   return `accessToken=${token}`;
 }
 
+/**
+ * An order with one real line item.
+ *
+ * `OrderItem.productId` is a foreign key now, where the Mongo fixture
+ * invented one -- so every order here owns a product. The status history is
+ * a table too, and its two rows are created with explicit timestamps so the
+ * detail assertion below still reads "pending then paid".
+ */
 async function seedOrder(
-  userId: mongoose.Types.ObjectId,
-  overrides: Partial<Order> = {},
-): Promise<mongoose.HydratedDocument<Order>> {
-  const suffix = Math.floor(10_000 + Math.random() * 90_000);
-  return OrderModel.create({
-    code: `PS-1404-${suffix}`,
-    userId,
-    items: [
-      {
-        productId: randomUUID(),
-        nameSnapshot: { fa: "لنت ترمز", en: "Brake pad" },
-        skuSnapshot: "SKU-1",
-        qty: 2,
-        priceRial: 1_500_000,
-      },
-    ],
+  userId: string,
+  overrides: Partial<Prisma.OrderUncheckedCreateInput> = {},
+) {
+  const product = await seedProduct();
+  return seedOrderRow(userId, {
     subtotalRial: 3_000_000,
-    discountRial: 0,
     shippingRial: 150_000,
-    taxRial: 0,
     totalRial: 3_150_000,
-    address: {
-      province: { fa: "تهران", en: "Tehran" },
-      city: { fa: "تهران", en: "Tehran" },
-      line: "خیابان آزادی",
-      postalCode: "1234567890",
-      receiverName: "کاربر تست",
-      receiverPhone: "09121234567",
-    },
-    shippingMethod: { code: "intracity", name: { fa: "پیک", en: "Courier" }, priceRial: 150_000 },
+    shipMethodCode: "intracity",
+    shipMethodFa: "پیک",
+    shipMethodEn: "Courier",
+    shipPriceRial: 150_000,
     status: "paid",
-    statusHistory: [
-      { status: "pending", at: new Date(Date.now() - 60_000) },
-      { status: "paid", at: new Date() },
-    ],
+    items: {
+      create: [
+        {
+          productId: product.id,
+          nameFaSnapshot: "لنت ترمز",
+          nameEnSnapshot: "Brake pad",
+          skuSnapshot: "SKU-1",
+          qty: 2,
+          priceRial: 1_500_000,
+        },
+      ],
+    },
+    statusHistory: {
+      create: [
+        { status: "pending", at: new Date(Date.now() - 60_000) },
+        { status: "paid", at: new Date() },
+      ],
+    },
     ...overrides,
   });
 }
@@ -80,9 +83,9 @@ describe("GET /me/orders", () => {
   });
 
   it("returns an empty list for a user with no orders", async () => {
-    const user = await UserModel.create({ phone: "+989121110001", name: "تست" });
+    const user = await seedUser({ phone: "+989121110001", name: "تست" });
     const res = await fetch(`${baseUrl}/api/v1/me/orders`, {
-      headers: { cookie: customerCookie(user.id as string) },
+      headers: { cookie: customerCookie(user.id) },
     });
     expect(res.status).toBe(200);
     const body = (await res.json()) as Envelope<unknown[]>;
@@ -91,19 +94,19 @@ describe("GET /me/orders", () => {
   });
 
   it("lists only the caller's own orders, newest first, paginated", async () => {
-    const user = await UserModel.create({ phone: "+989121110002", name: "تست" });
-    const stranger = await UserModel.create({ phone: "+989121110003", name: "غریبه" });
-    await seedOrder(stranger._id);
-    const first = await seedOrder(user._id);
+    const user = await seedUser({ phone: "+989121110002", name: "تست" });
+    const stranger = await seedUser({ phone: "+989121110003", name: "غریبه" });
+    await seedOrder(stranger.id);
+    const first = await seedOrder(user.id);
     await new Promise((resolve) => setTimeout(resolve, 5));
-    const second = await seedOrder(user._id);
+    const second = await seedOrder(user.id);
 
     const res = await fetch(`${baseUrl}/api/v1/me/orders`, {
-      headers: { cookie: customerCookie(user.id as string) },
+      headers: { cookie: customerCookie(user.id) },
     });
     const body = (await res.json()) as Envelope<{ id: string; code: string; itemCount: number }[]>;
     expect(body.meta?.total).toBe(2);
-    expect(body.data.map((o) => o.id)).toEqual([second._id.toString(), first._id.toString()]);
+    expect(body.data.map((o) => o.id)).toEqual([second.id, first.id]);
     expect(body.data[0]!.itemCount).toBe(2);
   });
 });
@@ -115,11 +118,11 @@ describe("GET /me/orders/:code", () => {
   });
 
   it("returns the full detail for the caller's own order", async () => {
-    const user = await UserModel.create({ phone: "+989121110004", name: "تست" });
-    const order = await seedOrder(user._id, { trackingCode: "TRACK-123" });
+    const user = await seedUser({ phone: "+989121110004", name: "تست" });
+    const order = await seedOrder(user.id, { trackingCode: "TRACK-123" });
 
     const res = await fetch(`${baseUrl}/api/v1/me/orders/${order.code}`, {
-      headers: { cookie: customerCookie(user.id as string) },
+      headers: { cookie: customerCookie(user.id) },
     });
     expect(res.status).toBe(200);
     const body = (await res.json()) as Envelope<{
@@ -135,20 +138,20 @@ describe("GET /me/orders/:code", () => {
   });
 
   it("404s for an unknown code", async () => {
-    const user = await UserModel.create({ phone: "+989121110005", name: "تست" });
+    const user = await seedUser({ phone: "+989121110005", name: "تست" });
     const res = await fetch(`${baseUrl}/api/v1/me/orders/PS-0000-00000`, {
-      headers: { cookie: customerCookie(user.id as string) },
+      headers: { cookie: customerCookie(user.id) },
     });
     expect(res.status).toBe(404);
   });
 
   it("404s for another user's order (never leaks that the code exists)", async () => {
-    const owner = await UserModel.create({ phone: "+989121110006", name: "صاحب" });
-    const stranger = await UserModel.create({ phone: "+989121110007", name: "غریبه" });
-    const order = await seedOrder(owner._id);
+    const owner = await seedUser({ phone: "+989121110006", name: "صاحب" });
+    const stranger = await seedUser({ phone: "+989121110007", name: "غریبه" });
+    const order = await seedOrder(owner.id);
 
     const res = await fetch(`${baseUrl}/api/v1/me/orders/${order.code}`, {
-      headers: { cookie: customerCookie(stranger.id as string) },
+      headers: { cookie: customerCookie(stranger.id) },
     });
     expect(res.status).toBe(404);
   });

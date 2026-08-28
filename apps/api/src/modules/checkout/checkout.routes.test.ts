@@ -1,19 +1,8 @@
 import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { prisma } from "../../config/prisma.js";
 import { disconnectDB, resetDb, startTestServer } from "../../config/testDb.js";
-import { BrandModel } from "../../models/Brand.js";
-import { CartModel } from "../../models/Cart.js";
-import { CategoryModel } from "../../models/Category.js";
-import { CityModel } from "../../models/City.js";
-import { CouponModel } from "../../models/Coupon.js";
-import { InventoryMoveModel } from "../../models/InventoryMove.js";
-import { OrderModel } from "../../models/Order.js";
-import { PaymentModel } from "../../models/Payment.js";
-import { ProductModel } from "../../models/Product.js";
-import { ProvinceModel } from "../../models/Province.js";
-import { ShippingRateModel } from "../../models/ShippingRate.js";
-import { StockReservationModel } from "../../models/StockReservation.js";
-import { UserModel } from "../../models/User.js";
+import { seedProduct, seedUser } from "../../test/factories.js";
 import { signAccessToken } from "../../utils/jwt.js";
 
 let baseUrl: string;
@@ -25,21 +14,7 @@ beforeAll(async () => {
 });
 
 beforeEach(async () => {
-  await Promise.all([
-    CartModel.deleteMany({}),
-    ProductModel.deleteMany({}),
-    CategoryModel.deleteMany({}),
-    BrandModel.deleteMany({}),
-    CityModel.deleteMany({}),
-    ProvinceModel.deleteMany({}),
-    ShippingRateModel.deleteMany({}),
-    UserModel.deleteMany({}),
-    OrderModel.deleteMany({}),
-    PaymentModel.deleteMany({}),
-    StockReservationModel.deleteMany({}),
-    InventoryMoveModel.deleteMany({}),
-    CouponModel.deleteMany({}),
-  ]);
+  await resetDb();
 });
 
 afterAll(async () => {
@@ -63,76 +38,46 @@ function customerCookie(userId: string, accountType: "retail" | "wholesale" = "r
   return `accessToken=${token}`;
 }
 
-async function seedProduct(overrides: Record<string, unknown> = {}) {
-  const brand = await BrandModel.create({
-    name: { fa: "بوش", en: "Bosch" },
-    slug: `bosch-${randomUUID()}`,
-    country: "Germany",
-  });
-  const category = await CategoryModel.create({
-    name: { fa: "ترمز", en: "Brakes" },
-    slug: `brakes-${randomUUID()}`,
-    systemCode: "SYS-04",
-  });
-  const sku = `SKU-${randomUUID()}`;
-  return ProductModel.create({
-    name: { fa: "لنت ترمز جلو", en: "Front brake pad" },
-    slug: `front-brake-pad-${sku}`,
-    sku,
-    brandId: brand._id,
-    categoryId: category._id,
-    priceRial: 1_500_000,
-    stock: 10,
-    weightGram: 800,
-    dimensions: { lengthMm: 150, widthMm: 100, heightMm: 40 },
-    warranty: { months: 12, text: "۱۲ ماه" },
-    authenticity: {
-      supplyRoute: "oem",
-      sourceBrand: "Bosch",
-      countryOfManufacture: "Germany",
-      verificationCode: `VER-${sku}`,
-    },
-    ...overrides,
-  });
-}
-
 // Idempotent (find-or-create) -- createUserWithAddress calls this once per
 // user it sets up, and several tests need more than one user in the same
 // run (e.g. "belongs to a different user"), all sharing the same Tehran
-// fixture rather than colliding on Province/City's unique `slug` index.
+// fixture rather than colliding on the unique province/city slug. The slug
+// itself matters: shipping.service.ts resolves the Tehran zone from it.
 async function seedGeo() {
-  const tehran =
-    (await ProvinceModel.findOne({ slug: "tehran" })) ??
-    (await ProvinceModel.create({ name: { fa: "تهران", en: "Tehran" }, slug: "tehran" }));
-  const tehranCity =
-    (await CityModel.findOne({ slug: "tehran-city" })) ??
-    (await CityModel.create({
-      provinceId: tehran._id,
-      name: { fa: "تهران", en: "Tehran" },
-      slug: "tehran-city",
-    }));
+  const tehran = await prisma.province.upsert({
+    where: { slug: "tehran" },
+    create: { nameFa: "تهران", nameEn: "Tehran", slug: "tehran" },
+    update: {},
+  });
+  const tehranCity = await prisma.city.upsert({
+    where: { provinceId_slug: { provinceId: tehran.id, slug: "tehran-city" } },
+    create: { provinceId: tehran.id, nameFa: "تهران", nameEn: "Tehran", slug: "tehran-city" },
+    update: {},
+  });
   return { tehran, tehranCity };
 }
 
 async function seedShippingRates() {
-  const exists = await ShippingRateModel.exists({ methodCode: "intracity" });
+  const exists = await prisma.shippingRate.findFirst({ where: { methodCode: "intracity" } });
   if (exists) return;
-  await ShippingRateModel.insertMany([
-    {
-      methodCode: "post-pishtaz",
-      zone: "tehran",
-      minWeightGram: 0,
-      maxWeightGram: null,
-      priceRial: 250_000,
-    },
-    {
-      methodCode: "intracity",
-      zone: "tehran",
-      minWeightGram: 0,
-      maxWeightGram: null,
-      priceRial: 150_000,
-    },
-  ]);
+  await prisma.shippingRate.createMany({
+    data: [
+      {
+        methodCode: "post-pishtaz",
+        zone: "tehran",
+        minWeightGram: 0,
+        maxWeightGram: null,
+        priceRial: 250_000,
+      },
+      {
+        methodCode: "intracity",
+        zone: "tehran",
+        minWeightGram: 0,
+        maxWeightGram: null,
+        priceRial: 150_000,
+      },
+    ],
+  });
 }
 
 async function createUserWithAddress(): Promise<{
@@ -140,11 +85,8 @@ async function createUserWithAddress(): Promise<{
   cookie: string;
   addressId: string;
 }> {
-  const user = await UserModel.create({
-    phone: `+989${Math.floor(100000000 + Math.random() * 800000000)}`,
-    name: "Checkout Test User",
-  });
-  const userId = user.id as string;
+  const user = await seedUser({ name: "Checkout Test User" });
+  const userId = user.id;
   const cookie = customerCookie(userId);
   const { tehran, tehranCity } = await seedGeo();
   await seedShippingRates();
@@ -153,8 +95,8 @@ async function createUserWithAddress(): Promise<{
     method: "POST",
     headers: { cookie, "content-type": "application/json" },
     body: JSON.stringify({
-      provinceId: tehran._id.toString(),
-      cityId: tehranCity._id.toString(),
+      provinceId: tehran.id,
+      cityId: tehranCity.id,
       line: "خیابان آزادی",
       postalCode: "1234567890",
       receiverName: "کاربر تست",
@@ -199,7 +141,7 @@ describe("POST /checkout/initiate", () => {
   it("400s for an address belonging to a different user", async () => {
     const product = await seedProduct();
     const { cookie } = await createUserWithAddress();
-    await addToCart(cookie, product._id.toString(), 1);
+    await addToCart(cookie, product.id, 1);
     const { addressId: otherAddressId } = await createUserWithAddress();
 
     const res = await fetch(`${baseUrl}/api/v1/checkout/initiate`, {
@@ -213,7 +155,7 @@ describe("POST /checkout/initiate", () => {
   it("400s for a shipping method not available in this zone", async () => {
     const product = await seedProduct();
     const { cookie, addressId } = await createUserWithAddress();
-    await addToCart(cookie, product._id.toString(), 1);
+    await addToCart(cookie, product.id, 1);
 
     const res = await fetch(`${baseUrl}/api/v1/checkout/initiate`, {
       method: "POST",
@@ -226,7 +168,7 @@ describe("POST /checkout/initiate", () => {
   it("409s when a cart line's stock is insufficient", async () => {
     const product = await seedProduct({ stock: 1 });
     const { cookie, addressId } = await createUserWithAddress();
-    await addToCart(cookie, product._id.toString(), 2);
+    await addToCart(cookie, product.id, 2);
 
     const res = await fetch(`${baseUrl}/api/v1/checkout/initiate`, {
       method: "POST",
@@ -235,14 +177,14 @@ describe("POST /checkout/initiate", () => {
     });
     expect(res.status).toBe(409);
     // No reservation/order should have been left behind by a rejected attempt.
-    await expect(StockReservationModel.countDocuments({})).resolves.toBe(0);
-    await expect(OrderModel.countDocuments({})).resolves.toBe(0);
+    await expect(prisma.stockReservation.count()).resolves.toBe(0);
+    await expect(prisma.order.count()).resolves.toBe(0);
   });
 
   it("creates a pending order, reserves stock, and returns a redirectUrl", async () => {
     const product = await seedProduct({ stock: 5, priceRial: 1_500_000 });
     const { userId, cookie, addressId } = await createUserWithAddress();
-    await addToCart(cookie, product._id.toString(), 2);
+    await addToCart(cookie, product.id, 2);
 
     const res = await fetch(`${baseUrl}/api/v1/checkout/initiate`, {
       method: "POST",
@@ -256,27 +198,32 @@ describe("POST /checkout/initiate", () => {
     // endpoint -- this is what the gateway redirects a real browser to.
     expect(body.data.redirectUrl).toContain("/checkout/result");
 
-    const order = await OrderModel.findById(body.data.orderId);
+    const order = await prisma.order.findUnique({
+      where: { id: body.data.orderId },
+      include: { items: true, statusHistory: { orderBy: { at: "asc" } } },
+    });
     expect(order).not.toBeNull();
     expect(order!.status).toBe("pending");
-    expect(order!.userId.toString()).toBe(userId);
+    expect(order!.userId).toBe(userId);
     expect(order!.subtotalRial).toBe(3_000_000);
     expect(order!.shippingRial).toBe(150_000);
     expect(order!.totalRial).toBe(3_150_000);
     expect(order!.items).toHaveLength(1);
     expect(order!.items[0]!.skuSnapshot).toBe(product.sku);
 
-    const payment = await PaymentModel.findOne({ orderId: order!._id });
+    const payment = await prisma.payment.findFirst({ where: { orderId: order!.id } });
     expect(payment).not.toBeNull();
     expect(payment!.status).toBe("initiated");
     expect(payment!.authority).toBeTruthy();
     expect(payment!.amountRial).toBe(3_150_000);
 
-    const reservations = await StockReservationModel.find({ refId: body.data.orderId });
+    const reservations = await prisma.stockReservation.findMany({
+      where: { refId: body.data.orderId },
+    });
     expect(reservations).toHaveLength(1);
     expect(reservations[0]!.qty).toBe(2);
 
-    const updatedProduct = await ProductModel.findById(product._id);
+    const updatedProduct = await prisma.product.findUnique({ where: { id: product.id } });
     expect(updatedProduct!.stock).toBe(3);
   });
 });
@@ -298,7 +245,7 @@ describe("GET /payments/callback", () => {
   }> {
     const product = await seedProduct({ stock: 5, priceRial: 1_500_000 });
     const { userId, cookie, addressId } = await createUserWithAddress();
-    await addToCart(cookie, product._id.toString(), 2);
+    await addToCart(cookie, product.id, 2);
     const res = await fetch(`${baseUrl}/api/v1/checkout/initiate`, {
       method: "POST",
       headers: { cookie, "content-type": "application/json" },
@@ -306,7 +253,7 @@ describe("GET /payments/callback", () => {
     });
     const body = (await res.json()) as Envelope<CheckoutInitiateDto>;
     const orderId = body.data.orderId;
-    const payment = await PaymentModel.findOne({ orderId });
+    const payment = await prisma.payment.findFirst({ where: { orderId } });
     const callbackUrl = `${baseUrl}/api/v1/payments/callback?orderId=${orderId}&Authority=${payment!.authority}&Status=OK`;
     return { userId, cookie, orderId, callbackUrl, product };
   }
@@ -326,22 +273,24 @@ describe("GET /payments/callback", () => {
     const body = (await res.json()) as Envelope<{ orderCode: string; status: string }>;
     expect(body.data.status).toBe("paid");
 
-    const order = await OrderModel.findById(orderId);
+    const order = await prisma.order.findUnique({
+      where: { id: orderId },
+      include: { items: true, statusHistory: { orderBy: { at: "asc" } } },
+    });
     expect(order!.status).toBe("paid");
     expect(order!.statusHistory.map((h) => h.status)).toEqual(["pending", "paid"]);
 
-    const payment = await PaymentModel.findOne({ orderId });
+    const payment = await prisma.payment.findFirst({ where: { orderId } });
     expect(payment!.status).toBe("success");
     expect(payment!.verifiedAt).toBeTruthy();
 
     // Reservation resolved (confirmed, not restored) -- stock stays down.
-    await expect(StockReservationModel.countDocuments({ refId: orderId })).resolves.toBe(0);
-    const updatedProduct = await ProductModel.findById(product._id);
+    await expect(prisma.stockReservation.count({ where: { refId: orderId } })).resolves.toBe(0);
+    const updatedProduct = await prisma.product.findUnique({ where: { id: product.id } });
     expect(updatedProduct!.stock).toBe(3);
     await expect(
-      InventoryMoveModel.countDocuments({
-        productId: product._id,
-        reason: "reservation-confirmed",
+      prisma.inventoryMove.count({
+        where: { productId: product.id, reason: "reservation_confirmed" },
       }),
     ).resolves.toBe(1);
 
@@ -362,12 +311,11 @@ describe("GET /payments/callback", () => {
     // Confirming reservations twice would be a no-op either way (they're
     // deleted after the first confirm), but the real risk this guards is
     // stock being touched again -- still exactly the one decrement.
-    const updatedProduct = await ProductModel.findById(product._id);
+    const updatedProduct = await prisma.product.findUnique({ where: { id: product.id } });
     expect(updatedProduct!.stock).toBe(3);
     await expect(
-      InventoryMoveModel.countDocuments({
-        productId: product._id,
-        reason: "reservation-confirmed",
+      prisma.inventoryMove.count({
+        where: { productId: product.id, reason: "reservation_confirmed" },
       }),
     ).resolves.toBe(1);
     void orderId;
@@ -375,7 +323,7 @@ describe("GET /payments/callback", () => {
 
   it("on Status=NOK, cancels the order and releases the reservation without calling verify", async () => {
     const { orderId, product } = await initiate();
-    const payment = await PaymentModel.findOne({ orderId });
+    const payment = await prisma.payment.findFirst({ where: { orderId } });
 
     const res = await fetch(
       `${baseUrl}/api/v1/payments/callback?orderId=${orderId}&Authority=${payment!.authority}&Status=NOK`,
@@ -384,25 +332,28 @@ describe("GET /payments/callback", () => {
     const body = (await res.json()) as Envelope<{ status: string }>;
     expect(body.data.status).toBe("cancelled");
 
-    const order = await OrderModel.findById(orderId);
+    const order = await prisma.order.findUnique({
+      where: { id: orderId },
+      include: { items: true, statusHistory: { orderBy: { at: "asc" } } },
+    });
     expect(order!.status).toBe("cancelled");
 
-    const updatedPayment = await PaymentModel.findOne({ orderId });
+    const updatedPayment = await prisma.payment.findFirst({ where: { orderId } });
     expect(updatedPayment!.status).toBe("failed");
 
     // Reservation released -- stock restored to what it was before checkout.
-    await expect(StockReservationModel.countDocuments({ refId: orderId })).resolves.toBe(0);
-    const updatedProduct = await ProductModel.findById(product._id);
+    await expect(prisma.stockReservation.count({ where: { refId: orderId } })).resolves.toBe(0);
+    const updatedProduct = await prisma.product.findUnique({ where: { id: product.id } });
     expect(updatedProduct!.stock).toBe(5);
   });
 });
 
 describe("P6.S7: coupon discount through checkout + payment", () => {
   it("snapshots the applied coupon's discount onto the Order, and increments usedCount only on real payment success", async () => {
-    await CouponModel.create({ code: "SAVE10", type: "percent", value: 10 });
+    await prisma.coupon.create({ data: { code: "SAVE10", type: "percent", value: 10 } });
     const product = await seedProduct({ stock: 5, priceRial: 1_500_000 });
     const { cookie, addressId } = await createUserWithAddress();
-    await addToCart(cookie, product._id.toString(), 2);
+    await addToCart(cookie, product.id, 2);
     await fetch(`${baseUrl}/api/v1/cart/coupon`, {
       method: "POST",
       headers: { cookie, "content-type": "application/json" },
@@ -418,29 +369,32 @@ describe("P6.S7: coupon discount through checkout + payment", () => {
     const body = (await res.json()) as Envelope<CheckoutInitiateDto>;
 
     // subtotal 3,000,000 - 10% (300,000) + shipping 150,000 = 2,850,000
-    const order = await OrderModel.findById(body.data.orderId);
+    const order = await prisma.order.findUnique({
+      where: { id: body.data.orderId },
+      include: { items: true, statusHistory: { orderBy: { at: "asc" } } },
+    });
     expect(order!.discountRial).toBe(300_000);
     expect(order!.couponCode).toBe("SAVE10");
     expect(order!.totalRial).toBe(2_850_000);
 
-    const couponBeforePayment = await CouponModel.findOne({ code: "SAVE10" });
+    const couponBeforePayment = await prisma.coupon.findUnique({ where: { code: "SAVE10" } });
     expect(couponBeforePayment!.usedCount).toBe(0);
 
-    const payment = await PaymentModel.findOne({ orderId: order!._id });
+    const payment = await prisma.payment.findFirst({ where: { orderId: order!.id } });
     const callbackRes = await fetch(
-      `${baseUrl}/api/v1/payments/callback?orderId=${order!._id.toString()}&Authority=${payment!.authority}&Status=OK`,
+      `${baseUrl}/api/v1/payments/callback?orderId=${order!.id}&Authority=${payment!.authority}&Status=OK`,
     );
     expect(callbackRes.status).toBe(200);
 
-    const couponAfterPayment = await CouponModel.findOne({ code: "SAVE10" });
+    const couponAfterPayment = await prisma.coupon.findUnique({ where: { code: "SAVE10" } });
     expect(couponAfterPayment!.usedCount).toBe(1);
   });
 
   it("does not increment usedCount when the payment is cancelled (Status=NOK)", async () => {
-    await CouponModel.create({ code: "SAVE10", type: "percent", value: 10 });
+    await prisma.coupon.create({ data: { code: "SAVE10", type: "percent", value: 10 } });
     const product = await seedProduct({ stock: 5, priceRial: 1_500_000 });
     const { cookie, addressId } = await createUserWithAddress();
-    await addToCart(cookie, product._id.toString(), 1);
+    await addToCart(cookie, product.id, 1);
     await fetch(`${baseUrl}/api/v1/cart/coupon`, {
       method: "POST",
       headers: { cookie, "content-type": "application/json" },
@@ -453,13 +407,13 @@ describe("P6.S7: coupon discount through checkout + payment", () => {
       body: JSON.stringify({ addressId, shippingMethodCode: "intracity" }),
     });
     const body = (await res.json()) as Envelope<CheckoutInitiateDto>;
-    const payment = await PaymentModel.findOne({ orderId: body.data.orderId });
+    const payment = await prisma.payment.findFirst({ where: { orderId: body.data.orderId } });
 
     await fetch(
       `${baseUrl}/api/v1/payments/callback?orderId=${body.data.orderId}&Authority=${payment!.authority}&Status=NOK`,
     );
 
-    const coupon = await CouponModel.findOne({ code: "SAVE10" });
+    const coupon = await prisma.coupon.findUnique({ where: { code: "SAVE10" } });
     expect(coupon!.usedCount).toBe(0);
   });
 });

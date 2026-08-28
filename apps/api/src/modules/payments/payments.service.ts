@@ -1,5 +1,5 @@
-import { OrderModel } from "../../models/Order.js";
-import { PaymentModel } from "../../models/Payment.js";
+import { Prisma } from "@prisma/client";
+import { prisma } from "../../config/prisma.js";
 import { paymentProvider, type PaymentVerifyResult } from "../../providers/payment/index.js";
 import { ApiError } from "../../utils/ApiError.js";
 import * as cartService from "../cart/cart.service.js";
@@ -28,11 +28,11 @@ export async function finalizePayment(
   authority: string,
   status: "OK" | "NOK",
 ): Promise<FinalizePaymentResult> {
-  const payment = await PaymentModel.findOne({ orderId, authority });
+  const payment = await prisma.payment.findFirst({ where: { orderId, authority } });
   if (!payment) {
     throw new ApiError(404, "پرداخت یافت نشد");
   }
-  const order = await OrderModel.findById(orderId);
+  const order = await prisma.order.findUnique({ where: { id: orderId } });
   if (!order) {
     throw new ApiError(404, "سفارش یافت نشد");
   }
@@ -60,15 +60,24 @@ export async function finalizePayment(
   const now = new Date();
 
   if (success) {
-    payment.status = "success";
-    payment.verifiedAt = now;
-    payment.refId = verifyResult?.refId;
-    payment.raw = verifyResult?.raw;
-    await payment.save();
-
-    order.status = "paid";
-    order.statusHistory.push({ status: "paid", at: now });
-    await order.save();
+    // Payment, order status and the history entry in one transaction. Under
+    // Mongo these were three `save()` calls with nothing tying them together:
+    // a crash after the payment was marked successful left an order still
+    // reading "pending" with a settled payment behind it, which is the worst
+    // of the possible half-states.
+    await prisma.$transaction(async (tx) => {
+      await tx.payment.update({
+        where: { id: payment.id },
+        data: {
+          status: "success",
+          verifiedAt: now,
+          refId: verifyResult?.refId ?? null,
+          raw: (verifyResult?.raw as Prisma.InputJsonValue | undefined) ?? Prisma.DbNull,
+        },
+      });
+      await tx.order.update({ where: { id: orderId }, data: { status: "paid" } });
+      await tx.orderStatusEntry.create({ data: { orderId, status: "paid", at: now } });
+    });
 
     // Reservations become the real sale (stock was already decremented
     // at reservation time, confirmReservation only closes the audit
@@ -76,7 +85,7 @@ export async function finalizePayment(
     // "server owns the truth" philosophy every other checkout side
     // effect in this step already follows.
     await inventoryService.confirmReservationsByRefId(orderId);
-    await cartService.clearCart({ userId: order.userId.toString() });
+    await cartService.clearCart({ userId: order.userId });
     // Only a genuinely paid order consumes a redemption -- a cancelled/
     // failed attempt (the else branch below) never reaches this, so an
     // abandoned checkout doesn't permanently burn a limited-use code.
@@ -84,16 +93,28 @@ export async function finalizePayment(
       await incrementCouponUsage(order.couponCode);
     }
   } else {
-    payment.status = "failed";
-    payment.raw = verifyResult?.raw;
-    await payment.save();
-
-    order.status = "cancelled";
-    order.statusHistory.push({ status: "cancelled", at: now, note: "پرداخت ناموفق" });
-    await order.save();
+    await prisma.$transaction(async (tx) => {
+      await tx.payment.update({
+        where: { id: payment.id },
+        data: {
+          status: "failed",
+          raw: (verifyResult?.raw as Prisma.InputJsonValue | undefined) ?? Prisma.DbNull,
+        },
+      });
+      await tx.order.update({ where: { id: orderId }, data: { status: "cancelled" } });
+      await tx.orderStatusEntry.create({
+        data: { orderId, status: "cancelled", at: now, note: "پرداخت ناموفق" },
+      });
+    });
 
     await inventoryService.releaseReservationsByRefId(orderId);
   }
 
-  return { orderCode: order.code, status: order.status };
+  // Read back rather than trusting the local copy: the transaction above is
+  // what actually decided the outcome.
+  const settled = await prisma.order.findUniqueOrThrow({
+    where: { id: orderId },
+    select: { code: true, status: true },
+  });
+  return { orderCode: settled.code, status: settled.status };
 }
