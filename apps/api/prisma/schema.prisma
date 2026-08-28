@@ -281,7 +281,13 @@ model VehicleEngine {
   id           String    @id @default(uuid(7)) @db.Uuid
   genId        String    @db.Uuid
   code         String
-  displacement Int
+  /// Litres, so 1.3 for a Pride's 1.3L -- which is why this is a float and
+  /// not an Int. It was translated as `Int` and every seeded engine silently
+  /// stored 1 (verified by reading the rows back, not assumed): the seed data
+  /// is in litres, the wire schema accepts `z.number()`, and PostgreSQL
+  /// truncates. Nothing failed; the number was just wrong everywhere it was
+  /// shown.
+  displacement Float
   fuel         FuelType
   power        Int
   createdAt    DateTime  @default(now())

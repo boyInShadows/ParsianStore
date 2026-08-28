@@ -1,12 +1,9 @@
+import type { Prisma, UserRole } from "@prisma/client";
 import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { prisma } from "../../config/prisma.js";
 import { disconnectDB, resetDb, startTestServer } from "../../config/testDb.js";
-import { FitmentModel } from "../../models/Fitment.js";
-import { VehicleEngineModel } from "../../models/VehicleEngine.js";
-import { VehicleGenModel } from "../../models/VehicleGen.js";
-import { VehicleMakeModel } from "../../models/VehicleMake.js";
-import { VehicleModelModel } from "../../models/VehicleModel.js";
-import type { UserRole } from "../../models/User.js";
+import { seedProduct, seedUser } from "../../test/factories.js";
 import { signAccessToken } from "../../utils/jwt.js";
 import type {
   AdminVehicleEngineDto,
@@ -24,14 +21,14 @@ beforeAll(async () => {
   ({ baseUrl, close } = await startTestServer());
 });
 
+// An audit row points at its actor by foreign key now, so the signed token
+// has to name a staff account that exists -- otherwise the (fire-and-forget)
+// audit write fails silently and every wait-for-audit assertion hangs.
+let staffId: string;
+
 beforeEach(async () => {
-  await Promise.all([
-    VehicleMakeModel.deleteMany({}),
-    VehicleModelModel.deleteMany({}),
-    VehicleGenModel.deleteMany({}),
-    VehicleEngineModel.deleteMany({}),
-    FitmentModel.deleteMany({}),
-  ]);
+  await resetDb();
+  staffId = (await seedUser({ role: "admin" })).id;
 });
 
 afterAll(async () => {
@@ -40,11 +37,7 @@ afterAll(async () => {
 });
 
 function staffCookie(role: UserRole = "admin"): Record<string, string> {
-  const token = signAccessToken({
-    sub: randomUUID(),
-    role,
-    accountType: "retail",
-  });
+  const token = signAccessToken({ sub: staffId, role, accountType: "retail" });
   return { cookie: `accessToken=${token}` };
 }
 
@@ -107,13 +100,19 @@ async function seedEngine(genId: string, overrides: Record<string, unknown> = {}
   return json<AdminVehicleEngineDto>(res);
 }
 
+/** A fitment referencing a real product: `productId` is a foreign key now,
+ * where the Mongo fixture invented one. These records exist here only to
+ * exercise the vehicle-tree delete guards. */
 async function seedFitment(refs: Record<string, unknown>) {
-  return FitmentModel.create({
-    productId: randomUUID(),
-    yearFrom: 2010,
-    yearTo: 2015,
-    confidence: "exact",
-    ...refs,
+  const product = await seedProduct();
+  return prisma.fitment.create({
+    data: {
+      productId: product.id,
+      yearFrom: 2010,
+      yearTo: 2015,
+      confidence: "exact",
+      ...refs,
+    } as Prisma.FitmentUncheckedCreateInput,
   });
 }
 
@@ -154,7 +153,8 @@ describe("admin vehicle routes", () => {
   it("refuses to create a model under a make that does not exist", async () => {
     const res = await send("/models", "POST", {
       makeId: randomUUID(),
-      name: { fa: "پراید", en: "Pride" },
+      nameFa: "پراید",
+      nameEn: "Pride",
       slug: "pride",
       bodyType: "hatchback",
     });
@@ -163,9 +163,9 @@ describe("admin vehicle routes", () => {
 
   it("filters models by make", async () => {
     const saipa = await seedMake();
-    const ikco = await seedMake({ slug: "ikco", name: { fa: "ایران‌خودرو", en: "IKCO" } });
+    const ikco = await seedMake({ slug: "ikco", nameFa: "ایران‌خودرو", nameEn: "IKCO" });
     await seedModel(saipa.id);
-    await seedModel(ikco.id, { slug: "peugeot-405", name: { fa: "پژو ۴۰۵", en: "Peugeot 405" } });
+    await seedModel(ikco.id, { slug: "peugeot-405", nameFa: "پژو ۴۰۵", nameEn: "Peugeot 405" });
 
     const res = await send(`/models?makeId=${ikco.id}`, "GET");
     const rows = await json<AdminVehicleModelDto[]>(res);
@@ -184,15 +184,15 @@ describe("admin vehicle routes", () => {
     expect(res.status).toBe(409);
   });
 
-  // A fitment record stores makeId as a flat ref -- deleting the make
-  // leaves it matching nothing, which reads on the storefront as "this
-  // part fits no car" rather than as an error.
+  // Deleting a make a fitment still references leaves that record matching
+  // nothing, which reads on the storefront as "this part fits no car" rather
+  // than as an error -- so the service refuses. (The database would refuse
+  // too, now that the reference is a Restrict foreign key, but with a
+  // constraint violation instead of a 409 and a Persian message.)
   it("refuses to delete a make still referenced by a fitment record", async () => {
     const make = await seedMake();
-    await seedFitment({
-      makeId: make.id,
-      modelId: randomUUID(),
-    });
+    const model = await seedModel(make.id);
+    await seedFitment({ makeId: make.id, modelId: model.id });
 
     const res = await send(`/makes/${make.id}`, "DELETE");
 
@@ -264,7 +264,8 @@ describe("admin vehicle routes", () => {
 
     const res = await send("/generations", "POST", {
       modelId: model.id,
-      name: { fa: "۱۳۱", en: "131" },
+      nameFa: "۱۳۱",
+      nameEn: "131",
       yearFrom: 2015,
       yearTo: 2008,
     });
@@ -280,7 +281,8 @@ describe("admin vehicle routes", () => {
 
     const res = await send("/generations", "POST", {
       modelId: model.id,
-      name: { fa: "۱۳۱", en: "131" },
+      nameFa: "۱۳۱",
+      nameEn: "131",
       yearFrom: 1404,
       yearTo: null,
     });

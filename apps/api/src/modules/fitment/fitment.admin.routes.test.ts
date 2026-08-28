@@ -61,7 +61,7 @@ async function seedTree(): Promise<void> {
     make: { nameFa: "ایران‌خودرو", nameEn: "IKCO" },
     model: { nameFa: "پژو ۴۰۵", nameEn: "Peugeot 405", bodyType: "sedan" },
     gen: { nameFa: "GLX", nameEn: "GLX", yearFrom: 2000, yearTo: null },
-    engine: { code: "XU7", displacement: 1800, power: 100 },
+    engine: { code: "XU7", displacement: 1.8, power: 100 },
   });
   otherMakeId = other.make.id;
   otherModelId = other.model.id;
@@ -152,7 +152,7 @@ describe("admin fitment routes", () => {
       data: {
         genId: otherGenId,
         code: "XU7-alt",
-        displacement: 1800,
+        displacement: 1.8,
         fuel: "petrol",
         power: 100,
       },

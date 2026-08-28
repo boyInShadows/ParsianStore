@@ -167,7 +167,7 @@ export async function seedVehicleTree(
     data: {
       genId: gen.id,
       code: `M13-${suffix}`,
-      displacement: 1300,
+      displacement: 1.3,
       fuel: "petrol",
       power: 65,
       ...overrides.engine,

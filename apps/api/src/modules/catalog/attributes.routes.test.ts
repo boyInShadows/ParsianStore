@@ -1,12 +1,8 @@
-import { randomUUID } from "node:crypto";
+import type { UserRole } from "@prisma/client";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { prisma } from "../../config/prisma.js";
 import { disconnectDB, resetDb, startTestServer } from "../../config/testDb.js";
-import { AttributeModel } from "../../models/Attribute.js";
-import { AuditLogModel } from "../../models/AuditLog.js";
-import { BrandModel } from "../../models/Brand.js";
-import { CategoryModel } from "../../models/Category.js";
-import { ProductModel } from "../../models/Product.js";
-import type { UserRole } from "../../models/User.js";
+import { seedProduct, seedUser } from "../../test/factories.js";
 import { signAccessToken } from "../../utils/jwt.js";
 
 let baseUrl: string;
@@ -17,15 +13,14 @@ beforeAll(async () => {
   ({ baseUrl, close } = await startTestServer());
 });
 
+// An audit row points at its actor by foreign key now, so the signed token
+// has to name a staff account that exists -- otherwise the (fire-and-forget)
+// audit write fails silently and every wait-for-audit assertion hangs.
+let staffId: string;
+
 beforeEach(async () => {
-  await Promise.all([
-    AttributeModel.deleteMany({}),
-    AuditLogModel.deleteMany({}),
-    // P8.S4: usage counts and the delete/rename guards read real products.
-    ProductModel.deleteMany({}),
-    BrandModel.deleteMany({}),
-    CategoryModel.deleteMany({}),
-  ]);
+  await resetDb();
+  staffId = (await seedUser({ role: "admin" })).id;
 });
 
 afterAll(async () => {
@@ -34,11 +29,7 @@ afterAll(async () => {
 });
 
 function staffCookie(role: UserRole = "admin"): Record<string, string> {
-  const token = signAccessToken({
-    sub: randomUUID(),
-    role,
-    accountType: "retail",
-  });
+  const token = signAccessToken({ sub: staffId, role, accountType: "retail" });
   return { cookie: `accessToken=${token}` };
 }
 
@@ -53,7 +44,7 @@ interface Envelope<T> {
 async function waitForAuditEntry(entity: string, timeoutMs = 1000): Promise<void> {
   const start = Date.now();
   while (Date.now() - start < timeoutMs) {
-    if ((await AuditLogModel.countDocuments({ entity })) > 0) return;
+    if ((await prisma.auditLog.count({ where: { entity } })) > 0) return;
     await new Promise((resolve) => setTimeout(resolve, 10));
   }
   throw new Error(`No audit log entry for "${entity}" appeared within ${timeoutMs}ms`);
@@ -66,7 +57,9 @@ describe("GET /admin/catalog/attributes", () => {
   });
 
   it("lists attributes for staff", async () => {
-    await AttributeModel.create({ name: "رنگ", key: "color", type: "select", options: ["قرمز"] });
+    await prisma.attribute.create({
+      data: { name: "رنگ", key: "color", type: "select", options: ["قرمز"] },
+    });
     const res = await fetch(`${baseUrl}/api/v1/admin/catalog/attributes`, {
       headers: staffCookie(),
     });
@@ -102,7 +95,7 @@ describe("POST/PATCH/DELETE /admin/catalog/attributes", () => {
     expect(body.data.key).toBe("color");
 
     await waitForAuditEntry("attribute");
-    const entries = await AuditLogModel.find({ entity: "attribute" });
+    const entries = await prisma.auditLog.findMany({ where: { entity: "attribute" } });
     expect(entries).toHaveLength(1);
   });
 
@@ -116,24 +109,23 @@ describe("POST/PATCH/DELETE /admin/catalog/attributes", () => {
   });
 
   it("updates and soft-deletes an attribute as staff", async () => {
-    const attribute = await AttributeModel.create({ name: "وزن", key: "weight", type: "number" });
+    const attribute = await prisma.attribute.create({
+      data: { name: "وزن", key: "weight", type: "number" },
+    });
 
-    const updateRes = await fetch(
-      `${baseUrl}/api/v1/admin/catalog/attributes/${attribute._id.toString()}`,
-      {
-        method: "PATCH",
-        headers: { "content-type": "application/json", ...staffCookie() },
-        body: JSON.stringify({ unit: "kg" }),
-      },
-    );
+    const updateRes = await fetch(`${baseUrl}/api/v1/admin/catalog/attributes/${attribute.id}`, {
+      method: "PATCH",
+      headers: { "content-type": "application/json", ...staffCookie() },
+      body: JSON.stringify({ unit: "kg" }),
+    });
     expect(updateRes.status).toBe(200);
     const updateBody = (await updateRes.json()) as Envelope<{ unit: string }>;
     expect(updateBody.data.unit).toBe("kg");
 
-    const deleteRes = await fetch(
-      `${baseUrl}/api/v1/admin/catalog/attributes/${attribute._id.toString()}`,
-      { method: "DELETE", headers: staffCookie() },
-    );
+    const deleteRes = await fetch(`${baseUrl}/api/v1/admin/catalog/attributes/${attribute.id}`, {
+      method: "DELETE",
+      headers: staffCookie(),
+    });
     expect(deleteRes.status).toBe(200);
 
     const listRes = await fetch(`${baseUrl}/api/v1/admin/catalog/attributes`, {
@@ -151,46 +143,35 @@ describe("POST/PATCH/DELETE /admin/catalog/attributes", () => {
 // ---------------------------------------------------------------------------
 
 async function seedColorAttribute() {
-  return AttributeModel.create({
-    name: "رنگ",
-    key: "color",
-    type: "select",
-    options: ["قرمز", "آبی"],
+  return prisma.attribute.create({
+    data: {
+      name: "رنگ",
+      key: "color",
+      type: "select",
+      options: ["قرمز", "آبی"],
+    },
   });
 }
 
 async function seedProductWithAttribute(pairs: { key: string; value: string }[]) {
-  const suffix = Math.floor(10_000 + Math.random() * 90_000);
-  const brand = await BrandModel.create({
-    name: { fa: "بوش", en: "Bosch" },
-    slug: `bosch-${suffix}`,
-    country: "Germany",
+  const product = await seedProduct();
+  if (pairs.length === 0) return product;
+  // An attribute value is a row pointing at a real Attribute now, not a
+  // `{key, value}` pair embedded on the product -- which is the whole reason
+  // a typo can no longer create a phantom facet bucket.
+  const defined = await prisma.attribute.findMany({
+    where: { key: { in: pairs.map((pair) => pair.key) } },
+    select: { id: true, key: true },
   });
-  const category = await CategoryModel.create({
-    name: { fa: "ترمز", en: "Brakes" },
-    slug: `brakes-${suffix}`,
-    systemCode: "SYS-04",
+  const idByKey = new Map(defined.map((attribute) => [attribute.key, attribute.id]));
+  await prisma.productAttributeValue.createMany({
+    data: pairs.map((pair) => ({
+      productId: product.id,
+      attributeId: idByKey.get(pair.key)!,
+      value: pair.value,
+    })),
   });
-  return ProductModel.create({
-    name: { fa: "لنت ترمز جلو", en: "Front brake pad" },
-    slug: `front-brake-pad-${suffix}`,
-    sku: `SKU-${suffix}`,
-    brandId: brand.id,
-    categoryId: category.id,
-    priceRial: 1_500_000,
-    taxRate: 9,
-    stock: 20,
-    weightGram: 800,
-    dimensions: { lengthMm: 100, widthMm: 100, heightMm: 100 },
-    warranty: { months: 12, text: "۱۲ ماه ضمانت" },
-    authenticity: {
-      supplyRoute: "oem",
-      sourceBrand: "Bosch",
-      countryOfManufacture: "Germany",
-      verificationCode: `VER-${suffix}`,
-    },
-    attributes: pairs,
-  });
+  return product;
 }
 
 describe("attribute usage counts and guards", () => {
@@ -210,43 +191,37 @@ describe("attribute usage counts and guards", () => {
     const attribute = await seedColorAttribute();
     await seedProductWithAttribute([{ key: "color", value: "قرمز" }]);
 
-    const res = await fetch(
-      `${baseUrl}/api/v1/admin/catalog/attributes/${attribute._id.toString()}`,
-      { method: "DELETE", headers: staffCookie() },
-    );
+    const res = await fetch(`${baseUrl}/api/v1/admin/catalog/attributes/${attribute.id}`, {
+      method: "DELETE",
+      headers: staffCookie(),
+    });
     expect(res.status).toBe(409);
-    expect(await AttributeModel.findById(attribute._id)).not.toBeNull();
+    expect(await prisma.attribute.findUnique({ where: { id: attribute.id } })).not.toBeNull();
   });
 
   it("refuses to rename the key of an attribute products still use", async () => {
     const attribute = await seedColorAttribute();
     await seedProductWithAttribute([{ key: "color", value: "قرمز" }]);
 
-    const res = await fetch(
-      `${baseUrl}/api/v1/admin/catalog/attributes/${attribute._id.toString()}`,
-      {
-        method: "PATCH",
-        headers: { "content-type": "application/json", ...staffCookie() },
-        body: JSON.stringify({ key: "colour" }),
-      },
-    );
+    const res = await fetch(`${baseUrl}/api/v1/admin/catalog/attributes/${attribute.id}`, {
+      method: "PATCH",
+      headers: { "content-type": "application/json", ...staffCookie() },
+      body: JSON.stringify({ key: "colour" }),
+    });
     expect(res.status).toBe(409);
     // Renaming the display name is still allowed — only the machine key is
     // load-bearing for products.
-    const nameRes = await fetch(
-      `${baseUrl}/api/v1/admin/catalog/attributes/${attribute._id.toString()}`,
-      {
-        method: "PATCH",
-        headers: { "content-type": "application/json", ...staffCookie() },
-        body: JSON.stringify({ name: "رنگ بدنه" }),
-      },
-    );
+    const nameRes = await fetch(`${baseUrl}/api/v1/admin/catalog/attributes/${attribute.id}`, {
+      method: "PATCH",
+      headers: { "content-type": "application/json", ...staffCookie() },
+      body: JSON.stringify({ name: "رنگ بدنه" }),
+    });
     expect(nameRes.status).toBe(200);
   });
 
   it("restores a soft-deleted attribute", async () => {
     const attribute = await seedColorAttribute();
-    await fetch(`${baseUrl}/api/v1/admin/catalog/attributes/${attribute._id.toString()}`, {
+    await fetch(`${baseUrl}/api/v1/admin/catalog/attributes/${attribute.id}`, {
       method: "DELETE",
       headers: staffCookie(),
     });
@@ -257,10 +232,10 @@ describe("attribute usage counts and guards", () => {
     const deletedBody = (await deletedRes.json()) as Envelope<{ key: string }[]>;
     expect(deletedBody.data.map((entry) => entry.key)).toEqual(["color"]);
 
-    const res = await fetch(
-      `${baseUrl}/api/v1/admin/catalog/attributes/${attribute._id.toString()}/restore`,
-      { method: "POST", headers: staffCookie() },
-    );
+    const res = await fetch(`${baseUrl}/api/v1/admin/catalog/attributes/${attribute.id}/restore`, {
+      method: "POST",
+      headers: staffCookie(),
+    });
     expect(res.status).toBe(200);
 
     const listRes = await fetch(`${baseUrl}/api/v1/admin/catalog/attributes`, {
@@ -285,20 +260,19 @@ describe("attribute shape rules", () => {
     // A PATCH body of `{options: []}` alone cannot answer this — it is invalid
     // only because the STORED attribute is a select.
     const attribute = await seedColorAttribute();
-    const res = await fetch(
-      `${baseUrl}/api/v1/admin/catalog/attributes/${attribute._id.toString()}`,
-      {
-        method: "PATCH",
-        headers: { "content-type": "application/json", ...staffCookie() },
-        body: JSON.stringify({ options: [] }),
-      },
-    );
+    const res = await fetch(`${baseUrl}/api/v1/admin/catalog/attributes/${attribute.id}`, {
+      method: "PATCH",
+      headers: { "content-type": "application/json", ...staffCookie() },
+      body: JSON.stringify({ options: [] }),
+    });
     expect(res.status).toBe(400);
   });
 
   it("filters by q and by type", async () => {
     await seedColorAttribute();
-    await AttributeModel.create({ name: "طول", key: "length", type: "number", unit: "mm" });
+    await prisma.attribute.create({
+      data: { name: "طول", key: "length", type: "number", unit: "mm" },
+    });
 
     const byType = await fetch(`${baseUrl}/api/v1/admin/catalog/attributes?type=number`, {
       headers: staffCookie(),
@@ -325,10 +299,13 @@ describe("product attributes validated against the dictionary", () => {
       body: JSON.stringify({ attributes: [{ key: "color", value: "قرمز" }] }),
     });
     expect(res.status).toBe(200);
-    // Mapped rather than compared whole: attributes[] is a subdocument array,
-    // so each entry also carries its own _id.
-    const stored = (await ProductModel.findById(product.id))?.attributes ?? [];
-    expect(stored.map((pair) => ({ key: pair.key, value: pair.value }))).toEqual([
+    // Read back through the join: the value row carries the attribute id, and
+    // the human key lives on the dictionary row it points at.
+    const stored = await prisma.productAttributeValue.findMany({
+      where: { productId: product.id },
+      include: { attribute: { select: { key: true } } },
+    });
+    expect(stored.map((pair) => ({ key: pair.attribute.key, value: pair.value }))).toEqual([
       { key: "color", value: "قرمز" },
     ]);
   });

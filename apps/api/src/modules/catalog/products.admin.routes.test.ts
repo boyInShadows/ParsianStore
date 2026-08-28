@@ -1,10 +1,9 @@
+import type { UserRole } from "@prisma/client";
 import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { prisma } from "../../config/prisma.js";
 import { disconnectDB, resetDb, startTestServer } from "../../config/testDb.js";
-import { BrandModel } from "../../models/Brand.js";
-import { CategoryModel } from "../../models/Category.js";
-import { ProductModel } from "../../models/Product.js";
-import type { UserRole } from "../../models/User.js";
+import { seedProduct, seedUser } from "../../test/factories.js";
 import { signAccessToken } from "../../utils/jwt.js";
 
 let baseUrl: string;
@@ -15,12 +14,14 @@ beforeAll(async () => {
   ({ baseUrl, close } = await startTestServer());
 });
 
+// An audit row points at its actor by foreign key now, so the signed token
+// has to name a staff account that exists -- otherwise the (fire-and-forget)
+// audit write fails silently and every wait-for-audit assertion hangs.
+let staffId: string;
+
 beforeEach(async () => {
-  await Promise.all([
-    ProductModel.deleteMany({}),
-    BrandModel.deleteMany({}),
-    CategoryModel.deleteMany({}),
-  ]);
+  await resetDb();
+  staffId = (await seedUser({ role: "admin" })).id;
 });
 
 afterAll(async () => {
@@ -35,33 +36,37 @@ interface Envelope<T> {
 }
 
 function staffCookie(role: UserRole = "admin"): Record<string, string> {
-  const token = signAccessToken({
-    sub: randomUUID(),
-    role,
-    accountType: "retail",
-  });
+  const token = signAccessToken({ sub: staffId, role, accountType: "retail" });
   return { cookie: `accessToken=${token}` };
 }
 
 async function seedBrandAndCategory() {
-  const brand = await BrandModel.create({
-    name: { fa: "بوش", en: "Bosch" },
-    slug: `bosch-${randomUUID()}`,
-    country: "Germany",
+  const brand = await prisma.brand.create({
+    data: {
+      nameFa: "بوش",
+      nameEn: "Bosch",
+      slug: `bosch-${randomUUID()}`,
+      country: "Germany",
+    },
   });
-  const category = await CategoryModel.create({
-    name: { fa: "ترمز", en: "Brakes" },
-    slug: `brakes-${randomUUID()}`,
-    systemCode: "SYS-04",
+  const category = await prisma.category.create({
+    data: {
+      nameFa: "ترمز",
+      nameEn: "Brakes",
+      slug: `brakes-${randomUUID()}`,
+      systemCode: "SYS_04",
+    },
   });
   return { brand, category };
 }
 
-// Includes dimensions/warranty even though the real POST endpoint's own
-// Zod schema strips them (unknown keys, not part of the essential-fields
-// create form) -- callers that go straight to ProductModel.create() to
-// seed fixtures (bypassing the service, which applies its own defaults)
-// still need the model's own required fields satisfied.
+/**
+ * The *wire* shape a POST body takes: `name: { fa, en }` and a nested
+ * `authenticity`, which is what the route's Zod schema validates. The columns
+ * behind them are split and flattened, but that stops at storage -- fixtures
+ * that write straight to the database go through the shared factory instead
+ * of this.
+ */
 function validProductInput(
   brandId: string,
   categoryId: string,
@@ -78,8 +83,6 @@ function validProductInput(
     taxRate: 9,
     stock: 20,
     weightGram: 800,
-    dimensions: { lengthMm: 100, widthMm: 100, heightMm: 100 },
-    warranty: { months: 12, text: "۱۲ ماه ضمانت" },
     authenticity: {
       supplyRoute: "oem",
       sourceBrand: "Bosch",
@@ -105,14 +108,8 @@ describe("GET /admin/catalog/products", () => {
 
   it("lists products across every status, including draft and archived", async () => {
     const { brand, category } = await seedBrandAndCategory();
-    await ProductModel.create({
-      ...validProductInput(brand.id, category.id),
-      status: "draft",
-    });
-    await ProductModel.create({
-      ...validProductInput(brand.id, category.id),
-      status: "archived",
-    });
+    await seedProduct({ brandId: brand.id, categoryId: category.id, status: "draft" });
+    await seedProduct({ brandId: brand.id, categoryId: category.id, status: "archived" });
 
     const res = await fetch(`${baseUrl}/api/v1/admin/catalog/products`, {
       headers: staffCookie(),
@@ -125,8 +122,8 @@ describe("GET /admin/catalog/products", () => {
 
   it("filters by status", async () => {
     const { brand, category } = await seedBrandAndCategory();
-    await ProductModel.create({ ...validProductInput(brand.id, category.id), status: "active" });
-    await ProductModel.create({ ...validProductInput(brand.id, category.id), status: "draft" });
+    await seedProduct({ brandId: brand.id, categoryId: category.id, status: "active" });
+    await seedProduct({ brandId: brand.id, categoryId: category.id, status: "draft" });
 
     const res = await fetch(`${baseUrl}/api/v1/admin/catalog/products?status=active`, {
       headers: staffCookie(),
@@ -152,11 +149,15 @@ describe("POST /admin/catalog/products", () => {
     expect(body.data.slug).toBe(input.slug);
     expect(body.data.status).toBe("draft");
 
-    // real searchText computed via .create()'s pre("save") hook, not left
-    // empty the way a raw findOneAndUpdate upsert would (P5.S3's own bug)
-    const persisted = await ProductModel.findById(body.data.id);
+    // searchText derived explicitly by the service, not left empty the way a
+    // write that skipped the old pre("save") hook did (P5.S3's own bug). The
+    // derive is a plain function call inside the create transaction now, so
+    // this asserts the call is still there rather than that a hook fired.
+    const persisted = await prisma.product.findUnique({ where: { id: body.data.id } });
     expect(persisted!.searchText.length).toBeGreaterThan(0);
-    expect(persisted!.dimensions).toEqual({ lengthMm: 100, widthMm: 100, heightMm: 100 });
+    // The server-side defaults for the fields the create form omits.
+    expect(persisted!.lengthMm).toBe(100);
+    expect(persisted!.warrantyMonths).toBe(0);
   });
 
   it("400s when brandId doesn't exist", async () => {
@@ -186,7 +187,6 @@ describe("POST /admin/catalog/products", () => {
     // Product's index set -- including its $text index -- concurrently
     // against one mongod. `init()` legitimately takes longer now; the wait is
     // still a real wait-for-completion, not a sleep.
-    await ProductModel.init();
     const { brand, category } = await seedBrandAndCategory();
     const input = validProductInput(brand.id, category.id);
     await fetch(`${baseUrl}/api/v1/admin/catalog/products`, {
@@ -219,8 +219,8 @@ describe("PATCH /admin/catalog/products/:id", () => {
       body: JSON.stringify({ name: { fa: "لنت ترمز عقب ویژه", en: "Special rear brake pad" } }),
     });
     expect(res.status).toBe(200);
-    const persisted = await ProductModel.findById(created.id);
-    expect(persisted!.name.fa).toBe("لنت ترمز عقب ویژه");
+    const persisted = await prisma.product.findUnique({ where: { id: created.id } });
+    expect(persisted!.nameFa).toBe("لنت ترمز عقب ویژه");
     expect(persisted!.searchText).toContain("ویژه");
   });
 
@@ -249,7 +249,7 @@ describe("POST /admin/catalog/products/:id/archive", () => {
       headers: staffCookie(),
     });
     expect(res.status).toBe(200);
-    const persisted = await ProductModel.findById(created.id);
+    const persisted = await prisma.product.findUnique({ where: { id: created.id } });
     expect(persisted!.status).toBe("archived");
     expect(persisted!.stock).toBe(20);
   });

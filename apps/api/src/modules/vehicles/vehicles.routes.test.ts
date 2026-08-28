@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { disconnectDB, prisma, resetDb, startTestServer } from "../../config/testDb.js";
+import { prisma } from "../../config/prisma.js";
+import { disconnectDB, resetDb, startTestServer } from "../../config/testDb.js";
 import { seedVehicles } from "../../seed/vehicles.js";
 
 let baseUrl: string;

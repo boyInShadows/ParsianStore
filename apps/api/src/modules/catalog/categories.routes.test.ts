@@ -1,11 +1,9 @@
+import type { UserRole } from "@prisma/client";
 import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { prisma } from "../../config/prisma.js";
 import { disconnectDB, resetDb, startTestServer } from "../../config/testDb.js";
-import { AuditLogModel } from "../../models/AuditLog.js";
-import { BrandModel } from "../../models/Brand.js";
-import { CategoryModel } from "../../models/Category.js";
-import { ProductModel } from "../../models/Product.js";
-import type { UserRole } from "../../models/User.js";
+import { seedProduct, seedUser } from "../../test/factories.js";
 import { signAccessToken } from "../../utils/jwt.js";
 
 let baseUrl: string;
@@ -16,15 +14,14 @@ beforeAll(async () => {
   ({ baseUrl, close } = await startTestServer());
 });
 
+// An audit row points at its actor by foreign key now, so the signed token
+// has to name a staff account that exists -- otherwise the (fire-and-forget)
+// audit write fails silently and every wait-for-audit assertion hangs.
+let staffId: string;
+
 beforeEach(async () => {
-  await Promise.all([
-    CategoryModel.deleteMany({}),
-    AuditLogModel.deleteMany({}),
-    // P8.S4's delete guard counts real products, so a leftover fixture would
-    // otherwise make an unrelated delete 409.
-    ProductModel.deleteMany({}),
-    BrandModel.deleteMany({}),
-  ]);
+  await resetDb();
+  staffId = (await seedUser({ role: "admin" })).id;
 });
 
 afterAll(async () => {
@@ -33,11 +30,7 @@ afterAll(async () => {
 });
 
 function staffCookie(role: UserRole = "admin"): Record<string, string> {
-  const token = signAccessToken({
-    sub: randomUUID(),
-    role,
-    accountType: "retail",
-  });
+  const token = signAccessToken({ sub: staffId, role, accountType: "retail" });
   return { cookie: `accessToken=${token}` };
 }
 
@@ -53,39 +46,43 @@ interface Envelope<T> {
 async function waitForAuditEntry(entity: string, timeoutMs = 1000): Promise<void> {
   const start = Date.now();
   while (Date.now() - start < timeoutMs) {
-    if ((await AuditLogModel.countDocuments({ entity })) > 0) return;
+    if ((await prisma.auditLog.count({ where: { entity } })) > 0) return;
     await new Promise((resolve) => setTimeout(resolve, 10));
   }
   throw new Error(`No audit log entry for "${entity}" appeared within ${timeoutMs}ms`);
 }
 
 async function seedCategory(overrides: Record<string, unknown> = {}) {
-  return CategoryModel.create({
-    name: { fa: "ترمز", en: "Brakes" },
-    slug: "brakes",
-    systemCode: "SYS-04",
-    ...overrides,
+  return prisma.category.create({
+    data: {
+      nameFa: "ترمز",
+      nameEn: "Brakes",
+      slug: "brakes",
+      systemCode: "SYS_04",
+      ...overrides,
+    },
   });
 }
 
 describe("GET /catalog/categories", () => {
   it("lists categories and filters by parentId", async () => {
     const parent = await seedCategory();
-    await CategoryModel.create({
-      name: { fa: "لنت ترمز", en: "Brake pads" },
-      slug: "brake-pads",
-      parentId: parent._id,
-      systemCode: "SYS-04",
-      path: [parent.slug],
+    await prisma.category.create({
+      data: {
+        nameFa: "لنت ترمز",
+        nameEn: "Brake pads",
+        slug: "brake-pads",
+        parentId: parent.id,
+        systemCode: "SYS_04",
+        path: [parent.slug],
+      },
     });
 
     const all = await fetch(`${baseUrl}/api/v1/catalog/categories`);
     const allBody = (await all.json()) as Envelope<{ slug: string }[]>;
     expect(allBody.data).toHaveLength(2);
 
-    const filtered = await fetch(
-      `${baseUrl}/api/v1/catalog/categories?parentId=${parent._id.toString()}`,
-    );
+    const filtered = await fetch(`${baseUrl}/api/v1/catalog/categories?parentId=${parent.id}`);
     const filteredBody = (await filtered.json()) as Envelope<{ slug: string }[]>;
     expect(filteredBody.data).toHaveLength(1);
     expect(filteredBody.data[0]!.slug).toBe("brake-pads");
@@ -149,7 +146,7 @@ describe("POST/PATCH/DELETE /admin/catalog/categories", () => {
     expect(body.data.slug).toBe("engine");
 
     await waitForAuditEntry("category");
-    const entries = await AuditLogModel.find({ entity: "category" });
+    const entries = await prisma.auditLog.findMany({ where: { entity: "category" } });
     expect(entries).toHaveLength(1);
   });
 
@@ -170,7 +167,7 @@ describe("POST/PATCH/DELETE /admin/catalog/categories", () => {
       body: JSON.stringify({
         name: { fa: "لنت ترمز", en: "Brake pads" },
         slug: "brake-pads",
-        parentId: parent._id.toString(),
+        parentId: parent.id,
         systemCode: "SYS-04",
       }),
     });
@@ -181,14 +178,11 @@ describe("POST/PATCH/DELETE /admin/catalog/categories", () => {
 
   it("updates a category as staff", async () => {
     const category = await seedCategory();
-    const res = await fetch(
-      `${baseUrl}/api/v1/admin/catalog/categories/${category._id.toString()}`,
-      {
-        method: "PATCH",
-        headers: { "content-type": "application/json", ...staffCookie() },
-        body: JSON.stringify({ order: 5 }),
-      },
-    );
+    const res = await fetch(`${baseUrl}/api/v1/admin/catalog/categories/${category.id}`, {
+      method: "PATCH",
+      headers: { "content-type": "application/json", ...staffCookie() },
+      body: JSON.stringify({ order: 5 }),
+    });
     expect(res.status).toBe(200);
     const body = (await res.json()) as Envelope<{ order: number }>;
     expect(body.data.order).toBe(5);
@@ -196,13 +190,10 @@ describe("POST/PATCH/DELETE /admin/catalog/categories", () => {
 
   it("soft-deletes a category as staff, hiding it from the public list", async () => {
     const category = await seedCategory();
-    const res = await fetch(
-      `${baseUrl}/api/v1/admin/catalog/categories/${category._id.toString()}`,
-      {
-        method: "DELETE",
-        headers: staffCookie(),
-      },
-    );
+    const res = await fetch(`${baseUrl}/api/v1/admin/catalog/categories/${category.id}`, {
+      method: "DELETE",
+      headers: staffCookie(),
+    });
     expect(res.status).toBe(200);
 
     const listRes = await fetch(`${baseUrl}/api/v1/catalog/categories`);
@@ -216,50 +207,38 @@ describe("POST/PATCH/DELETE /admin/catalog/categories", () => {
 // re-parent/cycle rules, the slug cascade, and restore.
 // ---------------------------------------------------------------------------
 
-function productFixture(brandId: string, categoryId: string) {
-  const suffix = Math.floor(10_000 + Math.random() * 90_000);
-  return {
-    name: { fa: "لنت ترمز جلو", en: "Front brake pad" },
-    slug: `front-brake-pad-${suffix}`,
-    sku: `SKU-${suffix}`,
-    brandId,
-    categoryId,
-    priceRial: 1_500_000,
-    taxRate: 9,
-    stock: 20,
-    weightGram: 800,
-    dimensions: { lengthMm: 100, widthMm: 100, heightMm: 100 },
-    warranty: { months: 12, text: "۱۲ ماه ضمانت" },
-    authenticity: {
-      supplyRoute: "oem",
-      sourceBrand: "Bosch",
-      countryOfManufacture: "Germany",
-      verificationCode: `VER-${suffix}`,
-    },
-  };
+/** A product in a given category -- the shared factory fills in every column
+ * the schema requires and this file does not care about. */
+async function seedProductIn(categoryId: string) {
+  return seedProduct({ categoryId });
 }
 
 async function seedBrandForProduct() {
-  return BrandModel.create({
-    name: { fa: "بوش", en: "Bosch" },
-    slug: `bosch-${Math.floor(Math.random() * 100_000)}`,
-    country: "Germany",
+  return prisma.brand.create({
+    data: {
+      nameFa: "بوش",
+      nameEn: "Bosch",
+      slug: `bosch-${Math.floor(Math.random() * 100_000)}`,
+      country: "Germany",
+    },
   });
 }
 
 /** parent → child → grandchild, with real materialized paths. */
 async function seedThreeLevels() {
-  const parent = await seedCategory({ slug: "engine", name: { fa: "موتور", en: "Engine" } });
+  const parent = await seedCategory({ slug: "engine", nameFa: "موتور", nameEn: "Engine" });
   const child = await seedCategory({
     slug: "fuel-system",
-    name: { fa: "سیستم سوخت", en: "Fuel system" },
-    parentId: parent._id,
+    nameFa: "سیستم سوخت",
+    nameEn: "Fuel system",
+    parentId: parent.id,
     path: [parent.slug],
   });
   const grandchild = await seedCategory({
     slug: "injectors",
-    name: { fa: "انژکتور", en: "Injectors" },
-    parentId: child._id,
+    nameFa: "انژکتور",
+    nameEn: "Injectors",
+    parentId: child.id,
     path: [parent.slug, child.slug],
   });
   return { parent, child, grandchild };
@@ -279,7 +258,7 @@ describe("GET /admin/catalog/categories", () => {
   });
 
   it("returns admin-only fields the public category DTO omits", async () => {
-    await seedCategory({ order: 3, seo: { title: "ترمز" } });
+    await seedCategory({ order: 3, seoTitle: "ترمز" });
     const res = await fetch(`${baseUrl}/api/v1/admin/catalog/categories`, {
       headers: staffCookie(),
     });
@@ -308,10 +287,10 @@ describe("GET /admin/catalog/categories", () => {
 
   it("reports childCount and productCount, excluding soft-deleted rows", async () => {
     const { parent } = await seedThreeLevels();
-    const brand = await seedBrandForProduct();
-    await ProductModel.create(productFixture(brand.id, parent.id));
-    const doomed = await seedCategory({ slug: "gone", parentId: parent._id, path: [parent.slug] });
-    await doomed.softDelete();
+    await seedBrandForProduct();
+    await seedProductIn(parent.id);
+    const doomed = await seedCategory({ slug: "gone", parentId: parent.id, path: [parent.slug] });
+    await prisma.category.update({ where: { id: doomed.id }, data: { deletedAt: new Date() } });
 
     const res = await fetch(`${baseUrl}/api/v1/admin/catalog/categories?q=engine`, {
       headers: staffCookie(),
@@ -323,7 +302,7 @@ describe("GET /admin/catalog/categories", () => {
 
   it("filters by systemCode and by parentId", async () => {
     const { parent, child } = await seedThreeLevels();
-    await seedCategory({ slug: "suspension", systemCode: "SYS-05" });
+    await seedCategory({ slug: "suspension", systemCode: "SYS_05" });
 
     const bySystem = await fetch(`${baseUrl}/api/v1/admin/catalog/categories?systemCode=SYS-05`, {
       headers: staffCookie(),
@@ -332,7 +311,7 @@ describe("GET /admin/catalog/categories", () => {
     expect(systemBody.data.map((entry) => entry.slug)).toEqual(["suspension"]);
 
     const byParent = await fetch(
-      `${baseUrl}/api/v1/admin/catalog/categories?parentId=${parent._id.toString()}`,
+      `${baseUrl}/api/v1/admin/catalog/categories?parentId=${parent.id}`,
       { headers: staffCookie() },
     );
     const parentBody = (await byParent.json()) as Envelope<{ slug: string }[]>;
@@ -352,25 +331,25 @@ describe("GET /admin/catalog/categories/:id", () => {
 describe("DELETE /admin/catalog/categories/:id — referential guard", () => {
   it("refuses to delete a category that still has children", async () => {
     const { parent } = await seedThreeLevels();
-    const res = await fetch(`${baseUrl}/api/v1/admin/catalog/categories/${parent._id.toString()}`, {
+    const res = await fetch(`${baseUrl}/api/v1/admin/catalog/categories/${parent.id}`, {
       method: "DELETE",
       headers: staffCookie(),
     });
     expect(res.status).toBe(409);
     const body = (await res.json()) as Envelope<null>;
     expect(body.error?.message).toContain("زیرمجموعه");
-    expect(await CategoryModel.findById(parent._id)).not.toBeNull();
+    expect(await prisma.category.findUnique({ where: { id: parent.id } })).not.toBeNull();
   });
 
   it("refuses to delete a category that still holds products", async () => {
     const category = await seedCategory();
-    const brand = await seedBrandForProduct();
-    await ProductModel.create(productFixture(brand.id, category.id));
+    await seedBrandForProduct();
+    await seedProductIn(category.id);
 
-    const res = await fetch(
-      `${baseUrl}/api/v1/admin/catalog/categories/${category._id.toString()}`,
-      { method: "DELETE", headers: staffCookie() },
-    );
+    const res = await fetch(`${baseUrl}/api/v1/admin/catalog/categories/${category.id}`, {
+      method: "DELETE",
+      headers: staffCookie(),
+    });
     expect(res.status).toBe(409);
     const body = (await res.json()) as Envelope<null>;
     expect(body.error?.message).toContain("محصول");
@@ -380,38 +359,35 @@ describe("DELETE /admin/catalog/categories/:id — referential guard", () => {
 describe("PATCH /admin/catalog/categories/:id — hierarchy rules", () => {
   it("rejects making a category its own parent", async () => {
     const category = await seedCategory();
-    const res = await fetch(
-      `${baseUrl}/api/v1/admin/catalog/categories/${category._id.toString()}`,
-      {
-        method: "PATCH",
-        headers: { "content-type": "application/json", ...staffCookie() },
-        body: JSON.stringify({ parentId: category._id.toString() }),
-      },
-    );
+    const res = await fetch(`${baseUrl}/api/v1/admin/catalog/categories/${category.id}`, {
+      method: "PATCH",
+      headers: { "content-type": "application/json", ...staffCookie() },
+      body: JSON.stringify({ parentId: category.id }),
+    });
     expect(res.status).toBe(400);
   });
 
   it("rejects re-parenting a category under one of its own descendants", async () => {
     const { parent, grandchild } = await seedThreeLevels();
-    const res = await fetch(`${baseUrl}/api/v1/admin/catalog/categories/${parent._id.toString()}`, {
+    const res = await fetch(`${baseUrl}/api/v1/admin/catalog/categories/${parent.id}`, {
       method: "PATCH",
       headers: { "content-type": "application/json", ...staffCookie() },
-      body: JSON.stringify({ parentId: grandchild._id.toString() }),
+      body: JSON.stringify({ parentId: grandchild.id }),
     });
     // The cycle check runs before the has-children check, so this is a 400
     // for the real reason (a cycle) rather than the incidental one.
     expect(res.status).toBe(400);
-    expect((await CategoryModel.findById(parent._id))?.parentId).toBeNull();
+    expect((await prisma.category.findUnique({ where: { id: parent.id } }))?.parentId).toBeNull();
   });
 
   it("refuses to re-parent a category that still has children", async () => {
     const { child } = await seedThreeLevels();
     const standalone = await seedCategory({ slug: "standalone" });
 
-    const res = await fetch(`${baseUrl}/api/v1/admin/catalog/categories/${child._id.toString()}`, {
+    const res = await fetch(`${baseUrl}/api/v1/admin/catalog/categories/${child.id}`, {
       method: "PATCH",
       headers: { "content-type": "application/json", ...staffCookie() },
-      body: JSON.stringify({ parentId: standalone._id.toString() }),
+      body: JSON.stringify({ parentId: standalone.id }),
     });
     expect(res.status).toBe(409);
   });
@@ -419,7 +395,7 @@ describe("PATCH /admin/catalog/categories/:id — hierarchy rules", () => {
   it("cascades a slug rename into every descendant's materialized path", async () => {
     const { parent, child, grandchild } = await seedThreeLevels();
 
-    const res = await fetch(`${baseUrl}/api/v1/admin/catalog/categories/${parent._id.toString()}`, {
+    const res = await fetch(`${baseUrl}/api/v1/admin/catalog/categories/${parent.id}`, {
       method: "PATCH",
       headers: { "content-type": "application/json", ...staffCookie() },
       body: JSON.stringify({ slug: "powertrain" }),
@@ -428,8 +404,10 @@ describe("PATCH /admin/catalog/categories/:id — hierarchy rules", () => {
 
     // Without the cascade both of these would still say "engine" and every
     // descendant breadcrumb would point at a slug that no longer resolves.
-    expect((await CategoryModel.findById(child._id))?.path).toEqual(["powertrain"]);
-    expect((await CategoryModel.findById(grandchild._id))?.path).toEqual([
+    expect((await prisma.category.findUnique({ where: { id: child.id } }))?.path).toEqual([
+      "powertrain",
+    ]);
+    expect((await prisma.category.findUnique({ where: { id: grandchild.id } }))?.path).toEqual([
       "powertrain",
       "fuel-system",
     ]);
@@ -439,16 +417,16 @@ describe("PATCH /admin/catalog/categories/:id — hierarchy rules", () => {
 describe("POST /admin/catalog/categories/:id/restore", () => {
   it("brings a soft-deleted category back and records an audit entry", async () => {
     const category = await seedCategory();
-    await fetch(`${baseUrl}/api/v1/admin/catalog/categories/${category._id.toString()}`, {
+    await fetch(`${baseUrl}/api/v1/admin/catalog/categories/${category.id}`, {
       method: "DELETE",
       headers: staffCookie(),
     });
-    await AuditLogModel.deleteMany({});
+    await prisma.auditLog.deleteMany();
 
-    const res = await fetch(
-      `${baseUrl}/api/v1/admin/catalog/categories/${category._id.toString()}/restore`,
-      { method: "POST", headers: staffCookie() },
-    );
+    const res = await fetch(`${baseUrl}/api/v1/admin/catalog/categories/${category.id}/restore`, {
+      method: "POST",
+      headers: staffCookie(),
+    });
     expect(res.status).toBe(200);
     await waitForAuditEntry("category");
 

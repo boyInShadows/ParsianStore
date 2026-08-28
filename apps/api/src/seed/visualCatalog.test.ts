@@ -1,13 +1,10 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { prisma } from "../config/prisma.js";
 import { disconnectDB, resetDb } from "../config/testDb.js";
-import { BrandModel } from "../models/Brand.js";
-import { CategoryModel } from "../models/Category.js";
-import { ProductModel } from "../models/Product.js";
 import { parseCsv, seedVisualCatalog } from "./visualCatalog.js";
 
 beforeAll(async () => {
   await resetDb();
-  await ProductModel.init();
 });
 
 afterAll(async () => {
@@ -25,12 +22,12 @@ describe("visual catalog seed", () => {
     expect(await seedVisualCatalog()).toBe(100);
     expect(await seedVisualCatalog()).toBe(100);
 
-    const category = await CategoryModel.findOne({ slug: "visual-products" });
-    const brand = await BrandModel.findOne({ slug: "visual-sample" });
+    const category = await prisma.category.findFirst({ where: { slug: "visual-products" } });
+    const brand = await prisma.brand.findFirst({ where: { slug: "visual-sample" } });
     expect(category).not.toBeNull();
     expect(brand).not.toBeNull();
 
-    const products = await ProductModel.find({ categoryId: category!._id });
+    const products = await prisma.product.findMany({ where: { categoryId: category!.id } });
     expect(products).toHaveLength(100);
     expect(products.every((product) => product.media.length === 1)).toBe(true);
     expect(products.every((product) => product.priceRial > 0)).toBe(true);

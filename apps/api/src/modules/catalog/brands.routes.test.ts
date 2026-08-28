@@ -1,11 +1,9 @@
+import type { UserRole } from "@prisma/client";
 import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { prisma } from "../../config/prisma.js";
 import { disconnectDB, resetDb, startTestServer } from "../../config/testDb.js";
-import { AuditLogModel } from "../../models/AuditLog.js";
-import { BrandModel } from "../../models/Brand.js";
-import { CategoryModel } from "../../models/Category.js";
-import { ProductModel } from "../../models/Product.js";
-import type { UserRole } from "../../models/User.js";
+import { seedProduct, seedUser } from "../../test/factories.js";
 import { signAccessToken } from "../../utils/jwt.js";
 
 let baseUrl: string;
@@ -16,15 +14,14 @@ beforeAll(async () => {
   ({ baseUrl, close } = await startTestServer());
 });
 
+// An audit row points at its actor by foreign key now, so the signed token
+// has to name a staff account that exists -- otherwise the (fire-and-forget)
+// audit write fails silently and every wait-for-audit assertion hangs.
+let staffId: string;
+
 beforeEach(async () => {
-  await Promise.all([
-    BrandModel.deleteMany({}),
-    AuditLogModel.deleteMany({}),
-    // P8.S4's delete guard counts real products, so they have to be cleared
-    // between tests too or a leftover fixture makes an unrelated delete 409.
-    ProductModel.deleteMany({}),
-    CategoryModel.deleteMany({}),
-  ]);
+  await resetDb();
+  staffId = (await seedUser({ role: "admin" })).id;
 });
 
 afterAll(async () => {
@@ -33,11 +30,7 @@ afterAll(async () => {
 });
 
 function staffCookie(role: UserRole = "admin"): Record<string, string> {
-  const token = signAccessToken({
-    sub: randomUUID(),
-    role,
-    accountType: "retail",
-  });
+  const token = signAccessToken({ sub: staffId, role, accountType: "retail" });
   return { cookie: `accessToken=${token}` };
 }
 
@@ -52,14 +45,16 @@ interface Envelope<T> {
 async function waitForAuditEntry(entity: string, timeoutMs = 1000): Promise<void> {
   const start = Date.now();
   while (Date.now() - start < timeoutMs) {
-    if ((await AuditLogModel.countDocuments({ entity })) > 0) return;
+    if ((await prisma.auditLog.count({ where: { entity } })) > 0) return;
     await new Promise((resolve) => setTimeout(resolve, 10));
   }
   throw new Error(`No audit log entry for "${entity}" appeared within ${timeoutMs}ms`);
 }
 
 async function seedBrand() {
-  return BrandModel.create({ name: { fa: "بوش", en: "Bosch" }, slug: "bosch", country: "Germany" });
+  return prisma.brand.create({
+    data: { nameFa: "بوش", nameEn: "Bosch", slug: "bosch", country: "Germany" },
+  });
 }
 
 describe("GET /catalog/brands", () => {
@@ -113,13 +108,13 @@ describe("POST/PATCH/DELETE /admin/catalog/brands", () => {
     expect(body.data.isOEM).toBe(true);
 
     await waitForAuditEntry("brand");
-    const entries = await AuditLogModel.find({ entity: "brand" });
+    const entries = await prisma.auditLog.findMany({ where: { entity: "brand" } });
     expect(entries).toHaveLength(1);
   });
 
   it("updates a brand as staff", async () => {
     const brand = await seedBrand();
-    const res = await fetch(`${baseUrl}/api/v1/admin/catalog/brands/${brand._id.toString()}`, {
+    const res = await fetch(`${baseUrl}/api/v1/admin/catalog/brands/${brand.id}`, {
       method: "PATCH",
       headers: { "content-type": "application/json", ...staffCookie() },
       body: JSON.stringify({ description: "قطعات آلمانی با کیفیت" }),
@@ -131,7 +126,7 @@ describe("POST/PATCH/DELETE /admin/catalog/brands", () => {
 
   it("soft-deletes a brand as staff, hiding it from the public list", async () => {
     const brand = await seedBrand();
-    const res = await fetch(`${baseUrl}/api/v1/admin/catalog/brands/${brand._id.toString()}`, {
+    const res = await fetch(`${baseUrl}/api/v1/admin/catalog/brands/${brand.id}`, {
       method: "DELETE",
       headers: staffCookie(),
     });
@@ -147,34 +142,21 @@ describe("POST/PATCH/DELETE /admin/catalog/brands", () => {
 // P8.S4 — the admin reads, the referential delete guard, and restore.
 // ---------------------------------------------------------------------------
 
-function productFixture(brandId: string, categoryId: string) {
-  const suffix = Math.floor(10_000 + Math.random() * 90_000);
-  return {
-    name: { fa: "لنت ترمز جلو", en: "Front brake pad" },
-    slug: `front-brake-pad-${suffix}`,
-    sku: `SKU-${suffix}`,
-    brandId,
-    categoryId,
-    priceRial: 1_500_000,
-    taxRate: 9,
-    stock: 20,
-    weightGram: 800,
-    dimensions: { lengthMm: 100, widthMm: 100, heightMm: 100 },
-    warranty: { months: 12, text: "۱۲ ماه ضمانت" },
-    authenticity: {
-      supplyRoute: "oem",
-      sourceBrand: "Bosch",
-      countryOfManufacture: "Germany",
-      verificationCode: `VER-${suffix}`,
-    },
-  };
+/** A product belonging to a given brand and category -- the shared factory
+ * fills in every column the schema requires and this file does not care
+ * about. */
+async function seedProductFor(brandId: string, categoryId: string, status?: "archived") {
+  return seedProduct({ brandId, categoryId, ...(status ? { status } : {}) });
 }
 
 async function seedCategoryForProduct() {
-  return CategoryModel.create({
-    name: { fa: "ترمز", en: "Brakes" },
-    slug: `brakes-${Math.floor(Math.random() * 100_000)}`,
-    systemCode: "SYS-04",
+  return prisma.category.create({
+    data: {
+      nameFa: "ترمز",
+      nameEn: "Brakes",
+      slug: `brakes-${Math.floor(Math.random() * 100_000)}`,
+      systemCode: "SYS_04",
+    },
   });
 }
 
@@ -207,8 +189,8 @@ describe("GET /admin/catalog/brands", () => {
   it("reports a real productCount per brand", async () => {
     const brand = await seedBrand();
     const category = await seedCategoryForProduct();
-    await ProductModel.create(productFixture(brand.id, category.id));
-    await ProductModel.create(productFixture(brand.id, category.id));
+    await seedProductFor(brand.id, category.id);
+    await seedProductFor(brand.id, category.id);
 
     const res = await fetch(`${baseUrl}/api/v1/admin/catalog/brands`, { headers: staffCookie() });
     const body = (await res.json()) as Envelope<{ productCount: number }[]>;
@@ -237,11 +219,14 @@ describe("GET /admin/catalog/brands", () => {
 
   it("filters by isOEM without coercing the string false to true", async () => {
     await seedBrand();
-    await BrandModel.create({
-      name: { fa: "والئو", en: "Valeo" },
-      slug: "valeo",
-      country: "France",
-      isOEM: true,
+    await prisma.brand.create({
+      data: {
+        nameFa: "والئو",
+        nameEn: "Valeo",
+        slug: "valeo",
+        country: "France",
+        isOEM: true,
+      },
     });
 
     const oemRes = await fetch(`${baseUrl}/api/v1/admin/catalog/brands?isOEM=true`, {
@@ -261,7 +246,7 @@ describe("GET /admin/catalog/brands", () => {
 describe("GET /admin/catalog/brands/:id", () => {
   it("returns one brand", async () => {
     const brand = await seedBrand();
-    const res = await fetch(`${baseUrl}/api/v1/admin/catalog/brands/${brand._id.toString()}`, {
+    const res = await fetch(`${baseUrl}/api/v1/admin/catalog/brands/${brand.id}`, {
       headers: staffCookie(),
     });
     expect(res.status).toBe(200);
@@ -281,9 +266,9 @@ describe("DELETE /admin/catalog/brands/:id — referential guard", () => {
   it("refuses to delete a brand products still reference, and leaves it live", async () => {
     const brand = await seedBrand();
     const category = await seedCategoryForProduct();
-    await ProductModel.create(productFixture(brand.id, category.id));
+    await seedProductFor(brand.id, category.id);
 
-    const res = await fetch(`${baseUrl}/api/v1/admin/catalog/brands/${brand._id.toString()}`, {
+    const res = await fetch(`${baseUrl}/api/v1/admin/catalog/brands/${brand.id}`, {
       method: "DELETE",
       headers: staffCookie(),
     });
@@ -295,15 +280,15 @@ describe("DELETE /admin/catalog/brands/:id — referential guard", () => {
     expect(body.error.message).toContain("محصول");
 
     // The refusal must not half-apply.
-    expect(await BrandModel.findById(brand._id)).not.toBeNull();
+    expect(await prisma.brand.findUnique({ where: { id: brand.id } })).not.toBeNull();
   });
 
   it("still refuses when the only referencing product is archived", async () => {
     const brand = await seedBrand();
     const category = await seedCategoryForProduct();
-    await ProductModel.create({ ...productFixture(brand.id, category.id), status: "archived" });
+    await seedProductFor(brand.id, category.id, "archived");
 
-    const res = await fetch(`${baseUrl}/api/v1/admin/catalog/brands/${brand._id.toString()}`, {
+    const res = await fetch(`${baseUrl}/api/v1/admin/catalog/brands/${brand.id}`, {
       method: "DELETE",
       headers: staffCookie(),
     });
@@ -312,7 +297,7 @@ describe("DELETE /admin/catalog/brands/:id — referential guard", () => {
 
   it("deletes a brand nothing references", async () => {
     const brand = await seedBrand();
-    const res = await fetch(`${baseUrl}/api/v1/admin/catalog/brands/${brand._id.toString()}`, {
+    const res = await fetch(`${baseUrl}/api/v1/admin/catalog/brands/${brand.id}`, {
       method: "DELETE",
       headers: staffCookie(),
     });
@@ -323,7 +308,7 @@ describe("DELETE /admin/catalog/brands/:id — referential guard", () => {
 describe("POST /admin/catalog/brands/:id/restore", () => {
   it("brings a soft-deleted brand back into both the admin and public lists", async () => {
     const brand = await seedBrand();
-    await fetch(`${baseUrl}/api/v1/admin/catalog/brands/${brand._id.toString()}`, {
+    await fetch(`${baseUrl}/api/v1/admin/catalog/brands/${brand.id}`, {
       method: "DELETE",
       headers: staffCookie(),
     });
@@ -334,10 +319,10 @@ describe("POST /admin/catalog/brands/:id/restore", () => {
     const deletedBody = (await deletedRes.json()) as Envelope<{ slug: string }[]>;
     expect(deletedBody.data.map((entry) => entry.slug)).toEqual(["bosch"]);
 
-    const restoreRes = await fetch(
-      `${baseUrl}/api/v1/admin/catalog/brands/${brand._id.toString()}/restore`,
-      { method: "POST", headers: staffCookie() },
-    );
+    const restoreRes = await fetch(`${baseUrl}/api/v1/admin/catalog/brands/${brand.id}/restore`, {
+      method: "POST",
+      headers: staffCookie(),
+    });
     expect(restoreRes.status).toBe(200);
 
     const publicRes = await fetch(`${baseUrl}/api/v1/catalog/brands`);
@@ -352,12 +337,15 @@ describe("POST /admin/catalog/brands/:id/restore", () => {
 describe("meta.total after a soft delete", () => {
   it("excludes a soft-deleted brand from meta.total, not just from data", async () => {
     const brand = await seedBrand();
-    await BrandModel.create({
-      name: { fa: "والئو", en: "Valeo" },
-      slug: "valeo",
-      country: "France",
+    await prisma.brand.create({
+      data: {
+        nameFa: "والئو",
+        nameEn: "Valeo",
+        slug: "valeo",
+        country: "France",
+      },
     });
-    await fetch(`${baseUrl}/api/v1/admin/catalog/brands/${brand._id.toString()}`, {
+    await fetch(`${baseUrl}/api/v1/admin/catalog/brands/${brand.id}`, {
       method: "DELETE",
       headers: staffCookie(),
     });

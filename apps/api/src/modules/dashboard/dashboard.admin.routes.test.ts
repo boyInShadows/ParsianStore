@@ -1,9 +1,10 @@
+import type { UserRole } from "@prisma/client";
 import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import type { OrderStatus } from "@prisma/client";
+import { prisma } from "../../config/prisma.js";
 import { disconnectDB, resetDb, startTestServer } from "../../config/testDb.js";
-import { OrderModel, type OrderStatus } from "../../models/Order.js";
-import { ProductModel } from "../../models/Product.js";
-import { UserModel, type UserRole } from "../../models/User.js";
+import { seedOrder, seedProduct, seedUser, uniqueSuffix } from "../../test/factories.js";
 import { signAccessToken } from "../../utils/jwt.js";
 import type { AdminDashboardDto } from "schemas";
 
@@ -16,11 +17,7 @@ beforeAll(async () => {
 });
 
 beforeEach(async () => {
-  await Promise.all([
-    OrderModel.deleteMany({}),
-    ProductModel.deleteMany({}),
-    UserModel.deleteMany({}),
-  ]);
+  await resetDb();
 });
 
 afterAll(async () => {
@@ -37,78 +34,51 @@ function staffCookie(role: UserRole = "admin"): Record<string, string> {
   return { cookie: `accessToken=${token}` };
 }
 
-const LOCALIZED = { fa: "نمونه", en: "Sample" };
-
-let orderCounter = 0;
-
-async function seedOrder(options: {
+/**
+ * One order, optionally with a line item and a stated creation time.
+ *
+ * `createdAt` is a plain column, so a fixture simply says when this happened.
+ * The Mongo version had to write through the raw driver, because its
+ * timestamps plugin stripped a caller-supplied `createdAt` out of an update
+ * and left every range test passing for the wrong reason.
+ */
+async function seedDashboardOrder(options: {
   status: OrderStatus;
   totalRial: number;
   createdAt?: Date;
-  productId?: mongoose.Types.ObjectId;
+  productId?: string;
   qty?: number;
   priceRial?: number;
 }) {
-  orderCounter += 1;
-  const order = await OrderModel.create({
-    code: `PS-${String(orderCounter).padStart(5, "0")}`,
-    userId: randomUUID(),
-    items: [
-      {
-        productId: options.productId ?? randomUUID(),
-        nameSnapshot: LOCALIZED,
-        skuSnapshot: `SKU-${orderCounter}`,
-        qty: options.qty ?? 1,
-        priceRial: options.priceRial ?? options.totalRial,
-      },
-    ],
-    subtotalRial: options.totalRial,
-    shippingRial: 0,
-    totalRial: options.totalRial,
-    address: {
-      province: LOCALIZED,
-      city: LOCALIZED,
-      line: "خیابان نمونه",
-      postalCode: "1234567890",
-      receiverName: "گیرنده",
-      receiverPhone: "+989120000000",
-    },
-    shippingMethod: { code: "post", name: LOCALIZED, priceRial: 0 },
+  const user = await seedUser();
+  const productId = options.productId ?? (await seedProductRow()).id;
+  return seedOrder(user.id, {
     status: options.status,
+    subtotalRial: options.totalRial,
+    totalRial: options.totalRial,
+    ...(options.createdAt ? { createdAt: options.createdAt } : {}),
+    items: {
+      create: [
+        {
+          productId,
+          nameFaSnapshot: "نمونه",
+          nameEnSnapshot: "Sample",
+          skuSnapshot: `SKU-${uniqueSuffix()}`,
+          qty: options.qty ?? 1,
+          priceRial: options.priceRial ?? options.totalRial,
+        },
+      ],
+    },
   });
-  if (options.createdAt) {
-    // Raw driver, not OrderModel.updateOne: the timestamps plugin strips a
-    // caller-supplied `createdAt` out of an update, so a Mongoose write
-    // silently leaves the order dated "now" and every range test passes
-    // for the wrong reason.
-    await OrderModel.collection.updateOne(
-      { _id: order._id },
-      { $set: { createdAt: options.createdAt } },
-    );
-  }
-  return order;
 }
 
-async function seedProduct(overrides: { sku: string; stock: number; lowStockAt: number }) {
-  return ProductModel.create({
-    name: LOCALIZED,
-    slug: overrides.sku.toLowerCase(),
-    sku: overrides.sku,
-    brandId: randomUUID(),
-    categoryId: randomUUID(),
-    priceRial: 1_000_000,
-    stock: overrides.stock,
-    lowStockAt: overrides.lowStockAt,
-    weightGram: 500,
-    dimensions: { lengthMm: 10, widthMm: 10, heightMm: 10 },
-    warranty: { months: 6, text: "شش ماه" },
-    authenticity: {
-      supplyRoute: "oem",
-      sourceBrand: "SAIPA",
-      countryOfManufacture: "ایران",
-      verificationCode: `VC-${overrides.sku}`,
-    },
-    status: "active",
+async function seedProductRow(
+  overrides: { sku?: string; stock?: number; lowStockAt?: number } = {},
+) {
+  return seedProduct({
+    ...(overrides.sku ? { sku: overrides.sku, slug: overrides.sku.toLowerCase() } : {}),
+    ...(overrides.stock === undefined ? {} : { stock: overrides.stock }),
+    ...(overrides.lowStockAt === undefined ? {} : { lowStockAt: overrides.lowStockAt }),
   });
 }
 
@@ -151,11 +121,11 @@ describe("admin dashboard routes", () => {
   });
 
   it("counts only paid-through-delivered orders as revenue", async () => {
-    await seedOrder({ status: "paid", totalRial: 1_000_000 });
-    await seedOrder({ status: "delivered", totalRial: 3_000_000 });
-    await seedOrder({ status: "pending", totalRial: 9_000_000 });
-    await seedOrder({ status: "cancelled", totalRial: 9_000_000 });
-    await seedOrder({ status: "refunded", totalRial: 9_000_000 });
+    await seedDashboardOrder({ status: "paid", totalRial: 1_000_000 });
+    await seedDashboardOrder({ status: "delivered", totalRial: 3_000_000 });
+    await seedDashboardOrder({ status: "pending", totalRial: 9_000_000 });
+    await seedDashboardOrder({ status: "cancelled", totalRial: 9_000_000 });
+    await seedDashboardOrder({ status: "refunded", totalRial: 9_000_000 });
 
     const data = await getDashboard();
 
@@ -165,8 +135,8 @@ describe("admin dashboard routes", () => {
   });
 
   it("excludes soft-deleted orders from revenue", async () => {
-    const order = await seedOrder({ status: "paid", totalRial: 5_000_000 });
-    await order.softDelete();
+    const order = await seedDashboardOrder({ status: "paid", totalRial: 5_000_000 });
+    await prisma.order.update({ where: { id: order.id }, data: { deletedAt: new Date() } });
 
     const data = await getDashboard();
 
@@ -174,8 +144,8 @@ describe("admin dashboard routes", () => {
   });
 
   it("keeps the average an integer Rial amount", async () => {
-    await seedOrder({ status: "paid", totalRial: 1_000_000 });
-    await seedOrder({ status: "paid", totalRial: 1_000_001 });
+    await seedDashboardOrder({ status: "paid", totalRial: 1_000_000 });
+    await seedDashboardOrder({ status: "paid", totalRial: 1_000_001 });
 
     const data = await getDashboard();
 
@@ -183,8 +153,8 @@ describe("admin dashboard routes", () => {
   });
 
   it("scopes totals to the requested range", async () => {
-    await seedOrder({ status: "paid", totalRial: 1_000_000 });
-    await seedOrder({
+    await seedDashboardOrder({ status: "paid", totalRial: 1_000_000 });
+    await seedDashboardOrder({
       status: "paid",
       totalRial: 7_000_000,
       createdAt: new Date(Date.now() - 20 * DAY_MS),
@@ -198,8 +168,8 @@ describe("admin dashboard routes", () => {
   });
 
   it("reports the preceding window separately so a delta can be shown", async () => {
-    await seedOrder({ status: "paid", totalRial: 1_000_000 });
-    await seedOrder({
+    await seedDashboardOrder({ status: "paid", totalRial: 1_000_000 });
+    await seedDashboardOrder({
       status: "paid",
       totalRial: 4_000_000,
       createdAt: new Date(Date.now() - 9 * DAY_MS),
@@ -214,7 +184,7 @@ describe("admin dashboard routes", () => {
   // A gap-skipping trend line silently misrepresents the shape of the
   // week, which is the one thing this chart exists to show.
   it("zero-fills days with no orders", async () => {
-    await seedOrder({ status: "paid", totalRial: 1_000_000 });
+    await seedDashboardOrder({ status: "paid", totalRial: 1_000_000 });
 
     const data = await getDashboard("?range=7d");
 
@@ -224,9 +194,9 @@ describe("admin dashboard routes", () => {
   });
 
   it("breaks down every status, not just the revenue ones", async () => {
-    await seedOrder({ status: "pending", totalRial: 1_000_000 });
-    await seedOrder({ status: "pending", totalRial: 1_000_000 });
-    await seedOrder({ status: "delivered", totalRial: 1_000_000 });
+    await seedDashboardOrder({ status: "pending", totalRial: 1_000_000 });
+    await seedDashboardOrder({ status: "pending", totalRial: 1_000_000 });
+    await seedDashboardOrder({ status: "delivered", totalRial: 1_000_000 });
 
     const data = await getDashboard();
     const byStatus = new Map(data.statusBreakdown.map((row) => [row.status, row.count]));
@@ -236,22 +206,34 @@ describe("admin dashboard routes", () => {
   });
 
   it("ranks top products by quantity sold using the order-line snapshot", async () => {
-    const hot = randomUUID();
-    const cold = randomUUID();
-    await seedOrder({ status: "paid", totalRial: 100, productId: hot, qty: 5, priceRial: 20 });
-    await seedOrder({ status: "paid", totalRial: 40, productId: cold, qty: 2, priceRial: 20 });
+    const hot = (await seedProductRow()).id;
+    const cold = (await seedProductRow()).id;
+    await seedDashboardOrder({
+      status: "paid",
+      totalRial: 100,
+      productId: hot,
+      qty: 5,
+      priceRial: 20,
+    });
+    await seedDashboardOrder({
+      status: "paid",
+      totalRial: 40,
+      productId: cold,
+      qty: 2,
+      priceRial: 20,
+    });
 
     const data = await getDashboard();
 
-    expect(data.topProducts[0]?.productId).toBe(hot.toString());
+    expect(data.topProducts[0]?.productId).toBe(hot);
     expect(data.topProducts[0]?.qty).toBe(5);
     expect(data.topProducts[0]?.revenueRial).toBe(100);
   });
 
   it("flags products at or below their own low-stock threshold", async () => {
-    await seedProduct({ sku: "LOW-1", stock: 2, lowStockAt: 5 });
-    await seedProduct({ sku: "EDGE-1", stock: 5, lowStockAt: 5 });
-    await seedProduct({ sku: "OK-1", stock: 50, lowStockAt: 5 });
+    await seedProductRow({ sku: "LOW-1", stock: 2, lowStockAt: 5 });
+    await seedProductRow({ sku: "EDGE-1", stock: 5, lowStockAt: 5 });
+    await seedProductRow({ sku: "OK-1", stock: 50, lowStockAt: 5 });
 
     const data = await getDashboard();
 
@@ -262,7 +244,7 @@ describe("admin dashboard routes", () => {
   // Not range-scoped on purpose: an order stuck in `pending` since last
   // month still needs a human today.
   it("counts open orders regardless of the selected range", async () => {
-    await seedOrder({
+    await seedDashboardOrder({
       status: "pending",
       totalRial: 1_000_000,
       createdAt: new Date(Date.now() - 200 * DAY_MS),
@@ -274,12 +256,12 @@ describe("admin dashboard routes", () => {
   });
 
   it("lists recent orders newest first", async () => {
-    await seedOrder({
+    await seedDashboardOrder({
       status: "paid",
       totalRial: 1_000_000,
       createdAt: new Date(Date.now() - 2 * DAY_MS),
     });
-    const newest = await seedOrder({ status: "paid", totalRial: 2_000_000 });
+    const newest = await seedDashboardOrder({ status: "paid", totalRial: 2_000_000 });
 
     const data = await getDashboard();
 
@@ -287,8 +269,8 @@ describe("admin dashboard routes", () => {
   });
 
   it("counts new customers but not new staff accounts", async () => {
-    await UserModel.create({ phone: "+989120000101", name: "مشتری", role: "customer" });
-    await UserModel.create({ phone: "+989120000102", name: "کارمند", role: "admin" });
+    await prisma.user.create({ data: { phone: "+989120000101", name: "مشتری", role: "customer" } });
+    await prisma.user.create({ data: { phone: "+989120000102", name: "کارمند", role: "admin" } });
 
     const data = await getDashboard();
 
