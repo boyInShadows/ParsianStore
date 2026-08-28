@@ -233,3 +233,18 @@ export async function updateProfile(userId: string, input: ProfileUpdateInput): 
   });
   return toMeDto(user);
 }
+
+/**
+ * Deletes OTP rows whose TTL has passed.
+ *
+ * Mongo expired these with a TTL index on `expiresAt`, which PostgreSQL has
+ * no equivalent for -- so without a sweep they accumulate forever. Nothing
+ * *reads* an expired row (verifyOtp checks the timestamp itself), so this is
+ * housekeeping rather than correctness; it is scheduled next to the stock
+ * reservation sweep in jobs/inventoryCron.ts, which is the same shape of
+ * problem and where the second of the two lost TTL indexes is handled.
+ */
+export async function deleteExpiredOtps(now: Date = new Date()): Promise<number> {
+  const { count } = await prisma.otpToken.deleteMany({ where: { expiresAt: { lte: now } } });
+  return count;
+}

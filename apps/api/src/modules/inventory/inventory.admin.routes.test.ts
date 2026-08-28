@@ -1,10 +1,9 @@
 import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import type { UserRole } from "@prisma/client";
+import { prisma } from "../../config/prisma.js";
 import { disconnectDB, resetDb, startTestServer } from "../../config/testDb.js";
-import { AuditLogModel } from "../../models/AuditLog.js";
-import { InventoryMoveModel } from "../../models/InventoryMove.js";
-import { ProductModel } from "../../models/Product.js";
-import type { UserRole } from "../../models/User.js";
+import { seedProduct as seedProductRow, seedUser } from "../../test/factories.js";
 import { signAccessToken } from "../../utils/jwt.js";
 
 let baseUrl: string;
@@ -15,12 +14,14 @@ beforeAll(async () => {
   ({ baseUrl, close } = await startTestServer());
 });
 
+// An audit row points at its actor by foreign key now, so the signed token
+// has to name a staff account that exists -- an invented subject would make
+// the (fire-and-forget) audit write fail silently and hang the poll below.
+let staffId: string;
+
 beforeEach(async () => {
-  await Promise.all([
-    ProductModel.deleteMany({}),
-    InventoryMoveModel.deleteMany({}),
-    AuditLogModel.deleteMany({}),
-  ]);
+  await resetDb();
+  staffId = (await seedUser({ role: "admin" })).id;
 });
 
 afterAll(async () => {
@@ -29,23 +30,19 @@ afterAll(async () => {
 });
 
 function staffCookie(role: UserRole = "admin"): Record<string, string> {
-  const token = signAccessToken({
-    sub: randomUUID(),
-    role,
-    accountType: "retail",
-  });
+  const token = signAccessToken({ sub: staffId, role, accountType: "retail" });
   return { cookie: `accessToken=${token}` };
 }
 
 // The audit entry is written fire-and-forget, so this polls rather than
 // awaiting. The budget is generous on purpose: it costs nothing on the happy
 // path (the loop returns the moment the entry lands, typically first tick),
-// and 1000ms was tight enough to flake under a full parallel suite sharing
-// one MongoDB -- passing this file in isolation while failing in `pnpm test`.
+// and 1000ms was tight enough to flake under a full suite sharing one
+// database -- passing this file in isolation while failing in `pnpm test`.
 async function waitForAuditEntry(entity: string, timeoutMs = 10_000): Promise<void> {
   const start = Date.now();
   while (Date.now() - start < timeoutMs) {
-    if ((await AuditLogModel.countDocuments({ entity })) > 0) return;
+    if ((await prisma.auditLog.count({ where: { entity } })) > 0) return;
     await new Promise((resolve) => setTimeout(resolve, 10));
   }
   throw new Error(`No audit log entry for "${entity}" appeared within ${timeoutMs}ms`);
@@ -57,26 +54,7 @@ interface Envelope<T> {
 }
 
 async function seedProduct(stock: number) {
-  return ProductModel.create({
-    name: { fa: "لنت ترمز", en: "Brake pad" },
-    slug: "brake-pad",
-    sku: "SKU-INV-1",
-    brandId: randomUUID(),
-    categoryId: randomUUID(),
-    priceRial: 1_000_000,
-    weightGram: 800,
-    dimensions: { lengthMm: 150, widthMm: 100, heightMm: 40 },
-    warranty: { months: 12, text: "۱۲ ماه" },
-    status: "active",
-    stock,
-    lowStockAt: 5,
-    authenticity: {
-      supplyRoute: "oem",
-      sourceBrand: "Bosch",
-      countryOfManufacture: "Germany",
-      verificationCode: "VER-INV-1",
-    },
-  });
+  return seedProductRow({ stock, lowStockAt: 5 });
 }
 
 describe("POST /admin/inventory/adjust", () => {
@@ -115,9 +93,9 @@ describe("POST /admin/inventory/adjust", () => {
     expect(body.data.stock).toBe(15);
 
     await waitForAuditEntry("inventory");
-    const moves = await InventoryMoveModel.find({ productId: product._id });
+    const moves = await prisma.inventoryMove.findMany({ where: { productId: product.id } });
     expect(moves).toHaveLength(1);
-    expect(moves[0]!.byUserId).toBeDefined();
+    expect(moves[0]!.byUserId).toBe(staffId);
     // Explicit timeout above waitForAuditEntry's poll budget: without it the
     // 5s default fires first and reports a bare "Test timed out" instead of
     // the helper's message naming the audit entity that never arrived.

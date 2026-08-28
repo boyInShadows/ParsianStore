@@ -100,6 +100,18 @@ function createClient() {
 export type Db = ReturnType<typeof createClient>;
 
 /**
+ * The client handed to an interactive `$transaction` callback: the same
+ * extended client minus the methods that cannot be called inside a
+ * transaction. Named here because several services pass it to helpers, and
+ * `Prisma.TransactionClient` is the *unextended* one -- assigning this to that
+ * is a type error, which is a confusing way to discover the difference.
+ */
+export type Tx = Omit<
+  Db,
+  "$connect" | "$disconnect" | "$on" | "$transaction" | "$use" | "$extends"
+>;
+
+/**
  * Built once at import time so every module shares one connection pool. A
  * per-module client would open a pool each, which in a `tsx watch` loop
  * exhausts Postgres' connection slots within a few reloads.
