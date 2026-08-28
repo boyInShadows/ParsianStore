@@ -851,11 +851,13 @@ Storybook), **iframe the storefront guide** inside the admin page so Tailwind
 never enters the admin document, and **landing / PDP / checkout** as the three
 token-validation screens.
 
-- [ ] **P11.S1 — `/admin/design-system`.** Foundations tab generated from
-      `tokens.css` at build time (colour ramps with live contrast ratios, type
-      scale, spacing, radius, shadow, motion, breakpoints), storefront tab
-      embedding `/styleguide` in a sandboxed iframe, MUI admin-component tab.
-      Nav entry in `AdminShell`.
+- [x] **P11.S1 — `/admin/design-system`.** ✅ 2026-08-26 (`edc7325`); the
+      checkbox was simply never ticked. Verified 2026-08-29 before continuing:
+      the foundations tab is genuinely parsed from `tokens.css` at build time
+      (`lib/design-tokens.ts`) rather than transcribed, contrast ratios are
+      recomputed from the hex values instead of copied from the ADRs that
+      first calculated them, and the page has zero axe violations and no
+      console errors in both themes.
 - [x] **P11.S2 — `cn()`.** ✅ 2026-08-26. `clsx` + **tailwind-merge v2**
       (v3 targets Tailwind v4; this repo is on 3.4, so the v2 line is the
       matching one). All 21 primitives that composed classes with a template
@@ -873,16 +875,40 @@ token-validation screens.
       tests re-parse `tailwind.config.js` and fail if the literal scales in
       `cn.ts` ever drift from it (mutation-checked: removing one colour
       fails them).
-- [ ] **P11.S3 — Missing form primitives.** `Label`, `FormField`, `Switch`,
-      `RadioGroup`, `SearchField`, plus real `error`/`loading` states on the
-      existing form controls.
+- [x] **P11.S3 — Missing form primitives.** ✅ 2026-08-29 (`edb8d55`).
+      `Label`, `FormField`, `Switch`, `RadioGroup`, `SearchField`, and
+      `loading` on `Button`. **`Spinner` moved here from S4** — Button and
+      SearchField both need one, and duplicating it to preserve the plan's
+      ordering would have been worse. S4 is short one component, not one
+      behaviour.
+
+      `FormField` is the reason the step pays for itself: Input, Select and
+      Textarea each carried their own copy of the label/error/describedby
+      wiring, a rule that fails silently when it is wrong. All three delegate
+      now.
+
+      **Three bugs found doing it:** `aria-required` on a `<fieldset>` is a
+      critical axe violation (a fieldset is `role="group"`, which does not
+      support it); the switch was first written with `w-11` and rendered as a
+      1px line — the silent-utility bug class above, hit again; and
+      `Modal`/`Drawer` hardcoded `aria-label="Close"`, one English word inside
+      an otherwise Persian dialog.
+
+      **A transparent pseudo-element does not extend hit testing on a form
+      control** — proven by a test that clicked 8px above the switch and
+      toggled nothing. The switch is a 48×48 control with a 48×24 track drawn
+      inside it instead.
 - [ ] **P11.S4 — Missing display primitives.** `Avatar`, `Separator`,
-      `Spinner`, `Progress`, `Alert`, `ErrorState`, `Link`, `Table`,
-      `Accordion`, `DropdownMenu`. The last two carry hand-written keyboard
+      `Progress`, `Alert`, `ErrorState`, `Link`, `Table`, `Accordion`,
+      `DropdownMenu`. (`Spinner` shipped at S3 — see above.) The last two carry hand-written keyboard
       behaviour (roving tabindex, typeahead, focus return) since Radix was
       declined — explicit keyboard tests, not just an axe pass.
 - [ ] **P11.S5 — Retrofit.** Replace hand-rolled one-offs across the 122
       components with the new primitives; ESLint guard against reintroduction.
+      **Add a guard for the off-scale-utility bug class too** — the 13 dead
+      utilities listed above plus the two S3 hit are all the same silent
+      failure, and a lint rule that knows the real spacing steps would catch
+      every future one at write time rather than in a screenshot.
 - [ ] **P11.S6 — Validation pass.** Landing / PDP / checkout, both themes,
       360→1920, keyboard, axe, contrast. Token revisions land here if those
       three screens demand a one-off colour, spacing, radius or shadow.
