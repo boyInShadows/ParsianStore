@@ -1,7 +1,6 @@
-import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { disconnectDB, resetDb, startTestServer } from "../../config/testDb.js";
-import { ProductModel } from "../../models/Product.js";
+import { seedProduct } from "../../test/factories.js";
 
 let baseUrl: string;
 let close: () => void;
@@ -12,7 +11,7 @@ beforeAll(async () => {
 });
 
 beforeEach(async () => {
-  await ProductModel.deleteMany({});
+  await resetDb();
 });
 
 afterAll(async () => {
@@ -25,30 +24,18 @@ interface Envelope<T> {
   data: T;
 }
 
-async function seedProduct() {
-  return ProductModel.create({
-    name: { fa: "لنت ترمز جلو", en: "Front brake pad" },
+async function seedVerifiableProduct() {
+  return seedProduct({
     slug: "front-brake-pad",
     sku: "SKU-AUTH-1",
-    brandId: randomUUID(),
-    categoryId: randomUUID(),
-    priceRial: 1_500_000,
-    weightGram: 800,
-    dimensions: { lengthMm: 150, widthMm: 100, heightMm: 40 },
-    warranty: { months: 12, text: "۱۲ ماه ضمانت توسط فروشنده" },
-    authenticity: {
-      supplyRoute: "oem",
-      sourceBrand: "Bosch",
-      countryOfManufacture: "Germany",
-      hologramCode: "HG-001",
-      verificationCode: "VER-AUTH-1",
-    },
+    hologramCode: "HG-001",
+    verificationCode: "VER-AUTH-1",
   });
 }
 
 describe("GET /authenticity/verify/:code", () => {
   it("returns the evidence panel for a known verification code", async () => {
-    await seedProduct();
+    await seedVerifiableProduct();
     const res = await fetch(`${baseUrl}/api/v1/authenticity/verify/VER-AUTH-1`);
     expect(res.status).toBe(200);
     const body = (await res.json()) as Envelope<{

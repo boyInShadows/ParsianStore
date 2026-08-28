@@ -1,14 +1,17 @@
-import type { FilterQuery, HydratedDocument, Types } from "mongoose";
-import { REVENUE_ORDER_STATUSES, toEnglishDigits, type AdminCustomerDetailDto } from "schemas";
-import { CityModel } from "../../models/City.js";
-import { OrderModel } from "../../models/Order.js";
-import { ProvinceModel } from "../../models/Province.js";
-import { UserModel, type User } from "../../models/User.js";
-import { VehicleGenModel } from "../../models/VehicleGen.js";
-import { VehicleMakeModel } from "../../models/VehicleMake.js";
-import { VehicleModelModel } from "../../models/VehicleModel.js";
+import {
+  REVENUE_ORDER_STATUSES,
+  toEnglishDigits,
+  type AdminCustomerDetailDto,
+  type AdminCustomerDto,
+} from "schemas";
+import { prisma } from "../../config/prisma.js";
 import { ApiError } from "../../utils/ApiError.js";
-import { paginate, type PaginatedResult, type PaginationQuery } from "../../utils/pagination.js";
+import {
+  paginate,
+  type PaginatedResult,
+  type PaginationQuery,
+  type Where,
+} from "../../utils/pagination.js";
 import type { SetAccountTypeInput } from "./users.admin.schema.js";
 
 /**
@@ -28,165 +31,200 @@ function toNationalDigits(input: string): string {
   return digits;
 }
 
-function buildListFilter(filters: { phone?: string; accountType?: string }): FilterQuery<User> {
+function buildListFilter(filters: { phone?: string; accountType?: string }): Where {
   // Staff-only screen: `role: "customer"` keeps staff accounts out of a
   // customer list, matching what the set-account-type script was ever
   // used for. accountType is meaningless on a staff account anyway.
-  const filter: FilterQuery<User> = { role: "customer" };
+  const where: Where = { role: "customer" };
   if (filters.accountType) {
-    filter.accountType = filters.accountType;
+    where.accountType = filters.accountType;
   }
   const national = filters.phone ? toNationalDigits(filters.phone) : "";
   if (national) {
-    // Unanchored substring, deliberately. An anchored `${national}$`
-    // looks reasonable and passes a test written with a trailing
-    // fragment, but silently returns nothing for the far more common
-    // case of staff typing the *start* of a number ("0912…") -- found
-    // by running a real query against the seeded database, not by the
-    // unit tests. `toNationalDigits` has already stripped every
-    // non-digit, so no regex metacharacter can survive into this
-    // pattern.
-    filter.phone = { $regex: national };
+    // Unanchored substring, deliberately. An anchored match looks
+    // reasonable and passes a test written with a trailing fragment, but
+    // silently returns nothing for the far more common case of staff
+    // typing the *start* of a number ("0912…").
+    //
+    // `contains` also retires the hand-built `$regex`: the fragment is a
+    // bound parameter now, so there is nothing to escape -- previously the
+    // safety rested entirely on `toNationalDigits` having stripped every
+    // character a pattern could be built from.
+    where.phone = { contains: national };
   }
-  return filter;
+  return where;
 }
 
-// Only what the customers screen renders. Without this the endpoint
-// ships the whole user document -- addresses, garage, wallet balance,
-// login timestamps -- none of which this screen shows, and all of which
-// is needless PII on the wire. (`passwordHash` is already `select:
-// false` on the model, so it was never at risk; this is about not
-// over-sending everything else.)
-const CUSTOMER_LIST_FIELDS = "phone name role accountType createdAt";
+/**
+ * Only what the customers screen renders.
+ *
+ * Under Mongoose this was a `select` string and `passwordHash` was
+ * `select: false` on the model, so the hash was never at risk and this was
+ * only about not over-sending PII. Prisma has no model-level exclusion:
+ * every scalar comes back unless a `select` says otherwise, so the same
+ * narrowing is now what keeps the staff password hash off an admin list
+ * as well.
+ */
+const CUSTOMER_LIST_COLUMNS = {
+  id: true,
+  phone: true,
+  name: true,
+  role: true,
+  accountType: true,
+  createdAt: true,
+} as const;
 
-export function listAdminCustomers(
+interface CustomerRow {
+  id: string;
+  phone: string;
+  name: string;
+  role: string;
+  accountType: AdminCustomerDto["accountType"];
+  createdAt: Date;
+}
+
+function toCustomerDto(row: CustomerRow): AdminCustomerDto {
+  return {
+    id: row.id,
+    phone: row.phone,
+    name: row.name,
+    role: row.role,
+    accountType: row.accountType,
+    createdAt: row.createdAt.toISOString(),
+  };
+}
+
+export async function listAdminCustomers(
   pagination: PaginationQuery,
   filters: { phone?: string; accountType?: string },
-): Promise<PaginatedResult<HydratedDocument<User>>> {
-  return paginate(
-    UserModel,
+): Promise<PaginatedResult<AdminCustomerDto>> {
+  const { data, meta } = await paginate<CustomerRow>(
+    prisma.user,
+    "User",
     buildListFilter(filters),
     { ...pagination, sort: pagination.sort ?? "-createdAt" },
-    { select: CUSTOMER_LIST_FIELDS },
+    { select: CUSTOMER_LIST_COLUMNS },
   );
+  return { data: data.map(toCustomerDto), meta };
 }
 
-export async function getAdminCustomerById(id: string): Promise<HydratedDocument<User>> {
-  const user = await UserModel.findById(id);
+export async function getAdminCustomerById(id: string): Promise<AdminCustomerDto> {
+  const user = await prisma.user.findUnique({ where: { id }, select: CUSTOMER_LIST_COLUMNS });
   if (!user) {
     throw new ApiError(404, "کاربر یافت نشد");
   }
-  return user;
+  return toCustomerDto(user);
 }
 
 // P8.S7 -- the detail view. --------------------------------------------
 
 const RECENT_ORDER_LIMIT = 10;
+const UNKNOWN = "—";
 
 /**
- * One query per referenced collection rather than `.populate()` per
- * address: a customer with eight addresses in the same province would
- * otherwise fetch that province eight times.
+ * Order totals for one customer.
+ *
+ * Was a `$group` aggregation pipeline; `aggregate` says the same thing in
+ * one call. Worth reading the `deletedAt` filter: under Mongo the
+ * aggregation framework bypassed the soft-delete middleware, so the
+ * pipeline had to repeat the condition by hand. Here the client extension
+ * does reach `aggregate` and `count`, so the filter is applied for us --
+ * the explicit `deletedAt: null` is gone rather than merely tidied away.
  */
-async function nameMap(
-  model: { find: (filter: object) => { select: (fields: string) => Promise<NamedDoc[]> } },
-  ids: Types.ObjectId[],
-): Promise<Map<string, string>> {
-  if (ids.length === 0) return new Map();
-  const docs = await model.find({ _id: { $in: ids } }).select("name");
-  return new Map(docs.map((doc) => [String(doc._id), doc.name.fa]));
-}
-
-interface NamedDoc {
-  _id: unknown;
-  name: { fa: string };
-}
-
-async function orderStatsFor(userId: Types.ObjectId): Promise<{
+async function orderStatsFor(userId: string): Promise<{
   stats: AdminCustomerDetailDto["stats"];
   recentOrders: AdminCustomerDetailDto["recentOrders"];
 }> {
-  const [totals] = await OrderModel.aggregate<{
-    orderCount: number;
-    lifetimeValueRial: number;
-    lastOrderAt: Date;
-  }>([
-    // Aggregation bypasses the soft-delete middleware entirely
-    // (models/plugins.ts), so `deletedAt` is matched explicitly here.
-    {
-      $match: { userId, deletedAt: null, status: { $in: [...REVENUE_ORDER_STATUSES] } },
-    },
-    {
-      $group: {
-        _id: null,
-        orderCount: { $sum: 1 },
-        lifetimeValueRial: { $sum: "$totalRial" },
-        lastOrderAt: { $max: "$createdAt" },
-      },
-    },
+  const [totals, openOrderCount, recent] = await Promise.all([
+    prisma.order.aggregate({
+      where: { userId, status: { in: [...REVENUE_ORDER_STATUSES] } },
+      _count: { _all: true },
+      _sum: { totalRial: true },
+      _max: { createdAt: true },
+    }),
+    prisma.order.count({ where: { userId, status: { in: ["pending", "processing"] } } }),
+    prisma.order.findMany({
+      where: { userId },
+      select: { id: true, code: true, status: true, totalRial: true, createdAt: true },
+      orderBy: { createdAt: "desc" },
+      take: RECENT_ORDER_LIMIT,
+    }),
   ]);
 
-  const [openOrderCount, recent] = await Promise.all([
-    OrderModel.countDocuments({ userId, status: { $in: ["pending", "processing"] } }),
-    OrderModel.find({ userId })
-      .select("code status totalRial createdAt")
-      .sort({ createdAt: -1 })
-      .limit(RECENT_ORDER_LIMIT),
-  ]);
-
-  const orderCount = totals?.orderCount ?? 0;
-  const lifetimeValueRial = totals?.lifetimeValueRial ?? 0;
+  const orderCount = totals._count._all;
+  const lifetimeValueRial = totals._sum.totalRial ?? 0;
   return {
     stats: {
       orderCount,
       lifetimeValueRial,
       averageOrderRial: orderCount === 0 ? 0 : Math.round(lifetimeValueRial / orderCount),
-      lastOrderAt: totals?.lastOrderAt ? totals.lastOrderAt.toISOString() : null,
+      lastOrderAt: totals._max.createdAt ? totals._max.createdAt.toISOString() : null,
       openOrderCount,
     },
-    recentOrders: recent.map((doc) => ({
-      id: String(doc._id),
-      code: doc.code,
-      status: doc.status,
-      totalRial: doc.totalRial,
-      createdAt: doc.createdAt.toISOString(),
+    recentOrders: recent.map((order) => ({
+      id: order.id,
+      code: order.code,
+      status: order.status,
+      totalRial: order.totalRial,
+      createdAt: order.createdAt.toISOString(),
     })),
   };
 }
 
+/**
+ * Addresses and garage entries are tables now, not embedded arrays, which
+ * turns six lookup queries and six Maps into two joins.
+ *
+ * The relation filters spell out `deletedAt: null` on the vehicle rows
+ * because the soft-delete extension does not reach nested reads (see
+ * config/prisma.ts) -- and here that blind spot would be wrong rather than
+ * useful: a garage entry pointing at a retired generation should read as
+ * unknown, the way it did when the Mongo lookup could not find it either.
+ */
+const DETAIL_RELATIONS = {
+  addresses: {
+    select: {
+      id: true,
+      line: true,
+      postalCode: true,
+      plate: true,
+      unit: true,
+      receiverName: true,
+      receiverPhone: true,
+      province: { select: { nameFa: true, deletedAt: true } },
+      city: { select: { nameFa: true, deletedAt: true } },
+    },
+  },
+  garage: {
+    select: {
+      id: true,
+      year: true,
+      nickname: true,
+      make: { select: { nameFa: true, deletedAt: true } },
+      model: { select: { nameFa: true, deletedAt: true } },
+      gen: { select: { nameFa: true, deletedAt: true } },
+    },
+  },
+} as const;
+
+/** A soft-deleted reference reads as unknown, not as a name. */
+function liveName(ref: { nameFa: string; deletedAt: Date | null } | null): string {
+  return ref && ref.deletedAt === null ? ref.nameFa : UNKNOWN;
+}
+
 export async function getAdminCustomerDetail(id: string): Promise<AdminCustomerDetailDto> {
-  const user = await getAdminCustomerById(id);
+  const user = await prisma.user.findUnique({
+    where: { id },
+    include: DETAIL_RELATIONS,
+  });
+  if (!user) {
+    throw new ApiError(404, "کاربر یافت نشد");
+  }
 
-  const [provinces, cities, makes, models, generations, orderData] = await Promise.all([
-    nameMap(
-      ProvinceModel,
-      user.addresses.map((address) => address.provinceId),
-    ),
-    nameMap(
-      CityModel,
-      user.addresses.map((address) => address.cityId),
-    ),
-    nameMap(
-      VehicleMakeModel,
-      user.garage.map((entry) => entry.makeId),
-    ),
-    nameMap(
-      VehicleModelModel,
-      user.garage.map((entry) => entry.modelId),
-    ),
-    nameMap(
-      VehicleGenModel,
-      user.garage.map((entry) => entry.genId),
-    ),
-    orderStatsFor(user._id),
-  ]);
-
-  // A referenced province/vehicle that no longer resolves must not blank
-  // out the whole row -- staff still need the rest of the address.
-  const UNKNOWN = "—";
+  const orderData = await orderStatsFor(user.id);
 
   return {
-    id: String(user._id),
+    id: user.id,
     phone: user.phone,
     name: user.name,
     role: user.role,
@@ -198,9 +236,9 @@ export async function getAdminCustomerDetail(id: string): Promise<AdminCustomerD
     walletBalanceRial: user.walletBalanceRial,
     stats: orderData.stats,
     addresses: user.addresses.map((address) => ({
-      id: String(address._id),
-      province: provinces.get(String(address.provinceId)) ?? UNKNOWN,
-      city: cities.get(String(address.cityId)) ?? UNKNOWN,
+      id: address.id,
+      province: liveName(address.province),
+      city: liveName(address.city),
       line: address.line,
       postalCode: address.postalCode,
       ...(address.plate ? { plate: address.plate } : {}),
@@ -208,13 +246,14 @@ export async function getAdminCustomerDetail(id: string): Promise<AdminCustomerD
       receiverName: address.receiverName,
       receiverPhone: address.receiverPhone,
     })),
-    garage: user.garage.map((entry, index) => ({
-      // GarageEntry declares no `_id` in its interface even though the
-      // sub-schema creates one, so the index is the stable key here.
-      id: `${String(user._id)}-${index}`,
-      make: makes.get(String(entry.makeId)) ?? UNKNOWN,
-      model: models.get(String(entry.modelId)) ?? UNKNOWN,
-      generation: generations.get(String(entry.genId)) ?? UNKNOWN,
+    garage: user.garage.map((entry) => ({
+      // A real row id now. The Mongo version had to synthesise
+      // `${userId}-${index}` because the embedded sub-document declared no
+      // `_id` in its interface.
+      id: entry.id,
+      make: liveName(entry.make),
+      model: liveName(entry.model),
+      generation: liveName(entry.gen),
       year: entry.year,
       ...(entry.nickname ? { nickname: entry.nickname } : {}),
     })),
@@ -234,12 +273,15 @@ export async function getAdminCustomerDetail(id: string): Promise<AdminCustomerD
 export async function setAccountType(
   id: string,
   input: SetAccountTypeInput,
-): Promise<HydratedDocument<User>> {
+): Promise<AdminCustomerDto> {
   const user = await getAdminCustomerById(id);
   if (user.role !== "customer") {
     throw new ApiError(400, "نوع حساب فقط برای مشتریان قابل تغییر است");
   }
-  user.accountType = input.accountType;
-  await user.save();
-  return user;
+  const updated = await prisma.user.update({
+    where: { id },
+    data: { accountType: input.accountType },
+    select: CUSTOMER_LIST_COLUMNS,
+  });
+  return toCustomerDto(updated);
 }

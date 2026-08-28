@@ -1,9 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { prisma } from "../../config/prisma.js";
 import { disconnectDB, resetDb } from "../../config/testDb.js";
-import { OtpTokenModel } from "../../models/OtpToken.js";
-import { RefreshTokenModel } from "../../models/RefreshToken.js";
-import { UserModel } from "../../models/User.js";
 import type { SmsProvider } from "../../providers/sms/index.js";
 import * as authService from "./auth.service.js";
 
@@ -28,11 +26,7 @@ beforeAll(async () => {
 });
 
 beforeEach(async () => {
-  await Promise.all([
-    UserModel.deleteMany({}),
-    OtpTokenModel.deleteMany({}),
-    RefreshTokenModel.deleteMany({}),
-  ]);
+  await resetDb();
 });
 
 afterAll(async () => {
@@ -50,19 +44,19 @@ describe("requestOtp + verifyOtp", () => {
     expect(session.accessToken).toBeTruthy();
     expect(session.refreshToken).toBeTruthy();
 
-    const stored = await UserModel.findOne({ phone: "+989121110001" });
+    const stored = await prisma.user.findUnique({ where: { phone: "+989121110001" } });
     expect(stored).not.toBeNull();
     expect(stored?.lastLoginAt).toBeInstanceOf(Date);
   });
 
   it("logs an existing User in rather than creating a duplicate", async () => {
-    await UserModel.create({ phone: "+989121110002", name: "Existing" });
+    await prisma.user.create({ data: { phone: "+989121110002", name: "Existing" } });
 
     const { provider, sentCodes } = spyProvider();
     await authService.requestOtp("09121110002", provider);
     await authService.verifyOtp("09121110002", sentCodes[0]!);
 
-    const count = await UserModel.countDocuments({ phone: "+989121110002" });
+    const count = await prisma.user.count({ where: { phone: "+989121110002" } });
     expect(count).toBe(1);
   });
 
@@ -80,7 +74,7 @@ describe("requestOtp + verifyOtp", () => {
 
     await expect(authService.verifyOtp("09121110004", "000000")).rejects.toThrow();
 
-    const otp = await OtpTokenModel.findOne({ phone: "+989121110004" });
+    const otp = await prisma.otpToken.findFirst({ where: { phone: "+989121110004" } });
     expect(otp?.attempts).toBe(1);
   });
 
@@ -99,10 +93,10 @@ describe("requestOtp + verifyOtp", () => {
     const { provider, sentCodes } = spyProvider();
     await authService.requestOtp("09121110006", provider);
 
-    await OtpTokenModel.updateOne(
-      { phone: "+989121110006" },
-      { expiresAt: new Date(Date.now() - 1000) },
-    );
+    await prisma.otpToken.updateMany({
+      where: { phone: "+989121110006" },
+      data: { expiresAt: new Date(Date.now() - 1000) },
+    });
 
     await expect(authService.verifyOtp("09121110006", sentCodes[0]!)).rejects.toThrow(/منقضی/);
   });
@@ -112,7 +106,7 @@ describe("requestOtp + verifyOtp", () => {
     await authService.requestOtp("09121110007", provider);
     await authService.requestOtp("09121110007", provider);
 
-    const count = await OtpTokenModel.countDocuments({ phone: "+989121110007" });
+    const count = await prisma.otpToken.count({ where: { phone: "+989121110007" } });
     expect(count).toBe(1);
   });
 });
@@ -144,7 +138,10 @@ describe("refreshSession", () => {
     await authService.requestOtp("09121110009", provider);
     const session = await authService.verifyOtp("09121110009", sentCodes[0]!);
 
-    await UserModel.updateOne({ phone: "+989121110009" }, { isActive: false });
+    await prisma.user.update({
+      where: { phone: "+989121110009" },
+      data: { isActive: false },
+    });
 
     await expect(authService.refreshSession(session.refreshToken)).rejects.toThrow();
   });
@@ -168,8 +165,10 @@ describe("logout", () => {
 
 describe("getUserById", () => {
   it("returns the user for a valid id", async () => {
-    const created = await UserModel.create({ phone: "+989121110011", name: "Lookup Me" });
-    const found = await authService.getUserById(created.id as string);
+    const created = await prisma.user.create({
+      data: { phone: "+989121110011", name: "Lookup Me" },
+    });
+    const found = await authService.getUserById(created.id);
     expect(found.phone).toBe("+989121110011");
   });
 

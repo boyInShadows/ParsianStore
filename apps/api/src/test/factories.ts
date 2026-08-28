@@ -203,3 +203,78 @@ export async function seedProvinceWithCity(
   });
   return { province, city };
 }
+
+/**
+ * A placed order, with the address and shipping-method snapshots the schema
+ * requires.
+ *
+ * Those snapshots are columns rather than an embedded document now, and they
+ * are required for the reason the Mongo version documented: an order records
+ * where it was actually sent, and editing the address book afterwards must
+ * not rewrite history. A fixture cannot skip them.
+ */
+export async function seedOrder(
+  userId: string,
+  overrides: Partial<Prisma.OrderUncheckedCreateInput> = {},
+) {
+  const suffix = uniqueSuffix();
+  const totalRial = overrides.totalRial ?? 1_000_000;
+  return prisma.order.create({
+    data: {
+      code: `PS-${suffix}`.slice(0, 20),
+      userId,
+      subtotalRial: totalRial,
+      shippingRial: 0,
+      totalRial,
+      addrProvinceFa: "تهران",
+      addrProvinceEn: "Tehran",
+      addrCityFa: "تهران",
+      addrCityEn: "Tehran",
+      addrLine: "خیابان نمونه",
+      addrPostalCode: "1234567890",
+      addrReceiverName: "گیرنده",
+      addrReceiverPhone: "+989120000000",
+      shipMethodCode: "post",
+      shipMethodFa: "پست",
+      shipMethodEn: "Post",
+      shipPriceRial: 0,
+      ...overrides,
+    },
+  });
+}
+
+export async function seedAddress(
+  userId: string,
+  overrides: Partial<Prisma.AddressUncheckedCreateInput> = {},
+) {
+  const { city, province } = await seedProvinceWithCity();
+  return prisma.address.create({
+    data: {
+      userId,
+      provinceId: province.id,
+      cityId: city.id,
+      line: "خیابان اول",
+      postalCode: "1111111111",
+      receiverName: "گیرنده",
+      receiverPhone: "+989120000000",
+      ...overrides,
+    },
+  });
+}
+
+export async function seedGarageEntry(
+  userId: string,
+  overrides: Partial<Prisma.GarageEntryUncheckedCreateInput> = {},
+) {
+  const { make, model, gen } = await seedVehicleTree();
+  return prisma.garageEntry.create({
+    data: {
+      userId,
+      makeId: make.id,
+      modelId: model.id,
+      genId: gen.id,
+      year: 2015,
+      ...overrides,
+    },
+  });
+}

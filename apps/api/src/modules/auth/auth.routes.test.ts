@@ -1,14 +1,12 @@
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import argon2 from "argon2";
 import { env } from "../../config/env.js";
+import { prisma } from "../../config/prisma.js";
 import { disconnectDB, resetDb, startTestServer } from "../../config/testDb.js";
-import { OtpTokenModel } from "../../models/OtpToken.js";
-import { RefreshTokenModel } from "../../models/RefreshToken.js";
-import { UserModel } from "../../models/User.js";
 
 // Full HTTP round trip through the real app (ephemeral port + native
 // fetch — the same pattern app.test.ts uses, no supertest needed) against
-// the real dev/test MongoDB the app itself already connects to.
+// the same PostgreSQL database the app itself connects to.
 let baseUrl: string;
 let close: () => void;
 
@@ -27,13 +25,15 @@ function extractCookie(headers: Headers, name: string): string {
 // so the HTTP-layer tests below can focus on routes/cookies/controller
 // wiring without re-deriving a random code from a log line.
 async function seedKnownOtp(phone: string, code: string): Promise<void> {
-  await OtpTokenModel.deleteMany({ phone });
-  await OtpTokenModel.create({
-    phone,
-    codeHash: await argon2.hash(code),
-    expiresAt: new Date(Date.now() + 120_000),
-    attempts: 0,
-    purpose: "login",
+  await prisma.otpToken.deleteMany({ where: { phone } });
+  await prisma.otpToken.create({
+    data: {
+      phone,
+      codeHash: await argon2.hash(code),
+      expiresAt: new Date(Date.now() + 120_000),
+      attempts: 0,
+      purpose: "login",
+    },
   });
 }
 
@@ -43,11 +43,7 @@ beforeAll(async () => {
 });
 
 beforeEach(async () => {
-  await Promise.all([
-    UserModel.deleteMany({}),
-    OtpTokenModel.deleteMany({}),
-    RefreshTokenModel.deleteMany({}),
-  ]);
+  await resetDb();
 });
 
 afterAll(async () => {
@@ -73,7 +69,7 @@ describe("POST /auth/otp/request", () => {
     });
     expect(res.status).toBe(200);
 
-    const otp = await OtpTokenModel.findOne({ phone: "+989121119000" });
+    const otp = await prisma.otpToken.findFirst({ where: { phone: "+989121119000" } });
     expect(otp).not.toBeNull();
   });
 });
@@ -116,7 +112,7 @@ describe("auth session flow (verify -> me -> refresh -> logout)", () => {
       email: "shopper@example.com",
       phone: "+989121119001",
     });
-    const updatedUser = await UserModel.findOne({ phone: "+989121119001" });
+    const updatedUser = await prisma.user.findUnique({ where: { phone: "+989121119001" } });
     expect(updatedUser?.name).toBe("کاربر پارسیان");
     expect(updatedUser?.email).toBe("shopper@example.com");
 

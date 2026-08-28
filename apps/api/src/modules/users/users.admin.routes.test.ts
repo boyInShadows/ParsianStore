@@ -1,13 +1,16 @@
 import { randomUUID } from "node:crypto";
+import type { OrderStatus, UserRole } from "@prisma/client";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { prisma } from "../../config/prisma.js";
 import { disconnectDB, resetDb, startTestServer } from "../../config/testDb.js";
-import { CityModel } from "../../models/City.js";
-import { OrderModel, type OrderStatus } from "../../models/Order.js";
-import { ProvinceModel } from "../../models/Province.js";
-import { UserModel, type UserRole } from "../../models/User.js";
-import { VehicleGenModel } from "../../models/VehicleGen.js";
-import { VehicleMakeModel } from "../../models/VehicleMake.js";
-import { VehicleModelModel } from "../../models/VehicleModel.js";
+import {
+  seedAddress,
+  seedGarageEntry,
+  seedOrder,
+  seedProvinceWithCity,
+  seedUser,
+  seedVehicleTree,
+} from "../../test/factories.js";
 import { signAccessToken } from "../../utils/jwt.js";
 
 let baseUrl: string;
@@ -19,7 +22,7 @@ beforeAll(async () => {
 });
 
 beforeEach(async () => {
-  await UserModel.deleteMany({});
+  await resetDb();
 });
 
 afterAll(async () => {
@@ -50,7 +53,7 @@ function staffCookie(role: UserRole = "admin"): Record<string, string> {
 }
 
 async function seedCustomer(phone: string, name = "مشتری") {
-  return UserModel.create({ phone, name, role: "customer" });
+  return seedUser({ phone, name, role: "customer" });
 }
 
 describe("admin customers routes", () => {
@@ -68,7 +71,7 @@ describe("admin customers routes", () => {
 
   it("lists customers and excludes staff accounts", async () => {
     await seedCustomer("+989120000001");
-    await UserModel.create({ phone: "+989120000002", name: "کارمند", role: "admin" });
+    await seedUser({ phone: "+989120000002", name: "کارمند", role: "admin" });
 
     const res = await fetch(`${baseUrl}/api/v1/admin/customers`, { headers: staffCookie() });
     const body = (await res.json()) as Envelope<CustomerBody[]>;
@@ -77,6 +80,9 @@ describe("admin customers routes", () => {
     expect(body.data[0]?.phone).toBe("+989120000001");
   });
 
+  // Mongoose kept `passwordHash` out of query results with `select: false`;
+  // Prisma returns every column unless a `select` narrows it, so this
+  // assertion now guards the service's column list rather than the model.
   it("never leaks passwordHash in a list response", async () => {
     await seedCustomer("+989120000003");
 
@@ -87,7 +93,7 @@ describe("admin customers routes", () => {
   });
 
   // The screen renders phone/name/role/accountType and nothing else, so
-  // the endpoint should not be shipping the rest of the user document.
+  // the endpoint should not be shipping the rest of the user record.
   it("sends only the fields the customers screen renders", async () => {
     await seedCustomer("+989120000010");
 
@@ -119,7 +125,7 @@ describe("admin customers routes", () => {
     });
     expect(res.status).toBe(200);
 
-    const stored = await UserModel.findById(user.id);
+    const stored = await prisma.user.findUnique({ where: { id: user.id } });
     expect(stored?.accountType).toBe("wholesale");
   });
 
@@ -135,7 +141,7 @@ describe("admin customers routes", () => {
   });
 
   it("refuses to set an account type on a staff account", async () => {
-    const staff = await UserModel.create({
+    const staff = await seedUser({
       phone: "+989120000007",
       name: "اپراتور",
       role: "operator",
@@ -179,8 +185,10 @@ describe("admin customers routes", () => {
   it("filters by account type", async () => {
     await seedCustomer("+989120000008");
     const wholesale = await seedCustomer("+989120000009");
-    wholesale.accountType = "wholesale";
-    await wholesale.save();
+    await prisma.user.update({
+      where: { id: wholesale.id },
+      data: { accountType: "wholesale" },
+    });
 
     const res = await fetch(`${baseUrl}/api/v1/admin/customers?accountType=wholesale`, {
       headers: staffCookie(),
@@ -219,42 +227,8 @@ interface DetailBody {
   recentOrders: { code: string; status: string }[];
 }
 
-const LOCALIZED = { fa: "نمونه", en: "Sample" };
-
-let detailOrderCounter = 0;
-
-async function seedOrderFor(
-  userId: mongoose.Types.ObjectId,
-  status: OrderStatus,
-  totalRial: number,
-) {
-  detailOrderCounter += 1;
-  return OrderModel.create({
-    code: `PS-D-${String(detailOrderCounter).padStart(4, "0")}`,
-    userId,
-    items: [
-      {
-        productId: randomUUID(),
-        nameSnapshot: LOCALIZED,
-        skuSnapshot: `SKU-D-${detailOrderCounter}`,
-        qty: 1,
-        priceRial: totalRial,
-      },
-    ],
-    subtotalRial: totalRial,
-    shippingRial: 0,
-    totalRial,
-    address: {
-      province: LOCALIZED,
-      city: LOCALIZED,
-      line: "خیابان نمونه",
-      postalCode: "1234567890",
-      receiverName: "گیرنده",
-      receiverPhone: "+989120000000",
-    },
-    shippingMethod: { code: "post", name: LOCALIZED, priceRial: 0 },
-    status,
-  });
+async function seedOrderFor(userId: string, status: OrderStatus, totalRial: number) {
+  return seedOrder(userId, { status, totalRial });
 }
 
 async function getDetail(id: string): Promise<{ status: number; body: DetailBody }> {
@@ -264,17 +238,6 @@ async function getDetail(id: string): Promise<{ status: number; body: DetailBody
 }
 
 describe("admin customer detail", () => {
-  beforeEach(async () => {
-    await Promise.all([
-      OrderModel.deleteMany({}),
-      ProvinceModel.deleteMany({}),
-      CityModel.deleteMany({}),
-      VehicleMakeModel.deleteMany({}),
-      VehicleModelModel.deleteMany({}),
-      VehicleGenModel.deleteMany({}),
-    ]);
-  });
-
   it("rejects a signed-in customer", async () => {
     const user = await seedCustomer("+989121230001");
     const res = await fetch(`${baseUrl}/api/v1/admin/customers/${user.id}`, {
@@ -285,10 +248,10 @@ describe("admin customer detail", () => {
 
   it("counts only paid-through-delivered orders toward lifetime value", async () => {
     const user = await seedCustomer("+989121230002");
-    await seedOrderFor(user._id, "paid", 1_000_000);
-    await seedOrderFor(user._id, "delivered", 3_000_000);
-    await seedOrderFor(user._id, "cancelled", 9_000_000);
-    await seedOrderFor(user._id, "pending", 9_000_000);
+    await seedOrderFor(user.id, "paid", 1_000_000);
+    await seedOrderFor(user.id, "delivered", 3_000_000);
+    await seedOrderFor(user.id, "cancelled", 9_000_000);
+    await seedOrderFor(user.id, "pending", 9_000_000);
 
     const { body } = await getDetail(user.id);
 
@@ -299,9 +262,9 @@ describe("admin customer detail", () => {
 
   it("counts pending and processing orders as open work", async () => {
     const user = await seedCustomer("+989121230003");
-    await seedOrderFor(user._id, "pending", 1_000_000);
-    await seedOrderFor(user._id, "processing", 1_000_000);
-    await seedOrderFor(user._id, "delivered", 1_000_000);
+    await seedOrderFor(user.id, "pending", 1_000_000);
+    await seedOrderFor(user.id, "processing", 1_000_000);
+    await seedOrderFor(user.id, "delivered", 1_000_000);
 
     const { body } = await getDetail(user.id);
 
@@ -311,7 +274,7 @@ describe("admin customer detail", () => {
   it("never attributes another customer's orders", async () => {
     const user = await seedCustomer("+989121230004");
     const other = await seedCustomer("+989121230005");
-    await seedOrderFor(other._id, "paid", 5_000_000);
+    await seedOrderFor(other.id, "paid", 5_000_000);
 
     const { body } = await getDetail(user.id);
 
@@ -320,25 +283,12 @@ describe("admin customer detail", () => {
   });
 
   it("resolves province and city names on each address", async () => {
-    const province = await ProvinceModel.create({
-      name: { fa: "تهران", en: "Tehran" },
-      slug: "tehran",
-    });
-    const city = await CityModel.create({
-      provinceId: province._id,
-      name: { fa: "شهریار", en: "Shahriar" },
-      slug: "shahriar",
+    const { province, city } = await seedProvinceWithCity({
+      province: { nameFa: "تهران", nameEn: "Tehran" },
+      city: { nameFa: "شهریار", nameEn: "Shahriar" },
     });
     const user = await seedCustomer("+989121230006");
-    user.addresses.push({
-      provinceId: province._id,
-      cityId: city._id,
-      line: "خیابان اول",
-      postalCode: "1111111111",
-      receiverName: "گیرنده",
-      receiverPhone: "+989120000000",
-    });
-    await user.save();
+    await seedAddress(user.id, { provinceId: province.id, cityId: city.id });
 
     const { body } = await getDetail(user.id);
 
@@ -346,19 +296,19 @@ describe("admin customer detail", () => {
     expect(body.addresses[0]?.city).toBe("شهریار");
   });
 
-  // A province that was deleted after the address was saved must not blank
-  // out the street line staff still need to read.
+  // A province deleted after the address was saved must not blank out the
+  // street line staff still need to read. The Mongo version of this test
+  // pointed the address at an invented ObjectId; a foreign key makes that
+  // impossible, so the reachable version of the same failure is a
+  // soft-deleted province -- which is also the only one that can actually
+  // happen, since admin CRUD never hard-deletes.
   it("keeps an address readable when its province no longer resolves", async () => {
     const user = await seedCustomer("+989121230007");
-    user.addresses.push({
-      provinceId: randomUUID(),
-      cityId: randomUUID(),
-      line: "خیابان دوم",
-      postalCode: "2222222222",
-      receiverName: "گیرنده",
-      receiverPhone: "+989120000000",
+    const address = await seedAddress(user.id, { line: "خیابان دوم" });
+    await prisma.province.update({
+      where: { id: address.provinceId },
+      data: { deletedAt: new Date() },
     });
-    await user.save();
 
     const { body } = await getDetail(user.id);
 
@@ -367,33 +317,15 @@ describe("admin customer detail", () => {
   });
 
   it("resolves the garage vehicle names", async () => {
-    const make = await VehicleMakeModel.create({
-      name: { fa: "سایپا", en: "Saipa" },
-      slug: "saipa",
-      country: "ایران",
-      isDomestic: true,
-    });
-    const model = await VehicleModelModel.create({
-      makeId: make._id,
-      name: { fa: "پراید", en: "Pride" },
-      slug: "pride",
-      bodyType: "hatchback",
-    });
-    const generation = await VehicleGenModel.create({
-      modelId: model._id,
-      name: { fa: "۱۳۱", en: "131" },
-      yearFrom: 2008,
-      facelift: false,
-    });
+    const { make, model, gen } = await seedVehicleTree();
     const user = await seedCustomer("+989121230008");
-    user.garage.push({
-      makeId: make._id,
-      modelId: model._id,
-      genId: generation._id,
+    await seedGarageEntry(user.id, {
+      makeId: make.id,
+      modelId: model.id,
+      genId: gen.id,
       year: 2015,
       nickname: "ماشین کار",
     });
-    await user.save();
 
     const { body } = await getDetail(user.id);
 
