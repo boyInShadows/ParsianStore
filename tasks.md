@@ -892,7 +892,7 @@ token-validation screens.
 - [ ] Blog + guides (lead with counterfeit-identification content)
 - [ ] Full JSON-LD coverage
 - [ ] Sitemap splitting
-- [ ] Meilisearch swap behind `SearchProvider` (currently Mongo-backed)
+- [ ] Meilisearch swap behind `SearchProvider` (now PostgreSQL full-text, P10.S8 — still worth revisiting if Persian ranking needs a real analyzer)
 - [ ] Redis for rate limiting + token revocation
 - [ ] Caching & ISR strategy
 - [ ] Error tracking (Sentry or equivalent)
@@ -927,111 +927,98 @@ that update should be a no-op; the note exists so nobody relaxes to 2.1.
 
 Re-check the cited sections yearly — they are the parts most likely to go stale.
 
-## ACTIVE — migrate MongoDB → PostgreSQL + Prisma
+## DONE — migrate MongoDB → PostgreSQL + Prisma (finished 2026-08-28)
 
-**Promoted from deferred 2026-08-26** at the owner's direction, right after the
-P9 tail. Three decisions confirmed the same day:
+Adopted 2026-08-26, finished 2026-08-28 in steps P10.S9–S20. Three decisions
+made at the start held throughout:
 
 1. **UUID v7 primary keys.** Time-ordered so they index and paginate like a
-   sequence while staying globally unique. Breaks the 24-hex `ObjectId` shape
-   that **30 files** across the monorepo assert — which is exactly why now: the
-   database is empty, there is no production data, and the format will never be
-   cheaper to change. `packages/schemas` gets one shared `id` schema so those 30
-   files each become a one-line edit.
+   sequence while staying globally unique.
 2. **Phased, app green throughout.** Not a big-bang cutover.
 3. **Reference data seeded, no products.** Provinces/cities, Saipa and Iran
-   Khodro makes/models/generations/engines, catalog systems, shipping rates and
-   a superadmin. Zero products, orders, customers, carts, reviews or payments.
+   Khodro vehicle tree, catalog systems, shipping rates and a superadmin.
 
-Measured surface: **289 API TypeScript files** (80 of them tests), **22 models**,
-**20 modules**, 30 files hard-coding the id format.
+Final state: **no Mongoose anywhere.** `src/models/` is gone, so are
+`config/db.ts`, `config/testDbUri.ts`, the sanitize middleware, and both
+`mongoose` and `express-mongo-sanitize`. 58 API test files, 511 tests; 74
+files and 621 tests across the monorepo, all passing, with `pnpm lint`,
+`pnpm typecheck` and a full `pnpm build` clean.
 
-### Phase 1 — infra and schema — DONE 2026-08-27
+### Bugs this actually found
 
-- [x] Prisma CLI and client both pinned to 7.10.0. `npx prisma` resolves an
-      8.0.0 release candidate; always `pnpm --filter api exec prisma`.
-- [x] `apps/api/prisma/schema.prisma` — all 22 models, validating.
-- [x] `apps/api/prisma.config.ts`.
-- [x] `DATABASE_URL` — now **required**, not optional. Mongo is going, and an
-      API that cannot reach its database should refuse to boot.
-- [x] **Unblocked without the superuser password.** The owner chose the compose
-      `postgres:18` service over the native install, published on host port
-      **5433** because a native PostgreSQL 18 already holds 5432. Docker
-      Desktop had to be started; `pnpm db:setup` was never needed.
-- [x] **Fixed a compose bug nobody had hit**: the phase-1 file mounted the
-      volume at `/var/lib/postgresql/data`, which makes a `postgres:18`
-      container refuse to boot — 18+ stores data under a major-version
-      subdirectory. It had never been started, so nobody knew.
-- [x] `prisma migrate dev --name init` applied. Four migrations exist now.
-- [x] Driver adapter added (`@prisma/adapter-pg`, `pg`, `@types/pg`) —
-      owner-confirmed. Prisma 7's client cannot connect without one.
+Worth reading before the next schema change: every one of these was silent,
+and most were introduced by the translation itself rather than found in the
+old code.
 
-### Phase 2 — swap the data layer — IN PROGRESS (about 40% of the API)
+- **28 test files could not even be imported.** The P10.S5 codemod wrote
+  `../../../config/testDb.js` regardless of a file's depth. Vitest reports
+  that as a failed *suite*, not a failed test — a run looked like 56 red
+  files with 4 red assertions, and the other 52 never executed a line. The
+  same codemod also replaced auditLog.test.ts's own `listen` with
+  `startTestServer()`, which boots the real app, so every route it tested
+  404'd.
+- **Engine displacement was truncating.** Litres (1.3) into an `Int`
+  column: every seeded engine stored 1. Nothing failed — the seed is in
+  litres, the wire schema accepts any number, PostgreSQL truncates.
+- **The catalog seed was not idempotent.** It pairs templates with
+  `flatModels[i % length]` and that query had no `orderBy`; PostgreSQL
+  returned a different order on the second run, so 320 products became 640.
+  Mongo's natural `_id` order was stable by accident.
+- **Cart identity lost its uniqueness.** Mongo had a sparse unique index on
+  `userId`/`anonId`; the schema translation made it a plain index, so "one
+  cart per identity" was something the code hoped for. Restored as nullable
+  uniques (migration 20260828204500).
+- **Shipping bands had a unique they cannot have.** A plain unique counts
+  tombstoned rows, so deleting a band made it uncreatable forever. Dropped
+  for a plain index; `assertNoOverlap` is stricter anyway (20260828205500).
+- **The duplicate-key handler stopped working.** middleware/error.ts still
+  matched Mongo's `{ code: 11000 }`, so every unique-constraint violation in
+  the app answered 500 instead of 400 from the first migrated module onward.
+- **Two id validators were missed by the UUID sweep**, both in
+  modules/feedback, because they spelled the 24-hex regex out inline
+  instead of importing the shared schema. Every moderation call would have
+  been rejected with a 400. `packages/schemas`' own vehicleKey test had the
+  same problem and had been failing unnoticed.
+- **`verifyOtp` counted failed attempts with read-modify-write**, so two
+  racing attempts could each read the same value and let a sixth try
+  through the five-try lockout. Now `increment`.
 
-**Done and verified against the live database:**
+### What the move bought
 
-- Soft-delete client extension (`config/prisma.ts`), deriving the
-  soft-deletable model list from Prisma's own DMMF so a new model carrying
-  `deletedAt` cannot be forgotten. `ANY_STATE` and `stateFilter()` live there
-  too. **Known gap, documented: extensions do not reach nested relation reads**,
-  so every `include`/`select` of a soft-deletable relation states
-  `deletedAt: null` itself.
-- One shared `idSchema` (uuid) replacing the 24-hex regex in **27** files, and
-  one shared `localizedNameSchema`.
-- `paginate()` and `cursorPaginate()` on Prisma. Two behaviour notes in the
-  code: unknown `?sort=` fields are dropped rather than thrown (Prisma throws
-  where Mongo ignored — otherwise `?sort=garbage` is a 500), and `id` is
-  appended as a tiebreaker so a page boundary inside equal sort values is
-  deterministic.
-- Test isolation rebuilt: one shared migrated database plus `resetDb()`, with
-  `fileParallelism: false`. Per-file throwaway databases do not port.
-- **Modules migrated:** geo, vehicles (public + admin + usage counters),
-  catalog taxonomy (categories, brands, attributes, catalogUsage), product read
-  path (pricing/DTO mappers, productFilter, products.service + controller),
-  search (provider, service, controller).
-- **Seeds migrated:** geo, vehicles, catalog. 320 products and 320 fitments
-  seed clean and idempotently.
-- **Search rewritten on Postgres**: `Product.searchVector`, a `GENERATED
-  ALWAYS ... STORED` tsvector with a GIN index, plus a substring branch and an
-  OEM-exact branch. `MongoSearchProvider` is deleted.
-- CI runs `postgres:18` and applies migrations; the mongo service is gone.
+- **Real transactions.** `adjustStock` used to carry a comment admitting
+  its audit row could be lost, because multi-document transactions need a
+  replica set and this project's MongoDB was not one. Stock+audit,
+  reservation+decrement, order+payment, and payment settlement
+  (payment+status+history) are each one transaction now.
+- **Referential integrity.** A fitment can no longer name a make that does
+  not exist; an order line cannot point at a deleted product. Most of the
+  test-fixture churn in P10.S19 was exactly this being enforced.
+- **Two column-to-column comparisons** (`usedCount < usageLimit`,
+  `stock <= lowStockAt`) became field references instead of `$expr`, and
+  every hand-escaped `$regex` became a bound `contains`/`startsWith`.
 
-**Three real bugs found and fixed, all of the same shape** — a Prisma enum
-member cannot contain a hyphen, so `CatalogSystemCode`, `SupplyRoute` and
-`InventoryMoveReason` would each have stored underscored values while the whole
-application spoke hyphenated ones, converted nowhere, with no type error
-anywhere. All three are `@map`ped; the PostgreSQL labels were read back to
-confirm. `utils/serialize.ts` holds the only bridge.
+### Things to know when working on this
 
-**Still on Mongoose — 34 source files, 57 test files:**
-
-fitment · cart · checkout · orders · payments · coupons · shipping · inventory ·
-wishlist · feedback · addresses · auth · users · audit · dashboard · reports ·
-products.admin · products.import · `utils/auditLog.ts` · `middleware/rbac.ts` ·
-`config/db.ts` · both `scripts/*` · seeds for shipping, staff and visualCatalog.
-
-**Next, in dependency order:** fitment (productFilter already calls it) → auth
-and users → cart → checkout and orders → payments → coupons → shipping →
-inventory → wishlist → feedback → addresses → audit → reports and dashboard →
-products.admin and products.import.
-
-**Watch for, in the modules not yet touched:**
-- The two Mongo TTL indexes (`OtpToken.expiresAt`, `StockReservation.expiresAt`)
-  have no Postgres equivalent. The cron jobs must take over the sweep or
-  expired rows accumulate forever. **Not yet done.**
-- `checkout`/`inventory` lean on Mongo semantics for stock reservation.
-  Postgres offers real transactions; taking them means rewriting, not porting.
-- `dashboard` and `reports` are aggregation pipelines, the least mechanical
-  translation left.
-
-### Phase 3 — remove Mongo — NOT STARTED
-
-Delete `src/models/` (22 models plus their 16 unit tests, which test Mongoose
-schema behaviour that no longer exists), drop `mongoose` and
-`express-mongo-sanitize`, delete `config/db.ts` and `config/testDbUri.ts`,
-retire the Mongo branch of `scripts/dev-db.mjs` (**already done**), update
-`docs/db-indexes.md`, and update masterPlan §4's manifest, which still lists
-mongoose and does not list Prisma.
+- **The generated-column false drift.** `prisma migrate diff` emits
+  `ALTER TABLE "Product" ALTER COLUMN "searchVector" DROP DEFAULT;` on
+  every diff, forever. That statement fails (42601). Delete it from any
+  generated migration before applying. It is the only false drift.
+- **Hyphenated enum values.** A Prisma enum member cannot contain a hyphen,
+  so `CatalogSystemCode`, `SupplyRoute` and `InventoryMoveReason` are
+  `@map`ped and `utils/serialize.ts` is the only bridge. The failure mode is
+  silent: the database stores one spelling, the app speaks the other, and
+  nothing type-errors.
+- **The soft-delete extension does not reach nested reads.** Every
+  `include`/`select` of a soft-deletable relation states `deletedAt` itself.
+  Sometimes that blind spot is what you want (the admin fitment table wants
+  to show a deleted generation's name); usually it is not.
+- **Two aggregations are raw SQL** — revenue per day and revenue per
+  product — because both group by an expression. The extension cannot see
+  into `$queryRaw`, so those two spell `"deletedAt" IS NULL` out themselves.
+- **`pnpm test` prints a pg deprecation warning** ("Calling client.query()
+  when the client is already executing a query"). It comes from the driver
+  adapter, results are correct, and it is worth revisiting when `pg@9`
+  lands rather than chasing now.
 
 ## Superseded — the original deferred note
 
