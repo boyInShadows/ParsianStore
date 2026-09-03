@@ -1,5 +1,5 @@
 import { CATALOG_SYSTEMS, type CatalogSystemCode } from "schemas";
-import { HERO_LAYERS, type HeroLayer } from "./heroLayout";
+import { HERO_ENGINE_CHAPTER, HERO_ENGINE_PARTS, HERO_LAYERS, type HeroLayer } from "./heroLayout";
 
 /**
  * The parts manifest: the numbered list a workshop manual prints beside its
@@ -31,14 +31,15 @@ import { HERO_LAYERS, type HeroLayer } from "./heroLayout";
  * glass (شیشه بغل جلو) sits inside `body-exterior`, and there is no
  * `/c/glass`. The sprite still undocks in chapter 3; it simply gets no row.
  *
- * **Piston, alternator and air filter** are absent because they are not in
- * the scene. §2.1 gives them chapter 2, but `HERO_LAYERS` has exactly one
- * chapter-2 layer (the hood) -- the three engine cutouts P9.S5 planned were
- * never docked, though `public/landing/cutouts/` ships all three optimized.
- * Adding them is scene work with dock calibration, not a data edit, so it is
- * not this step's to do. It is also the difference between a manifest that
- * spreads across four systems and this one, where five of six rows lead to
- * `/c/body-exterior`. Raised with the owner at the S2/S3 boundary.
+ * That leaves nine rows across four systems. Six of them were all there was at
+ * P12.S2: §2.1 gives piston, alternator and air filter to chapter 2, but the
+ * scene had exactly one chapter-2 layer, the hood -- P9.S5 planned the three
+ * engine cutouts and never docked them. P12.S3 put them in the bay
+ * (`HERO_ENGINE_PARTS`), and because rows are derived from the scene they
+ * appeared here on their own. Without them, five of six rows led to
+ * `/c/body-exterior`; with them the manifest reaches engine, electrical and
+ * filters too, which is what "by the end of the hero the manifest is the store"
+ * was asking for.
  *
  * ## Why rows are derived from HERO_LAYERS rather than listed
  *
@@ -62,8 +63,14 @@ import { HERO_LAYERS, type HeroLayer } from "./heroLayout";
 export type ManifestPart = {
   readonly id: string;
   readonly layerIds: readonly string[];
-  /** Asset under `/landing/hero/`, for the row's thumbnail (S3). */
+  /** Manifest name of the asset used for the row's thumbnail. */
   readonly asset: string;
+  /**
+   * Which pipeline group that asset lives in. The car's own panels are hero
+   * sprites cut from the render; the engine internals are catalogue product
+   * shots in `hero-parts`, so the two are fetched from different directories.
+   */
+  readonly assetGroup: "hero" | "hero-parts";
   /** The catalogue system this part is sold under. */
   readonly system: CatalogSystemCode;
   /** Key under `Landing.manifest.parts` in the locale files. */
@@ -99,6 +106,7 @@ const PARTS: readonly ManifestPart[] = [
     id: "headlights",
     layerIds: ["lamp-far", "lamp-near"],
     asset: "sprite-headlights",
+    assetGroup: "hero",
     system: "SYS-05",
     nameKey: "headlights",
   },
@@ -106,6 +114,7 @@ const PARTS: readonly ManifestPart[] = [
     id: "grille",
     layerIds: ["grille"],
     asset: "sprite-grille",
+    assetGroup: "hero",
     system: "SYS-06",
     nameKey: "grille",
   },
@@ -113,6 +122,7 @@ const PARTS: readonly ManifestPart[] = [
     id: "bumper",
     layerIds: ["bumper"],
     asset: "sprite-bumper",
+    assetGroup: "hero",
     system: "SYS-06",
     nameKey: "bumper",
   },
@@ -120,6 +130,7 @@ const PARTS: readonly ManifestPart[] = [
     id: "hood",
     layerIds: ["hood"],
     asset: "sprite-hood",
+    assetGroup: "hero",
     system: "SYS-06",
     nameKey: "hood",
   },
@@ -127,6 +138,7 @@ const PARTS: readonly ManifestPart[] = [
     id: "fender",
     layerIds: ["fender"],
     asset: "sprite-fender",
+    assetGroup: "hero",
     system: "SYS-06",
     nameKey: "fender",
   },
@@ -134,8 +146,33 @@ const PARTS: readonly ManifestPart[] = [
     id: "door",
     layerIds: ["door"],
     asset: "sprite-door",
+    assetGroup: "hero",
     system: "SYS-06",
     nameKey: "door",
+  },
+  {
+    id: "air-filter",
+    layerIds: ["air-filter"],
+    asset: "air-filter",
+    assetGroup: "hero-parts",
+    system: "SYS-10",
+    nameKey: "airFilter",
+  },
+  {
+    id: "piston",
+    layerIds: ["piston"],
+    asset: "piston",
+    assetGroup: "hero-parts",
+    system: "SYS-01",
+    nameKey: "piston",
+  },
+  {
+    id: "alternator",
+    layerIds: ["alternator"],
+    asset: "alternator",
+    assetGroup: "hero-parts",
+    system: "SYS-05",
+    nameKey: "alternator",
   },
 ];
 
@@ -152,8 +189,23 @@ export type ManifestEntry = ManifestPart & {
 };
 
 const systemByCode = new Map(CATALOG_SYSTEMS.map((system) => [system.code, system]));
-const layerById = new Map(HERO_LAYERS.map((layer) => [layer.id, layer]));
-const paintOrder = new Map(HERO_LAYERS.map((layer, index) => [layer.id, index]));
+
+/**
+ * Everything in the scene a row can point at, in reading order.
+ *
+ * Panels first, then the internals they cover, which is the order the beat
+ * happens in: the hood opens, and what was under it comes out. That is the
+ * reverse of the paint order -- the engine parts are drawn *beneath* the hood
+ * so a closed car is closed -- and the two are allowed to disagree, because one
+ * is about depth and this one is about how the list reads.
+ */
+const SCENE: readonly { readonly id: string; readonly chapter: HeroLayer["chapter"] }[] = [
+  ...HERO_LAYERS.map((layer) => ({ id: layer.id, chapter: layer.chapter })),
+  ...HERO_ENGINE_PARTS.map((part) => ({ id: part.id, chapter: HERO_ENGINE_CHAPTER })),
+];
+
+const layerById = new Map(SCENE.map((layer) => [layer.id, layer]));
+const paintOrder = new Map(SCENE.map((layer, index) => [layer.id, index]));
 
 /**
  * The manifest, in the order the parts check in: chapter first, then the

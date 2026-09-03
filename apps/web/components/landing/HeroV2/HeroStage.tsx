@@ -8,13 +8,25 @@ import {
   CHAPTER_RANGE,
   HERO_BASE_ASSET,
   HERO_CANVAS,
+  HERO_ENGINE_CHAPTER,
+  HERO_ENGINE_PARTS,
   HERO_FRAME_WIDTH_PCT,
   HERO_LAYERS,
   HERO_PERSPECTIVE_CQW,
   type HeroClip,
   type HeroDock,
+  type HeroEnginePart,
   type HeroLayer,
+  type HeroPartPlacement,
 } from "./heroLayout";
+
+/**
+ * The engine parts' own stacking level: above the base car (1), below every
+ * sprite. That ordering is the whole trick of the beat -- the docked hood
+ * covers the bay completely, so the page still opens with a closed car, and the
+ * parts are revealed by the hood leaving rather than by fading in.
+ */
+const ENGINE_PART_Z = 2;
 
 type Props = {
   /** Accessible name for the whole diagram. */
@@ -89,7 +101,28 @@ function layerStyle(box: ReturnType<typeof place>, layer: HeroLayer, index: numb
     width: pct(box.width),
     height: "auto" as const,
     clipPath: clipFor(layer.clip),
-    zIndex: index + 2,
+    zIndex: index + ENGINE_PART_Z + 1,
+  };
+}
+
+/**
+ * Where an engine part's box lands, from its placement and its own aspect ratio.
+ *
+ * Deliberately not `place()`. That function starts from `asset.trim` -- the
+ * coordinate the part was cut from -- and a catalogue product shot has no such
+ * coordinate to start from, so it throws for exactly these assets. Here the
+ * placement *is* the position.
+ */
+function placePart(assetName: string, placement: HeroPartPlacement) {
+  const asset = landingAsset(`/landing/hero-parts/${assetName}`);
+  const height = placement.height;
+  const width = height * (asset.intrinsic.width / asset.intrinsic.height);
+  return {
+    asset,
+    width,
+    height,
+    left: placement.cx - width / 2,
+    top: placement.cy - height / 2,
   };
 }
 
@@ -154,6 +187,73 @@ function PartLayer({
       {...layerImageProps(box)}
       className="absolute"
       style={{ ...layerStyle(box, layer, index), x, y, scale, rotateX, rotateY, rotateZ }}
+    />
+  );
+}
+
+/**
+ * An engine part rising out of the bay, on the hood's own beat.
+ *
+ * Same out-and-back shape as `PartLayer`, minus the rotations: a hero sprite
+ * carries a dock rotation that unwinds as it leaves, because it was calibrated
+ * to sit on a car photographed at an angle. These were never seated on the car
+ * at all, so there is nothing to unwind.
+ */
+function EnginePartLayer({
+  part,
+  progress,
+}: {
+  part: HeroEnginePart;
+  progress: MotionValue<number>;
+}) {
+  const box = placePart(part.asset, part.place);
+  const [from, to] = CHAPTER_RANGE[HERO_ENGINE_CHAPTER];
+  const peak = from + (to - from) * CHAPTER_PEAK;
+  const beat = [from, peak, to];
+  const lift = (value: number) => ["0%", `${value.toFixed(2)}%`, "0%"];
+
+  const x = useTransform(progress, beat, lift((part.undock.dx / box.width) * 100));
+  const y = useTransform(progress, beat, lift((part.undock.dy / box.height) * 100));
+  const scale = useTransform(progress, beat, [1, part.undock.scale, 1]);
+
+  return (
+    <motion.img
+      {...layerImageProps(box)}
+      className="absolute"
+      style={{
+        insetInlineStart: pct(box.left),
+        top: pct(box.top),
+        width: pct(box.width),
+        height: "auto",
+        zIndex: ENGINE_PART_Z,
+        x,
+        y,
+        scale,
+      }}
+    />
+  );
+}
+
+/**
+ * The docked engine part: under a closed hood, and therefore invisible.
+ *
+ * It is still rendered rather than skipped. Reduced motion gets the same DOM as
+ * everyone else, so nothing depends on which branch ran, and the hood is what
+ * hides it -- exactly as it does for a visitor who simply has not scrolled yet.
+ */
+function DockedEnginePart({ part }: { part: HeroEnginePart }) {
+  const box = placePart(part.asset, part.place);
+  return (
+    <img
+      {...layerImageProps(box)}
+      className="absolute"
+      style={{
+        insetInlineStart: pct(box.left),
+        top: pct(box.top),
+        width: pct(box.width),
+        height: "auto",
+        zIndex: ENGINE_PART_Z,
+      }}
     />
   );
 }
@@ -256,6 +356,13 @@ export function HeroStage({ label, carAlt, hint }: Props) {
                 zIndex: 1,
               }}
             />
+            {HERO_ENGINE_PARTS.map((part) =>
+              reduceMotion ? (
+                <DockedEnginePart key={part.id} part={part} />
+              ) : (
+                <EnginePartLayer key={part.id} part={part} progress={scrollYProgress} />
+              ),
+            )}
             {HERO_LAYERS.map((layer, index) =>
               reduceMotion ? (
                 <DockedLayer key={layer.id} layer={layer} index={index} />

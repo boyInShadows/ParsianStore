@@ -5,13 +5,14 @@ import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
 import { CATALOG_SYSTEMS } from "schemas";
-import { HERO_LAYERS } from "./heroLayout.js";
+import { HERO_BAY, HERO_ENGINE_CHAPTER, HERO_ENGINE_PARTS, HERO_LAYERS } from "./heroLayout.js";
 import {
   MANIFEST_EXCLUDED_LAYERS,
   manifestByChapter,
   manifestEntries,
   manifestPartByLayerId,
 } from "./manifestData.js";
+import { landingAsset } from "../../../lib/landing-image.js";
 
 /**
  * fableTasks2 §S2 names one risk for this step -- "route drift: assert at
@@ -30,6 +31,17 @@ const MESSAGES = JSON.parse(
     "utf8",
   ),
 ) as { Landing: { manifest: Record<string, unknown> } };
+
+/**
+ * Every layer a row is allowed to name: the car's own sprites plus the engine
+ * parts under the hood. Built the same way `manifestData.ts` builds it, because
+ * a test that knew about only half the scene is exactly how the chapter check
+ * started passing for six rows and breaking on the seventh.
+ */
+const SCENE = [
+  ...HERO_LAYERS.map((layer) => ({ id: layer.id, chapter: layer.chapter })),
+  ...HERO_ENGINE_PARTS.map((part) => ({ id: part.id, chapter: HERO_ENGINE_CHAPTER })),
+];
 
 const manifestStrings = MESSAGES.Landing.manifest;
 const partStrings = manifestStrings.parts as Record<string, string>;
@@ -70,7 +82,7 @@ describe("parts manifest data (P12.S2)", () => {
     const mapped = new Set(manifestEntries().flatMap((entry) => entry.layerIds));
     const excluded = new Set(Object.keys(MANIFEST_EXCLUDED_LAYERS));
 
-    for (const layer of HERO_LAYERS) {
+    for (const layer of SCENE) {
       const accounted = mapped.has(layer.id) || excluded.has(layer.id);
       expect(
         accounted,
@@ -82,7 +94,7 @@ describe("parts manifest data (P12.S2)", () => {
   });
 
   it("excludes only layers that are really in the scene", () => {
-    const layerIds = new Set(HERO_LAYERS.map((layer) => layer.id));
+    const layerIds = new Set(SCENE.map((layer) => layer.id));
     for (const [id, reason] of Object.entries(MANIFEST_EXCLUDED_LAYERS)) {
       expect(layerIds, `"${id}" is excluded but no longer exists`).toContain(id);
       expect(reason.length).toBeGreaterThan(20);
@@ -125,11 +137,52 @@ describe("parts manifest data (P12.S2)", () => {
   });
 
   it("keeps each part inside a single chapter", () => {
-    const layerChapter = new Map(HERO_LAYERS.map((layer) => [layer.id, layer.chapter]));
+    const layerChapter = new Map(SCENE.map((layer) => [layer.id, layer.chapter]));
     for (const entry of manifestEntries()) {
       for (const layerId of entry.layerIds) {
         expect(layerChapter.get(layerId), `${entry.id} spans chapters`).toBe(entry.chapter);
       }
+    }
+  });
+
+  // The beat only works if a closed car is closed. The hood's docked box is the
+  // bay, so anything that is supposed to be hidden under it has to be inside
+  // that box -- a part poking out would be visible before the visitor scrolls,
+  // and the hero's whole premise is that the car arrives whole.
+  it("hides every engine part inside the bay the hood covers", () => {
+    for (const part of HERO_ENGINE_PARTS) {
+      const asset = landingAsset(`/landing/hero-parts/${part.asset}`);
+      const width = part.place.height * (asset.intrinsic.width / asset.intrinsic.height);
+      const box = {
+        left: part.place.cx - width / 2,
+        right: part.place.cx + width / 2,
+        top: part.place.cy - part.place.height / 2,
+        bottom: part.place.cy + part.place.height / 2,
+      };
+      expect(box.left, `${part.id} sticks out past the front of the bay`).toBeGreaterThanOrEqual(
+        HERO_BAY.left,
+      );
+      expect(box.right, `${part.id} sticks out past the back of the bay`).toBeLessThanOrEqual(
+        HERO_BAY.right,
+      );
+      expect(box.top, `${part.id} sticks out above the bay`).toBeGreaterThanOrEqual(HERO_BAY.top);
+      expect(box.bottom, `${part.id} sticks out below the bay`).toBeLessThanOrEqual(
+        HERO_BAY.bottom,
+      );
+    }
+  });
+
+  // The parts travel down, into the clear band under the car, because the
+  // lifted hood already owns the band above it. If an undock ever sent one back
+  // up there it would vanish behind the hood, which is what the first attempt
+  // did to the alternator.
+  it("sends every engine part clear of the car rather than behind the hood", () => {
+    for (const part of HERO_ENGINE_PARTS) {
+      expect(part.undock.dy, `${part.id} travels up into the hood's space`).toBeGreaterThan(0);
+      expect(
+        part.place.cy + part.undock.dy,
+        `${part.id} stops before it clears the car body`,
+      ).toBeGreaterThan(700);
     }
   });
 

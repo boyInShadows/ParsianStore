@@ -24,6 +24,7 @@ function allEntries(): { group: string; entry: Entry }[] {
   return [
     ...manifest.cutouts.map((entry) => ({ group: "cutouts", entry: entry as Entry })),
     ...manifest.hero.map((entry) => ({ group: "hero", entry: entry as Entry })),
+    ...manifest["hero-parts"].map((entry) => ({ group: "hero-parts", entry: entry as Entry })),
     ...manifest.plates.map((entry) => ({ group: "plates", entry: entry as Entry })),
     ...manifest.video.map((clip) => ({ group: "video", entry: clip.poster as Entry })),
   ];
@@ -36,7 +37,13 @@ describe("landing-assets.json", () => {
     // A hand-edit or a partial pipeline run is otherwise invisible until a
     // component throws at render time, which on a Server Component means the
     // whole section disappears rather than one image breaking.
-    expect(Object.keys(manifest).sort()).toEqual(["cutouts", "hero", "plates", "video"]);
+    expect(Object.keys(manifest).sort()).toEqual([
+      "cutouts",
+      "hero",
+      "hero-parts",
+      "plates",
+      "video",
+    ]);
     for (const { entry } of allEntries()) {
       expect(entry.name.length, "name").toBeGreaterThan(0);
       expect(isPositiveInt(entry.intrinsic.width), `${entry.name} intrinsic.width`).toBe(true);
@@ -44,7 +51,7 @@ describe("landing-assets.json", () => {
       expect(typeof entry.hasAlpha, `${entry.name} hasAlpha`).toBe("boolean");
       expect(typeof entry.mirrored, `${entry.name} mirrored`).toBe("boolean");
       // Present on every group, `null` where the pipeline does not trim -- one
-      // shape for all four groups keeps the reader free of special cases.
+      // shape for all five groups keeps the reader free of special cases.
       expect("trim" in entry, `${entry.name} trim`).toBe(true);
       if (entry.trim !== null) {
         expect(isPositiveInt(entry.trim.canvas.width), `${entry.name} canvas`).toBe(true);

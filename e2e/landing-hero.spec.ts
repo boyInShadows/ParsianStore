@@ -37,9 +37,10 @@ test("the diagram exposes exactly the layers the layout declares", async ({ page
   const stage = page.locator(".hero-stage");
   await expect(stage).toHaveAttribute("role", "group");
   // 1 stripped base + 8 docked layers (7 sprites, the headlights render placed
-  // twice and clipped to one lamp each). A missing render would show up here as
-  // a short count rather than as a silently broken image.
-  await expect(stage.locator("img")).toHaveCount(9);
+  // twice and clipped to one lamp each) + 3 engine parts under the hood
+  // (P12.S3). A missing render would show up here as a short count rather than
+  // as a silently broken image.
+  await expect(stage.locator("img")).toHaveCount(12);
 });
 
 test("the diagram is pinned LTR so the dock does not mirror under RTL", async ({ page }) => {
@@ -72,7 +73,10 @@ test("the hero serves the pre-built AVIF set, not the request-time optimizer", a
     .locator(".hero-stage img")
     .evaluateAll((images) => images.map((image) => (image as HTMLImageElement).currentSrc));
   for (const source of sources) {
-    expect(source).toMatch(/\/landing\/hero\/[a-z-]+-\d+\.avif$/);
+    // Two directories, one rule: the car's own panels come from `hero`, the
+    // engine internals from `hero-parts`. Both are pipeline output, and neither
+    // may fall through to the request-time optimizer.
+    expect(source).toMatch(/\/landing\/hero(-parts)?\/[a-z-]+-\d+\.avif$/);
     expect(source).not.toContain("/_next/image");
   }
 });
@@ -163,7 +167,11 @@ test("reduced motion still shows a whole car, docked", async ({ browser }) => {
         box.top < base.bottom,
     );
   });
-  expect(overlaps.length).toBe(8);
+  // 8 sprites + 3 engine parts. The engine parts are the strictest case of the
+  // rule rather than an exception to it: they sit inside the bay the hood
+  // covers, so if a transform ever moved them at rest they would not merely
+  // scatter, they would appear -- out of a car that is supposed to be closed.
+  expect(overlaps.length).toBe(11);
   expect(overlaps.every(Boolean)).toBe(true);
 
   await context.close();

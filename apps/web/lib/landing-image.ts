@@ -44,6 +44,13 @@ export type LandingAsset = {
    * pipeline trims to a bounding box. `null` for every untrimmed group -- the
    * 2048² cutouts keep their transparent padding, because `heroLayout.ts`
    * positions them by their centre.
+   *
+   * Trimmed does not imply *registered*. The `hero` sprites were cut from the
+   * car render, so their trim box is a real coordinate in that frame and
+   * `heroLayout.ts` draws them at it. The `hero-parts` group is trimmed only to
+   * get a tight box and an honest aspect ratio: an alternator was never at any
+   * particular place in the car render, so its trim box says nothing about
+   * where it belongs and that group is placed explicitly instead.
    */
   readonly trim: LandingTrim | null;
 };
@@ -71,6 +78,7 @@ function toAsset(group: string, raw: ManifestEntry): readonly [string, LandingAs
 const ASSETS: ReadonlyMap<string, LandingAsset> = new Map([
   ...manifest.cutouts.map((asset) => toAsset("cutouts", asset)),
   ...manifest.hero.map((asset) => toAsset("hero", asset)),
+  ...manifest["hero-parts"].map((asset) => toAsset("hero-parts", asset)),
   ...manifest.plates.map((asset) => toAsset("plates", asset)),
   ...manifest.video.map((clip) => toAsset("video", clip.poster)),
 ]);

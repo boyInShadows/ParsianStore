@@ -202,6 +202,103 @@ export const HERO_LAYERS: readonly HeroLayer[] = [
 ];
 
 /**
+ * Where an engine-bay part sits on the canvas.
+ *
+ * Placed, not registered -- and that is the whole difference between this type
+ * and `HeroDock`. A hero sprite was cut out of the car render, so its trim box
+ * is a real coordinate in that frame and a dock is only a *correction* to it.
+ * An alternator was never anywhere in that render: it is a catalogue product
+ * shot, so there is no native position to correct and the only honest thing to
+ * write is where it goes.
+ *
+ * Height rather than scale, for the same reason. `scale` is meaningful against
+ * an intrinsic size that came from the car; these three came from 2048² product
+ * frames trimmed to wildly different boxes (215x528 for the piston, 497x297 for
+ * the air filter), so a shared scale would size them at random. A canvas height
+ * says how tall the part stands in the bay, and the width follows from the
+ * asset's own aspect ratio, so nothing is ever distorted.
+ */
+export type HeroPartPlacement = {
+  /** Centre of the part on the 1024² canvas. */
+  readonly cx: number;
+  readonly cy: number;
+  /** How tall it stands, in canvas pixels. Width follows the aspect ratio. */
+  readonly height: number;
+};
+
+export type HeroEnginePart = {
+  readonly id: string;
+  /** Manifest name under `/landing/hero-parts/`. */
+  readonly asset: string;
+  readonly place: HeroPartPlacement;
+  readonly undock: HeroUndock;
+};
+
+/**
+ * The engine bay, in canvas pixels: exactly the box the docked hood covers.
+ *
+ * Derived once from the shipped registration rather than eyeballed -- the hood
+ * sprite trims to 737x208 at (142, 412) and docks at scale 0.66 with
+ * dx -130 / dy -95, which puts its box at 137,352 -> 624,490. Anything the hood
+ * is supposed to hide has to sit inside that, and `heroLayout.test.ts` checks
+ * that every part does.
+ */
+export const HERO_BAY = { left: 137, top: 352, right: 624, bottom: 490 } as const;
+
+/**
+ * The three parts that live under the hood (fableTasks2 §2.1's chapter 2).
+ *
+ * They are painted between the base and the sprites, so at rest the hood covers
+ * them completely and the car still opens as a closed, whole car. Chapter 2
+ * lifts the hood up and back, which uncovers them, and they rise out of the bay
+ * on the same beat.
+ *
+ * Sizes are catalogue-legible rather than literally to scale: a real piston in
+ * a 490px bay would be a smudge, and the point of the beat is that a visitor
+ * can name what they are looking at. They stay small enough to read as bay
+ * internals and large enough to be identifiable at 360px.
+ *
+ * They travel DOWN, and the hood goes up. That was not the first attempt: the
+ * obvious reading of "the parts rise" put all three in the band above the car,
+ * where the lifted hood already is. Rendered, the alternator was completely
+ * behind the hood -- both of them move toward the rear, so they arrive in the
+ * same place -- and the other two were pinched into the 38px of clear air
+ * between the hood's underside and the bay. The stage's geometry is the reason:
+ * the car occupies canvas rows 333-700 of a visible 130-894, so there are two
+ * clear bands, and at its peak the hood covers most of the upper one. The lower
+ * band is 194px of nothing.
+ *
+ * So the bay opens in two directions, which is also how a workshop manual draws
+ * one: the panel lifts off, the internals displace along an axis, and nothing
+ * overlaps anything. The slight fan (air filter forward, alternator back) keeps
+ * three parts falling on one beat from reading as a single object with three
+ * lumps.
+ */
+export const HERO_ENGINE_PARTS: readonly HeroEnginePart[] = [
+  {
+    id: "air-filter",
+    asset: "air-filter",
+    place: { cx: 260, cy: 425, height: 55 },
+    undock: { dx: -30, dy: 340, scale: 1.12 },
+  },
+  {
+    id: "piston",
+    asset: "piston",
+    place: { cx: 380, cy: 420, height: 105 },
+    undock: { dx: 0, dy: 350, scale: 1.12 },
+  },
+  {
+    id: "alternator",
+    asset: "alternator",
+    place: { cx: 500, cy: 425, height: 78 },
+    undock: { dx: 30, dy: 340, scale: 1.12 },
+  },
+];
+
+/** Every engine part rides chapter 2, with the hood that uncovers them. */
+export const HERO_ENGINE_CHAPTER: HeroLayer["chapter"] = 2;
+
+/**
  * Scroll ranges per chapter, as a fraction of the hero's own scroll distance.
  *
  * **Sequential, not overlapping, and each chapter returns to zero before the

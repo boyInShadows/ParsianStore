@@ -587,6 +587,107 @@
       ]
     }
   ],
+  "hero-parts": [
+    {
+      "name": "air-filter",
+      "intrinsic": {
+        "width": 497,
+        "height": 297
+      },
+      "hasAlpha": true,
+      "mirrored": false,
+      "trim": {
+        "canvas": {
+          "width": 640,
+          "height": 640
+        },
+        "left": 72,
+        "top": 175
+      },
+      "variants": [
+        {
+          "width": 200,
+          "height": 120,
+          "avif": 3832,
+          "webp": 6546
+        },
+        {
+          "width": 320,
+          "height": 191,
+          "avif": 7296,
+          "webp": 12438
+        },
+        {
+          "width": 497,
+          "height": 297,
+          "avif": 14525,
+          "webp": 23310
+        }
+      ]
+    },
+    {
+      "name": "alternator",
+      "intrinsic": {
+        "width": 395,
+        "height": 434
+      },
+      "hasAlpha": true,
+      "mirrored": false,
+      "trim": {
+        "canvas": {
+          "width": 640,
+          "height": 640
+        },
+        "left": 123,
+        "top": 93
+      },
+      "variants": [
+        {
+          "width": 200,
+          "height": 220,
+          "avif": 7146,
+          "webp": 10776
+        },
+        {
+          "width": 320,
+          "height": 352,
+          "avif": 12469,
+          "webp": 20094
+        },
+        {
+          "width": 395,
+          "height": 434,
+          "avif": 16267,
+          "webp": 25734
+        }
+      ]
+    },
+    {
+      "name": "piston",
+      "intrinsic": {
+        "width": 215,
+        "height": 528
+      },
+      "hasAlpha": true,
+      "mirrored": false,
+      "trim": {
+        "canvas": {
+          "width": 640,
+          "height": 640
+        },
+        "left": 212,
+        "top": 62
+      },
+      "variants": [
+        {
+          "width": 215,
+          "height": 528,
+          "avif": 10165,
+          "webp": 17826
+        }
+      ]
+    }
+  ],
   "plates": [
     {
       "name": "plate-body",

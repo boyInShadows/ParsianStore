@@ -1023,37 +1023,82 @@ the drift for its own.
 
       Route JS unchanged at 198KB — nothing imports the module yet.
 
-      **OPEN — decides S3.** As it stands five of the six rows lead to
-      `/c/body-exterior`, because the catalogue's categories are flat (ten,
-      one per system) and five of the six parts are body panels. Fable's
-      "by the end of the hero the manifest is the store" wants the spread that
-      piston (engine), alternator (electrical) and air filter (filters-fluids)
-      would give it. Adding them is scene work — three docks to calibrate
-      against `pnpm check:hero` — not a data edit. Owner's call.
-- [ ] **P12.S3 — Manifest panel (desktop, flagged).** `PartsManifest.tsx`
+      **RESOLVED at S3.** Six rows meant five led to `/c/body-exterior`, because
+      the catalogue's categories are flat (ten, one per system) and five of the
+      six parts are body panels. Owner chose to put the three engine parts in
+      the scene rather than ship the thin version; because rows derive from
+      `HERO_LAYERS`, they appeared here on their own and the manifest is nine
+      rows across four systems.
+- [x] **P12.S3 — Engine parts into the bay.** ✅ 2026-09-03. Inserted after
+      S2 with owner approval: §2.1 assigns piston, alternator and air filter to
+      chapter 2, and the scene never had them. Piston → SYS-01 engine,
+      alternator → SYS-05 electrical, air filter → SYS-10 filters-fluids, so the
+      manifest now spans four systems instead of two.
+
+      **They are placed, not docked, and that distinction is the step.** A hero
+      sprite was cut out of the car render, so its trim box is a real coordinate
+      and `HeroDock` is only a *correction* to it. These three are catalogue
+      product shots — an alternator is nowhere in an exterior 3/4 render — so
+      there is no native position to correct. `HeroPartPlacement` says where the
+      part goes (canvas centre + height; width follows the asset's own aspect
+      ratio, since the three trim to 215×528, 497×297 and 395×434 and a shared
+      `scale` would size them at random).
+
+      **New `hero-parts` pipeline group**, deliberately not the `hero` one:
+      `check:hero` reads `landing-src/hero/sprite-*.png` and asks whether each
+      file reconstructs the source car, which these could never do. Masters are
+      downscaled to 640² before trimming because a trimmed source contributes
+      its own width as the top rung, and the 2048² cutouts would have made that
+      rung 1577px for a part that renders ~57 CSS px tall. Three assets, 40KB
+      AVIF total.
+
+      **The parts travel down; the hood goes up.** The obvious reading of "the
+      parts rise" was built first and rendered wrong: the alternator was
+      completely behind the lifted hood — both move rearward, so they arrive in
+      the same place — and the other two were pinched into the 38px between the
+      hood's underside and the bay. The car occupies canvas rows 333-700 of a
+      visible 130-894, so the hood's peak eats the upper band while the lower
+      one is 194px of nothing. The bay now opens in two directions, which is
+      also how a workshop manual draws one.
+
+      Painted between the base and the sprites, so the docked hood covers them
+      completely and the page still opens with a closed car — verified by the
+      nine landing screenshot baselines matching **unchanged**. Two new guards,
+      both mutation-checked: every part's docked box must sit inside
+      `HERO_BAY` (the hood's own footprint), and every undock must clear the car
+      body rather than travel back up into the hood's space.
+
+      Route JS 198KB, unchanged. `check:hero` is red — **and was already red on
+      a clean HEAD**, identical numbers (78.4% base, 36.8% composite, 7 of 7
+      scored as product shots). It reads `landing-src/hero/`, which this step
+      does not touch. It is a batch-evaluation tool rather than a gate, and the
+      shipped hero was hand-calibrated instead; worth its own look, not this
+      step's to fix.
+
+- [ ] **P12.S4 — Manifest panel (desktop, flagged).** `PartsManifest.tsx`
       behind `NEXT_PUBLIC_MANIFEST`: check-in choreography bound to the
       existing chapter progress, bidirectional row↔sprite highlight (Steel
       Blue only — this is navigation, never Marigold), 96px AVIF thumbs added
       to the S3 pipeline.
-- [ ] **P12.S4 — Manifest mobile + flip.** Chip rail under the stage below
+- [ ] **P12.S5 — Manifest mobile + flip.** Chip rail under the stage below
       1024px, same accumulate rule; flag on; budget re-measured.
-- [ ] **P12.S5 — Separation legibility.** Defect 2: re-tune chapter scroll
+- [ ] **P12.S6 — Separation legibility.** Defect 2: re-tune chapter scroll
       spans so each part holds its own beat (≳0.8s of natural scroll) instead
       of the group moving as one mass.
-- [ ] **P12.S6 — Best-sellers honesty upgrade.** Defect 3, agent half: the
+- [ ] **P12.S7 — Best-sellers honesty upgrade.** Defect 3, agent half: the
       missing-image state becomes a designed technical plate (line-glyph + SYS
       code on paper), unmistakably a diagram and never a fake photo; the rail
       prefers products that have photos. Real photos are the owner's half.
-- [ ] **P12.S7 — Evidence code format.** Defect 4: verification codes as a
+- [ ] **P12.S8 — Evidence code format.** Defect 4: verification codes as a
       short stamped `VER-XXXX-XXXX`, single line, `dir="ltr"`-isolated inside
       the RTL text, tabular mono.
-- [ ] **P12.S8 — Media verify pass.** Defects 5 + 7: confirm the `-rtl`
+- [ ] **P12.S9 — Media verify pass.** Defects 5 + 7: confirm the `-rtl`
       variants are what both shipped clips actually reference, and close any
       scrollable void below the footer. If the black tail was only the screen
       recording, say so and change nothing.
-- [ ] **P12.S9 — Brand wall treatment.** Defect 6, agent half: real type
+- [ ] **P12.S10 — Brand wall treatment.** Defect 6, agent half: real type
       treatment until real SVG marks arrive from the owner.
-- [ ] **P12.S10 — Regression + receipts.** Manifest links walked for 200s,
+- [ ] **P12.S11 — Regression + receipts.** Manifest links walked for 200s,
       empty-state snapshot, evidence-code single-line assertion, mirrored-video
       assertion; route JS + LCP re-measured into `docs/performance-landing.md`.
 

@@ -29,6 +29,13 @@ const MANIFEST = path.join(ROOT, "apps", "web", "lib", "landing-assets.json");
 // upscale: a width above the source is dropped rather than interpolated.
 const CUTOUT_WIDTHS = [480, 768, 1024, 1440];
 const HERO_WIDTHS = [480, 768, 1024, 1440];
+// The engine-bay parts (P12.S3) are the smallest things on the stage: one
+// standing 78 canvas pixels tall renders around 57 CSS pixels at 1440, so 320w
+// is already generous at 3x. Their masters are downscaled to 640 before
+// trimming for the same reason -- a trimmed source contributes its own width as
+// the top rung, and the 2048 cutouts they are cut from would have made that
+// rung 1577px for a thumbnail-sized part.
+const HERO_PART_WIDTHS = [200, 320];
 const PLATE_WIDTHS = [480, 768, 1024, 1376];
 const POSTER_WIDTHS = [768, 1024, 1440];
 
@@ -45,14 +52,20 @@ const VIDEO_CRF = 25;
 // two-thirds, empty third on the start side. Persian is RTL, so the shipped
 // default is the horizontally mirrored frame (fableTasks §3.3, owner-approved).
 // Cutouts are isolated subjects with no framing to mirror.
-const MIRRORED = { cutouts: false, hero: false, plates: true, video: true };
+const MIRRORED = { cutouts: false, hero: false, "hero-parts": false, plates: true, video: true };
 
 // Trimming is opt-in per group and must stay that way. The P9.S2 cutouts are
 // positioned by heroLayout.ts as 2048² frames with the subject centred inside
 // transparent padding — trimming those moves every part on the shipped hero.
 // The P9.S5 hero layers are the opposite case: fableTasks §3.2 needs tight
 // boxes so that a dock coordinate means something.
-const TRIMMED = { cutouts: false, hero: true, plates: false };
+// `hero-parts` trims like `hero`, for the same reason -- but it is deliberately
+// NOT part of the hero sprite set. `scripts/check-hero-registration.mjs` reads
+// `landing-src/hero/sprite-*.png` and asks whether each file reconstructs the
+// source car. An alternator appears nowhere in an exterior 3/4 render, so it
+// could never pass that check. It lives in its own group precisely so it is
+// never asked to.
+const TRIMMED = { cutouts: false, hero: true, "hero-parts": true, plates: false };
 
 // Fully transparent, threshold 0: keep every pixel that is not perfectly clear,
 // including the sub-0.2% antialiased halo. Anything looser shaves a pixel off
@@ -334,6 +347,9 @@ async function main() {
   console.log("hero (stripped base + docked sprites, trimmed to bounding box):");
   const hero = await emitGroup({ group: "hero", widths: HERO_WIDTHS });
 
+  console.log("hero-parts (engine-bay internals, trimmed to bounding box):");
+  const heroParts = await emitGroup({ group: "hero-parts", widths: HERO_PART_WIDTHS });
+
   console.log("plates (atmosphere, mirrored for RTL):");
   const plates = await emitGroup({ group: "plates", widths: PLATE_WIDTHS });
 
@@ -357,7 +373,7 @@ async function main() {
 
   await writeFile(
     MANIFEST,
-    `${JSON.stringify({ cutouts, hero, plates, video }, null, 2)}\n`,
+    `${JSON.stringify({ cutouts, hero, "hero-parts": heroParts, plates, video }, null, 2)}\n`,
     "utf8",
   );
 
