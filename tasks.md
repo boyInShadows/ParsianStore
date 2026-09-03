@@ -940,9 +940,48 @@ Hard walls for the whole phase, from the P9.S17 receipts: **route JS 189KB gz**
 (budget 180, already over) and **LCP 1.9s** (ceiling 2.0). No new dependency,
 no measurable route weight — the manifest's thumbnails are images, not JS.
 
-- [ ] **P12.S1 — Hero typography.** Defects 1 + 8: the headline sets with a
-      single-word orphan, and the plate-number marker is not anchored to the
-      headline block the way every other section's marker is.
+**The 189 is stale: the landing route measures 198KB gz today** (route Size
+9.23 → 9.97kB; shared chunks unchanged at 103KB). Found at S1, which measured
+the same 198 with its own diff stashed — so the 9KB arrived between P9.S17
+(2026-08-26) and now, from work that did not re-measure the landing route:
+P11.S3's form primitives and the three info pages are the candidates, and the
+landing's client leaves (`VehicleSelector`, `PartCodeSearch`) do pull the form
+primitives in. **The real wall this phase is defending is 198, not 189**, and
+it is 18KB over a 180KB budget rather than 9. Tracked down and attributed at
+S10, which owns the measurement pass; recorded here so no later step mistakes
+the drift for its own.
+
+- [x] **P12.S1 — Hero typography.** ✅ 2026-09-03. Both defects measured
+      before they were touched, by walking the h1's text with a Range and
+      grouping characters into visual lines — reading the string and guessing
+      where it breaks is the eyeballing this repo has been bitten by before.
+      At 1440px the headline set in **five** lines ending on the single word
+      «آن.»; the marker sat 32px from the headline as a sibling of it.
+
+      **The cause was not the size, it was the measure.** `display-1`'s fluid
+      term is `6vw` but its only consumer lives in a fixed `26rem` column, so
+      past 1024px the type kept growing inside a measure that did not. Proven
+      by sweeping the cap: 72px → 5 lines, and 64/56/52/48px all → **4**. The
+      line count plateaus because the column, not the type, is binding, so
+      shrinking further would have spent the display voice for nothing.
+
+      Fixed with three changes, each doing a different job: cap `display-1` at
+      `3.5rem` (one consumer, so the token itself was mis-set rather than being
+      bent for a caller); `text-balance` on the h1, which is what actually
+      kills the orphan since greedy wrap leaves a short last line at *every*
+      size this measure allows; and the copy column widened to `32rem` **at xl
+      only**. Not at lg: there 32rem costs 19% of the diagram's width
+      (494→398px) to buy one line of headline, which is the wrong trade at the
+      one breakpoint where the diagram can least afford it. Measured after:
+      1920/1440/1280 = 3 lines, 1024 = 4, 768 = 2, 390 = 3, 360 = 4, **no
+      single-word last line at any width**, and the marker anchored at 12px
+      inside the headline's own block, the way `SectionShell` pairs code and
+      heading. The xl column also happens to bring the stage to 57vw at 1440,
+      close to the `STAGE_VW.desktop = 55` that `HeroStage` already claims in
+      its `sizes` — it was really 63vw before.
+
+      Nine tracked screenshot baselines regenerated. Route JS unchanged,
+      measured on both sides of the diff.
 - [ ] **P12.S2 — Manifest strings + data.** `Landing.manifest` in `fa.json`;
       the nine sprites resolved against the *real* category tree and the SYS
       codes the shipped system links already use. Fable's §2.4 table is

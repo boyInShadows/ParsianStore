@@ -169,8 +169,15 @@ module.exports = {
         mono: ["var(--font-mono)", "ui-monospace", "monospace"],
       },
       fontSize: {
+        // Capped at 3.5rem, not the 4.5rem it shipped with (P12.S1). The
+        // fluid term is viewport-relative but its only consumer -- the hero
+        // headline -- lives in a fixed 26/32rem column, so past 1024px the
+        // type kept growing inside a measure that did not. Measured at
+        // 1440px: 72px set the 43-character Persian headline in five ragged
+        // lines ending on the single word "آن.". 56px sets it in three.
+        // Sizes below the cap are untouched, so 768/390/360 are unaffected.
         "display-1": [
-          "clamp(2.5rem, 6vw, 4.5rem)",
+          "clamp(2.5rem, 6vw, 3.5rem)",
           { lineHeight: "1.1", letterSpacing: "-0.02em" },
         ],
         "display-2": ["clamp(2rem, 4.5vw, 3rem)", { lineHeight: "1.15" }],

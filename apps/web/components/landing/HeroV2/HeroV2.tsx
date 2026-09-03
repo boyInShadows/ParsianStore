@@ -105,18 +105,36 @@ export async function HeroV2() {
             ".hero-pin{position:static!important}</style>",
         }}
       />
-      <div className="mx-auto grid max-w-container gap-8 border-x border-graphite-800 px-4 py-12 lg:grid-cols-[minmax(0,26rem)_minmax(0,1fr)] lg:gap-12 lg:px-8 lg:py-16">
+      {/* The copy column widens only at xl. At lg it stays 26rem because the
+          stage is already at its tightest there -- 32rem would take 19% of the
+          diagram's width to buy a line of headline, which is the wrong trade at
+          the one breakpoint where the diagram can least afford it. From 1280px up
+          the room is free: the stage still gets 654-814px. */}
+      <div className="mx-auto grid max-w-container gap-8 border-x border-graphite-800 px-4 py-12 lg:grid-cols-[minmax(0,26rem)_minmax(0,1fr)] lg:gap-12 lg:px-8 lg:py-16 xl:grid-cols-[minmax(0,32rem)_minmax(0,1fr)]">
         <div className="flex flex-col gap-8 lg:sticky lg:top-24 lg:self-start">
-          <div className="flex items-center gap-3">
-            <span className="h-px w-12 bg-cta" />
-            <p className="font-mono text-data text-graphite-300">{t("code")}</p>
-          </div>
+          {/* The plate number belongs to the headline, so it is inside the
+              headline's block at a 12px gap rather than a sibling of it at the
+              column's 32px one -- every other section anchors its marker this
+              way (SectionShell's code/heading pair). Detached, it read as a
+              third floating element between the header and the h1. */}
+          <div className="flex flex-col gap-3">
+            <div className="flex items-center gap-3">
+              <span className="h-px w-12 bg-cta" />
+              <p className="font-mono text-data text-graphite-300">{t("code")}</p>
+            </div>
 
-          <div>
-            <h1 className="font-display text-display-1 font-black text-graphite-0">
-              {t("headline")}
-            </h1>
-            <p className="mt-4 text-body-lg text-graphite-200">{t("subheadline")}</p>
+            <div>
+              {/* `text-balance` is what removes the orphan rather than the size
+                  cap alone: at any size this measure allows, the browser's
+                  greedy wrap leaves the last line short. Balance is capped at
+                  six lines in Chromium and degrades to normal wrapping where it
+                  is unsupported -- which is why the token was retuned too, so
+                  the fallback is four even lines rather than five ragged. */}
+              <h1 className="text-balance font-display text-display-1 font-black text-graphite-0">
+                {t("headline")}
+              </h1>
+              <p className="mt-4 text-body-lg text-graphite-200">{t("subheadline")}</p>
+            </div>
           </div>
 
           {/* Anchor target for the closing beat's CTA -- «از خودروت شروع کن»
