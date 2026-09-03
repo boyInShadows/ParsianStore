@@ -982,12 +982,54 @@ the drift for its own.
 
       Nine tracked screenshot baselines regenerated. Route JS unchanged,
       measured on both sides of the diff.
-- [ ] **P12.S2 — Manifest strings + data.** `Landing.manifest` in `fa.json`;
-      the nine sprites resolved against the *real* category tree and the SYS
-      codes the shipped system links already use. Fable's §2.4 table is
-      explicitly placeholders from memory — resolve, do not transcribe. A
-      manifest row must land on the same destination as its equivalent system
-      link, and a row with no real route is omitted, never stubbed.
+- [x] **P12.S2 — Manifest strings + data.** ✅ 2026-09-03.
+      `HeroV2/manifestData.ts` + `Landing.manifest` in `fa.json`. No UI.
+
+      **Every SYS code in Fable's §2.4 table was wrong**, which is why it said
+      to resolve rather than transcribe. It gave body parts `SYS-09`; `SYS-09`
+      is `interior` and body is `SYS-06`. It gave headlights `SYS-06 lighting`;
+      there is no lighting system, and the catalogue seeds «چراغ جلو» under
+      `electrical`, so `SYS-05`. It gave air filter `SYS-02 filters`; `SYS-02`
+      is `transmission`, filters are `SYS-10`.
+
+      **Six rows, not nine, for two different reasons.** Windshield is dropped
+      by §2.4's own rule — it ships "only if a glass category route exists" and
+      none does; the catalogue's only glass sits inside `body-exterior`. The
+      other three are **piston, alternator and air filter, which are not in the
+      scene at all**: §2.1 assigns them chapter 2, but `HERO_LAYERS` has exactly
+      one chapter-2 layer (the hood). The three engine cutouts P9.S5 planned
+      were never docked, though `public/landing/cutouts/` ships all three
+      optimized. See the open question below — it decides S3's shape.
+
+      Rows are **derived from `HERO_LAYERS`**, not listed beside it: the
+      manifest is an index of the diagram, so a row for a part that does not
+      undock would highlight nothing and a sprite without a row would undock
+      un-named. `manifestData.test.ts` (11 tests) fails if a layer ever appears
+      with neither a row nor a stated exclusion. Mutation-checked both ways:
+      removing the windshield exclusion fails 2 tests, and filing the bumper
+      under `SYS-09` the way the plan did fails the body-panel test.
+
+      **The strings went in the wrong place first and the repo caught it.**
+      They were put under `Landing.beats`, and `i18n/messages.test.ts` failed
+      because `beats` holds exactly the eleven v1.27 beats, each with an 01-10
+      code. The manifest is part of the hero beat, not a twelfth beat — so it
+      lives at `Landing.manifest`, which is what Fable specified.
+
+      Part names are the catalogue's own wording wherever the catalogue sells
+      the part («چراغ جلو», «سپر جلو», «درب موتور», «گلگیر جلو» are seeded
+      product names) so the row's promise matches what is behind the link. Two
+      are not: the grille has no seeded product, and the door is «درب خودرو»
+      so a list already carrying «درب موتور» for the hood cannot be misread.
+
+      Route JS unchanged at 198KB — nothing imports the module yet.
+
+      **OPEN — decides S3.** As it stands five of the six rows lead to
+      `/c/body-exterior`, because the catalogue's categories are flat (ten,
+      one per system) and five of the six parts are body panels. Fable's
+      "by the end of the hero the manifest is the store" wants the spread that
+      piston (engine), alternator (electrical) and air filter (filters-fluids)
+      would give it. Adding them is scene work — three docks to calibrate
+      against `pnpm check:hero` — not a data edit. Owner's call.
 - [ ] **P12.S3 — Manifest panel (desktop, flagged).** `PartsManifest.tsx`
       behind `NEXT_PUBLIC_MANIFEST`: check-in choreography bound to the
       existing chapter progress, bidirectional row↔sprite highlight (Steel
