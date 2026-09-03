@@ -1,6 +1,10 @@
 # ParsianStore — Remaining Work Checklist
 
-## ACTIVE — Landing rebuild, Phase 9 (P9.S2 → S17) — adopted 2026-08-20
+## SHIPPED — Landing rebuild, Phase 9 (P9.S2 → S17) — closed 2026-08-26
+
+All sixteen steps and the P9 tail are done; the two boxes still open below are
+blocked on the owner, not on work. Phase 12 succeeds it — see the ACTIVE
+section further down.
 
 Step-level plan of record: **`fableTasks.md`** (external plan by Fable 5, written
 against `docs/landing-rebuild-brief.md`). Summary + binding amendments:
@@ -912,6 +916,71 @@ token-validation screens.
 - [ ] **P11.S6 — Validation pass.** Landing / PDP / checkout, both themes,
       360→1920, keyboard, axe, contrast. Token revisions land here if those
       three screens demand a one-off colour, spacing, radius or shadow.
+
+## ACTIVE — Phase 12: the Parts Manifest and the eight defects — adopted 2026-09-03
+
+Plan of record: **`fableTasks2.md`** (Fable 5, 2026-09-03). That file is
+**untracked by owner request** — the `.gitignore` entry says so — which makes
+this section the only record of the phase that survives a fresh clone. Keep it
+fuller than the usual checklist for that reason.
+
+**Numbered 12, not 10 as the plan says.** Fable wrote `[P10.Sn]`; P10.S1–S22 is
+the shipped Postgres migration, so the tags would have duplicated real history
+and commitlint's `step-tag-present` would have accepted the collision silently.
+Owner chose P12 (2026-09-03); the local plan file was retitled to match.
+
+Two halves, one hero. **The Parts Manifest**: the exploded diagram gets the
+numbered parts list a workshop manual prints beside the drawing — a real
+`<nav>` + ordered list on the start side, each row a link to that part's
+category, rows checking in as their sprite undocks and accumulating rather than
+clearing. **The fix list**: the eight defects the owner saw in the 2026-09-03
+V1 screen recording, each closed by a named step below.
+
+Hard walls for the whole phase, from the P9.S17 receipts: **route JS 189KB gz**
+(budget 180, already over) and **LCP 1.9s** (ceiling 2.0). No new dependency,
+no measurable route weight — the manifest's thumbnails are images, not JS.
+
+- [ ] **P12.S1 — Hero typography.** Defects 1 + 8: the headline sets with a
+      single-word orphan, and the plate-number marker is not anchored to the
+      headline block the way every other section's marker is.
+- [ ] **P12.S2 — Manifest strings + data.** `Landing.manifest` in `fa.json`;
+      the nine sprites resolved against the *real* category tree and the SYS
+      codes the shipped system links already use. Fable's §2.4 table is
+      explicitly placeholders from memory — resolve, do not transcribe. A
+      manifest row must land on the same destination as its equivalent system
+      link, and a row with no real route is omitted, never stubbed.
+- [ ] **P12.S3 — Manifest panel (desktop, flagged).** `PartsManifest.tsx`
+      behind `NEXT_PUBLIC_MANIFEST`: check-in choreography bound to the
+      existing chapter progress, bidirectional row↔sprite highlight (Steel
+      Blue only — this is navigation, never Marigold), 96px AVIF thumbs added
+      to the S3 pipeline.
+- [ ] **P12.S4 — Manifest mobile + flip.** Chip rail under the stage below
+      1024px, same accumulate rule; flag on; budget re-measured.
+- [ ] **P12.S5 — Separation legibility.** Defect 2: re-tune chapter scroll
+      spans so each part holds its own beat (≳0.8s of natural scroll) instead
+      of the group moving as one mass.
+- [ ] **P12.S6 — Best-sellers honesty upgrade.** Defect 3, agent half: the
+      missing-image state becomes a designed technical plate (line-glyph + SYS
+      code on paper), unmistakably a diagram and never a fake photo; the rail
+      prefers products that have photos. Real photos are the owner's half.
+- [ ] **P12.S7 — Evidence code format.** Defect 4: verification codes as a
+      short stamped `VER-XXXX-XXXX`, single line, `dir="ltr"`-isolated inside
+      the RTL text, tabular mono.
+- [ ] **P12.S8 — Media verify pass.** Defects 5 + 7: confirm the `-rtl`
+      variants are what both shipped clips actually reference, and close any
+      scrollable void below the footer. If the black tail was only the screen
+      recording, say so and change nothing.
+- [ ] **P12.S9 — Brand wall treatment.** Defect 6, agent half: real type
+      treatment until real SVG marks arrive from the owner.
+- [ ] **P12.S10 — Regression + receipts.** Manifest links walked for 200s,
+      empty-state snapshot, evidence-code single-line assertion, mirrored-video
+      assertion; route JS + LCP re-measured into `docs/performance-landing.md`.
+
+**Owner inputs this phase waits on** (fableTasks2 §5 — none block S1–S10):
+WhatsApp number · returns window/conditions/who-pays · warranty duration and
+what voids it · business name and registration details for privacy + terms ·
+product photos for the best-seller eight · a real ParsianStore mark and any
+part-brand SVGs you have rights to · the four Numbers figures.
 
 ## Phase 9 — Content, SEO, hardening
 
