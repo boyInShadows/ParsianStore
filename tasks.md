@@ -1075,11 +1075,55 @@ the drift for its own.
       shipped hero was hand-calibrated instead; worth its own look, not this
       step's to fix.
 
-- [ ] **P12.S4 — Manifest panel (desktop, flagged).** `PartsManifest.tsx`
-      behind `NEXT_PUBLIC_MANIFEST`: check-in choreography bound to the
-      existing chapter progress, bidirectional row↔sprite highlight (Steel
-      Blue only — this is navigation, never Marigold), 96px AVIF thumbs added
-      to the S3 pipeline.
+- [x] **P12.S4 — Manifest panel (desktop).** ✅ 2026-09-03. Nine rows, behind
+      `MANIFEST_HIDDEN` — S5 flips it with the mobile rail. Verified live with
+      the flag temporarily off before shipping it on.
+
+      **The panel is a server component and the choreography is data
+      attributes**, which is the only reason it fits: nine rows of image, text
+      and link never reach the browser as JavaScript. One client leaf
+      (`ManifestCheckIn`) writes `data-chapter-reached` on the `<ol>` from
+      scroll progress and `globals.css` does the transitions, so scrolling the
+      hero re-renders no React at all.
+
+      **Check-in only ever hides rows it can bring back.** The server renders
+      `data-chapter-reached="3"` — every row present — and the client opts *in*
+      to the choreography on mount. No JS, or reduced motion, means the
+      attribute never appears and the full list simply stands (§2.3). Written
+      the other way round the same markup would be an empty panel for both.
+
+      **The highlight is two `setAttribute` calls, not per-part CSS.** Rows and
+      sprites both carry `data-part` (stamped in `HeroStage`), so one delegated
+      pointer/focus listener pairs them by attribute and both directions fall
+      out of it. The pure-CSS `:has()` form needs one rule per part id and would
+      hardcode the manifest into a stylesheet. Sprites glow with `filter:
+      drop-shadow` rather than an outline — it follows the cutout's alpha, and
+      it is the one property that cannot collide with the inline transform
+      Framer is already animating on the same element.
+
+      `HeroScrollProvider` lifts `useScroll` out of `HeroStage`: the stage and
+      the manifest are in different grid columns, so they now share one
+      measurement instead of subscribing twice.
+
+      **A dead utility caught by measuring, not by looking.** The thumbnails
+      were written `h-10 w-12`; the piston rendered **118px tall in a 48px
+      row**. This config *replaces* Tailwind's spacing scale with
+      0,1,2,3,4,6,8,12,16,20,24,32, so `h-10` generates no CSS and the image
+      fell back to `height:auto` — `w-12` worked, which is what made it look
+      deliberate. Exactly the silent off-scale-utility class P11.S3 hit with
+      `w-11` and P11.S5 plans to lint. Now `h-12 w-12`, all nine measured at
+      48×48.
+
+      96px thumbnail rung added to the `hero` and `hero-parts` pipeline groups.
+      It sits below every stage rung, so the stage still picks what it picked
+      before, and small sprites gain a genuinely useful one (`sprite-door`'s
+      ladder was `[158]` alone, so a 16px dock on a phone fetched the full 158w).
+
+      **Route JS 198 → 200KB (+2).** Stated rather than rounded away: that is
+      the manifest's entire client cost — the provider plus the one leaf — on a
+      budget already 18KB over. S5's chip rail is server-rendered and should
+      add none.
+
 - [ ] **P12.S5 — Manifest mobile + flip.** Chip rail under the stage below
       1024px, same accumulate rule; flag on; budget re-measured.
 - [ ] **P12.S6 — Separation legibility.** Defect 2: re-tune chapter scroll

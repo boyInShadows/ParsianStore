@@ -380,6 +380,12 @@
       },
       "variants": [
         {
+          "width": 96,
+          "height": 43,
+          "avif": 1808,
+          "webp": 2408
+        },
+        {
           "width": 480,
           "height": 214,
           "avif": 11062,
@@ -411,6 +417,12 @@
       },
       "variants": [
         {
+          "width": 96,
+          "height": 26,
+          "avif": 1158,
+          "webp": 1640
+        },
+        {
           "width": 374,
           "height": 100,
           "avif": 2621,
@@ -435,6 +447,12 @@
         "top": 351
       },
       "variants": [
+        {
+          "width": 96,
+          "height": 141,
+          "avif": 3170,
+          "webp": 5230
+        },
         {
           "width": 158,
           "height": 232,
@@ -461,6 +479,12 @@
       },
       "variants": [
         {
+          "width": 96,
+          "height": 63,
+          "avif": 1820,
+          "webp": 2652
+        },
+        {
           "width": 291,
           "height": 190,
           "avif": 4475,
@@ -486,6 +510,12 @@
       },
       "variants": [
         {
+          "width": 96,
+          "height": 31,
+          "avif": 1340,
+          "webp": 1974
+        },
+        {
           "width": 242,
           "height": 77,
           "avif": 3197,
@@ -510,6 +540,12 @@
         "top": 359
       },
       "variants": [
+        {
+          "width": 96,
+          "height": 43,
+          "avif": 1861,
+          "webp": 2408
+        },
         {
           "width": 480,
           "height": 216,
@@ -542,6 +578,12 @@
       },
       "variants": [
         {
+          "width": 96,
+          "height": 27,
+          "avif": 1253,
+          "webp": 1606
+        },
+        {
           "width": 480,
           "height": 135,
           "avif": 5854,
@@ -572,6 +614,12 @@
         "top": 339
       },
       "variants": [
+        {
+          "width": 96,
+          "height": 43,
+          "avif": 1241,
+          "webp": 1772
+        },
         {
           "width": 480,
           "height": 217,
@@ -605,6 +653,12 @@
         "top": 175
       },
       "variants": [
+        {
+          "width": 96,
+          "height": 57,
+          "avif": 1628,
+          "webp": 2280
+        },
         {
           "width": 200,
           "height": 120,
@@ -643,6 +697,12 @@
       },
       "variants": [
         {
+          "width": 96,
+          "height": 105,
+          "avif": 2990,
+          "webp": 4120
+        },
+        {
           "width": 200,
           "height": 220,
           "avif": 7146,
@@ -679,6 +739,12 @@
         "top": 62
       },
       "variants": [
+        {
+          "width": 96,
+          "height": 236,
+          "avif": 3977,
+          "webp": 6550
+        },
         {
           "width": 215,
           "height": 528,

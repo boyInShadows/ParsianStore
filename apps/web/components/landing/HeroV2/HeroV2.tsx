@@ -2,8 +2,10 @@ import { getTranslations } from "next-intl/server";
 import { CATALOG_SYSTEMS } from "schemas";
 import { VehicleSelectorLazy } from "@/components/garage";
 import { getSystemPartCounts } from "@/lib/fetchers/exploded-view";
+import { HeroScrollProvider } from "./HeroScrollProvider";
 import { HeroStage } from "./HeroStage";
 import { PartCodeSearch } from "./PartCodeSearch";
+import { PartsManifest } from "./PartsManifest";
 
 /**
  * Every catalog system, as a ruled index beside the diagram.
@@ -110,76 +112,86 @@ export async function HeroV2() {
           diagram's width to buy a line of headline, which is the wrong trade at
           the one breakpoint where the diagram can least afford it. From 1280px up
           the room is free: the stage still gets 654-814px. */}
-      <div className="mx-auto grid max-w-container gap-8 border-x border-graphite-800 px-4 py-12 lg:grid-cols-[minmax(0,26rem)_minmax(0,1fr)] lg:gap-12 lg:px-8 lg:py-16 xl:grid-cols-[minmax(0,32rem)_minmax(0,1fr)]">
-        <div className="flex flex-col gap-8 lg:sticky lg:top-24 lg:self-start">
-          {/* The plate number belongs to the headline, so it is inside the
+      {/* The provider wraps both columns because the stage and the parts
+          manifest live in different cells and read the same scroll progress
+          (P12.S4). It renders no markup of its own -- the track it measures is
+          still the one HeroStage draws. */}
+      <HeroScrollProvider>
+        <div className="mx-auto grid max-w-container gap-8 border-x border-graphite-800 px-4 py-12 lg:grid-cols-[minmax(0,26rem)_minmax(0,1fr)] lg:gap-12 lg:px-8 lg:py-16 xl:grid-cols-[minmax(0,32rem)_minmax(0,1fr)]">
+          <div className="flex flex-col gap-8 lg:sticky lg:top-24 lg:self-start">
+            {/* The plate number belongs to the headline, so it is inside the
               headline's block at a 12px gap rather than a sibling of it at the
               column's 32px one -- every other section anchors its marker this
               way (SectionShell's code/heading pair). Detached, it read as a
               third floating element between the header and the h1. */}
-          <div className="flex flex-col gap-3">
-            <div className="flex items-center gap-3">
-              <span className="h-px w-12 bg-cta" />
-              <p className="font-mono text-data text-graphite-300">{t("code")}</p>
-            </div>
+            <div className="flex flex-col gap-3">
+              <div className="flex items-center gap-3">
+                <span className="h-px w-12 bg-cta" />
+                <p className="font-mono text-data text-graphite-300">{t("code")}</p>
+              </div>
 
-            <div>
-              {/* `text-balance` is what removes the orphan rather than the size
+              <div>
+                {/* `text-balance` is what removes the orphan rather than the size
                   cap alone: at any size this measure allows, the browser's
                   greedy wrap leaves the last line short. Balance is capped at
                   six lines in Chromium and degrades to normal wrapping where it
                   is unsupported -- which is why the token was retuned too, so
                   the fallback is four even lines rather than five ragged. */}
-              <h1 className="text-balance font-display text-display-1 font-black text-graphite-0">
-                {t("headline")}
-              </h1>
-              <p className="mt-4 text-body-lg text-graphite-200">{t("subheadline")}</p>
+                <h1 className="text-balance font-display text-display-1 font-black text-graphite-0">
+                  {t("headline")}
+                </h1>
+                <p className="mt-4 text-body-lg text-graphite-200">{t("subheadline")}</p>
+              </div>
             </div>
-          </div>
 
-          {/* Anchor target for the closing beat's CTA -- «از خودروت شروع کن»
+            {/* Anchor target for the closing beat's CTA -- «از خودروت شروع کن»
               returns here, because naming a car is where every route into the
               catalogue on this page begins. `scroll-mt` clears the sticky
               header so the heading is not hidden under it on arrival. */}
-          <div
-            id="driver-path"
-            className="flex scroll-mt-24 flex-col gap-3 border-t border-graphite-800 pt-6"
-          >
-            <h2 className="text-body font-bold text-graphite-0">{t("driverPath.title")}</h2>
-            <p className="text-body-sm text-graphite-300">{t("driverPath.hint")}</p>
-            <div className="border border-graphite-700 bg-graphite-900 p-4">
-              <VehicleSelectorLazy />
+            <div
+              id="driver-path"
+              className="flex scroll-mt-24 flex-col gap-3 border-t border-graphite-800 pt-6"
+            >
+              <h2 className="text-body font-bold text-graphite-0">{t("driverPath.title")}</h2>
+              <p className="text-body-sm text-graphite-300">{t("driverPath.hint")}</p>
+              <div className="border border-graphite-700 bg-graphite-900 p-4">
+                <VehicleSelectorLazy />
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-3 border-t border-graphite-800 pt-6">
+              <h2 className="text-body font-bold text-graphite-0">{t("mechanicPath.title")}</h2>
+              <PartCodeSearch
+                label={t("mechanicPath.codeLabel")}
+                placeholder={t("mechanicPath.codePlaceholder")}
+                hint={t("mechanicPath.codeHint")}
+                submit={t("mechanicPath.codeSubmit")}
+                emptyError={t("mechanicPath.codeEmptyError")}
+              />
+            </div>
+
+            {/* After the selector and the code field, so the tab order runs
+              driver path -> mechanic path -> the parts themselves (§2.3). */}
+            <PartsManifest />
+
+            <div className="flex items-center gap-3 font-mono text-caption text-graphite-400">
+              <span>SAIPA</span>
+              <span className="h-px w-6 bg-graphite-700" />
+              <span>IRAN KHODRO</span>
             </div>
           </div>
 
-          <div className="flex flex-col gap-3 border-t border-graphite-800 pt-6">
-            <h2 className="text-body font-bold text-graphite-0">{t("mechanicPath.title")}</h2>
-            <PartCodeSearch
-              label={t("mechanicPath.codeLabel")}
-              placeholder={t("mechanicPath.codePlaceholder")}
-              hint={t("mechanicPath.codeHint")}
-              submit={t("mechanicPath.codeSubmit")}
-              emptyError={t("mechanicPath.codeEmptyError")}
+          <div className="flex flex-col gap-6">
+            <p className="max-w-prose text-body text-graphite-200">{t("diagramLead")}</p>
+            <HeroStage
+              label={t("diagramLabel")}
+              carAlt={t("staticStateAlt")}
+              hint={t("scrollHint")}
             />
-          </div>
-
-          <div className="flex items-center gap-3 font-mono text-caption text-graphite-400">
-            <span>SAIPA</span>
-            <span className="h-px w-6 bg-graphite-700" />
-            <span>IRAN KHODRO</span>
+            <SystemIndex linkAction={t("systemLinkAction")} />
           </div>
         </div>
-
-        <div className="flex flex-col gap-6">
-          <p className="max-w-prose text-body text-graphite-200">{t("diagramLead")}</p>
-          <HeroStage
-            label={t("diagramLabel")}
-            carAlt={t("staticStateAlt")}
-            hint={t("scrollHint")}
-          />
-          <SystemIndex linkAction={t("systemLinkAction")} />
-        </div>
-      </div>
+      </HeroScrollProvider>
     </section>
   );
 }

@@ -1,8 +1,9 @@
 "use client"; // scroll-linked undock -- useScroll/useTransform need the client
 
-import { useRef } from "react";
-import { motion, useReducedMotion, useScroll, useTransform, type MotionValue } from "motion/react";
+import { motion, useReducedMotion, useTransform, type MotionValue } from "motion/react";
+import { useHeroScroll } from "./HeroScrollProvider";
 import { landingAsset, landingFallback, landingSrcSet } from "@/lib/landing-image";
+import { manifestPartByLayerId } from "./manifestData";
 import {
   CHAPTER_PEAK,
   CHAPTER_RANGE,
@@ -126,6 +127,21 @@ function placePart(assetName: string, placement: HeroPartPlacement) {
   };
 }
 
+/**
+ * Which manifest row a sprite belongs to, stamped on the element as `data-part`.
+ *
+ * This is the entire coupling between the diagram and the manifest: both ends
+ * carry the same `data-part`, so the highlight can pair them without either
+ * component knowing the other exists (P12.S4). Layers with no row -- the
+ * windshield -- get nothing, and simply never highlight.
+ */
+const partByLayer = manifestPartByLayerId();
+
+function partAttr(layerId: string) {
+  const entry = partByLayer.get(layerId);
+  return entry ? { "data-part": entry.id } : {};
+}
+
 function layerImageProps(box: ReturnType<typeof place>) {
   return {
     src: landingFallback(box.asset),
@@ -185,6 +201,7 @@ function PartLayer({
   return (
     <motion.img
       {...layerImageProps(box)}
+      {...partAttr(layer.id)}
       className="absolute"
       style={{ ...layerStyle(box, layer, index), x, y, scale, rotateX, rotateY, rotateZ }}
     />
@@ -219,6 +236,7 @@ function EnginePartLayer({
   return (
     <motion.img
       {...layerImageProps(box)}
+      {...partAttr(part.id)}
       className="absolute"
       style={{
         insetInlineStart: pct(box.left),
@@ -246,6 +264,7 @@ function DockedEnginePart({ part }: { part: HeroEnginePart }) {
   return (
     <img
       {...layerImageProps(box)}
+      {...partAttr(part.id)}
       className="absolute"
       style={{
         insetInlineStart: pct(box.left),
@@ -264,6 +283,7 @@ function DockedLayer({ layer, index }: { layer: HeroLayer; index: number }) {
   return (
     <img
       {...layerImageProps(box)}
+      {...partAttr(layer.id)}
       className="absolute"
       style={{ ...layerStyle(box, layer, index), transform: transformFor(layer.dock) }}
     />
@@ -290,14 +310,10 @@ function DockedLayer({ layer, index }: { layer: HeroLayer; index: number }) {
  * layers alone.
  */
 export function HeroStage({ label, carAlt, hint }: Props) {
-  const trackRef = useRef<HTMLDivElement>(null);
   const reduceMotion = useReducedMotion();
-  // Bound to the TRACK, not the stage. The stage is pinned, so its own box
-  // stops moving and could never drive anything; the track is what scrolls.
-  // ["start start", "end end"] makes the travel exactly the track's height minus
-  // one viewport -- and since the track is `100vh + X`, that travel is exactly X
-  // at every breakpoint instead of a number that shifts with window size.
-  const { scrollYProgress } = useScroll({ target: trackRef, offset: ["start start", "end end"] });
+  // The measurement itself lives in HeroScrollProvider so the parts manifest,
+  // which renders in the other grid column, reads the same value (P12.S4).
+  const { trackRef, progress: scrollYProgress } = useHeroScroll();
   const base = place(HERO_BASE_ASSET, { dx: 0, dy: 0, scale: 1 });
 
   return (

@@ -28,14 +28,20 @@ const MANIFEST = path.join(ROOT, "apps", "web", "lib", "landing-assets.json");
 // Breakpoints match the render sizes the route will actually request. Never
 // upscale: a width above the source is dropped rather than interpolated.
 const CUTOUT_WIDTHS = [480, 768, 1024, 1440];
-const HERO_WIDTHS = [480, 768, 1024, 1440];
+// 96 is the manifest thumbnail (P12.S4), not a stage rung: a row's sprite is
+// drawn at 48 CSS px, so 96 covers it at 2x. It sits below every other rung, so
+// the stage keeps picking exactly what it picked before -- `sizes` asks for a
+// stage-sized width and the browser takes the smallest candidate that satisfies
+// it. Small sprites gain a genuinely useful rung: sprite-door's ladder was
+// [158] alone, so a 16px-wide dock on a phone downloaded the full 158w.
+const HERO_WIDTHS = [96, 480, 768, 1024, 1440];
 // The engine-bay parts (P12.S3) are the smallest things on the stage: one
 // standing 78 canvas pixels tall renders around 57 CSS pixels at 1440, so 320w
 // is already generous at 3x. Their masters are downscaled to 640 before
 // trimming for the same reason -- a trimmed source contributes its own width as
 // the top rung, and the 2048 cutouts they are cut from would have made that
 // rung 1577px for a thumbnail-sized part.
-const HERO_PART_WIDTHS = [200, 320];
+const HERO_PART_WIDTHS = [96, 200, 320];
 const PLATE_WIDTHS = [480, 768, 1024, 1376];
 const POSTER_WIDTHS = [768, 1024, 1440];
 

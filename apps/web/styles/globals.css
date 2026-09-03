@@ -61,6 +61,78 @@
     }
   }
 
+  /* ---- Parts manifest (P12.S4) ----------------------------------------
+
+     The choreography is data attributes plus transitions, so scrolling the
+     hero re-renders no React at all: `ManifestCheckIn` writes one attribute on
+     the list and everything below reacts to it.
+
+     `[data-choreographed]` is the guard, and its direction is the whole
+     accessibility story. Rows are visible by default; they are hidden ONLY
+     once JavaScript has said it can bring them back. A no-JS visitor, or one
+     with reduced motion, never gets that attribute and reads the finished list
+     (fableTasks2 §2.3). Written the other way round -- hidden by default,
+     revealed by JS -- the same markup would be an empty panel for both. */
+  .manifest-list[data-choreographed] .manifest-row {
+    opacity: 0;
+    /* Transform and opacity only, and 16px is `REVEAL_TRAVEL_PX` from
+       lib/motion-tokens.ts -- the same distance every other reveal on this
+       page travels, against a 24px budget. */
+    transform: translateY(16px);
+    transition:
+      opacity var(--duration-base) var(--ease-out),
+      transform var(--duration-base) var(--ease-out);
+  }
+
+  /* Rows accumulate: reaching chapter 3 leaves 1 and 2 checked in, because the
+     manifest by the end of the hero is supposed to be the whole list. */
+  .manifest-list[data-chapter-reached="1"] .manifest-row[data-chapter="1"],
+  .manifest-list[data-chapter-reached="2"] .manifest-row[data-chapter="1"],
+  .manifest-list[data-chapter-reached="2"] .manifest-row[data-chapter="2"],
+  .manifest-list[data-chapter-reached="3"] .manifest-row[data-chapter="1"],
+  .manifest-list[data-chapter-reached="3"] .manifest-row[data-chapter="2"],
+  .manifest-list[data-chapter-reached="3"] .manifest-row[data-chapter="3"] {
+    opacity: 1;
+    transform: none;
+  }
+
+  /* The row half of the bidirectional highlight. Steel Blue, never Marigold:
+     this is navigation, and tokens.css's two-accent rule reserves Marigold for
+     where money changes hands. The marker is a logical inline-start bar, the
+     same affordance primitives/Sheet.tsx uses for an active row. */
+  .manifest-row[data-highlight] > a {
+    color: var(--brand);
+  }
+
+  .manifest-row[data-highlight] > a::before {
+    content: "";
+    position: absolute;
+    inset-block: 0;
+    inset-inline-start: -0.5rem;
+    width: 2px;
+    background-color: var(--brand-solid);
+  }
+
+  /* The sprite half. `filter` rather than `outline` because these are cutouts:
+     drop-shadow follows the alpha channel, so the glow traces the part's real
+     silhouette instead of boxing it. It is also the one property here that
+     cannot collide with the inline transform Framer is already animating on
+     the same element. */
+  .hero-stage img[data-highlight] {
+    filter: drop-shadow(0 0 6px var(--brand-solid));
+  }
+
+  .hero-stage img[data-part] {
+    transition: filter var(--duration-fast) var(--ease-out);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .manifest-list .manifest-row,
+    .hero-stage img[data-part] {
+      transition: none !important;
+    }
+  }
+
   /* The interstitial plate's copy sits on the start-side third, so the scrim
      is heaviest there and thins out across the artwork. CSS gradients take no
      logical direction keyword, so the default is written for RTL (start =
