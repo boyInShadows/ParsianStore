@@ -1,5 +1,5 @@
 import { getTranslations } from "next-intl/server";
-import { CATALOG_SYSTEMS } from "schemas";
+import { CATALOG_SYSTEMS, toPersianDigits } from "schemas";
 import { VehicleSelectorLazy } from "@/components/garage";
 import { getSystemPartCounts } from "@/lib/fetchers/exploded-view";
 import { HeroScrollProvider } from "./HeroScrollProvider";
@@ -48,7 +48,13 @@ async function SystemIndex({ linkAction }: { linkAction: string }) {
                 </span>
                 {count !== null ? (
                   <span className="font-mono text-caption text-graphite-400">
-                    {t("partsCount", { count })}
+                    {/* Persian copy takes Persian digits, and ICU's plain
+                        `{count}` is a string substitution -- no locale shaping
+                        -- so "۳۲ قطعه" was rendering as "32 قطعه". The repo
+                        already owns this: `toPersianDigits` in
+                        packages/schemas/src/fa.ts, which the admin tables use
+                        for exactly this. */}
+                    {t("partsCount", { count: toPersianDigits(count) })}
                   </span>
                 ) : null}
                 {/* The action, added to the accessible name rather than
@@ -172,7 +178,7 @@ export async function HeroV2() {
 
             {/* After the selector and the code field, so the tab order runs
               driver path -> mechanic path -> the parts themselves (§2.3). */}
-            <PartsManifest />
+            <PartsManifest variant="panel" />
 
             <div className="flex items-center gap-3 font-mono text-caption text-graphite-400">
               <span>SAIPA</span>
@@ -181,13 +187,22 @@ export async function HeroV2() {
             </div>
           </div>
 
-          <div className="flex flex-col gap-6">
+          {/* `min-w-0`: a grid item's automatic minimum size is its min-content
+            width, and this column now holds a horizontally scrolling rail
+            (P12.S5). Without it the item refuses to shrink below the rail's
+            unwrapped 1248px, overflows the 390px track, and `overflow-x-clip`
+            on the section hides the damage instead of showing it. */}
+          <div className="flex min-w-0 flex-col gap-6">
             <p className="max-w-prose text-body text-graphite-200">{t("diagramLead")}</p>
             <HeroStage
               label={t("diagramLabel")}
               carAlt={t("staticStateAlt")}
               hint={t("scrollHint")}
             />
+            {/* The mobile half of the manifest, under the stage it indexes
+              (§2.2). Above 1024px this is display:none and the side panel in
+              the copy column takes over. */}
+            <PartsManifest variant="rail" />
             <SystemIndex linkAction={t("systemLinkAction")} />
           </div>
         </div>

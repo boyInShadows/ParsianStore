@@ -83,7 +83,10 @@ test("the hero serves the pre-built AVIF set, not the request-time optimizer", a
 
 test("every system in the index rail links somewhere real", async ({ page }) => {
   await gotoHero(page);
-  const links = page.locator("#hero a[href^='/c/']");
+  // Scoped to the index's own list, not to every /c/ link in the hero: the
+  // parts manifest (P12.S4) also links into categories, so `#hero a[href^=/c/]`
+  // now matches both and this stopped being a count of the systems.
+  const links = page.locator("ul[aria-labelledby='shop-by-system-heading'] a[href^='/c/']");
   await expect(links).toHaveCount(10);
 
   for (const href of await links.evaluateAll((anchors) =>
@@ -140,6 +143,139 @@ test("an empty part code is refused instead of searching for nothing", async ({ 
   await page.locator("#hero input[name='code']").press("Enter");
   await expect(page.locator("#hero [role='alert']")).toBeVisible();
   expect(page.url()).not.toContain("/search");
+});
+
+/**
+ * The parts manifest (P12.S4/S5). Two renderings of one list -- a desktop side
+ * panel and a mobile chip rail -- with CSS showing exactly one.
+ */
+test.describe("parts manifest", () => {
+  test("shows exactly one of its two forms, and never both", async ({ page }) => {
+    await gotoHero(page);
+    const navs = page.locator("#hero nav[aria-label]");
+    // Both are in the DOM; `hidden` is display:none, so only one is in the
+    // accessibility tree and there is never a duplicate navigation landmark.
+    await expect(navs).toHaveCount(2);
+    await expect(navs.filter({ visible: true })).toHaveCount(1);
+
+    await page.setViewportSize({ width: 390, height: 760 });
+    await expect(navs.filter({ visible: true })).toHaveCount(1);
+  });
+
+  // The bug class this repo keeps hitting: a utility that is off the config's
+  // REPLACED spacing scale generates no CSS at all, so the element silently
+  // falls back to content sizing. `w-36` did exactly that here and the chips
+  // measured 74px to 99px; the audit's own item 2 was a `w-64` card computing
+  // to 992px. A width assertion catches the whole family.
+  test("sizes every chip in the mobile rail identically", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 760 });
+    await gotoHero(page);
+    const widths = await page
+      .locator("#hero nav[aria-label] ol li")
+      .filter({ visible: true })
+      .evaluateAll((items) => items.map((item) => Math.round(item.getBoundingClientRect().width)));
+    expect(widths.length).toBeGreaterThan(0);
+    expect(new Set(widths).size, `ragged chip widths: ${widths.join(", ")}`).toBe(1);
+  });
+
+  // The rail is a horizontal scroller inside a grid item, and a grid item's
+  // automatic minimum size is its min-content width -- so without `min-w-0` the
+  // column refuses to shrink below the rail's unwrapped 1248px and overflows a
+  // 390px track. `overflow-x-clip` on #hero then hides it: nothing looks wrong,
+  // the page does not scroll sideways, but the vehicle selector and all ten
+  // system links sit at x=-875, off-canvas and unreachable. Asserting on
+  // document scroll width would have caught none of it, so this measures the
+  // columns against the section that clips them.
+  test("keeps every hero column inside the viewport at 390px", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 760 });
+    await gotoHero(page);
+    const overflowing = await page.locator("#hero .grid > *").evaluateAll((columns) => {
+      const limit = document.querySelector("#hero")!.getBoundingClientRect();
+      return columns
+        .map((column) => ({ rect: column.getBoundingClientRect(), cls: column.className }))
+        .filter(({ rect }) => rect.left < limit.left - 1 || rect.right > limit.right + 1)
+        .map(({ rect, cls }) => `${cls} @ x=${Math.round(rect.x)} w=${Math.round(rect.width)}`);
+    });
+    expect(overflowing, overflowing.join(" | ")).toEqual([]);
+  });
+
+  // The desktop axe runs at 1280 wide, where the rail is display:none and axe
+  // skips it entirely -- so without this the mobile half of P12.S5 ships
+  // unaudited. Same include, different viewport.
+  test("the mobile rail has zero axe violations, in both themes", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 760 });
+    for (const theme of ["light", "dark"] as const) {
+      await page.addInitScript((value) => window.localStorage.setItem("theme", value), theme);
+      await gotoHero(page);
+      await expect(page.locator("html")).toHaveAttribute("data-theme", theme);
+
+      // Audit the state a visitor actually reads. The server sends every chip
+      // present, the client leaf then takes them away to check them back in, so
+      // an audit fired on load lands mid-fade and axe scores the blended colour
+      // of half-transparent text -- a timing artefact, not a contrast defect.
+      // Scroll the chapters in, then wait for the opacity to settle.
+      // Walks down rather than jumping to `document.body.scrollHeight`: the page
+      // is still growing as its lazy images commit, so a single jump lands
+      // mid-hero, leaves the later chapters unchecked-in, and then waits forever
+      // for chips that were never asked to arrive.
+      await page.waitForFunction(
+        () => {
+          const chips = [...document.querySelectorAll("#hero .manifest-chip")];
+          if (chips.length > 0 && chips.every((chip) => getComputedStyle(chip).opacity === "1")) {
+            return true;
+          }
+          window.scrollBy(0, window.innerHeight);
+          return false;
+        },
+        undefined,
+        { polling: 250 },
+      );
+
+      const results = await new AxeBuilder({ page }).include("#hero").analyze();
+      expect(results.violations, theme).toEqual([]);
+    }
+  });
+
+  // ICU's plain `{count}` is a string substitution, not a number format, so a
+  // Persian message interpolating it renders Latin digits -- "32 قطعه" sitting
+  // inside Persian copy. The repo's answer is `toPersianDigits`, and this
+  // asserts on the rendered text rather than on the call, so it also covers the
+  // ten system links beside the manifest, which had the same gap.
+  test("renders every count in Persian digits", async ({ page }) => {
+    await gotoHero(page);
+    const counts = await page
+      .locator("#hero a:has-text('قطعه')")
+      .evaluateAll((links) =>
+        links.map((link) => link.textContent ?? "").filter((text) => /قطعه/.test(text)),
+      );
+    expect(counts.length).toBeGreaterThan(0);
+    const latin = counts.filter((text) => /[0-9]+\s*قطعه/.test(text));
+    expect(latin, `Latin digits in Persian copy: ${latin.join(" | ")}`).toEqual([]);
+  });
+
+  test("every manifest link resolves", async ({ page }) => {
+    await gotoHero(page);
+    const hrefs = await page
+      .locator("#hero nav[aria-label] a")
+      .evaluateAll((links) => [...new Set(links.map((l) => l.getAttribute("href") ?? ""))]);
+    expect(hrefs.length).toBeGreaterThan(0);
+    for (const href of hrefs) {
+      expect((await page.request.get(href)).status(), href).toBe(200);
+    }
+  });
+
+  // §2.3: the list is a list before it is choreography. Without JavaScript the
+  // client leaf never runs, so every row has to be present already -- which is
+  // why the server renders the last chapter rather than the first.
+  test("shows every row with JavaScript disabled", async ({ browser }) => {
+    const context = await browser.newContext({ javaScriptEnabled: false });
+    const page = await context.newPage();
+    await page.goto("/");
+    const rows = page.locator("#hero nav[aria-label] ol li");
+    await expect(rows.first()).toBeVisible();
+    await expect(await rows.count()).toBeGreaterThan(5);
+    await context.close();
+  });
 });
 
 test("reduced motion still shows a whole car, docked", async ({ browser }) => {

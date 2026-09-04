@@ -104,13 +104,21 @@
     color: var(--brand);
   }
 
-  .manifest-row[data-highlight] > a::before {
+  /* The bar is the panel row's affordance only. A chip (P12.S5) is 8rem wide
+     with a 0.75rem gap beside it, so the same -0.5rem bar would float in the
+     gap rather than mark the chip; the chip already has a border, so the
+     highlight moves onto it. */
+  .manifest-row[data-highlight]:not(.manifest-chip) > a::before {
     content: "";
     position: absolute;
     inset-block: 0;
     inset-inline-start: -0.5rem;
     width: 2px;
     background-color: var(--brand-solid);
+  }
+
+  .manifest-chip[data-highlight] > a {
+    border-color: var(--brand-solid);
   }
 
   /* The sprite half. `filter` rather than `outline` because these are cutouts:

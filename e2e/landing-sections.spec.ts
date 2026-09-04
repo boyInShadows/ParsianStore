@@ -111,8 +111,13 @@ test.describe("shop-by-system absorbed into the hero (S9)", () => {
     await page.goto("/");
     await page.locator("#hero").waitFor();
 
+    // Scoped to the index's own list, not to every /c/ link in the hero. The
+    // parts manifest (P12.S4/S5) links into categories too, and it renders
+    // twice -- the desktop panel and the mobile chip rail, one hidden by CSS --
+    // so `#hero a[href^=/c/]` matches 28 anchors with intended duplicates and
+    // has stopped being a count of the systems.
     const heroHrefs = await page
-      .locator("#hero a[href^='/c/']")
+      .locator("ul[aria-labelledby='shop-by-system-heading'] a[href^='/c/']")
       .evaluateAll((anchors) => anchors.map((anchor) => anchor.getAttribute("href") ?? ""));
     expect(new Set(heroHrefs).size).toBe(heroHrefs.length);
     expect(heroHrefs).toHaveLength(10);

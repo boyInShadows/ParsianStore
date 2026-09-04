@@ -238,3 +238,86 @@ Identical to the P4.S7 commands above, with one addition worth recording:
 cleaning up its own Chrome temp directory on this Windows machine. The
 reports are already written by then — check for the output files before
 treating that error as a failed run.
+
+---
+
+# P12.S5 re-measurement — where the 189 KB actually went
+
+Measured while wiring the parts manifest's mobile rail, because the plan
+made "still ≤189 KB" a gate and the build was reading 200 KB. Rather than
+argue with the number, every commit between the P9.S17 measurement above
+and here was built clean (`rm -rf apps/web/.next && pnpm build`) and its
+`/[locale]` row recorded. The budget did not drift; it moved three times,
+for three identifiable reasons.
+
+| Commit | Step | Route size | First Load JS |
+|---|---|---|---|
+| `8fc9817` | P9.S17 (the row quoted above) | 9.23 kB | **189 kB** |
+| `ca60f51` | P9.S18 | 9.92 kB | 190 kB |
+| `edc7325` | P11.S1 | 9.92 kB | 190 kB |
+| `9d34d1a` | P11.S2 | 9.92 kB | **198 kB** |
+| `edb8d55` | P11.S3 | 9.97 kB | 198 kB |
+| `f68ace0` | Phase 12 opens | 9.97 kB | 198 kB |
+| `20c91fb` | P12.S3 | 10.4 kB | 198 kB |
+| `33bca6d` | P12.S4 | 12.5 kB | **200 kB** |
+| working tree | P12.S5 | 12.5 kB | 200 kB |
+
+**The 8 KB is P11.S2, and it is `tailwind-merge`.** That step moved all 21
+primitives onto `cn()`, and four of them are Client Components —
+`Drawer`, `SearchField`, `Tabs`, `Toast`. Three of those four are in the
+header, which every route renders, so `tailwind-merge` v2 entered the
+client graph for the whole app in one commit. The step's own commit
+message is a careful account of the correctness bug it fixed and says
+nothing about weight, because nothing re-measured the route afterwards.
+That is the process gap worth naming, more than the kilobytes.
+
+**The 2 KB is P12.S4**, the manifest's `ManifestCheckIn` client leaf.
+Nine rows of image, text and link cost nothing — they are server-rendered
+— and the leaf that choreographs them costs 2 KB.
+
+**P12.S5 adds zero.** The mobile chip rail is the same server component
+under a second variant, the thumbnails are images, and the row/sprite
+highlight listener moved from the manifest to `HeroScrollProvider`
+rather than being added twice.
+
+So the honest figure is **200 KB against a 180 KB budget**, and the
+largest single recoverable piece is the 8 KB of `tailwind-merge` in four
+client primitives — worth a step of its own, and not one this phase can
+absorb without touching the design system.
+
+## Two defects the mobile audit found
+
+Both were invisible to every check that existed, and both are recorded
+here because the *reason* they were invisible generalises.
+
+**The hero's columns were laid out 1248px wide inside a 390px viewport.**
+The chip rail is a horizontal scroller, and a grid item's automatic
+minimum size is its min-content width — so the column refused to shrink
+below the rail's unwrapped strip (9 × 128px plus gaps) and overflowed its
+track. `overflow-x-clip` on `#hero` then hid the consequence perfectly:
+the page did not scroll sideways and nothing looked wrong, while the
+vehicle selector and all ten system links sat at `x=-875`, off-canvas.
+One `min-w-0` on the column fixes it. It was found only because axe could
+not resolve a background colour for text painted outside its ancestor,
+and reported the body's colour instead — a contrast failure that was
+really a layout failure wearing a disguise.
+
+**The manifest flashed on every load.** The server must send every row
+visible (that is what a no-JS or reduced-motion visitor reads), so the
+choreography has to remove them before checking them back in. Done in the
+mount effect, that removal lands after first paint: the list appears,
+fades out, then walks back in. It now happens in a blocking inline script
+before paint, the same technique next-themes already uses in this app for
+exactly this reason (masterPlan §6.7). This was also what made the
+page-level axe sweep fail — axe sampled the half-transparent rows
+mid-fade and scored the blended colour.
+
+## Suite note, for whoever runs this next
+
+The three landing suites pass individually and in any pair. Run all three
+in one `playwright test` invocation and the last nine tests fail on
+`data-theme` never being set — the dev server stops serving hydration
+JS that far into a single run, with `PackFileCacheStrategy` ENOENT
+warnings preceding it. Reordering the files moves the passes and failures
+with the order, not with the content, which is what identifies it as
+endurance rather than regression.

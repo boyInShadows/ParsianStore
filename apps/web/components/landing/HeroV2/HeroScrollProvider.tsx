@@ -1,6 +1,13 @@
 "use client"; // owns the hero's scroll progress, which useScroll can only measure on the client
 
-import { createContext, useContext, useRef, type ReactNode, type RefObject } from "react";
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useRef,
+  type ReactNode,
+  type RefObject,
+} from "react";
 import { useScroll, type MotionValue } from "motion/react";
 
 /**
@@ -34,6 +41,45 @@ export function HeroScrollProvider({ children }: { children: ReactNode }) {
   // one viewport -- and since the track is `100vh + X`, that travel is exactly X
   // at every breakpoint instead of a number that shifts with window size.
   const { scrollYProgress } = useScroll({ target: trackRef, offset: ["start start", "end end"] });
+
+  // The row/sprite highlight. It lives here, not in the manifest, because the
+  // manifest renders twice -- the desktop panel and the mobile chip rail, one
+  // of them CSS-hidden at any width -- while this provider mounts once.
+  //
+  // Both ends carry the same `data-part` (sprites get theirs in HeroStage), so
+  // one delegated listener pairs them by attribute and both directions fall out
+  // of it: whichever end the pointer or focus is on lights the other.
+  useEffect(() => {
+    const root = document.getElementById("hero");
+    if (!root) return;
+
+    let highlighted: Element[] = [];
+    const clear = () => {
+      for (const element of highlighted) element.removeAttribute("data-highlight");
+      highlighted = [];
+    };
+    const highlight = (event: Event) => {
+      const target = event.target;
+      const owner = target instanceof Element ? target.closest<HTMLElement>("[data-part]") : null;
+      const id = owner?.dataset.part;
+      clear();
+      if (!id) return;
+      highlighted = [...root.querySelectorAll(`[data-part="${CSS.escape(id)}"]`)];
+      for (const element of highlighted) element.setAttribute("data-highlight", "");
+    };
+
+    root.addEventListener("pointerover", highlight);
+    root.addEventListener("pointerleave", clear);
+    root.addEventListener("focusin", highlight);
+    root.addEventListener("focusout", clear);
+    return () => {
+      root.removeEventListener("pointerover", highlight);
+      root.removeEventListener("pointerleave", clear);
+      root.removeEventListener("focusin", highlight);
+      root.removeEventListener("focusout", clear);
+      clear();
+    };
+  }, []);
 
   return (
     <HeroScrollContext.Provider value={{ trackRef, progress: scrollYProgress }}>

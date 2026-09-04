@@ -27,14 +27,10 @@ import { useHeroScroll } from "./HeroScrollProvider";
  * simply stands, which is what §2.3 requires. Writing it the other way round
  * would mean a no-JS visitor gets an empty panel.
  *
- * ## Highlight
- *
- * Row to sprite and sprite to row, one delegated listener each way. Both ends
- * carry the same `data-part` (the sprites get theirs in `HeroStage`), so this
- * pairs them by attribute rather than by knowing anything about either. Done
- * with two `setAttribute` calls rather than per-part CSS, because the pure-CSS
- * form needs one rule per part id and would hardcode the manifest into a
- * stylesheet.
+ * The row/sprite highlight is NOT here -- it lives in `HeroScrollProvider`,
+ * which mounts once. P12.S5 renders the manifest twice (the desktop panel and
+ * the mobile chip rail, one hidden by CSS at any width), and a listener owned
+ * by this component would then be attached to the hero twice over.
  */
 export function ManifestCheckIn({ children }: { children: ReactNode }) {
   const { progress } = useHeroScroll();
@@ -56,8 +52,11 @@ export function ManifestCheckIn({ children }: { children: ReactNode }) {
       return;
     }
 
+    // Usually a no-op: `PRE_PAINT` in PartsManifest already set both, before
+    // the browser painted. This is the same assignment, for the case where that
+    // script did not run, and for a visitor who turns reduced motion back off.
     list.dataset.choreographed = "true";
-    list.dataset.chapterReached = "0";
+    if (list.dataset.chapterReached === "3") list.dataset.chapterReached = "0";
     return () => {
       delete list.dataset.choreographed;
       list.dataset.chapterReached = "3";
@@ -79,40 +78,6 @@ export function ManifestCheckIn({ children }: { children: ReactNode }) {
     const next = String(reached);
     if (list.dataset.chapterReached !== next) list.dataset.chapterReached = next;
   });
-
-  useEffect(() => {
-    const root = document.getElementById("hero");
-    if (!root) return;
-
-    let highlighted: Element[] = [];
-    const clear = () => {
-      for (const element of highlighted) element.removeAttribute("data-highlight");
-      highlighted = [];
-    };
-    const highlight = (event: Event) => {
-      const target = event.target;
-      const owner = target instanceof Element ? target.closest<HTMLElement>("[data-part]") : null;
-      const id = owner?.dataset.part;
-      clear();
-      if (!id) return;
-      // Both directions fall out of this: rows and sprites carry the same
-      // attribute, so whichever end the pointer is on lights the other.
-      highlighted = [...root.querySelectorAll(`[data-part="${CSS.escape(id)}"]`)];
-      for (const element of highlighted) element.setAttribute("data-highlight", "");
-    };
-
-    root.addEventListener("pointerover", highlight);
-    root.addEventListener("pointerleave", clear);
-    root.addEventListener("focusin", highlight);
-    root.addEventListener("focusout", clear);
-    return () => {
-      root.removeEventListener("pointerover", highlight);
-      root.removeEventListener("pointerleave", clear);
-      root.removeEventListener("focusin", highlight);
-      root.removeEventListener("focusout", clear);
-      clear();
-    };
-  }, []);
 
   return <div ref={wrapperRef}>{children}</div>;
 }

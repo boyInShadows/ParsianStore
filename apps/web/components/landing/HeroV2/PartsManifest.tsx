@@ -1,4 +1,5 @@
 import { getTranslations } from "next-intl/server";
+import { toPersianDigits } from "schemas";
 import { getSystemPartCounts } from "@/lib/fetchers/exploded-view";
 import { landingAsset, landingFallback, landingSrcSet } from "@/lib/landing-image";
 import { manifestEntries, type ManifestEntry } from "./manifestData";
@@ -34,13 +35,33 @@ import { ManifestCheckIn } from "./ManifestCheckIn";
  */
 
 /**
- * Hidden until P12.S5 turns it on, which is the step that adds the mobile chip
- * rail and flips it for real. The repo has no feature-flag mechanism -- the
- * living convention is a named module constant with a comment saying what
- * flips it (`SECTION_HIDDEN` in `Newsletter.tsx` and `GuidesTeaser.tsx`), so
- * this follows that rather than inventing an env var nothing sets.
+ * Live since P12.S5. Kept as a named constant rather than deleted: it is the
+ * one switch that takes the manifest off the page if it ever needs to go, and
+ * it matches the `SECTION_HIDDEN` convention Newsletter and GuidesTeaser use.
  */
-const MANIFEST_HIDDEN = true;
+const MANIFEST_HIDDEN = false;
+
+/**
+ * Runs during parse, before the browser paints the list.
+ *
+ * The server has to send every row visible -- that is what a no-JS or
+ * reduced-motion visitor reads (§2.3) -- so the choreography has to *remove*
+ * them before it can check them back in. Left to the mount effect, that removal
+ * happens after first paint: the manifest appears, then fades away, then walks
+ * back in as you scroll. A flash on load is exactly what masterPlan §6.7
+ * forbids, and it is also what made the page-level axe sweep fail, because axe
+ * sampled the half-transparent text mid-fade and scored the blended colour.
+ *
+ * So it is set here instead, the same way next-themes avoids a theme flash in
+ * `app/[locale]/layout.tsx`: a blocking inline script, before paint. It reads
+ * the reduced-motion preference itself, so that visitor's list is never touched
+ * at all. If the script never runs -- no JS, or a future nonce-based CSP -- the
+ * list simply stands complete, which is the correct fallback either way.
+ */
+const PRE_PAINT = `(function(){var s=document.currentScript,l=s&&s.previousElementSibling;
+if(!l||!l.dataset||l.dataset.chapterReached===undefined)return;
+if(window.matchMedia&&window.matchMedia("(prefers-reduced-motion: reduce)").matches)return;
+l.dataset.choreographed="true";l.dataset.chapterReached="0";})()`;
 
 /** The thumbnail rung the pipeline emits for exactly this (P12.S4). */
 const THUMB_WIDTH = 96;
@@ -98,18 +119,102 @@ function ManifestRow({
   );
 }
 
-export async function PartsManifest() {
+/**
+ * The mobile form (§2.2): the same parts as a compact horizontal rail under the
+ * stage, snap-scrolled, same links, same accumulate rule.
+ *
+ * A chip drops the SYS code and keeps thumbnail, name and count. The code earns
+ * its place in a full-width row where there is space for it; in a 9rem chip it
+ * would push the part's own name to a second line, and the name is the thing a
+ * visitor is scanning for.
+ */
+function ManifestChip({
+  entry,
+  name,
+  count,
+  action,
+}: {
+  entry: ManifestEntry;
+  name: string;
+  count: string | null;
+  action: string;
+}) {
+  const asset = landingAsset(`/landing/${entry.assetGroup}/${entry.asset}`);
+
+  return (
+    <li
+      data-chapter={entry.chapter}
+      data-part={entry.id}
+      // w-32, not w-36: the spacing scale is REPLACED with
+      // 0,1,2,3,4,6,8,12,16,20,24,32, so `w-36` generates nothing and
+      // `flex-none` then sizes each chip to its own text -- measured 74px to
+      // 99px, a visibly ragged rail. Same silent failure as `h-10` above, and
+      // as the audit's own item 2 where a `w-64` card computed to 992px.
+      className="manifest-row manifest-chip w-32 flex-none snap-start"
+    >
+      <a
+        href={entry.href}
+        className="relative flex h-full min-h-12 flex-col gap-1 border border-graphite-800 p-3 text-graphite-100 transition-colors duration-fast hover:border-brand hover:text-brand focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus motion-reduce:transition-none"
+      >
+        <img
+          src={landingFallback(asset)}
+          srcSet={landingSrcSet(asset)}
+          sizes={`${THUMB_CSS_PX}px`}
+          width={THUMB_WIDTH}
+          height={Math.round((asset.intrinsic.height / asset.intrinsic.width) * THUMB_WIDTH)}
+          alt=""
+          loading="lazy"
+          decoding="async"
+          className="h-12 w-12 object-contain"
+        />
+        <span className="text-body-sm">{name}</span>
+        {count !== null ? (
+          <span className="font-mono text-caption text-graphite-400">{count}</span>
+        ) : null}
+        <span className="sr-only">{action}</span>
+      </a>
+    </li>
+  );
+}
+
+/**
+ * `panel` is the desktop side list, `rail` the mobile chip strip. Both render
+ * on every request and CSS shows exactly one -- `hidden` is `display:none`, so
+ * the other is out of the accessibility tree entirely and there is never a
+ * duplicate navigation landmark.
+ */
+export async function PartsManifest({ variant }: { variant: "panel" | "rail" }) {
   if (MANIFEST_HIDDEN) return null;
 
   const t = await getTranslations("Landing.manifest");
   const counts = await getSystemPartCounts();
   const entries = manifestEntries();
+  const isPanel = variant === "panel";
+
+  const rows = entries.map((entry) => {
+    const props = {
+      entry,
+      name: t(`parts.${entry.nameKey}`),
+      count:
+        counts[entry.system] === null
+          ? null
+          : // Persian digits, per the system rail beside it -- see the note there.
+            t("partsCount", { count: toPersianDigits(counts[entry.system] as number) }),
+      action: t("rowAction"),
+    };
+    return isPanel ? (
+      <ManifestRow key={entry.id} {...props} />
+    ) : (
+      <ManifestChip key={entry.id} {...props} />
+    );
+  });
 
   return (
-    <nav aria-label={t("navLabel")} className="hidden flex-col gap-3 lg:flex">
-      <div className="flex items-baseline justify-between gap-3">
-        <h2 className="text-body font-bold text-graphite-0">{t("title")}</h2>
-      </div>
+    <nav
+      aria-label={t("navLabel")}
+      className={isPanel ? "hidden flex-col gap-3 lg:flex" : "flex flex-col gap-3 lg:hidden"}
+    >
+      <h2 className="text-body font-bold text-graphite-0">{t("title")}</h2>
       {/* Read instead of the choreography, which a screen reader never sees. */}
       <p className="sr-only">{t("intro")}</p>
       {/* `data-chapter-reached` starts at the LAST chapter, not the first: with
@@ -117,21 +222,20 @@ export async function PartsManifest() {
           present (§2.3). The client leaf below only ever takes rows *away* --
           and only once it knows it can animate them back in. */}
       <ManifestCheckIn>
-        <ol className="manifest-list flex flex-col" data-chapter-reached="3">
-          {entries.map((entry) => (
-            <ManifestRow
-              key={entry.id}
-              entry={entry}
-              name={t(`parts.${entry.nameKey}`)}
-              count={
-                counts[entry.system] === null
-                  ? null
-                  : t("partsCount", { count: counts[entry.system] as number })
-              }
-              action={t("rowAction")}
-            />
-          ))}
+        <ol
+          className={
+            isPanel
+              ? "manifest-list flex flex-col"
+              : "manifest-list flex snap-x snap-mandatory gap-3 overflow-x-auto pb-2"
+          }
+          data-chapter-reached="3"
+        >
+          {rows}
         </ol>
+        {/* Must stay the list's immediately next sibling -- it finds the list
+            through `currentScript.previousElementSibling` rather than an id,
+            because this component renders twice on every page. */}
+        <script dangerouslySetInnerHTML={{ __html: PRE_PAINT }} />
       </ManifestCheckIn>
     </nav>
   );
