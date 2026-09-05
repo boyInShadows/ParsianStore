@@ -136,11 +136,18 @@ export const HERO_BASE_ASSET = "car-stripped";
 export const HERO_LAYERS: readonly HeroLayer[] = [
   // Product shot: scaled to the bay and turned a few degrees so its ridge runs
   // along the car's, rather than across it. Lifts up and back off its hinge.
+  //
+  // The offset was wrong until it was measured against the shell rather than
+  // judged against the composite. dy -95 put the box at 137,352 -- top 352 is
+  // above the shell's own roofline here, so the panel sat over the cowl and the
+  // windshield instead of on the bay, leaving the engine visible in front of it
+  // and the far corner overhanging the fender. The bay is at rows 389-527, not
+  // 352-490. Scale and rotation were right and are unchanged; only dx/dy moved.
   {
     id: "hood",
     asset: "sprite-hood",
     chapter: 2,
-    dock: { dx: -130, dy: -95, scale: 0.66, rotateZ: -4 },
+    dock: { dx: -155, dy: -58, scale: 0.66, rotateZ: -4 },
     undock: { dx: 40, dy: -175, scale: 1.06 },
   },
   // Product shot: the pane is rendered at nearly three times the aperture.
@@ -237,13 +244,17 @@ export type HeroEnginePart = {
 /**
  * The engine bay, in canvas pixels: exactly the box the docked hood covers.
  *
- * Derived once from the shipped registration rather than eyeballed -- the hood
- * sprite trims to 737x208 at (142, 412) and docks at scale 0.66 with
- * dx -130 / dy -95, which puts its box at 137,352 -> 624,490. Anything the hood
- * is supposed to hide has to sit inside that, and `heroLayout.test.ts` checks
- * that every part does.
+ * Derived from the registration rather than eyeballed -- the hood sprite trims
+ * to 737x208 at (142, 412) and docks at scale 0.66 with dx -155 / dy -58, which
+ * puts its box at 112,389 -> 599,527. Anything the hood is supposed to hide has
+ * to sit inside that, and `manifestData.test.ts` checks that every part does.
+ *
+ * It moved with the hood: the previous box (137,352 -> 624,490) was derived from
+ * the hood's own misplacement, so the three parts were "inside the bay" by the
+ * test's arithmetic while sitting over the cowl on screen. A derived constant is
+ * only as true as what it is derived from.
  */
-export const HERO_BAY = { left: 137, top: 352, right: 624, bottom: 490 } as const;
+export const HERO_BAY = { left: 112, top: 389, right: 599, bottom: 527 } as const;
 
 /**
  * The three parts that live under the hood (fableTasks2 §2.1's chapter 2).
@@ -278,19 +289,19 @@ export const HERO_ENGINE_PARTS: readonly HeroEnginePart[] = [
   {
     id: "air-filter",
     asset: "air-filter",
-    place: { cx: 260, cy: 425, height: 55 },
+    place: { cx: 260, cy: 468, height: 55 },
     undock: { dx: -30, dy: 340, scale: 1.12 },
   },
   {
     id: "piston",
     asset: "piston",
-    place: { cx: 380, cy: 420, height: 105 },
+    place: { cx: 380, cy: 462, height: 105 },
     undock: { dx: 0, dy: 350, scale: 1.12 },
   },
   {
     id: "alternator",
     asset: "alternator",
-    place: { cx: 500, cy: 425, height: 78 },
+    place: { cx: 500, cy: 468, height: 78 },
     undock: { dx: 30, dy: 340, scale: 1.12 },
   },
 ];
