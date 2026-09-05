@@ -20,6 +20,54 @@ const SECTION_RENDER = 45_000;
 const MOBILE = { width: 390, height: 900 };
 const NARROW = { width: 360, height: 900 };
 
+/**
+ * P12.S10, recording defect 4. Verification codes are 36-45 characters
+ * (`VER-SKU-ENGINE-CYLINDER-HEAD-GASKET-PRIDE-111`). As plain text inside
+ * Persian copy they wrapped across lines, and a Latin run in an RTL paragraph
+ * can be *repositioned* by the bidi algorithm -- every character present, in the
+ * wrong visual order, which is the worst possible failure for a value someone
+ * is asked to compare against a hologram.
+ */
+test.describe("evidence codes (defect 4)", () => {
+  test("stamps every code on one line, isolated from the RTL text around it", async ({ page }) => {
+    await page.goto("/");
+    await page.locator("#authenticity").waitFor({ timeout: SECTION_RENDER });
+    const codes = page.locator(".evidence-code");
+    const count = await codes.count();
+    expect(count, "no evidence code rendered").toBeGreaterThan(0);
+
+    for (let index = 0; index < count; index += 1) {
+      const code = codes.nth(index);
+      const info = await code.evaluate((el) => {
+        const style = getComputedStyle(el);
+        return {
+          height: el.getBoundingClientRect().height,
+          lineHeight: parseFloat(style.lineHeight) || parseFloat(style.fontSize) * 1.2,
+          direction: style.direction,
+          bidi: style.unicodeBidi,
+          variant: style.fontVariantNumeric,
+          family: style.fontFamily,
+          title: el.getAttribute("title"),
+          text: el.textContent,
+        };
+      });
+
+      // One line: a wrapped 45-character code was two or three.
+      expect(info.height, `code ${index} wrapped`).toBeLessThan(info.lineHeight * 1.6);
+      expect(info.direction, `code ${index} direction`).toBe("ltr");
+      // `dir` alone sets direction inside the run; the isolate is what stops the
+      // surrounding paragraph deciding where the run is placed.
+      expect(info.bidi, `code ${index} is not bidi-isolated`).toContain("isolate");
+      expect(info.variant, `code ${index} digits are not tabular`).toContain("tabular-nums");
+      expect(info.family.toLowerCase(), `code ${index} is not mono`).toMatch(/mono/);
+      // Truncation is visual only. The DOM keeps the whole code, so a screen
+      // reader reads it and selecting it copies it; `title` shows it on hover.
+      expect(info.title, `code ${index} lost its full value`).toBe(info.text);
+      expect(info.text!.length, `code ${index} was shortened in the DOM`).toBeGreaterThan(10);
+    }
+  });
+});
+
 test.describe("best sellers rail (audit item 2)", () => {
   for (const viewport of [NARROW, MOBILE]) {
     test(`cards keep a definite width at ${viewport.width}px`, async ({ page }) => {

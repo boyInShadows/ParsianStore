@@ -141,6 +141,17 @@
     }
   }
 
+  /* ---- Evidence code (P12.S10) ----------------------------------------
+
+     `dir="ltr"` sets the direction INSIDE the run; `unicode-bidi: isolate`
+     is what stops the surrounding RTL paragraph from deciding where the run
+     sits relative to the text around it. Tailwind has a utility for the
+     first and none for the second, and only the pair together makes a Latin
+     code render the same way in Persian copy as it does on its own. */
+  .evidence-code {
+    unicode-bidi: isolate;
+  }
+
   /* ---- Technical plate (P12.S9) ---------------------------------------
 
      The missing-photograph state on a product card: ruled paper with a

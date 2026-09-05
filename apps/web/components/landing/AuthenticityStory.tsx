@@ -2,6 +2,7 @@ import { getTranslations } from "next-intl/server";
 import { fetchExampleProduct } from "@/lib/fetchers/products";
 import { Reveal } from "@/components/motion";
 import { VideoStage } from "./VideoStage";
+import { EvidenceCode } from "@/components/authenticity";
 
 const SUPPLY_ROUTE_KEYS = {
   oem: "oem",
@@ -59,8 +60,8 @@ export async function AuthenticityStory() {
           ) : null}
           <div className="absolute inset-0 bg-gradient-to-t from-graphite-950 to-transparent" />
           <p className="relative z-10 font-display text-h2 font-black">{product.name.fa}</p>
-          <p className="relative z-10 mt-2 font-mono text-data text-marigold-300">
-            {product.authenticity.verificationCode}
+          <p className="relative z-10 mt-2 flex text-data text-marigold-300">
+            <EvidenceCode code={product.authenticity.verificationCode} />
           </p>
         </div>
         <dl className="gap-px p-px grid grid-cols-1 bg-rule sm:grid-cols-2">
@@ -93,8 +94,8 @@ function AuthenticityField({
   return (
     <div className="flex min-h-32 flex-col justify-between gap-4 bg-surface p-6">
       <dt className="font-mono text-caption text-text-muted">{label}</dt>
-      <dd className={`text-body font-medium text-text ${mono ? "font-mono text-brand" : ""}`}>
-        {value}
+      <dd className="flex text-body font-medium text-text">
+        {mono ? <EvidenceCode code={value} className="text-brand" /> : value}
       </dd>
     </div>
   );
