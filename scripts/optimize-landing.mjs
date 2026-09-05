@@ -297,7 +297,12 @@ async function emitVideo(ffmpeg) {
       `  ${clip.padEnd(16)} ${formatBytes(bytes)} mp4 (1080p, muted, faststart) + ` +
         `${poster.variants.length} poster widths`,
     );
-    entries.push({ name: clip, mp4: { bytes }, poster });
+    // `mirrored` on the clip itself, because the poster's own flag cannot say
+    // it: the poster is cut from the already-flipped encode, so sharp does no
+    // flopping and records `mirrored: false` -- true of what sharp did, and the
+    // opposite of what a reader wants to know (P12.S11). The flip lives in the
+    // ffmpeg filter above, so the manifest records it from the same constant.
+    entries.push({ name: clip, mp4: { bytes, mirrored: MIRRORED.video }, poster });
   }
   return entries;
 }
@@ -312,6 +317,7 @@ async function carriedVideo() {
   const previous = JSON.parse(await readFile(MANIFEST, "utf8")).video ?? [];
   return previous.map((clip) => ({
     ...clip,
+    mp4: { ...clip.mp4, mirrored: clip.mp4.mirrored ?? MIRRORED.video },
     // Field order matches emitResponsive's return exactly, so --skip-video and
     // a full run write a byte-identical manifest. Order alone would otherwise
     // churn the committed diff depending on which flag was used.

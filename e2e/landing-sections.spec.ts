@@ -28,6 +28,51 @@ const NARROW = { width: 360, height: 900 };
  * wrong visual order, which is the worst possible failure for a value someone
  * is asked to compare against a hologram.
  */
+/**
+ * P12.S11, verifying defect 7 rather than assuming it: a reported black tail
+ * of scrollable nothing under the footer.
+ *
+ * The document ends exactly at the footer's bottom edge at every width -- there
+ * is no void to close. What a recording can still show past it is the browser's
+ * over-scroll, which paints the canvas colour (`body`'s background, since
+ * `html` is transparent), and in the dark theme that is very dark by design.
+ * This asserts the thing that would be a real bug -- scrollable space, or
+ * something sticking out below the footer -- and does not chase a colour that
+ * is correct.
+ */
+test.describe("the page ends at the footer (defect 7)", () => {
+  for (const viewport of [NARROW, MOBILE, { width: 1440, height: 900 }]) {
+    test(`has nothing scrollable past the footer at ${viewport.width}px`, async ({ page }) => {
+      await page.setViewportSize(viewport);
+      await page.goto("/");
+      await page.locator("#hero").waitFor();
+      await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
+
+      const info = await page.evaluate(() => {
+        const footer = document.querySelector("footer");
+        if (!footer) return null;
+        const rect = footer.getBoundingClientRect();
+        return {
+          gap: window.innerHeight - rect.bottom,
+          past: [...document.querySelectorAll("body *")]
+            .filter((el) => el.getBoundingClientRect().bottom > rect.bottom + 1)
+            .map((el) => `${el.tagName}.${String(el.className).slice(0, 40)}`)
+            .slice(0, 5),
+        };
+      });
+
+      expect(info, "the page has no footer").not.toBeNull();
+      // Scrolled to the very bottom, the footer's last pixel is the viewport's
+      // last pixel. A positive gap is dead space; a negative one means the
+      // footer is cut off. Within a pixel, because a fractional layout height
+      // rounds either way -- and because `Math.round` can hand back `-0`, which
+      // `toBe(0)` rejects.
+      expect(Math.abs(info!.gap), `gap below the footer: ${info!.gap}`).toBeLessThan(1.5);
+      expect(info!.past, `these render below the footer: ${info!.past.join(", ")}`).toEqual([]);
+    });
+  }
+});
+
 test.describe("evidence codes (defect 4)", () => {
   test("stamps every code on one line, isolated from the RTL text around it", async ({ page }) => {
     await page.goto("/");

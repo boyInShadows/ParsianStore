@@ -124,3 +124,38 @@ describe("landingAsset", () => {
     expect(landingFallback(asset)).toBe(`${asset.src}-${asset.widths.at(-1)}.avif`);
   });
 });
+
+/**
+ * P12.S11, verifying defect 5 rather than assuming it.
+ *
+ * The clips were composed for LTR -- subject in the end-side two-thirds, empty
+ * third on the start side -- so the shipped file is horizontally flipped for a
+ * Persian page (fableTasks §3.3). The report was that the un-mirrored variant
+ * might be the one referenced.
+ *
+ * It is not. Verified against the bytes, not the config: a frame from each
+ * shipped mp4, flipped, is pixel-identical to the same frame of its source in
+ * `landing-src/video/`, for both clips. That check needs ffmpeg, so what stays
+ * behind as a permanent guard is this: the manifest has to keep saying the
+ * clips are mirrored, which fails the moment someone flips `MIRRORED.video` in
+ * `scripts/optimize-landing.mjs` and re-runs the pipeline.
+ */
+describe("the landing clips ship mirrored for RTL", () => {
+  it("records the flip on the clip itself, for every clip", () => {
+    const clips = manifest.video ?? [];
+    expect(clips.length, "no clips in the manifest").toBeGreaterThan(0);
+    for (const clip of clips) {
+      expect(clip.mp4.mirrored, `${clip.name} is not marked mirrored`).toBe(true);
+    }
+  });
+
+  it("does not read the flip off the poster, which cannot know it", () => {
+    // The poster is cut from the already-flipped encode, so sharp does no
+    // flopping and honestly records `mirrored: false`. True of what sharp did,
+    // and the opposite of what a reader wants -- which is exactly why the flag
+    // above exists on the clip. Pinned so nobody "fixes" the poster's flag.
+    for (const clip of manifest.video ?? []) {
+      expect(clip.poster.mirrored, `${clip.name} poster`).toBe(false);
+    }
+  });
+});

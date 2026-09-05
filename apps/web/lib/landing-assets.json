@@ -904,7 +904,8 @@
     {
       "name": "chapter-2",
       "mp4": {
-        "bytes": 1476432
+        "bytes": 1476432,
+        "mirrored": true
       },
       "poster": {
         "name": "chapter-2-poster",
@@ -940,7 +941,8 @@
     {
       "name": "chapter-4",
       "mp4": {
-        "bytes": 1395592
+        "bytes": 1395592,
+        "mirrored": true
       },
       "poster": {
         "name": "chapter-4-poster",
