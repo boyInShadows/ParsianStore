@@ -3,7 +3,7 @@
 import { useEffect, useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
 import { useToastStore, type ToastTone } from "@/stores/toast-store";
-import { cn } from "@/lib/cn";
+import { cx } from "@/lib/cx";
 
 const toneStyles: Record<ToastTone, string> = {
   neutral: "border-border bg-surface text-text",
@@ -29,7 +29,7 @@ function ToastItemView({ id, message, tone }: { id: string; message: string; ton
   return (
     <div
       role="status"
-      className={cn(
+      className={cx(
         "pointer-events-auto rounded-md border px-4 py-2 text-body-sm shadow-md",
         toneStyles[tone],
       )}

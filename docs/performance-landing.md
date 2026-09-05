@@ -321,3 +321,64 @@ JS that far into a single run, with `PackFileCacheStrategy` ENOENT
 warnings preceding it. Reordering the files moves the passes and failures
 with the order, not with the content, which is what identifies it as
 endurance rather than regression.
+
+---
+
+# P12.S5b — the 8 KB back
+
+The ledger above named `tailwind-merge` as the largest recoverable piece.
+It is recovered: **the landing route is 193 KB**, down from 200 KB.
+
+## What it cost, measured rather than estimated
+
+Stubbing the merge to the identity function and rebuilding took the route
+from 200 KB to 193 KB, so the number is **7 KB gzipped** — not the 8 KB the
+commit-by-commit ledger attributed to P11.S2, because that step also
+carried ~1 KB of its own. The measurement is the honest one.
+
+## Why it was there, and why it no longer needs to be
+
+`cn()` = `twMerge(clsx(...))`, and the merge exists for one reason: a
+caller's `className` has to be able to beat a component's own variant
+(P11.S2). Four Client Components imported it — `Drawer`, `SearchField`,
+`Tabs`, `Toast` — and any Client Component that imports `@/lib/cn` pulls
+tailwind-merge into that route's browser bundle.
+
+Three of the four **accept no `className` prop at all**. They compose a
+static base string with an internal variant map, and the two touch
+different utility groups, so the merge had nothing to resolve. They now use
+`cx()` (`lib/cx.ts`), which is clsx and nothing else.
+
+`SearchField` keeps `cn()`, because it genuinely merges a caller's
+`className` onto its input. Removing it would have been the bug P11.S2
+fixed, reintroduced to save bytes. It is not on the landing route's client
+graph, so it costs that route nothing — dropping it there saved zero,
+measured.
+
+`lib/cx.ts` is a **separate module on purpose**. Exporting `cx` from
+`lib/cn.ts` would recover nothing: importing any binding from a module
+pulls the module, and the module pulls tailwind-merge.
+
+## The two tests that keep it
+
+`lib/cx.test.ts` asserts `cx(...) === cn(...)` for every composition that
+moved — eight of them, one per Drawer side, Tabs state and Toast tone. The
+day one grows a conflicting utility, that site fails and says to move back
+to `cn()` rather than silently shipping a class attribute whose winner is
+decided by stylesheet order.
+
+The second test walks `components/` and `app/`, finds every file with a
+`"use client"` directive that imports `@/lib/cn`, and fails on anything not
+in an allowlist that carries a written reason. **This is the part that
+matters more than the kilobytes.** The 8 KB was not a mistake anyone made
+carelessly — P11.S2's commit message is a careful account of the real bug
+it fixed. What went wrong is that nothing re-measured the route afterwards
+and nothing would have objected. Now something objects.
+
+## Where the budget stands
+
+**193 KB against a 180 KB budget.** Still over, and the remaining 13 KB is
+the hero itself — the scroll stage, the video stages, the vehicle/part path
+split, the manifest's choreography leaf — which is the page's actual
+content rather than a dependency that slipped in. Nothing else is sitting
+in there by accident.

@@ -9,7 +9,7 @@ import {
   type ReactNode,
 } from "react";
 
-import { cn } from "@/lib/cn";
+import { cx } from "@/lib/cx";
 
 type TabsContextValue = {
   value: string;
@@ -90,7 +90,7 @@ function Trigger({ value, children }: { value: string; children: ReactNode }) {
       tabIndex={selected ? 0 : -1}
       data-value={value}
       onClick={() => setValue(value)}
-      className={cn(
+      className={cx(
         "border-b-2 px-4 py-2 text-body-sm font-medium transition-colors duration-fast focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus motion-reduce:transition-none",
         selected
           ? "border-brand-solid text-text"
