@@ -40,6 +40,55 @@ const NARROW = { width: 360, height: 900 };
  * something sticking out below the footer -- and does not chase a colour that
  * is correct.
  */
+/**
+ * P12.S12, recording defect 6. The wall was a thin line of 20px grey text
+ * drifting through the page -- it read as a caption, not as a wall, and the
+ * missing logos (fableTasks2 §5.6) left nothing carrying the weight.
+ */
+test.describe("brand wall (defect 6)", () => {
+  for (const viewport of [NARROW, MOBILE, { width: 1440, height: 900 }]) {
+    test(`sets every brand whole and on one line at ${viewport.width}px`, async ({ page }) => {
+      await page.setViewportSize(viewport);
+      await page.goto("/");
+      await page.locator("#hero").waitFor();
+      const wall = page.locator("#brand-wall");
+      await expect(wall).toHaveCount(1, { timeout: SECTION_RENDER });
+
+      const info = await wall.evaluate((el) => {
+        const links = [...el.querySelectorAll("a")];
+        const band = el.querySelector("a")!.closest("div.border-y");
+        const bandStyle = band ? getComputedStyle(band) : null;
+        return {
+          fontSize: parseFloat(getComputedStyle(links[0]!).fontSize),
+          borderTop: bandStyle?.borderTopWidth ?? "0px",
+          borderBottom: bandStyle?.borderBottomWidth ?? "0px",
+          wrapped: links
+            .map((link) => {
+              const style = getComputedStyle(link);
+              const lineHeight = parseFloat(style.lineHeight) || parseFloat(style.fontSize) * 1.2;
+              return link.getBoundingClientRect().height > lineHeight * 1.6
+                ? link.textContent
+                : null;
+            })
+            .filter(Boolean),
+          // Anything clipped to nothing would be an orphan of a different kind.
+          empty: links.filter((link) => !link.textContent?.trim()).length,
+        };
+      });
+
+      // Ruled top and bottom -- what makes it a band rather than loose text.
+      expect(parseFloat(info.borderTop), "no rule above the wall").toBeGreaterThan(0);
+      expect(parseFloat(info.borderBottom), "no rule below the wall").toBeGreaterThan(0);
+      // Larger than the caption it used to be. h3 was 20px.
+      expect(info.fontSize, "the wall is still set at caption weight").toBeGreaterThan(24);
+      // No orphans: a proper noun broken over two lines inside a scrolling
+      // track. «سایپا یدک» is one name, not two words that may be split.
+      expect(info.wrapped, `these brand names wrapped: ${info.wrapped.join(", ")}`).toEqual([]);
+      expect(info.empty, "a brand rendered with no name").toBe(0);
+    });
+  }
+});
+
 test.describe("the page ends at the footer (defect 7)", () => {
   for (const viewport of [NARROW, MOBILE, { width: 1440, height: 900 }]) {
     test(`has nothing scrollable past the footer at ${viewport.width}px`, async ({ page }) => {
@@ -458,7 +507,13 @@ test.describe("brand wall (S13)", () => {
     // aria-hidden AND inert -- aria-hidden alone hides it from assistive tech
     // but leaves it in the tab order, so a sighted keyboard user would tab
     // through invisible links.
-    await expect(wall.locator("[aria-hidden='true']")).toHaveAttribute("inert", /.*/);
+    //
+    // Scoped to the track's own child rather than to every `aria-hidden` in the
+    // wall: the separators between brand names are hidden too (P12.S12), and
+    // they are decoration inside the list, not the duplicate this is about.
+    const duplicate = wall.locator(".motion-marquee-track > [aria-hidden='true']");
+    await expect(duplicate).toHaveCount(1);
+    await expect(duplicate).toHaveAttribute("inert", /.*/);
 
     // The scrolling region carries its own name; the section heading names the
     // section, not the group of links inside it.
