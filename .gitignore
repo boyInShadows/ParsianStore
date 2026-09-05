@@ -71,7 +71,8 @@ next-env.d.ts
 /AGENTS.md
 /docs/decisions/
 /screenshots/
-# The P10 plan of record (fableTasks2.md). Its predecessor fableTasks.md is
-# tracked, but the owner chose to keep this one local-only (2026-09-03), so the
-# two Fable plans are deliberately treated differently -- this is not drift.
+# Both Fable plan files were deleted on 2026-09-05 when Phase 12 closed, at the
+# owner's request: every step in them has shipped, and tasks.md carries the
+# surviving record of both phases. The ignore stays so a stray local copy of the
+# Phase 12 plan cannot be committed by accident later.
 /fableTasks2.md

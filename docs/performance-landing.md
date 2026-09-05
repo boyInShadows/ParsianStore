@@ -382,3 +382,97 @@ the hero itself — the scroll stage, the video stages, the vehicle/part path
 split, the manifest's choreography leaf — which is the page's actual
 content rather than a dependency that slipped in. Nothing else is sitting
 in there by accident.
+
+---
+
+# P12.S13 — Phase 12 closing measurement
+
+Lighthouse 13.4.1, mobile 360x640 DPR 2, `--throttling-method=devtools`,
+against `next start` on a production build. **Five runs, median reported**,
+because a single run on this machine varied by 200ms on TBT.
+
+## Core Web Vitals
+
+| Metric | Budget | P9.S17 | **P12 close** | |
+|---|---|---|---|---|
+| LCP | ≤ 2.0s | 1.9s | **1.65s** | ✓ improved |
+| CLS | ≤ 0.05 | 0.032 | **0.034** | ✓ |
+| TBT | ≤ 200ms | 130ms | **261ms** (127–337) | ✗ **over** |
+| Speed Index | — | 2.0s | 1.81s | |
+| Lighthouse perf | ≥ 90 | 97 | 94 (91–97) | ✓ |
+| Lighthouse a11y | — | 100 | **100** | ✓ |
+| Lighthouse SEO | — | 100 | 92 | ✗ see below |
+
+Route JS: **193 KB** against a 180 KB budget (was 200 KB at P12.S5, 189 KB
+at P9.S17). Transfer: 501 KB over 50 requests — script 233 KB, font 131 KB,
+image 61 KB, document 60 KB. Zero video bytes on mobile, still.
+
+## The one number that got worse, and what it is
+
+**TBT roughly doubled: 130ms → 261ms.** Measured, attributed, and not
+guessed at.
+
+Comparison on the *same machine in the same session*, because CPU contention
+moves this metric more than most code does. Pre-Phase-12 (`f68ace0`), built
+and served identically: LCP 1.8s, CLS 0.032, **TBT 90–120ms**. So the
+regression is real and it is ours, not the machine.
+
+Isolated by building the current tree with `MANIFEST_HIDDEN = true`:
+**TBT drops to 130ms**, back to the pre-phase figure, with everything else
+in Phase 12 still in place — the longer scroll track, the staggered beats,
+the engine parts, the technical plates, the brand wall. **The parts manifest
+is the entire regression.**
+
+One dead end worth recording so it is not repeated: rendering only the
+desktop panel also measured ~130ms, which looks like it proves the
+*duplication* is the cost. It proves nothing — Lighthouse runs at 360px,
+where the panel is `display:none`, so that build had no visible manifest at
+all. The valid statement is narrower and is the one above: the manifest,
+visible, costs about 130ms of main-thread time on a throttled mobile CPU.
+
+Where it goes, from the same run's breakdown: `scriptEvaluation` 1343ms and
+`styleLayout` 659ms, with `chunks/3889-*.js` (a shared vendor chunk, 46 KB,
+on every route) the single largest attributed script at 1252ms. The
+manifest's own JavaScript is one small client leaf; what it adds is DOM and
+layout — nine rows of image, text and link, twice over, because §2.1 wants
+the panel sticky beside the drawing and §2.2 wants the rail under the stage,
+and one element cannot be in two places.
+
+**Candidate fix, not attempted here:** `content-visibility: auto` with a
+`contain-intrinsic-size` on the rail's list. The rail sits below the fold at
+360x640, and that is precisely the property for skipping layout and paint of
+off-screen content. It was not done at the end of a long session because
+getting `contain-intrinsic-size` wrong introduces scroll jank, and it needs
+its own measurement pass rather than a hopeful one-liner.
+
+## Two smaller findings from the same pass
+
+**SEO 100 → 92: the page has no `rel=canonical`.** Not a Phase 12
+regression — it was never there, and the P9.S17 run scored 100 because
+Lighthouse's SEO audit set has moved since. It needs the site's real public
+origin, which is an owner input, so it is filed in `tasks.md` rather than
+guessed at.
+
+**Do not measure `/fa`.** It 307-redirects to `/`, because `fa` is the
+default locale with `as-needed` prefixing. The first run of this pass
+measured `/fa` and reported LCP 2.2s and FCP 2.2s — entirely the redirect.
+`/` is the URL a visitor gets and the one to measure.
+
+## How this was measured
+
+```
+pnpm build
+pnpm --filter web exec next start -p 3200
+npx lighthouse@latest http://localhost:3200/ \
+  --only-categories=performance,accessibility,seo,best-practices \
+  --form-factor=mobile --screenEmulation.mobile \
+  --screenEmulation.width=360 --screenEmulation.height=640 \
+  --screenEmulation.deviceScaleFactor=2 \
+  --throttling-method=devtools --output=json --quiet \
+  --chrome-flags="--headless=new --no-sandbox"
+```
+
+Five times, median taken. Lighthouse still exits with `EPERM` while cleaning
+up its own Chrome temp directory on this Windows machine — the report is
+already written by then, so check for the output file before treating that
+error as a failed run.
