@@ -79,6 +79,17 @@ export default tseslint.config(
     },
   },
   {
+    // ESM tool configs (next.config.mjs) -- Node ESM read by the framework at
+    // build time, never bundled into a browser chunk, so `process` here is a
+    // real Node global rather than the app-code smell `no-undef` guards
+    // against. Separate from the `scripts/**` block above because these are
+    // framework configs rather than scripts anyone runs.
+    files: ["**/*.config.mjs"],
+    languageOptions: {
+      globals: { process: "readonly" },
+    },
+  },
+  {
     // CommonJS tool configs (tailwind.config.js et al.) -- not app code,
     // not ESM, run directly by Node under require().
     files: ["**/tailwind.config.js", "**/*.cjs"],

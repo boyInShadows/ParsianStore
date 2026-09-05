@@ -1320,16 +1320,26 @@ part-brand SVGs you have rights to · the four Numbers figures.
 Not Phase 12 work, not previously written down, and each one verified rather
 than suspected. Ordered by how much it would cost to discover later.
 
-- [ ] **The storefront ships no security headers at all.** `apps/api` mounts
-      `helmet()` (app.ts:51), so the API is covered — and that is exactly what
-      makes this easy to miss. `apps/web/next.config.mjs` has no `headers()`
-      block: **no CSP, no HSTS, no `X-Frame-Options`, no
-      `X-Content-Type-Options`, no `Referrer-Policy`, no `Permissions-Policy`**
-      on any page a customer actually loads. The pages take payment details
-      and hold a session. This is a launch blocker, and it is also the reason
-      P12.S5's pre-paint inline script was safe to add — the day a
-      nonce-based CSP lands, that script needs the nonce, and so does
-      next-themes'. Do them together.
+- [x] ~~The storefront ships no security headers at all.~~ **Fixed the same
+      session.** `apps/api` had `helmet()` since P2 and `apps/web` had nothing,
+      which is the shape of gap that survives review because "we use helmet" is
+      true and covers the wrong half. `next.config.mjs` now sends
+      `X-Frame-Options`, `X-Content-Type-Options`, `Referrer-Policy` and
+      `Permissions-Policy` on every route and static asset, asserted in
+      `e2e/layout-shell-a11y.spec.ts`. HSTS is gated on
+      `NEXT_PUBLIC_SITE_URL` being an https origin — **not** on
+      `NODE_ENV === "production"`, which was the first cut and was wrong:
+      `next start` sets it, so it pinned HSTS for `localhost` in the profile of
+      every developer running the production server, and in this suite's
+      browser. That is hard to undo, and there is a test for it now.
+- [ ] **A real Content-Security-Policy is still missing**, and it is the half
+      of the above that could not be done safely in one pass. A useful CSP here
+      must be nonce-based: three inline scripts need the nonce — next-themes'
+      blocking theme script, the parts manifest's pre-paint script (P12.S5),
+      and Next's own hydration bootstrap — which means threading a nonce from
+      middleware through the document. Shipping `script-src 'unsafe-inline'`
+      instead would be a header that reads like protection and is not. Launch
+      blocker; do it with the nonce plumbing, not before.
 - [ ] **Every staff role can do everything.** `requireStaff()` admits all four
       non-customer roles (`support`, `operator`, `admin`, `superadmin`), and
       **every** admin router uses it — catalogue, coupons, inventory, orders,
