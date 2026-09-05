@@ -844,7 +844,8 @@ cart, and checkout as separate reviewable slices; do not redo this account slice
       inventory, and customers.
 - [ ] Admin: Staff RBAC (today: any staff role passes `requireStaff()`,
       no per-role permission granularity — P8.S8's audit viewer is the
-      first and only per-role gate)
+      first and only per-role gate). **See "Found while closing Phase 12" —
+      this is a privilege-escalation hole, not a missing feature.**
 - [ ] Admin: Settings page
 
 ## Phase 11 — Design-system consolidation — adopted 2026-08-26
@@ -1313,6 +1314,62 @@ WhatsApp number · returns window/conditions/who-pays · warranty duration and
 what voids it · business name and registration details for privacy + terms ·
 product photos for the best-seller eight · a real ParsianStore mark and any
 part-brand SVGs you have rights to · the four Numbers figures.
+
+## Found while closing Phase 12 — 2026-09-05
+
+Not Phase 12 work, not previously written down, and each one verified rather
+than suspected. Ordered by how much it would cost to discover later.
+
+- [ ] **The storefront ships no security headers at all.** `apps/api` mounts
+      `helmet()` (app.ts:51), so the API is covered — and that is exactly what
+      makes this easy to miss. `apps/web/next.config.mjs` has no `headers()`
+      block: **no CSP, no HSTS, no `X-Frame-Options`, no
+      `X-Content-Type-Options`, no `Referrer-Policy`, no `Permissions-Policy`**
+      on any page a customer actually loads. The pages take payment details
+      and hold a session. This is a launch blocker, and it is also the reason
+      P12.S5's pre-paint inline script was safe to add — the day a
+      nonce-based CSP lands, that script needs the nonce, and so does
+      next-themes'. Do them together.
+- [ ] **Every staff role can do everything.** `requireStaff()` admits all four
+      non-customer roles (`support`, `operator`, `admin`, `superadmin`), and
+      **every** admin router uses it — catalogue, coupons, inventory, orders,
+      customers, shipping, payments, reports. So a `support` account can
+      delete products, rewrite prices, edit coupons and read payment records.
+      The line already in the Phase 8 list undersells this as "no per-role
+      granularity"; it is a privilege-escalation hole, not a missing feature.
+      Needs an owner decision on what each role may touch before it can be
+      implemented — that matrix is a business call, not a technical default.
+- [ ] **`landing-src/` exists only on this machine.** 113 MB of hero masters,
+      plate renders and source clips, gitignored (`.gitignore:34`) by design so
+      they never enter git history. Everything in `apps/web/public/landing/` is
+      *derived* from them by `pnpm optimize:landing`, and `heroLayout.ts`'s
+      dock coordinates are meaningless without the originals to re-trim
+      against. If this disk fails, the hero cannot be regenerated or
+      recalibrated — only the already-optimized outputs survive. Needs a
+      backup somewhere the repo can point at.
+- [ ] **`pnpm check:hero` is wired to nothing and cannot run as written.** It
+      is a script in `package.json` but appears in no CI workflow and no git
+      hook, and it requires a `<source-render.png>` argument it is never given,
+      so `pnpm check:hero` exits 1 on a clean tree. Either give it its
+      argument and a gate, or retire it — right now it is a check that looks
+      like a gate and is neither.
+
+### Environment notes, so a future session does not re-debug them
+
+- **The Postgres container dies mid-session** (`Exited (137)`). Symptom is a
+  landing page that silently degrades: `ShopByVehicle` returns null when the
+  vehicle tree is empty, `#shop-by-vehicle` vanishes, unique internal links
+  fall from ~35 to 19, and the link-sweep floor fails. Check `docker ps -a`
+  before believing any landing failure, and **never regenerate screenshot
+  baselines without confirming the container is healthy** — one pass this
+  session baked a page missing a whole section into six baselines before it
+  was caught.
+- **Set `NEXT_PUBLIC_SITE_URL` to the origin you are serving on** before
+  running Lighthouse. It defaults to `localhost:3000`; audit a build on any
+  other port and every canonical-dependent SEO audit measures the mismatch
+  rather than the page.
+- **Measure `/`, never `/fa`.** `fa` is the default locale with `as-needed`
+  prefixing, so `/fa` 307-redirects — worth ~0.6s of apparent LCP.
 
 ## Phase 9 — Content, SEO, hardening
 
