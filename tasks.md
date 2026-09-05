@@ -1270,11 +1270,16 @@ recovered 7 of it and added the guard that would have objected. Full ledger in
       it is not contention). Isolated: building the current tree with
       `MANIFEST_HIDDEN = true` puts it back to 130ms with every other Phase 12
       change still in place, so **the visible manifest is the whole
-      regression** — DOM and layout, not its one small client leaf. Candidate
-      fix, deliberately not attempted at the end of a long session:
-      `content-visibility: auto` + `contain-intrinsic-size` on the mobile
-      rail's list, which sits below the fold at 360x640. Getting the intrinsic
-      size wrong introduces scroll jank, so it wants its own measurement pass.
+      regression** — and it is hydration, not layout. `content-visibility: auto`
+      on the below-the-fold rail was the obvious candidate; it was tried and
+      **measured no change** (median 299ms over five runs). `srcset` weight was
+      ruled out too (4.2KB across the whole page). What is left is that the
+      manifest renders **twice** — panel and rail — so the fix is to render it
+      once, and that is blocked on a real conflict: §2.1 wants the panel sticky
+      inside the copy column, §2.2 wants the rail pinned with the stage or it
+      scrolls away before the chapters play. Resolving it means rethinking the
+      hero grid so one manifest can sit in either column per breakpoint and
+      stay sticky in both — a design step, not a property.
       **Do not measure `/fa`** — it 307-redirects to `/` and the redirect alone
       reads as +0.6s of LCP.
 - [ ] **The page has no `rel=canonical`** (Lighthouse SEO 92, not a Phase 12

@@ -438,12 +438,33 @@ layout — nine rows of image, text and link, twice over, because §2.1 wants
 the panel sticky beside the drawing and §2.2 wants the rail under the stage,
 and one element cannot be in two places.
 
-**Candidate fix, not attempted here:** `content-visibility: auto` with a
-`contain-intrinsic-size` on the rail's list. The rail sits below the fold at
-360x640, and that is precisely the property for skipping layout and paint of
-off-screen content. It was not done at the end of a long session because
-getting `contain-intrinsic-size` wrong introduces scroll jank, and it needs
-its own measurement pass rather than a hopeful one-liner.
+**`content-visibility: auto` was the obvious candidate. It was tried, and it
+does not work.** `content-visibility: auto` with `contain-intrinsic-size:
+auto 7rem` on the rail's list, five runs: median TBT **299ms** against the
+261ms it was meant to improve — no change, inside the noise. The rail does
+sit below the fold at 360x640, so the property was doing what it promises;
+it just was not paying for anything, which says the cost is not the rail's
+layout and paint.
+
+That leaves hydration. The manifest is nine rows of image, text and link
+rendered **twice** into the document — the panel and the rail — and at any
+one width one of them is `display:none`, costing no layout but still costing
+document bytes, flight payload, and the DOM walk React does to hydrate the
+client leaf that wraps them. Two other things were checked and ruled out on
+the way: the `srcset` attributes across the whole page total 4.2 KB, so the
+five-rung ladders on 48px thumbnails are not the weight, and the page's
+longer scroll track is not implicated either (the `MANIFEST_HIDDEN` build
+keeps it and measures 130ms).
+
+**So the real fix is to render the list once, and that is a structural
+change, not a property.** It is blocked on a genuine conflict: §2.1 wants the
+panel sticky beside the drawing, which means inside the copy column, and
+§2.2 wants the rail under the stage, which on mobile means inside the pinned
+stage column — the rail has to pin with the diagram or it scrolls away
+before the chapters play. One element cannot be in both. Resolving it means
+rethinking the hero's grid so a single manifest can be placed in either
+column per breakpoint while staying sticky in both, which is a design step
+of its own rather than a tail-end optimisation.
 
 ## Two smaller findings from the same pass
 
