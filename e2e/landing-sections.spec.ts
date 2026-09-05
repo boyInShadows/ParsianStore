@@ -44,6 +44,53 @@ test.describe("best sellers rail (audit item 2)", () => {
     });
   }
 
+  /**
+   * P12.S9, recording defect 3. A part with no photograph used to render as a
+   * dashed box reading «بدون تصویر»; four of them in a row read as a broken
+   * grid. It is a technical plate now -- the system's line drawing, its SYS
+   * code and its Persian name on ruled paper.
+   */
+  test("draws a technical plate for a part with no photograph", async ({ page }) => {
+    await page.goto("/");
+    await page.locator("#hero").waitFor();
+    const plates = page.locator("#best-sellers .technical-plate");
+    test.skip((await plates.count()) === 0, "every featured product has a photo");
+
+    const first = plates.first();
+    // A drawing, not a photograph: the glyph is inline SVG, never an <img>.
+    await expect(first.locator("svg")).toHaveCount(1);
+    await expect(first.locator("img")).toHaveCount(0);
+    // The code is real, resolved from the product's own category by the API.
+    await expect(first).toContainText(/SYS-\d\d/);
+    // And it says a photo is missing, rather than letting the code imply the
+    // part was shown -- P9.S17's Label-in-Name lesson, applied to role="img".
+    await expect(first).toHaveAttribute("aria-label", /بدون تصویر/);
+  });
+
+  test("leads the rail with photographed parts when there are any", async ({ page }) => {
+    await page.goto("/");
+    await page.locator("#hero").waitFor();
+    const cards = page.locator("#best-sellers li");
+    const count = await cards.count();
+    test.skip(count === 0, "no featured products seeded");
+
+    const hasPhoto: boolean[] = [];
+    for (let index = 0; index < count; index += 1) {
+      hasPhoto.push((await cards.nth(index).locator("img").count()) > 0);
+    }
+    // Not a filter -- an unphotographed part still ships, it just does not open
+    // the rail while photographed ones are waiting behind it. Expressed as
+    // "never a photo after a plate", which is what sorting by that key means
+    // and which holds trivially when every card is one kind or the other.
+    const firstPlate = hasPhoto.indexOf(false);
+    if (firstPlate !== -1) {
+      expect(
+        hasPhoto.slice(firstPlate).some(Boolean),
+        `photo after a plate: ${hasPhoto.join(",")}`,
+      ).toBe(false);
+    }
+  });
+
   test("the rail scrolls sideways instead of growing the page", async ({ page }) => {
     await page.setViewportSize(MOBILE);
     await page.goto("/");

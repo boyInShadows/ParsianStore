@@ -141,6 +141,50 @@
     }
   }
 
+  /* ---- Technical plate (P12.S9) ---------------------------------------
+
+     The missing-photograph state on a product card: ruled paper with a
+     drawing frame, so an unphotographed part arrives as a diagram rather
+     than as a gap. Built from tokens only -- `--rule` is the divider inside
+     a surface, which is exactly what a ruled sheet is made of.
+
+     The grid is a pair of repeating gradients rather than an SVG or an
+     image: it costs no request, scales with the card, and inherits the
+     theme, because `--rule` is redefined under [data-theme="dark"] like
+     every other token. */
+  .technical-plate {
+    /* 14px, not 8: at 8 the lines are closer together than they are thick
+       relative to the card, and the plate reads as screen texture rather than
+       as graph paper. Every fourth line is heavier, the way ruled drawing
+       paper is, which is what makes it read as a surface to draw ON. */
+    background-image:
+      repeating-linear-gradient(to right, var(--rule) 0 1px, transparent 1px 56px),
+      repeating-linear-gradient(to bottom, var(--rule) 0 1px, transparent 1px 56px),
+      repeating-linear-gradient(to right, var(--rule) 0 1px, transparent 1px 14px),
+      repeating-linear-gradient(to bottom, var(--rule) 0 1px, transparent 1px 14px);
+    position: relative;
+  }
+
+  /* Corner ticks: the frame a workshop drawing sits inside. One element, four
+     corners, via two gradients per axis -- cheaper than four positioned spans
+     and it cannot fall out of alignment with the box. */
+  .technical-plate::before {
+    content: "";
+    position: absolute;
+    inset: 0.5rem;
+    background:
+      linear-gradient(var(--text-muted) 0 0) 0 0 / 0.75rem 1px no-repeat,
+      linear-gradient(var(--text-muted) 0 0) 0 0 / 1px 0.75rem no-repeat,
+      linear-gradient(var(--text-muted) 0 0) 100% 0 / 0.75rem 1px no-repeat,
+      linear-gradient(var(--text-muted) 0 0) 100% 0 / 1px 0.75rem no-repeat,
+      linear-gradient(var(--text-muted) 0 0) 0 100% / 0.75rem 1px no-repeat,
+      linear-gradient(var(--text-muted) 0 0) 0 100% / 1px 0.75rem no-repeat,
+      linear-gradient(var(--text-muted) 0 0) 100% 100% / 0.75rem 1px no-repeat,
+      linear-gradient(var(--text-muted) 0 0) 100% 100% / 1px 0.75rem no-repeat;
+    opacity: 0.55;
+    pointer-events: none;
+  }
+
   /* The interstitial plate's copy sits on the start-side third, so the scrim
      is heaviest there and thins out across the artwork. CSS gradients take no
      logical direction keyword, so the default is written for RTL (start =

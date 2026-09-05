@@ -1,5 +1,10 @@
 import type { AccountType } from "@prisma/client";
-import type { ProductDetailDto, ProductListItemDto, SupplyRouteDto } from "schemas";
+import type {
+  CatalogSystemCode,
+  ProductDetailDto,
+  ProductListItemDto,
+  SupplyRouteDto,
+} from "schemas";
 import { localized, supplyRouteToWire } from "../../utils/serialize.js";
 
 /** The scalar columns every product-serving read path needs. */
@@ -93,9 +98,16 @@ function authenticity(row: ProductRow): ProductListItemDto["authenticity"] {
  * first line: building the DTO field by field, rather than spreading the row,
  * is the only thing keeping the wholesale price off the wire.
  */
+/**
+ * `systemCode` is passed in rather than read off the row because a product
+ * carries a `categoryId`, not a system: the code lives on `Category`. Callers
+ * that have resolved the category supply it, callers that have not omit it, and
+ * the DTO field is optional so neither has to lie (P12.S9).
+ */
 export function toProductListItem(
   row: ProductRow,
   accountType: AccountType | undefined,
+  extras?: { systemCode?: CatalogSystemCode },
 ): ProductListItemDto {
   const isWholesalePrice = accountType === "wholesale" && row.wholesalePriceRial != null;
   return {
@@ -107,6 +119,7 @@ export function toProductListItem(
     isWholesalePrice,
     stock: row.stock,
     media: row.media,
+    ...(extras?.systemCode ? { systemCode: extras.systemCode } : {}),
     authenticity: authenticity(row),
   };
 }

@@ -226,6 +226,41 @@ describe("GET /catalog/products", () => {
     expect(body.data.map((p) => p.slug)).toEqual(["brake-pad"]);
   });
 
+  // P12.S9. The landing page's missing-photo plate draws the part's own system,
+  // and a product row only carries a categoryId -- the code lives on Category.
+  it("sends each product's system code, in wire form, resolved from its category", async () => {
+    const { brand, category } = await seedCatalog();
+    const electrical = await prisma.category.create({
+      data: { nameFa: "برق", nameEn: "Electrical", slug: "electrical", systemCode: "SYS_05" },
+    });
+    await seedProductRow({
+      nameFa: "لنت ترمز",
+      nameEn: "Brake pad",
+      slug: "brake-pad",
+      brandId: brand.id,
+      categoryId: category.id,
+      priceRial: 1_000_000,
+    });
+    await seedProductRow({
+      nameFa: "باتری",
+      nameEn: "Battery",
+      slug: "battery",
+      brandId: brand.id,
+      categoryId: electrical.id,
+      priceRial: 2_000_000,
+    });
+
+    const res = await fetch(`${baseUrl}/api/v1/catalog/products`);
+    const body = (await res.json()) as Envelope<{ slug: string; systemCode?: string }[]>;
+    const bySlug = new Map(body.data.map((product) => [product.slug, product.systemCode]));
+
+    // Hyphens, not the underscores Prisma's enum members are spelled with:
+    // an identifier cannot hold a hyphen, so the column is `SYS_05 @map("SYS-05")`
+    // and every other wire shape in this app uses the mapped form.
+    expect(bySlug.get("battery")).toBe("SYS-05");
+    expect(bySlug.get("brake-pad")).toBe("SYS-04");
+  });
+
   it("filters by price range", async () => {
     const { brand, category } = await seedCatalog();
     await seedProductRow({

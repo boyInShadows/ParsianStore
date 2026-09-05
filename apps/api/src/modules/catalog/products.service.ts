@@ -1,10 +1,10 @@
 import type { AccountType } from "@prisma/client";
-import type { ProductDetailDto, ProductListItemDto } from "schemas";
+import type { CatalogSystemCode, ProductDetailDto, ProductListItemDto } from "schemas";
 import { prisma } from "../../config/prisma.js";
 import { ApiError } from "../../utils/ApiError.js";
 import { cursorPaginate, type CursorPageResult } from "../../utils/cursorPaginate.js";
 import { paginate, type PaginatedResult } from "../../utils/pagination.js";
-import { localized } from "../../utils/serialize.js";
+import { localized, systemCodeToWire } from "../../utils/serialize.js";
 import {
   toProductDetail,
   toProductListItem,
@@ -47,7 +47,37 @@ export async function listProducts(
     cursor,
     limit,
   });
-  return { data: data.map((row) => toProductListItem(row, accountType)), meta };
+  return { data: await withSystemCodes(data, accountType), meta };
+}
+
+/**
+ * Attach each row's system, in ONE extra query for the whole page.
+ *
+ * The system code lives on `Category`, not on `Product`, and `cursorPaginate`
+ * returns plain product rows with no relations. Resolving it per row would be
+ * a textbook N+1; resolving the page's distinct category ids together is one
+ * round trip regardless of page size.
+ */
+async function withSystemCodes(
+  rows: ProductRow[],
+  accountType: AccountType | undefined,
+): Promise<ProductListItemDto[]> {
+  const categoryIds = [...new Set(rows.map((row) => row.categoryId))];
+  const categories = await prisma.category.findMany({
+    where: { id: { in: categoryIds } },
+    select: { id: true, systemCode: true },
+  });
+  // `systemCodeToWire`, not the raw column: Prisma's enum members are `SYS_01`
+  // (an identifier cannot hold a hyphen) mapped to `SYS-01` in the database,
+  // and `SYS-01` is what every other wire shape in this app uses.
+  const systemByCategory = new Map(
+    categories.map((category) => [category.id, systemCodeToWire(category.systemCode)]),
+  );
+  return rows.map((row) =>
+    toProductListItem(row, accountType, {
+      systemCode: systemByCategory.get(row.categoryId) as CatalogSystemCode | undefined,
+    }),
+  );
 }
 
 async function findActiveBySlug(slug: string): Promise<ProductWithVariants> {
@@ -153,5 +183,5 @@ export async function getRelatedProducts(
     { categoryId: product.categoryId, status: "active", id: { not: product.id } },
     { page: 1, limit },
   );
-  return { data: data.map((row) => toProductListItem(row, accountType)), meta };
+  return { data: await withSystemCodes(data, accountType), meta };
 }
