@@ -401,7 +401,7 @@ because a single run on this machine varied by 200ms on TBT.
 | Speed Index | — | 2.0s | 1.81s | |
 | Lighthouse perf | ≥ 90 | 97 | 94 (91–97) | ✓ |
 | Lighthouse a11y | — | 100 | **100** | ✓ |
-| Lighthouse SEO | — | 100 | 92 | ✗ see below |
+| Lighthouse SEO | — | 100 | **100** | ✓ see note |
 
 Route JS: **193 KB** against a 180 KB budget (was 200 KB at P12.S5, 189 KB
 at P9.S17). Transfer: 501 KB over 50 requests — script 233 KB, font 131 KB,
@@ -468,11 +468,21 @@ of its own rather than a tail-end optimisation.
 
 ## Two smaller findings from the same pass
 
-**SEO 100 → 92: the page has no `rel=canonical`.** Not a Phase 12
-regression — it was never there, and the P9.S17 run scored 100 because
-Lighthouse's SEO audit set has moved since. It needs the site's real public
-origin, which is an owner input, so it is filed in `tasks.md` rather than
-guessed at.
+**SEO 92 was my own measurement error, and SEO is 100.** The first pass
+reported "Document does not have a valid `rel=canonical`" and it was written
+up here as a real gap. It is not: the page has carried a canonical since
+P4, `metadataBase` is set, and every route builds one through `lib/seo.ts`.
+What it points at is `NEXT_PUBLIC_SITE_URL`, which is unset locally and
+falls back to `http://localhost:3000` — while this pass served the build on
+**:3200**. Lighthouse correctly rejects a canonical pointing at a different
+origin than the page under test.
+
+Rebuilt with `NEXT_PUBLIC_SITE_URL=http://localhost:3200` so the canonical
+matches the origin being audited: **SEO 100**, no failing audits. Recorded
+in full rather than quietly deleted, because the trap will catch the next
+person: *set `NEXT_PUBLIC_SITE_URL` to whatever origin you are serving on
+before running Lighthouse, or every canonical-dependent audit is measuring
+the port you picked.*
 
 **Do not measure `/fa`.** It 307-redirects to `/`, because `fa` is the
 default locale with `as-needed` prefixing. The first run of this pass

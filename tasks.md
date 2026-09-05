@@ -1282,9 +1282,14 @@ recovered 7 of it and added the guard that would have objected. Full ledger in
       stay sticky in both — a design step, not a property.
       **Do not measure `/fa`** — it 307-redirects to `/` and the redirect alone
       reads as +0.6s of LCP.
-- [ ] **The page has no `rel=canonical`** (Lighthouse SEO 92, not a Phase 12
-      regression — it was never there). Needs the site's real public origin,
-      which is an owner input, so it is not guessed at here.
+- [x] ~~The page has no `rel=canonical`~~ — **wrong, and corrected the same
+      session.** It has had one since P4. Lighthouse reported it missing
+      because `NEXT_PUBLIC_SITE_URL` is unset locally and falls back to
+      `localhost:3000` while the audit served the build on `:3200`, and a
+      canonical pointing at another origin is correctly rejected. Rebuilt with
+      the two matching: **SEO 100.** The lasting note is the trap, not the
+      task: set `NEXT_PUBLIC_SITE_URL` to the origin you are actually serving
+      before running Lighthouse.
 - [ ] **Seed data makes the best-sellers rail look broken** even though the
       code is right: eight cards that are two product names repeated four
       times each at stepped prices, and not one seeded product has a photo. So
