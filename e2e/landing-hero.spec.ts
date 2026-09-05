@@ -1,5 +1,11 @@
 import { test, expect, type Page } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
+import {
+  CHAPTER_RANGE,
+  CHAPTER_SEQUENCE,
+  beatFor,
+  coverOf,
+} from "../apps/web/components/landing/HeroV2/heroLayout";
 
 /**
  * P9.S6 — the proof pass for the rebuilt hero. Everything the scaffold could
@@ -343,39 +349,111 @@ async function layerOffsets(page: Page) {
   });
 }
 
-test("scrolling the hero undocks the parts and docks them again", async ({ page }) => {
-  await gotoHero(page);
-  // 0.18 and 0.83 are the peaks of chapters 1 and 3; 0.34 is the rest beat
-  // between 1 and 2. CHAPTER_RANGE is what those numbers come from.
-  await scrollHeroTo(page, 0);
-  const docked = await layerOffsets(page);
+/**
+ * The same, keyed by name so an assertion can say what moved rather than count.
+ *
+ * `data-part` where there is one -- those are the manifest's own ids, so this
+ * checks the scene against the list the visitor is reading. The windshield has
+ * no manifest row (it ships only if a glass category route exists, fableTasks2
+ * §2.4), so it falls back to its asset name and is still covered.
+ *
+ * The two headlight layers deliberately collapse onto one key: they are one
+ * part rendered as two clipped instances of the same file, they share a beat,
+ * and a test that could tell them apart would be testing the wrong thing.
+ */
+async function partOffsets(page: Page): Promise<Record<string, { x: number; y: number }>> {
+  return page.locator(".hero-stage img").evaluateAll((images) => {
+    const base = images[0]!.getBoundingClientRect();
+    const out: Record<string, { x: number; y: number }> = {};
+    for (const [index, image] of images.entries()) {
+      if (index === 0) continue;
+      const id =
+        image.getAttribute("data-part") ??
+        /\/landing\/hero\/([a-z-]+?)-\d+\./.exec(image.currentSrc || image.src)?.[1];
+      if (!id) continue;
+      const box = image.getBoundingClientRect();
+      out[id] = { x: box.left - base.left, y: box.top - base.top };
+    }
+    return out;
+  });
+}
 
-  await scrollHeroTo(page, 0.18);
-  const front = await layerOffsets(page);
-  const moved = front.filter(
-    (box, i) => Math.hypot(box.x - docked[i].x, box.y - docked[i].y) > 8,
-  ).length;
-  // Chapter 1 is bumper, grille and the two lamps -- four of the eight.
-  expect(moved, "nothing left the car at the peak of chapter 1").toBe(4);
+/** Which parts are away from where they sit at rest. */
+function awayFrom(
+  docked: Record<string, { x: number; y: number }>,
+  now: Record<string, { x: number; y: number }>,
+): string[] {
+  return Object.keys(now)
+    .filter((id) => Math.hypot(now[id]!.x - docked[id]!.x, now[id]!.y - docked[id]!.y) > 8)
+    .sort();
+}
 
-  // The whole point of sequential chapters: the car is whole again in between,
-  // not a cloud of panels accumulating down the page.
-  await scrollHeroTo(page, 0.34);
-  const between = await layerOffsets(page);
-  for (const [i, box] of between.entries()) {
-    expect(
-      Math.hypot(box.x - docked[i].x, box.y - docked[i].y),
-      `layer ${i} never came back between chapters`,
-    ).toBeLessThan(9);
+/**
+ * P12.S6. This used to assert that the peak of chapter 1 had "four of the eight"
+ * layers in the air -- a faithful description of the defect it was written
+ * against: a chapter moved everything it owned at once, so it read as one event
+ * with several shapes in it rather than as parts you could name.
+ *
+ * The invariant now is per part. In the middle of a slot's hold, exactly that
+ * slot is away from the car (plus its chapter's cover, if it has one) and
+ * everything else is home; at every chapter boundary the car is whole.
+ *
+ * The sample points are DERIVED from `heroLayout.ts`, not written down here.
+ * Magic numbers would have to be re-tuned by hand every time BEAT_SPAN or a
+ * chapter range moved, and the failure when someone forgot would look like a
+ * broken hero rather than a stale test. `heroLayout.ts` has no imports of its
+ * own, so a Playwright spec can read it directly.
+ */
+const CHAPTERS = [1, 2, 3] as const;
+
+/** Ids as they reach the DOM: the manifest's where there is one, else the asset. */
+const DOM_ID: Record<string, string> = {
+  "lamp-far": "headlights",
+  "lamp-near": "headlights",
+  windshield: "sprite-windshield",
+};
+
+type Sample = { at: number; away: string[]; what: string };
+
+function holdSamples(): Sample[] {
+  const samples: Sample[] = [{ at: 0, away: [], what: "at rest" }];
+  for (const chapter of CHAPTERS) {
+    const cover = coverOf(chapter);
+    CHAPTER_SEQUENCE[chapter].forEach((ids, slot) => {
+      const beat = beatFor(chapter, slot);
+      const names = [...new Set(ids.map((id) => DOM_ID[id] ?? id))];
+      samples.push({
+        // The middle of the hold: the one scroll position where this slot is
+        // stationary at its peak and its neighbours have finished or not begun.
+        at: (beat[1]! + beat[2]!) / 2,
+        away: [...names, ...(cover ? [DOM_ID[cover] ?? cover] : [])],
+        what: `chapter ${chapter}, ${names.join(" + ")}${cover ? ` (under an open ${cover})` : ""}`,
+      });
+    });
+    const [, to] = CHAPTER_RANGE[chapter];
+    const next = CHAPTER_RANGE[(chapter + 1) as 1 | 2 | 3];
+    samples.push({
+      at: next ? (to + next[0]) / 2 : 1,
+      away: [],
+      what: next ? `the rest beat after chapter ${chapter}` : "the end of the track",
+    });
   }
+  return samples;
+}
 
-  // A different group leaves in chapter 3 -- door, fender, windshield.
-  await scrollHeroTo(page, 0.83);
-  const body = await layerOffsets(page);
-  const movedLate = body.filter(
-    (box, i) => Math.hypot(box.x - docked[i].x, box.y - docked[i].y) > 8,
-  ).length;
-  expect(movedLate, "chapter 3 moved a different number of parts than it owns").toBe(3);
+test("plays one part at a time, and is a whole car between chapters", async ({ page }) => {
+  await gotoHero(page);
+  await scrollHeroTo(page, 0);
+  const docked = await partOffsets(page);
+  expect(Object.keys(docked).length, "the stage lost its identifiable layers").toBeGreaterThan(8);
+
+  for (const step of holdSamples()) {
+    await scrollHeroTo(page, step.at);
+    expect(
+      awayFrom(docked, await partOffsets(page)),
+      `${step.what} @ ${step.at.toFixed(3)}`,
+    ).toEqual([...step.away].sort());
+  }
 });
 
 test("the hero ends its scroll as a whole car, not a pile of panels", async ({ page }) => {

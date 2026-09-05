@@ -329,5 +329,146 @@ export const CHAPTER_RANGE: Record<HeroLayer["chapter"], readonly [number, numbe
   3: [0.68, 0.98],
 };
 
-/** Where inside its chapter a part is furthest from the car. */
-export const CHAPTER_PEAK = 0.5;
+/**
+ * The order the parts leave in, and which of them leave together.
+ *
+ * P12.S6 (defect 2: "the separation is not legible"). Until this existed every
+ * layer in a chapter shared one beat, so a chapter was not three parts leaving
+ * -- it was one event with three shapes in it, and a visitor could not name what
+ * they had just seen. Each slot below now gets its own span inside the chapter.
+ *
+ * Slots hold ids rather than one id because two things genuinely move together:
+ * the headlights are one part rendered as two clipped instances of the same
+ * file (`lamp-far` / `lamp-near`), and a car whose two headlights leave at
+ * different moments is a car with a fault, not a diagram.
+ *
+ * The order matches the manifest's rows, so a visitor reading the list top to
+ * bottom sees the scene play in the same sequence.
+ */
+export const CHAPTER_SEQUENCE: Record<HeroLayer["chapter"], readonly (readonly string[])[]> = {
+  1: [["lamp-far", "lamp-near"], ["grille"], ["bumper"]],
+  2: [["air-filter"], ["piston"], ["alternator"]],
+  3: [["door"], ["fender"], ["windshield"]],
+};
+
+/**
+ * A part that is not in the sequence because it *contains* the sequence.
+ *
+ * The hood is not one of chapter 2's beats, it is the lid over them. Given a
+ * slot like everything else, it opened, closed again, and then the piston and
+ * the alternator emerged through a shut bonnet -- which is exactly what the
+ * filmstrip showed the first time this step was rendered. The staggering was
+ * right and the model was wrong.
+ *
+ * So a cover opens across `COVER_SWING` at the start of its chapter, stays open
+ * while every slot in that chapter plays inside it, and shuts over the same
+ * distance at the end.
+ */
+export const CHAPTER_COVER: Partial<Record<HeroLayer["chapter"], string>> = {
+  2: "hood",
+};
+
+/**
+ * How much of the chapter a cover spends opening, and again closing.
+ *
+ * Short on purpose: the lid is not the story, what is under it is. It also sets
+ * the room the slots get -- they play inside what is left, so a bigger swing
+ * buys a more leisurely hood at the cost of the parts it uncovers.
+ */
+export const COVER_SWING = 0.16;
+
+/**
+ * How much of the available run one slot's beat occupies.
+ *
+ * Below 1 the slots overlap; the remainder is what staggers them, and the two
+ * constants are not independent. For no two parts to be held at their peak at
+ * once, the offset between slots has to exceed the hold itself:
+ *
+ *     (1 - BEAT_SPAN) / (slots - 1)  >  BEAT_SPAN * holdWidth
+ *
+ * 0.62 failed that -- caught by `heroLayout.test.ts`, which is the invariant
+ * the whole step is about, so the span came down rather than the test being
+ * softened. 0.42 with the hold below clears it comfortably at three slots and
+ * still leaves each beat a readable share of the track.
+ */
+export const BEAT_SPAN = 0.42;
+
+/**
+ * Where the part is at its peak, as a fraction of its own beat.
+ *
+ * Four keyframes, not three: rise, **hold**, fall. The hold is the whole point
+ * of the step. A triangle beat reaches its peak for exactly one scroll position,
+ * so the part is never actually still and there is no moment to look at it --
+ * it is a smear whichever speed you scroll at. Holding it stationary across the
+ * middle of its beat is what makes it nameable, and it costs nothing: the part
+ * still docks by the end of its span.
+ */
+export const BEAT_HOLD: readonly [number, number] = [0.32, 0.68];
+
+/** The stretch of a chapter the slots may use: what the cover leaves them. */
+function slotRange(chapter: HeroLayer["chapter"]): readonly [number, number] {
+  const [from, to] = CHAPTER_RANGE[chapter];
+  if (!CHAPTER_COVER[chapter]) return [from, to];
+  const swing = (to - from) * COVER_SWING;
+  return [from + swing, to - swing];
+}
+
+/**
+ * The scroll positions of one slot's beat: docked, peak, still at peak, docked.
+ *
+ * Returns four progress values for a four-keyframe `useTransform`. Every beat
+ * starts and ends inside its chapter's range -- and inside its cover's open
+ * window, where there is one -- so the invariant the chapters were built on
+ * still holds: at a chapter boundary every part is docked and the car is whole.
+ */
+export function beatFor(chapter: HeroLayer["chapter"], slot: number): number[] {
+  const [from, to] = slotRange(chapter);
+  const run = to - from;
+  const slots = CHAPTER_SEQUENCE[chapter].length;
+  const beatSpan = run * BEAT_SPAN;
+  // One slot would divide by zero; it simply gets the whole run.
+  const step = slots > 1 ? (run - beatSpan) / (slots - 1) : 0;
+  const start = from + step * slot;
+  return [
+    start,
+    start + beatSpan * BEAT_HOLD[0],
+    start + beatSpan * BEAT_HOLD[1],
+    start + beatSpan,
+  ];
+}
+
+/**
+ * The cover's own beat: open quickly, stay open for every slot, shut.
+ *
+ * Its hold is exactly the window `beatFor` hands the slots, which is what makes
+ * "the hood is open whenever something under it is out" true by construction
+ * rather than by two numbers happening to agree.
+ */
+export function coverBeatFor(chapter: HeroLayer["chapter"]): number[] {
+  const [from, to] = CHAPTER_RANGE[chapter];
+  const [openAt, shutAt] = slotRange(chapter);
+  return [from, openAt, shutAt, to];
+}
+
+/** The id of the chapter's cover, if it has one. */
+export function coverOf(chapter: HeroLayer["chapter"]): string | undefined {
+  return CHAPTER_COVER[chapter];
+}
+
+/** Which slot a layer or engine part rides in, by id. */
+export function slotFor(chapter: HeroLayer["chapter"], id: string): number {
+  const slot = CHAPTER_SEQUENCE[chapter].findIndex((ids) => ids.includes(id));
+  if (slot < 0) {
+    throw new Error(
+      `Hero layer "${id}" is in chapter ${chapter} but has no slot in CHAPTER_SEQUENCE ` +
+        `and is not its cover. Every part needs one or the other, or it would ` +
+        `share a beat and stop being separately legible.`,
+    );
+  }
+  return slot;
+}
+
+/** The beat a layer or engine part rides, cover or slot. */
+export function beatOf(chapter: HeroLayer["chapter"], id: string): number[] {
+  return coverOf(chapter) === id ? coverBeatFor(chapter) : beatFor(chapter, slotFor(chapter, id));
+}

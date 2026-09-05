@@ -6,8 +6,15 @@ import { describe, expect, it } from "vitest";
 
 import {
   CHAPTER_RANGE,
+  CHAPTER_SEQUENCE,
+  beatFor,
+  beatOf,
+  coverOf,
+  slotFor,
   HERO_BASE_ASSET,
   HERO_CANVAS,
+  HERO_ENGINE_CHAPTER,
+  HERO_ENGINE_PARTS,
   HERO_FRAME_WIDTH_PCT,
   HERO_LAYERS,
 } from "./heroLayout.js";
@@ -210,6 +217,105 @@ describe("CHAPTER_RANGE", () => {
     // the composite stays legible and the end of the scroll is a whole car.
     expect(CHAPTER_RANGE[2][0]).toBeGreaterThan(CHAPTER_RANGE[1][1]);
     expect(CHAPTER_RANGE[3][0]).toBeGreaterThan(CHAPTER_RANGE[2][1]);
+  });
+});
+
+describe("CHAPTER_SEQUENCE and beatFor (P12.S6)", () => {
+  const CHAPTERS = [1, 2, 3] as const;
+
+  it("gives every layer and engine part exactly one beat, slot or cover", () => {
+    const slotted = Object.values(CHAPTER_SEQUENCE).flat(2);
+    expect(new Set(slotted).size, "an id appears in two slots").toBe(slotted.length);
+
+    for (const layer of HERO_LAYERS) {
+      if (coverOf(layer.chapter) === layer.id) continue;
+      expect(() => slotFor(layer.chapter, layer.id), layer.id).not.toThrow();
+    }
+    for (const part of HERO_ENGINE_PARTS) {
+      expect(() => slotFor(HERO_ENGINE_CHAPTER, part.id), part.id).not.toThrow();
+    }
+
+    // And nothing in the sequence that is not on the stage -- a stale id would
+    // silently take a slot's worth of scroll and animate nothing.
+    const onStage = new Set([
+      ...HERO_LAYERS.map((layer) => layer.id),
+      ...HERO_ENGINE_PARTS.map((part) => part.id),
+    ]);
+    for (const id of slotted) {
+      expect(onStage.has(id), `${id} is sequenced but not rendered`).toBe(true);
+    }
+  });
+
+  it("keeps every beat inside its own chapter, so a boundary is a whole car", () => {
+    for (const chapter of CHAPTERS) {
+      const [from, to] = CHAPTER_RANGE[chapter];
+      const ids = [...CHAPTER_SEQUENCE[chapter].flat(), coverOf(chapter)].filter(
+        (id): id is string => Boolean(id),
+      );
+      for (const id of ids) {
+        const beat = beatOf(chapter, id);
+        expect(beat[0], `${id} starts before its chapter`).toBeGreaterThanOrEqual(from - 1e-9);
+        expect(beat.at(-1)!, `${id} ends after its chapter`).toBeLessThanOrEqual(to + 1e-9);
+      }
+    }
+  });
+
+  it("moves each beat strictly forward, with a hold in the middle", () => {
+    for (const chapter of CHAPTERS) {
+      for (let slot = 0; slot < CHAPTER_SEQUENCE[chapter].length; slot += 1) {
+        const beat = beatFor(chapter, slot);
+        expect(beat).toHaveLength(4);
+        for (let i = 1; i < beat.length; i += 1) {
+          expect(beat[i]!, `c${chapter} s${slot} keyframe ${i}`).toBeGreaterThan(beat[i - 1]!);
+        }
+        // The hold is what makes a part nameable instead of a smear.
+        expect(beat[2]! - beat[1]!).toBeGreaterThan(0);
+      }
+    }
+  });
+
+  // The defect this step exists to fix: a chapter used to be one event with
+  // three shapes in it. If two slots peaked together it would be that again.
+  it("never has two slots at their peak at the same time", () => {
+    for (const chapter of CHAPTERS) {
+      const holds = CHAPTER_SEQUENCE[chapter].map((_, slot) => {
+        const beat = beatFor(chapter, slot);
+        return [beat[1]!, beat[2]!] as const;
+      });
+      for (let i = 1; i < holds.length; i += 1) {
+        expect(
+          holds[i]![0],
+          `chapter ${chapter} slots ${i - 1} and ${i} hold at once`,
+        ).toBeGreaterThan(holds[i - 1]![1]);
+      }
+    }
+  });
+
+  // The flaw the first cut of this step shipped and the filmstrip caught: the
+  // hood was a slot, so it opened, shut, and THEN the piston and the alternator
+  // came out through a closed bonnet. The cover has to be up for the whole of
+  // what it covers, at both ends.
+  it("holds the hood open across every part it uncovers", () => {
+    expect(coverOf(HERO_ENGINE_CHAPTER)).toBe("hood");
+    const hood = beatOf(HERO_ENGINE_CHAPTER, "hood");
+    const [openAt, shutAt] = [hood[1]!, hood[2]!];
+    for (const part of HERO_ENGINE_PARTS) {
+      const beat = beatOf(HERO_ENGINE_CHAPTER, part.id);
+      expect(beat[0]!, `${part.id} starts moving before the hood is open`).toBeGreaterThanOrEqual(
+        openAt - 1e-9,
+      );
+      expect(beat.at(-1)!, `${part.id} is still out when the hood shuts`).toBeLessThanOrEqual(
+        shutAt + 1e-9,
+      );
+    }
+  });
+
+  it("keeps the two headlights on one beat, because they are one part", () => {
+    expect(slotFor(1, "lamp-far")).toBe(slotFor(1, "lamp-near"));
+  });
+
+  it("throws by name when a part has no slot", () => {
+    expect(() => slotFor(1, "tailgate")).toThrow(/tailgate/);
   });
 });
 

@@ -5,8 +5,7 @@ import { useHeroScroll } from "./HeroScrollProvider";
 import { landingAsset, landingFallback, landingSrcSet } from "@/lib/landing-image";
 import { manifestPartByLayerId } from "./manifestData";
 import {
-  CHAPTER_PEAK,
-  CHAPTER_RANGE,
+  beatOf,
   HERO_BASE_ASSET,
   HERO_CANVAS,
   HERO_ENGINE_CHAPTER,
@@ -182,18 +181,21 @@ function PartLayer({
   progress: MotionValue<number>;
 }) {
   const box = place(layer.asset, layer.dock);
-  const [from, to] = CHAPTER_RANGE[layer.chapter];
-  const peak = from + (to - from) * CHAPTER_PEAK;
-  const beat = [from, peak, to];
+  // This layer's own span inside the chapter, not the chapter's (P12.S6). Four
+  // keyframes: docked, peak, still at peak, docked again.
+  const beat = beatOf(layer.chapter, layer.id);
 
-  /** Docked -> lifted -> docked, for a value that is zero at rest. */
-  const lift = (value: number) => [`0%`, `${value.toFixed(2)}%`, `0%`];
+  /** Docked -> lifted -> HELD -> docked, for a value that is zero at rest. */
+  const lift = (value: number) => {
+    const at = `${value.toFixed(2)}%`;
+    return ["0%", at, at, "0%"];
+  };
   /** The mirror image, for a rotation that is non-zero at rest and unwinds. */
-  const unwind = (value: number) => [value, 0, value];
+  const unwind = (value: number) => [value, 0, 0, value];
 
   const x = useTransform(progress, beat, lift((layer.undock.dx / box.width) * 100));
   const y = useTransform(progress, beat, lift((layer.undock.dy / box.height) * 100));
-  const scale = useTransform(progress, beat, [1, layer.undock.scale, 1]);
+  const scale = useTransform(progress, beat, [1, layer.undock.scale, layer.undock.scale, 1]);
   const rotateX = useTransform(progress, beat, unwind(layer.dock.rotateX ?? 0));
   const rotateY = useTransform(progress, beat, unwind(layer.dock.rotateY ?? 0));
   const rotateZ = useTransform(progress, beat, unwind(layer.dock.rotateZ ?? 0));
@@ -224,14 +226,17 @@ function EnginePartLayer({
   progress: MotionValue<number>;
 }) {
   const box = placePart(part.asset, part.place);
-  const [from, to] = CHAPTER_RANGE[HERO_ENGINE_CHAPTER];
-  const peak = from + (to - from) * CHAPTER_PEAK;
-  const beat = [from, peak, to];
-  const lift = (value: number) => ["0%", `${value.toFixed(2)}%`, "0%"];
+  // Its own slot inside the hood's open window -- the lid is chapter 2's
+  // cover, not one of its beats, so every part here plays while it is up.
+  const beat = beatOf(HERO_ENGINE_CHAPTER, part.id);
+  const lift = (value: number) => {
+    const at = `${value.toFixed(2)}%`;
+    return ["0%", at, at, "0%"];
+  };
 
   const x = useTransform(progress, beat, lift((part.undock.dx / box.width) * 100));
   const y = useTransform(progress, beat, lift((part.undock.dy / box.height) * 100));
-  const scale = useTransform(progress, beat, [1, part.undock.scale, 1]);
+  const scale = useTransform(progress, beat, [1, part.undock.scale, part.undock.scale, 1]);
 
   return (
     <motion.img
@@ -324,7 +329,14 @@ export function HeroStage({ label, carAlt, hint }: Props) {
     // would be pure dead scroll for a visitor who never sees the motion.
     <div
       ref={trackRef}
-      className="hero-track relative min-h-[calc(100vh+14rem)] lg:min-h-[calc(100vh+34rem)]"
+      // 56rem / 120rem, up from 14 / 34 (P12.S6). Staggering the slots is only
+      // half of "the separation is not legible": the other half was that the
+      // whole three-chapter sequence played out over 544px of scroll on a
+      // desktop, so nine parts got about 60px each and one trackpad flick ran
+      // the entire hero. A slot's beat is 13.4% of the track (BEAT_SPAN x the
+      // chapter span), which is 257px here -- about 0.9s at an unhurried
+      // ~300px/s scroll, the "one second per frame" this always wanted to be.
+      className="hero-track relative min-h-[calc(100vh+56rem)] lg:min-h-[calc(100vh+120rem)]"
     >
       <div className="hero-pin sticky top-24 flex flex-col gap-6">
         <div
