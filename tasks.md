@@ -1315,6 +1315,86 @@ what voids it · business name and registration details for privacy + terms ·
 product photos for the best-seller eight · a real ParsianStore mark and any
 part-brand SVGs you have rights to · the four Numbers figures.
 
+## The hero sprites, recut in place — 2026-09-06
+
+Owner-reported from the running hero (`screenshots/hood issues.png`): "the hood
+and window are not fit on their position". They were not, and no dock number was
+ever going to fix them.
+
+**Three of the seven sprites were catalogue product shots, not cuts of this
+car.** `sprite-hood`, `sprite-windshield` and `sprite-headlights` were a
+different hood and a different windscreen, photographed on a different camera,
+carried onto the render by a hand-tuned scale, offset and a `rotateZ`. A panel
+shot from another angle is the wrong *shape* in this projection, so every
+"nudge the numbers" pass — P12.S3, then P12.S3 re-issued — moved a wrong shape
+to a different wrong place. The grille and bumper were the same class of defect,
+milder: measured against the render they disagreed by MAD 115 and 52, which is
+why the bumper hung off the nose and the grille read as a bright slab.
+
+**The fix was a source nobody had checked.** `landing-src/samples-opaque/car.png`
+is the *same render* as `car-stripped.png` with the panels on: downscaled 2048 →
+1024 it registers at **scale 1.000, dx 0, dy 0**, searched over scale 0.36–0.64
+and ±80px against the rear half of the body where nothing was removed. So the
+five wrong sprites are now that render masked to one panel each, and door and
+fender kept their outlines but had their pixels repainted from it, which removed
+the light fringe their mattes carried down the door gap.
+
+**Every dock is `NATIVE`.** No scale, no offset, no rotation anywhere in
+`heroLayout.ts` — the test now asserts that for all eight entries rather than
+the four it used to allow. The two lamps share one native dock and differ only
+by a `clip-path` window, because both lenses are at their true coordinates in
+one master.
+
+**Measured, not judged.** `pnpm check:hero` went from *7 of 7 scored as product
+shots, composite 36.8%* to **every sprite 100% inside its own box, composite
+99.0%, "MATCHED — the set docks at 0,0 with no calibration."** Route JS
+unchanged at 193KB; the hero group got *smaller* (hood 3.6KB from a 737w rung to
+a 436w one). 122 e2e green, 656 unit green, nine visual baselines regenerated.
+
+**`docs/landing-assets.md` carried the belief that blocked this.** P9.S5 wrote
+that the base "is not a mask of `cutouts/car.png`" because a per-pixel diff
+showed 56% of body pixels changed, and concluded the sprites *could not* be cut
+from the complete car. The 56% was real and the conclusion was wrong: stripping
+panels changes global illumination across the whole shell, so a colour diff of a
+stripped car against a complete one is large however well the two register.
+*Colour agreement is not registration.* The doc is corrected.
+
+- [ ] **The engine parts are much smaller, and that is now honest.**
+      `HERO_BAY` is derived from the hood, and while the hood was a product shot
+      scaled 0.66 the bay measured 487x138. The real panel is seen almost
+      edge-on: its box is 436x68 and the largest rectangle inside its alpha is
+      **196x36**. The three parts were sized against the fiction and were about
+      three times too big for the panel that is meant to hide them, so they now
+      stand 30-32 canvas px at rest and grow on `undock.scale: 2.4` instead of
+      the 1.12 the body panels use — about 50 CSS px at 1440 once they are out.
+      That is the only lever left with a real hood. **If the owner wants them
+      larger the answer is a render with the hood open, not a bigger number**;
+      anything taller than ~32 pokes out of a closed car before the visitor has
+      scrolled. A derived constant is only as true as what it is derived from,
+      and this one has now been wrong in both directions.
+- [x] ~~`pnpm check:hero` is wired to nothing and cannot run as written.~~
+      **Half fixed.** It now has a `DEFAULT_SOURCE` — the assembled render at
+      `landing-src/hero-reference/source-car-assembled.png` — so `pnpm
+      check:hero` runs and passes on a clean tree instead of exiting 1 on a
+      missing argument. It still cannot be a CI gate: it reads `landing-src/`,
+      which is gitignored by design. A local check that works beats a gate that
+      cannot exist.
+
+### Environment note, added to the list below
+
+- **An orphan API on :4000 makes the landing e2e look randomly broken.**
+  `playwright.config.ts` sets `RATE_LIMIT_DISABLED` on the API it starts, but
+  `reuseExistingServer: !CI` means an API already listening on 4000 is reused
+  *with whatever env it was started with*. One suite run is ~25 landing renders
+  past a 100/min/IP cap, so throttled responses degrade Server Components to
+  empty sections and a different handful of tests fails each run —
+  `#shop-by-vehicle` resolving to 0 elements is the tell. It also nearly baked a
+  page missing a whole section into a screenshot baseline: the regenerated
+  `landing-360-reduced-motion` came out **1723px shorter** than the one it
+  replaced, which is the only reason it was caught. Kill the orphan
+  (`Get-NetTCPConnection -LocalPort 4000`) and the same suites go 122/122.
+  **Check baseline heights against the previous ones before keeping them.**
+
 ## Found while closing Phase 12 — 2026-09-05
 
 Not Phase 12 work, not previously written down, and each one verified rather
@@ -1357,12 +1437,10 @@ than suspected. Ordered by how much it would cost to discover later.
       against. If this disk fails, the hero cannot be regenerated or
       recalibrated — only the already-optimized outputs survive. Needs a
       backup somewhere the repo can point at.
-- [ ] **`pnpm check:hero` is wired to nothing and cannot run as written.** It
-      is a script in `package.json` but appears in no CI workflow and no git
-      hook, and it requires a `<source-render.png>` argument it is never given,
-      so `pnpm check:hero` exits 1 on a clean tree. Either give it its
-      argument and a gate, or retire it — right now it is a check that looks
-      like a gate and is neither.
+- [x] ~~**`pnpm check:hero` is wired to nothing and cannot run as written.**~~
+      Given its argument on 2026-09-06 — see "The hero sprites, recut in place"
+      above. It still appears in no CI workflow and no git hook, and cannot:
+      it reads `landing-src/`, which never enters git history.
 
 ### Environment notes, so a future session does not re-debug them
 

@@ -21,14 +21,23 @@
  * the render already put in the right place; a non-zero dock is a measured
  * correction, not a guess at an absolute position.
  *
- * ## Why some layers need a correction at all
+ * ## Why no layer needs a correction any more
  *
- * The batch is not uniform. Bumper, grille, fender and door came back as true
- * in-place isolations and dock at native registration with nothing to tune.
- * Hood, windshield and the headlights came back as centred product shots --
- * the same part, re-framed -- so they carry a scale, an offset, and (for the
- * hood) a small `rotateZ` to sit on the car. Those were calibrated against the
- * base by measuring the rendered composite, not by eye alone.
+ * Every dock below is `NATIVE`, and that is the point. The batch used to be
+ * mixed: bumper, grille, fender and door were true in-place isolations, while
+ * hood, windshield and the headlights were catalogue product shots -- a
+ * different hood, photographed on a different camera -- carried onto the car by
+ * a hand-tuned scale, offset and `rotateZ`. No 2D transform can seat a panel
+ * shot from another angle, which is why those three never looked docked however
+ * the numbers were nudged.
+ *
+ * They are now cut in place from the complete-car render, the same way the
+ * fender and door were. `landing-src/samples-opaque/car.png` turned out to be
+ * the *same render* as the stripped base at 2x: downscaled to 1024 it registers
+ * onto `car-stripped.png` at scale 1.000, dx 0, dy 0. So each sprite is that
+ * render masked to one panel, and its trim box is a real coordinate in the
+ * frame. `pnpm check:hero` measures the result rather than trusting it:
+ * base 65.2% alone, 97.7% with all seven stacked at 0,0, every sprite "docks".
  */
 
 /** The master frame every hero layer was isolated from, in pixels. */
@@ -103,7 +112,12 @@ export type HeroClip = {
 export type HeroUndock = {
   readonly dx: number;
   readonly dy: number;
-  /** Peak scale. Slightly over 1 reads as "toward the viewer", not "bigger". */
+  /**
+   * Peak scale. Slightly over 1 reads as "toward the viewer", not "bigger",
+   * which is what every body panel uses. The engine parts are the exception and
+   * say why at `HERO_ENGINE_PARTS`: they are sized at rest by what the hood can
+   * hide, so the growth on the way out is how they become readable at all.
+   */
   readonly scale: number;
 };
 
@@ -119,7 +133,7 @@ export type HeroLayer = {
   readonly clip?: HeroClip;
 };
 
-/** The layer that needed no calibration: drawn exactly where it was rendered. */
+/** Drawn exactly where it was rendered. Since the in-place recut, every layer. */
 const NATIVE: HeroDock = { dx: 0, dy: 0, scale: 1 };
 
 /** The stripped body every sprite docks onto. Always native, never undocks. */
@@ -134,28 +148,24 @@ export const HERO_BASE_ASSET = "car-stripped";
  * bumper last because it crosses in front of everything on the nose.
  */
 export const HERO_LAYERS: readonly HeroLayer[] = [
-  // Product shot: scaled to the bay and turned a few degrees so its ridge runs
-  // along the car's, rather than across it. Lifts up and back off its hinge.
-  //
-  // The offset was wrong until it was measured against the shell rather than
-  // judged against the composite. dy -95 put the box at 137,352 -- top 352 is
-  // above the shell's own roofline here, so the panel sat over the cowl and the
-  // windshield instead of on the bay, leaving the engine visible in front of it
-  // and the far corner overhanging the fender. The bay is at rows 389-527, not
-  // 352-490. Scale and rotation were right and are unchanged; only dx/dy moved.
+  // Cut from the complete-car render along the cowl gap at the back and the
+  // hood's own front lip above the grille; the far edge is the car's silhouette
+  // and the near edge is the fender, which paints over it. Lifts up and back
+  // off its hinge.
   {
     id: "hood",
     asset: "sprite-hood",
     chapter: 2,
-    dock: { dx: -155, dy: -58, scale: 0.66, rotateZ: -4 },
+    dock: NATIVE,
     undock: { dx: 40, dy: -175, scale: 1.06 },
   },
-  // Product shot: the pane is rendered at nearly three times the aperture.
+  // The glass and its chrome trim, bounded by the aperture the stripped shell
+  // leaves open -- so the cut is the hole, measured, not a traced outline.
   {
     id: "windshield",
     asset: "sprite-windshield",
     chapter: 3,
-    dock: { dx: 28, dy: -111, scale: 0.37 },
+    dock: NATIVE,
     undock: { dx: 90, dy: -140, scale: 1.06 },
   },
   {
@@ -179,26 +189,29 @@ export const HERO_LAYERS: readonly HeroLayer[] = [
     dock: NATIVE,
     undock: { dx: -90, dy: 75, scale: 1.08 },
   },
-  // One render, two lamps, two sockets -- and the sockets are 280 canvas
-  // pixels apart at ~50 across while the render's pair is 380 apart at 303.
-  // No single scale seats both, so each socket gets its own instance of the
-  // same file clipped to one lamp. Same download, two placements.
+  // One render, two lamps -- still, because both lenses come out of the same
+  // frame and shipping them separately would be two requests for 3.4KB of
+  // artwork. What changed is that the render is now the car's own: both lamps
+  // sit at their real coordinates, so each instance is the SAME native dock
+  // with a clip that reveals one lens. There is nothing left to scale.
   {
     id: "lamp-far",
     asset: "sprite-headlights",
     chapter: 1,
-    dock: { dx: -354.4, dy: -12.8, scale: 0.1551 },
+    dock: NATIVE,
     undock: { dx: -45, dy: -85, scale: 1.12 },
-    clip: { top: 0, right: 55.3, bottom: 1, left: 0.15 },
+    clip: { top: 0, right: 87.85, bottom: 0, left: 0 },
   },
   {
     id: "lamp-near",
     asset: "sprite-headlights",
     chapter: 1,
-    dock: { dx: -142.2, dy: 7.2, scale: 0.1848 },
+    dock: NATIVE,
     undock: { dx: 15, dy: -105, scale: 1.12 },
-    clip: { top: 0, right: 0.15, bottom: 0.65, left: 55.4 },
+    clip: { top: 0, right: 0, bottom: 0, left: 85.36 },
   },
+  // The whole front bumper assembly -- blade, guards and the valance behind
+  // them -- because that is exactly what the stripped shell is missing there.
   {
     id: "bumper",
     asset: "sprite-bumper",
@@ -242,42 +255,51 @@ export type HeroEnginePart = {
 };
 
 /**
- * The engine bay, in canvas pixels: exactly the box the docked hood covers.
+ * The engine bay, in canvas pixels: the largest rectangle that fits inside the
+ * docked hood's own alpha.
  *
- * Derived from the registration rather than eyeballed -- the hood sprite trims
- * to 737x208 at (142, 412) and docks at scale 0.66 with dx -155 / dy -58, which
- * puts its box at 112,389 -> 599,527. Anything the hood is supposed to hide has
- * to sit inside that, and `manifestData.test.ts` checks that every part does.
+ * An inscribed rectangle, not the hood's bounding box -- the hood is a panel
+ * seen almost edge-on, so its box is 436x68 while the solid band inside it is
+ * 196x36. Anything the hood is supposed to hide has to sit in the band, and
+ * `manifestData.test.ts` checks that every part does. Measured by running the
+ * maximal-rectangle scan over the shipped sprite's alpha, not read off a corner.
  *
- * It moved with the hood: the previous box (137,352 -> 624,490) was derived from
- * the hood's own misplacement, so the three parts were "inside the bay" by the
- * test's arithmetic while sitting over the cowl on screen. A derived constant is
- * only as true as what it is derived from.
+ * **It shrank when the hood became real.** The old box was 487x138, derived
+ * from a hood that was a catalogue product shot scaled 0.66 to look about
+ * right; the three engine parts were sized against that fiction and were
+ * roughly three times too big for the panel that is actually there. A derived
+ * constant is only as true as what it is derived from -- and this one has now
+ * been wrong in both directions, which is the argument for deriving it by
+ * measurement each time rather than by eye.
  */
-export const HERO_BAY = { left: 112, top: 389, right: 599, bottom: 527 } as const;
+export const HERO_BAY = { left: 177, top: 449, right: 372, bottom: 484 } as const;
 
 /**
  * The three parts that live under the hood (fableTasks2 §2.1's chapter 2).
  *
  * They are painted between the base and the sprites, so at rest the hood covers
  * them completely and the car still opens as a closed, whole car. Chapter 2
- * lifts the hood up and back, which uncovers them, and they rise out of the bay
+ * lifts the hood up and back, which uncovers them, and they drop out of the bay
  * on the same beat.
  *
- * Sizes are catalogue-legible rather than literally to scale: a real piston in
- * a 490px bay would be a smudge, and the point of the beat is that a visitor
- * can name what they are looking at. They stay small enough to read as bay
- * internals and large enough to be identifiable at 360px.
+ * **They are much smaller than they were, and the hood is the reason.** These
+ * heights were 55/105/78 against a `HERO_BAY` derived from a hood that was a
+ * catalogue product shot scaled 0.66; the real panel covers a 196x36 band, so
+ * anything taller than about 32 poked out of a closed car. Rest size is now set
+ * by what the hood actually hides, and the reading size is bought back on the
+ * way out: `undock.scale` is 2.4 rather than the 1.12 the other layers use.
+ * That is not a decorative flourish -- it is the only lever left once the panel
+ * is fixed, and it is what a workshop manual does anyway, drawing the extracted
+ * part larger than it sits. At 1440 they land around 50 CSS px tall in the
+ * clear band under the car, which is where they are meant to be read.
  *
  * They travel DOWN, and the hood goes up. That was not the first attempt: the
  * obvious reading of "the parts rise" put all three in the band above the car,
  * where the lifted hood already is. Rendered, the alternator was completely
  * behind the hood -- both of them move toward the rear, so they arrive in the
- * same place -- and the other two were pinched into the 38px of clear air
- * between the hood's underside and the bay. The stage's geometry is the reason:
- * the car occupies canvas rows 333-700 of a visible 130-894, so there are two
- * clear bands, and at its peak the hood covers most of the upper one. The lower
- * band is 194px of nothing.
+ * same place. The stage's geometry is the reason: the car occupies canvas rows
+ * 333-700 of a visible 130-894, so there are two clear bands, and at its peak
+ * the hood covers most of the upper one. The lower band is 194px of nothing.
  *
  * So the bay opens in two directions, which is also how a workshop manual draws
  * one: the panel lifts off, the internals displace along an axis, and nothing
@@ -289,20 +311,20 @@ export const HERO_ENGINE_PARTS: readonly HeroEnginePart[] = [
   {
     id: "air-filter",
     asset: "air-filter",
-    place: { cx: 260, cy: 468, height: 55 },
-    undock: { dx: -30, dy: 340, scale: 1.12 },
+    place: { cx: 212, cy: 466, height: 30 },
+    undock: { dx: -30, dy: 340, scale: 2.4 },
   },
   {
     id: "piston",
     asset: "piston",
-    place: { cx: 380, cy: 462, height: 105 },
-    undock: { dx: 0, dy: 350, scale: 1.12 },
+    place: { cx: 275, cy: 466, height: 32 },
+    undock: { dx: 0, dy: 350, scale: 2.4 },
   },
   {
     id: "alternator",
     asset: "alternator",
-    place: { cx: 500, cy: 468, height: 78 },
-    undock: { dx: 30, dy: 340, scale: 1.12 },
+    place: { cx: 336, cy: 466, height: 30 },
+    undock: { dx: 30, dy: 340, scale: 2.4 },
   },
 ];
 

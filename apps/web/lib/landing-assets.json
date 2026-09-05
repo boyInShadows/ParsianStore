@@ -402,8 +402,8 @@
     {
       "name": "sprite-bumper",
       "intrinsic": {
-        "width": 374,
-        "height": 100
+        "width": 340,
+        "height": 102
       },
       "hasAlpha": true,
       "mirrored": false,
@@ -412,21 +412,21 @@
           "width": 1024,
           "height": 1024
         },
-        "left": 98,
+        "left": 97,
         "top": 529
       },
       "variants": [
         {
           "width": 96,
-          "height": 26,
-          "avif": 1158,
-          "webp": 1640
+          "height": 29,
+          "avif": 1380,
+          "webp": 1910
         },
         {
-          "width": 374,
-          "height": 100,
-          "avif": 2621,
-          "webp": 4676
+          "width": 340,
+          "height": 102,
+          "avif": 4993,
+          "webp": 6068
         }
       ]
     },
@@ -450,14 +450,14 @@
         {
           "width": 96,
           "height": 141,
-          "avif": 3170,
-          "webp": 5230
+          "avif": 2940,
+          "webp": 5014
         },
         {
           "width": 158,
           "height": 232,
-          "avif": 3784,
-          "webp": 7828
+          "avif": 4490,
+          "webp": 7748
         }
       ]
     },
@@ -481,22 +481,22 @@
         {
           "width": 96,
           "height": 63,
-          "avif": 1820,
-          "webp": 2652
+          "avif": 1678,
+          "webp": 2532
         },
         {
           "width": 291,
           "height": 190,
-          "avif": 4475,
-          "webp": 7762
+          "avif": 6243,
+          "webp": 7404
         }
       ]
     },
     {
       "name": "sprite-grille",
       "intrinsic": {
-        "width": 242,
-        "height": 77
+        "width": 209,
+        "height": 67
       },
       "hasAlpha": true,
       "mirrored": false,
@@ -505,29 +505,29 @@
           "width": 1024,
           "height": 1024
         },
-        "left": 135,
-        "top": 473
+        "left": 134,
+        "top": 480
       },
       "variants": [
         {
           "width": 96,
           "height": 31,
-          "avif": 1340,
-          "webp": 1974
+          "avif": 1178,
+          "webp": 1628
         },
         {
-          "width": 242,
-          "height": 77,
-          "avif": 3197,
-          "webp": 6020
+          "width": 209,
+          "height": 67,
+          "avif": 2225,
+          "webp": 3546
         }
       ]
     },
     {
       "name": "sprite-headlights",
       "intrinsic": {
-        "width": 680,
-        "height": 306
+        "width": 321,
+        "height": 72
       },
       "hasAlpha": true,
       "mirrored": false,
@@ -536,35 +536,29 @@
           "width": 1024,
           "height": 1024
         },
-        "left": 171,
-        "top": 359
+        "left": 109,
+        "top": 478
       },
       "variants": [
         {
           "width": 96,
-          "height": 43,
-          "avif": 1861,
-          "webp": 2408
+          "height": 22,
+          "avif": 880,
+          "webp": 718
         },
         {
-          "width": 480,
-          "height": 216,
-          "avif": 13590,
-          "webp": 25060
-        },
-        {
-          "width": 680,
-          "height": 306,
-          "avif": 18420,
-          "webp": 37220
+          "width": 321,
+          "height": 72,
+          "avif": 3478,
+          "webp": 1830
         }
       ]
     },
     {
       "name": "sprite-hood",
       "intrinsic": {
-        "width": 737,
-        "height": 208
+        "width": 436,
+        "height": 68
       },
       "hasAlpha": true,
       "mirrored": false,
@@ -573,35 +567,29 @@
           "width": 1024,
           "height": 1024
         },
-        "left": 142,
-        "top": 412
+        "left": 107,
+        "top": 431
       },
       "variants": [
         {
           "width": 96,
-          "height": 27,
-          "avif": 1253,
-          "webp": 1606
+          "height": 15,
+          "avif": 1059,
+          "webp": 1248
         },
         {
-          "width": 480,
-          "height": 135,
-          "avif": 5854,
-          "webp": 9722
-        },
-        {
-          "width": 737,
-          "height": 208,
-          "avif": 6129,
-          "webp": 10606
+          "width": 436,
+          "height": 68,
+          "avif": 3664,
+          "webp": 4698
         }
       ]
     },
     {
       "name": "sprite-windshield",
       "intrinsic": {
-        "width": 762,
-        "height": 345
+        "width": 282,
+        "height": 106
       },
       "hasAlpha": true,
       "mirrored": false,
@@ -610,27 +598,21 @@
           "width": 1024,
           "height": 1024
         },
-        "left": 131,
+        "left": 375,
         "top": 339
       },
       "variants": [
         {
           "width": 96,
-          "height": 43,
-          "avif": 1241,
-          "webp": 1772
+          "height": 36,
+          "avif": 1303,
+          "webp": 1678
         },
         {
-          "width": 480,
-          "height": 217,
-          "avif": 6342,
-          "webp": 11540
-        },
-        {
-          "width": 762,
-          "height": 345,
-          "avif": 8156,
-          "webp": 17496
+          "width": 282,
+          "height": 106,
+          "avif": 3414,
+          "webp": 4632
         }
       ]
     }

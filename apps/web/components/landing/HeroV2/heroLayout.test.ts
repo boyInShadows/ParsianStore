@@ -40,16 +40,28 @@ const VISIBLE = (() => {
   return { top: ((1 - shown) / 2) * HERO_CANVAS, bottom: ((1 + shown) / 2) * HERO_CANVAS };
 })();
 
-/** The box a layer occupies on the 1024² canvas, exactly as HeroStage places it. */
+/**
+ * The box a layer actually shows on the 1024² canvas, exactly as HeroStage
+ * places it -- clip included.
+ *
+ * The clip matters here and did not used to. Both lamps are now the same native
+ * box out of the same render, so without the inset they would measure as two
+ * identical rectangles sitting on each other; what distinguishes them is the
+ * window each one opens. A test that ignores the clip is measuring the file,
+ * not the part.
+ */
 function dockedBox(layer: (typeof HERO_LAYERS)[number]) {
   const asset = landingAsset(`/landing/hero/${layer.asset}`);
   const width = asset.intrinsic.width * layer.dock.scale;
   const height = asset.intrinsic.height * layer.dock.scale;
+  const left = asset.trim!.left + (asset.intrinsic.width - width) / 2 + layer.dock.dx;
+  const top = asset.trim!.top + (asset.intrinsic.height - height) / 2 + layer.dock.dy;
+  if (!layer.clip) return { width, height, left, top };
   return {
-    width,
-    height,
-    left: asset.trim!.left + (asset.intrinsic.width - width) / 2 + layer.dock.dx,
-    top: asset.trim!.top + (asset.intrinsic.height - height) / 2 + layer.dock.dy,
+    width: width * (1 - (layer.clip.left + layer.clip.right) / 100),
+    height: height * (1 - (layer.clip.top + layer.clip.bottom) / 100),
+    left: left + width * (layer.clip.left / 100),
+    top: top + height * (layer.clip.top / 100),
   };
 }
 
@@ -108,14 +120,21 @@ describe("HERO_LAYERS", () => {
     }
   });
 
-  it("leaves the in-place isolations at native registration", () => {
-    // Bumper, grille, fender and door came back from the batch already in the
-    // right place. If a future re-render moves one, this is what says so --
-    // "someone nudged a part that did not need nudging" is otherwise invisible.
-    const native = HERO_LAYERS.filter(
-      (layer) => layer.dock.dx === 0 && layer.dock.dy === 0 && layer.dock.scale === 1,
-    ).map((layer) => layer.id);
-    expect(native.sort()).toEqual(["bumper", "door", "fender", "grille"]);
+  it("leaves every layer at native registration", () => {
+    // All eight entries, not the four the mixed batch used to manage. Every
+    // sprite is now cut in place out of the complete-car render, so a dock is a
+    // correction to a coordinate that is already right -- and a non-zero one
+    // means somebody reached for a transform instead of fixing the cut. Three
+    // layers were product shots carried onto the car by a hand-tuned scale,
+    // offset and rotateZ, and no amount of nudging ever seated them.
+    for (const layer of HERO_LAYERS) {
+      expect(layer.dock.dx, `${layer.id} dx`).toBe(0);
+      expect(layer.dock.dy, `${layer.id} dy`).toBe(0);
+      expect(layer.dock.scale, `${layer.id} scale`).toBe(1);
+      expect(layer.dock.rotateX ?? 0, `${layer.id} rotateX`).toBe(0);
+      expect(layer.dock.rotateY ?? 0, `${layer.id} rotateY`).toBe(0);
+      expect(layer.dock.rotateZ ?? 0, `${layer.id} rotateZ`).toBe(0);
+    }
   });
 
   it("clips only the layers that share one render", () => {

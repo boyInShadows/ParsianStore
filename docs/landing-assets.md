@@ -78,47 +78,85 @@ around. 0.8–1.4MB each.
 | File | Contents | Trimmed box in the 1024² master | Batch 1's box |
 |---|---|---|---|
 | `car-stripped.png` | the coupe with bumper, grille, headlights, hood, driver door, driver fender and windshield removed; engine bay and interior exposed | 823×367 @ 103,333 | identical |
-| `sprite-bumper.png` | front chrome bumper bar | **374×100 @ 98,529** | 822×232 @ 102,413 |
-| `sprite-grille.png` | chrome slatted grille | **241×77 @ 136,473** | 786×249 @ 99,396 |
-| `sprite-fender.png` | front fender with wheel arch | **291×189 @ 363,438** | 815×381 @ 103,328 |
-| `sprite-door.png` | driver door with glass and mirror | **157×232 @ 643,351** | 761×593 @ 131,211 |
-| `sprite-hood.png` | hood panel | 737×208 @ 142,412 | 841×380 @ 93,316 |
-| `sprite-windshield.png` | windshield glass with wipers | 762×345 @ 131,339 | 864×440 @ 62,310 |
-| `sprite-headlights.png` | **both** round sealed-beam headlights | 680×306 @ 171,359 | 510×575 @ 262,225 (one lamp) |
+| `sprite-bumper.png` | front bumper assembly | **340×102 @ 97,529** | 822×232 @ 102,413 |
+| `sprite-grille.png` | chrome slatted grille | **209×67 @ 134,480** | 786×249 @ 99,396 |
+| `sprite-fender.png` | front fender with wheel arch | **291×190 @ 363,438** | 815×381 @ 103,328 |
+| `sprite-door.png` | driver door with glass and mirror | **158×232 @ 642,351** | 761×593 @ 131,211 |
+| `sprite-hood.png` | hood panel | **436×68 @ 107,431** | 841×380 @ 93,316 |
+| `sprite-windshield.png` | windshield glass with wipers | **282×106 @ 375,339** | 864×440 @ 62,310 |
+| `sprite-headlights.png` | **both** round sealed-beam headlights | **321×72 @ 109,478** | 510×575 @ 262,225 (one lamp) |
 
-**Four of batch 2's seven are in-place isolations, and that is measurable.**
-Bumper, grille, fender and door trim to boxes that land on their own apertures
-in the base — the bumper's 374×100 @ 98,529 sits exactly across the nose, the
-grille's 241×77 @ 136,473 exactly in the front face. Those four dock at native
-registration with no calibration at all. Hood, windshield and headlights came
-back re-framed, at up to three times aperture size, and carry a measured scale
-and offset in `components/landing/HeroV2/heroLayout.ts`.
+Boxes in bold are the current, recut set; the batch-2 columns they replaced are
+in the table further down. Alpha is binary in batch 2's four surviving mattes and
+1px-feathered in the five recut ones, which is why the recut sprites composite
+without the light fringe the door gap used to show.
 
-**`car-stripped.png` is not a mask of `cutouts/car.png`.** Measured at S5: a
-per-pixel diff shows 56% of body pixels changed, spread across the whole car
-rather than concentrated in the removed regions. They are independent
-generations that happen to share framing (silhouette bounding boxes agree to
-~6px). So dock coordinates cannot be derived by differencing the two, and the
-sprites cannot be cut out of the complete car.
+**All seven are in-place isolations now — batch 2's four, plus three recut.**
+Batch 2 shipped bumper, grille, fender and door as true isolations: their trim
+boxes land on their own apertures in the base, so they docked at native
+registration with nothing to tune. Hood, windshield and headlights came back
+re-framed as catalogue product shots at up to three times aperture size, and
+were carried onto the car by a hand-tuned scale, offset and (for the hood) a
+`rotateZ`. That never worked and could not have: a hood photographed on a
+different camera is the wrong *shape* in this projection, not the wrong size, so
+no 2D transform seats it. The owner reported it from the running hero on
+2026-09-06 — the panel sat proud of the cowl, the bumper floated off the nose,
+and the grille was a bright chrome slab wider than the opening.
 
-**`sprite-headlights.png` cannot dock as one layer.** Its two lamps are 380px
-apart at 303px across; the base's two sockets are ~280 canvas px apart at ~50
-across. No single scale seats both, so the render is placed twice and
-`clip-path`-ed to one lamp each — one download, two placements.
+**They were recut in place, from the complete-car render.** Each of the five —
+hood, windshield, grille, bumper, headlights — is now
+`landing-src/samples-opaque/car.png` masked to one panel, in the 1024² frame.
+Door and fender kept their outlines and had their *pixels* repainted from the
+same render, which removed the light fringe their mattes carried along the door
+gap. Every layer's dock is `NATIVE`; `heroLayout.ts` holds no scale, offset or
+rotation at all.
 
-**`pnpm check:hero` cannot pass, and that is the gate's premise, not the
-batch's.** It scores each sprite by whether adding it moves its own region
-*closer* to a reference render — but the only reference that exists,
-`landing-src/hero-reference/source-car.png`, is the stripped car with an opaque
-background. There is no complete-car master. Adding a correct bumper to a
-reference that has no bumper necessarily scores as a regression, so the tool
-reports 7 of 7 NOT REGISTERED for a batch where four sprites are provably in
-place. Kept for the box coordinates it prints, which are useful; its verdict
-line is not.
+**The claim that blocked this for two phases was measured wrong.** P9.S5
+recorded that `car-stripped.png` "is not a mask of `cutouts/car.png`" because a
+per-pixel diff showed 56% of body pixels changed, and concluded they were
+independent generations, so "the sprites cannot be cut out of the complete car."
+The 56% was real; the conclusion was not. Removing panels changes global
+illumination across the whole shell, so a *colour* diff of a stripped car against
+a complete one is guaranteed to be large no matter how well the two register.
+The question was geometric, and the geometric answer is exact: downscale
+`samples-opaque/car.png` (2048²) to 1024² and it lands on `car-stripped.png` at
+**scale 1.000, dx 0, dy 0** — searched over scale 0.36–0.64 and ±80px of offset
+against the rear half of the body, where nothing was removed. It is the same
+render at 2x. *Colour agreement is not registration; measure the one you mean.*
 
-`source-car.png` lives in `landing-src/hero-reference/` rather than beside the
-sprites on purpose: `optimize-landing.mjs` ships every PNG in a group directory,
-and a reference master is not a layer.
+| File | Contents | Trimmed box in the 1024² master | Before the recut |
+|---|---|---|---|
+| `sprite-hood.png` | hood panel, cut at the cowl gap and its own front lip | **436×68 @ 107,431** | 737×208 @ 142,412 (product shot) |
+| `sprite-windshield.png` | glass and chrome trim, bounded by the aperture the shell leaves open | **282×106 @ 375,339** | 762×345 @ 131,339 (product shot) |
+| `sprite-grille.png` | the car's own slatted grille and surround | **209×67 @ 134,480** | 241×77 @ 136,473 |
+| `sprite-bumper.png` | the whole front bumper assembly: blade, guards and the valance behind them | **340×102 @ 97,529** | 374×100 @ 98,529 |
+| `sprite-headlights.png` | **both** lenses, at their real coordinates | **321×72 @ 109,478** | 680×306 @ 171,359 (product shot) |
+
+**`sprite-headlights.png` is still one file placed twice**, but for a different
+reason than before. It used to need two hand-fitted scales because the render's
+lamp pair was 380px apart at 303px across while the sockets are ~280 apart at
+~50. Both lenses are now at their true positions in one master, so the two
+instances share the *same* native dock and differ only by a `clip-path` window —
+one download, two placements, nothing to calibrate.
+
+**`pnpm check:hero` passes, and now runs with no arguments.** It scores each
+sprite by whether adding it moves its own region closer to a reference render.
+The reference it lacked is the one this recut is cut from:
+`landing-src/hero-reference/source-car-assembled.png`, the assembled car at
+1024², which is now the script's `DEFAULT_SOURCE`. Before: 7 of 7 scored as
+product shots, composite agreement 36.8%. After: **every sprite 100% inside its
+own box, composite 99.0%, "MATCHED — the set docks at 0,0 with no calibration."**
+It stays a local check rather than a CI gate, because `landing-src/` is
+gitignored by design and never enters git history.
+
+References live in `landing-src/hero-reference/` rather than beside the sprites
+on purpose: `optimize-landing.mjs` ships every PNG in a group directory, and a
+reference master is not a layer. `source-car.png` (the stripped shell on an
+opaque ground) is kept alongside the assembled one.
+
+**The old masters are kept at `landing-src/hero-batch2-productshots/`,** for the
+same reason batch 1 is kept: the difference between them is the whole argument
+for how the sprites are placed.
 
 ## `landing-src/plates/` — 4 atmosphere plates
 
