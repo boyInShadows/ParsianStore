@@ -4,8 +4,10 @@ import { VehicleSelectorLazy } from "@/components/garage";
 import { getSystemPartCounts } from "@/lib/fetchers/exploded-view";
 import { HeroScrollProvider } from "./HeroScrollProvider";
 import { HeroStage } from "./HeroStage";
+import { PartCallouts } from "./PartCallout";
 import { PartCodeSearch } from "./PartCodeSearch";
 import { PartsManifest } from "./PartsManifest";
+import { StageNarration } from "./StageNarration";
 
 /**
  * Every catalog system, as a ruled index beside the diagram.
@@ -198,7 +200,14 @@ export async function HeroV2() {
               label={t("diagramLabel")}
               carAlt={t("staticStateAlt")}
               hint={t("scrollHint")}
+              callouts={<PartCallouts />}
             />
+            {/* Decides which callout is showing, and renders no markup of its
+                own. It sits beside the stage rather than inside it so the
+                server-rendered plates stay server-rendered -- a Client
+                Component cannot render an async Server Component, but it can
+                receive one as a prop, which is what `callouts` above is. */}
+            <StageNarration />
             {/* The mobile half of the manifest, under the stage it indexes
               (§2.2). Above 1024px this is display:none and the side panel in
               the copy column takes over. */}

@@ -141,6 +141,100 @@
     }
   }
 
+  /* ---- Part callouts (P13.S3) -----------------------------------------
+
+     The narrator. A plate naming the part that just left the car, joined to it
+     by a leader line, shown one at a time as the scroll passes each beat.
+
+     `display: none` rather than `opacity: 0` for the ten that are not showing,
+     and that is an accessibility decision rather than a performance one. A
+     hidden plate is a link; ten of them left in the tree would put ten
+     destinations in the tab order that a keyboard user cannot see, on top of
+     the nine the parts manifest already offers. `display: none` takes them out
+     of the accessibility tree and the tab order entirely, so exactly one
+     callout link exists at any moment -- the one whose part is on screen.
+
+     Without JavaScript no plate is ever shown, which is correct: the car never
+     separates either, and the manifest beside it carries the same names, codes
+     and links in a list that needs no scrolling to read. */
+  .hero-callout {
+    position: absolute;
+    display: none;
+  }
+
+  .hero-callout[data-shown] {
+    display: block;
+  }
+
+  .hero-callout-plate {
+    pointer-events: auto;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+    /* The plate must not grow past the box `heroScene.ts` reserved for it --
+       that box is what every collision with the car and with the part itself is
+       computed against, so copy that overflowed it would be copy the layout
+       never checked. `box-sizing` is explicit for the same reason: without it
+       the padding and border sat *outside* the declared width and the rendered
+       plate came out 26px wider than the geometry said. */
+    box-sizing: border-box;
+    width: 100%;
+    height: 100%;
+    /* The plate is a surface on the stage, not on the page: the stage keeps its
+       dark ground in both themes (HeroV2's bg-graphite-950), so these tokens are
+       the fixed graphite ramp rather than the theme-flipping semantic ones. */
+    border: 1px solid var(--color-graphite-700);
+    background-color: color-mix(in oklab, var(--color-graphite-950) 88%, transparent);
+    padding: var(--space-3);
+    color: var(--color-graphite-100);
+    text-align: start;
+    transition:
+      border-color var(--duration-fast) var(--ease-out),
+      color var(--duration-fast) var(--ease-out);
+  }
+
+  a.hero-callout-plate:hover,
+  a.hero-callout-plate:focus-visible {
+    border-color: var(--brand-solid);
+    color: var(--color-graphite-0);
+  }
+
+  /* Type sizes are Tailwind utilities on the elements themselves, not custom
+     properties here: the scale lives in tailwind.config.js (`text-body-sm`,
+     `text-caption`), and `var(--text-body-sm)` does not exist. Only the colours
+     and the family, which are real tokens, are set in CSS. */
+  .hero-callout-name {
+    font-family: var(--font-display);
+    color: var(--color-graphite-0);
+  }
+
+  .hero-callout-code,
+  .hero-callout-why {
+    color: var(--color-graphite-300);
+  }
+
+  .hero-callout-go {
+    color: var(--brand);
+  }
+
+  /* Steel Blue, never Marigold: this is a line pointing at a thing, and
+     tokens.css reserves Marigold for where money changes hands. */
+  .hero-leader {
+    display: none;
+    stroke: var(--brand-solid);
+    stroke-width: 1;
+  }
+
+  .hero-leader[data-shown] {
+    display: inline;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .hero-callout-plate {
+      transition: none !important;
+    }
+  }
+
   /* ---- Evidence code (P12.S10) ----------------------------------------
 
      `dir="ltr"` sets the direction INSIDE the run; `unicode-bidi: isolate`

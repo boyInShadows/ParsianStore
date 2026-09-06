@@ -5,7 +5,7 @@ import { motion, useReducedMotion, useTransform, type MotionValue } from "motion
 import { useHeroScroll } from "./HeroScrollProvider";
 import { landingAsset, landingFallback, landingSrcSet } from "@/lib/landing-image";
 import { cameraTrack } from "./cameraRig";
-import { manifestPartByLayerId } from "./manifestData";
+import { calloutSubjectByLayerId } from "./manifestData";
 import {
   beatOf,
   HERO_BASE_ASSET,
@@ -39,6 +39,16 @@ type Props = {
   /** "Scroll to separate the parts" -- pinned with the stage, so it is on
    *  screen for exactly as long as the invitation is true. */
   hint: string;
+  /**
+   * The server-rendered callout layer (P13.S3), passed in as a slot.
+   *
+   * This component is a Client Component, so it cannot render an async Server
+   * Component itself -- but it can receive one as a prop from its server
+   * parent, which is what keeps eleven plates of text and links out of the
+   * route's JavaScript. It belongs inside the camera so the plates share the
+   * sprites' coordinate space and the leader lines stay attached.
+   */
+  callouts?: ReactNode;
 };
 
 /** Roughly how wide the stage itself is, for `sizes`. */
@@ -130,14 +140,21 @@ function placePart(assetName: string, placement: HeroPartPlacement) {
 }
 
 /**
- * Which manifest row a sprite belongs to, stamped on the element as `data-part`.
+ * Which part a sprite belongs to, stamped on the element as `data-part`.
  *
- * This is the entire coupling between the diagram and the manifest: both ends
- * carry the same `data-part`, so the highlight can pair them without either
- * component knowing the other exists (P12.S4). Layers with no row -- the
- * windshield -- get nothing, and simply never highlight.
+ * This is the entire coupling between the diagram and everything that talks
+ * about it: the manifest row, the highlight, and now the callout all pair
+ * through this one attribute without any of them knowing the others exist
+ * (P12.S4).
+ *
+ * It reads the **callout subjects** rather than the manifest rows as of
+ * P13.S3, and the windshield is the difference. It has no row -- there is no
+ * glass category to sell it from -- so under the old mapping it was the one
+ * sprite on the stage with no identity: it could not highlight, and its own
+ * caption's leader line had nothing to point at. Being un-sellable and being
+ * un-nameable are different things, and only the first is true of it.
  */
-const partByLayer = manifestPartByLayerId();
+const partByLayer = calloutSubjectByLayerId();
 
 function partAttr(layerId: string) {
   const entry = partByLayer.get(layerId);
@@ -371,7 +388,7 @@ function DockedLayer({ layer, index }: { layer: HeroLayer; index: number }) {
  * every sprite. It collapses the track and unpins the stage, and leaves the
  * layers alone.
  */
-export function HeroStage({ label, carAlt, hint }: Props) {
+export function HeroStage({ label, carAlt, hint, callouts }: Props) {
   const reduceMotion = useReducedMotion();
   // The measurement itself lives in HeroScrollProvider so the parts manifest,
   // which renders in the other grid column, reads the same value (P12.S4).
@@ -484,6 +501,15 @@ export function HeroStage({ label, carAlt, hint }: Props) {
                   />
                 ),
               )}
+              {/* Inside the frame, not beside it. The callouts are positioned
+                  in canvas percentages exactly like the sprites, and a
+                  percentage resolves against the nearest positioned ancestor --
+                  so as a sibling of the frame they measured against the stage's
+                  814x560 box instead of the frame's 749 square, and every
+                  anchor sat up to 40px off the part it pointed at. Close enough
+                  to look right in a screenshot, which is why it is worth a
+                  comment. */}
+              {callouts}
             </div>
           </HeroCamera>
         </div>

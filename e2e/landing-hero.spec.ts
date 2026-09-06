@@ -437,11 +437,18 @@ function awayFrom(
  */
 const CHAPTERS = [1, 2, 3] as const;
 
-/** Ids as they reach the DOM: the manifest's where there is one, else the asset. */
+/**
+ * Ids as they reach the DOM.
+ *
+ * Only the headlights need mapping now: they are one part drawn as two clipped
+ * sprites, so both report the same `data-part`. The windshield used to be here
+ * too, falling back to its asset name because it carried no `data-part` at all
+ * -- P13.S3 gave it one, since having no category to sell it from is not a
+ * reason for it to have no identity on the stage.
+ */
 const DOM_ID: Record<string, string> = {
   "lamp-far": "headlights",
   "lamp-near": "headlights",
-  windshield: "sprite-windshield",
 };
 
 type Sample = { at: number; away: string[]; what: string };
@@ -497,5 +504,159 @@ test("the hero ends its scroll as a whole car, not a pile of panels", async ({ p
       Math.hypot(box.x - docked[i].x, box.y - docked[i].y),
       `layer ${i} is still in the air at the end of the track`,
     ).toBeLessThan(DOCKED_TOLERANCE);
+  }
+});
+
+/**
+ * The callouts (P13.S3) — the narrator the audit's first finding asked for.
+ *
+ * These assert the *rendered* result rather than the geometry, because the
+ * geometry is already unit-tested and the failure this catches is the gap
+ * between the two: the callout layer first shipped as a sibling of the canvas
+ * frame, so its percentages resolved against the stage's 814x560 box instead of
+ * the frame's 749 square and every plate sat up to 40px from the part it named.
+ * Every unit test passed. It looked almost right in a screenshot.
+ */
+test.describe("part callouts", () => {
+  /** The middle of a slot's hold: one part out, one caption showing. */
+  const holds = () => holdSamples().filter((sample) => sample.away.length > 0 && sample.at > 0);
+
+  test("names exactly one part at a time, and nothing at rest", async ({ page }) => {
+    await gotoHero(page);
+    const shown = page.locator(".hero-callout[data-shown]");
+
+    await scrollHeroTo(page, 0);
+    await expect(shown, "a caption is showing before anything has detached").toHaveCount(0);
+
+    for (const sample of holds()) {
+      await scrollHeroTo(page, sample.at);
+      await expect(shown, `${sample.what} @ ${sample.at.toFixed(3)}`).toHaveCount(1);
+    }
+  });
+
+  test("keeps every plate clear of the car and inside the stage", async ({ page }) => {
+    await gotoHero(page);
+
+    for (const sample of holds()) {
+      await scrollHeroTo(page, sample.at);
+      const boxes = await page.evaluate(() => {
+        const plate = document.querySelector(".hero-callout[data-shown]");
+        const car = document.querySelector(".hero-stage img[alt]:not([alt=''])");
+        const stage = document.querySelector(".hero-stage");
+        if (!plate || !car || !stage) return null;
+        const r = (el: Element) => el.getBoundingClientRect();
+        return { plate: r(plate), car: r(car), stage: r(stage) };
+      });
+      if (!boxes) throw new Error(`no visible callout at ${sample.at}`);
+
+      const { plate, car, stage } = boxes;
+      const overlapsCar =
+        plate.left < car.right &&
+        plate.right > car.left &&
+        plate.top < car.bottom &&
+        plate.bottom > car.top;
+      expect(overlapsCar, `the caption sits on the car at ${sample.at.toFixed(3)}`).toBe(false);
+
+      // Horizontally the stage clips (overflow-x-clip), so a plate outside it is
+      // simply not there. Vertically the stage deliberately spills, so only the
+      // horizontal bound is a real constraint.
+      expect(plate.left, `caption clipped at ${sample.at.toFixed(3)}`).toBeGreaterThanOrEqual(
+        stage.left - 1,
+      );
+      expect(plate.right, `caption clipped at ${sample.at.toFixed(3)}`).toBeLessThanOrEqual(
+        stage.right + 1,
+      );
+    }
+  });
+
+  test("sends every caption to the same place its manifest row does", async ({ page }) => {
+    await gotoHero(page);
+    // A caption that promised a different destination from the row naming the
+    // same part would be two answers to one question.
+    const rows = await page
+      .locator("#hero nav[aria-label] li.manifest-row")
+      .evaluateAll((items) =>
+        Object.fromEntries(
+          items.map((item) => [
+            item.getAttribute("data-part") ?? "",
+            item.querySelector("a")?.getAttribute("href") ?? "",
+          ]),
+        ),
+      );
+
+    const captions = await page.locator(".hero-callout").evaluateAll((plates) =>
+      plates.map((plate) => ({
+        id: plate.getAttribute("data-callout") ?? "",
+        href: plate.querySelector("a")?.getAttribute("href") ?? null,
+      })),
+    );
+
+    expect(captions.length).toBeGreaterThan(9);
+    for (const caption of captions) {
+      if (caption.id === "windshield") {
+        // The one part the catalogue does not sell: a name, and deliberately no
+        // link rather than a link to a page that does not exist.
+        expect(caption.href, "the windshield caption gained a destination").toBeNull();
+        continue;
+      }
+      expect(caption.href, `${caption.id}'s caption disagrees with its row`).toBe(rows[caption.id]);
+    }
+  });
+});
+
+/**
+ * The assertion that would have caught the frame bug, and the reason it is
+ * worth its own test: a plate can clear the car and still point at nothing.
+ *
+ * The leader line's anchor end is the one coordinate that ties the caption to
+ * the thing it names. It is read through the SVG's own screen matrix rather
+ * than from a bounding box, because a line's box is the rectangle between its
+ * two ends -- which intersects the part whether or not the line touches it.
+ */
+test("every leader line lands on the part its caption names", async ({ page }) => {
+  await gotoHero(page);
+
+  for (const sample of holdSamples().filter((s) => s.away.length > 0 && s.at > 0)) {
+    await scrollHeroTo(page, sample.at);
+
+    const misses = await page.evaluate(() => {
+      const out: string[] = [];
+      for (const line of document.querySelectorAll<SVGLineElement>(".hero-leader[data-shown]")) {
+        const id = line.getAttribute("data-callout") ?? "";
+        const svg = line.ownerSVGElement;
+        const ctm = svg?.getScreenCTM();
+        if (!ctm) continue;
+
+        const point = svg!.createSVGPoint();
+        point.x = line.x1.baseVal.value;
+        point.y = line.y1.baseVal.value;
+        const screen = point.matrixTransform(ctm);
+
+        const sprites = [...document.querySelectorAll(`.hero-stage img[data-part="${id}"]`)];
+        const hit = sprites.some((sprite) => {
+          const box = sprite.getBoundingClientRect();
+          return (
+            screen.x >= box.left - 2 &&
+            screen.x <= box.right + 2 &&
+            screen.y >= box.top - 2 &&
+            screen.y <= box.bottom + 2
+          );
+        });
+        if (!hit) {
+          out.push(
+            `${id}: leader anchored at ${Math.round(screen.x)},${Math.round(screen.y)} but its ` +
+              `sprite is at ${sprites
+                .map((s) => {
+                  const b = s.getBoundingClientRect();
+                  return `${Math.round(b.left)},${Math.round(b.top)} ${Math.round(b.width)}x${Math.round(b.height)}`;
+                })
+                .join(" / ")}`,
+          );
+        }
+      }
+      return out;
+    });
+
+    expect(misses, `at p=${sample.at.toFixed(3)} (${sample.what})`).toEqual([]);
   }
 });

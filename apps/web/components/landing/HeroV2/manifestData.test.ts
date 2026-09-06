@@ -48,6 +48,7 @@ const SCENE = [
 const manifestStrings = MESSAGES.Landing.manifest;
 const partStrings = manifestStrings.parts as Record<string, string>;
 const chapterStrings = manifestStrings.chapters as Record<string, string>;
+const whyStrings = (manifestStrings as unknown as { why: Record<string, string> }).why;
 
 describe("parts manifest data (P12.S2)", () => {
   it("routes every row to a category that exists", () => {
@@ -126,11 +127,34 @@ describe("parts manifest data (P12.S2)", () => {
     }
   });
 
-  it("carries no string the manifest does not render", () => {
-    const used = new Set(manifestEntries().map((entry) => entry.nameKey));
+  it("carries no string the stage does not render", () => {
+    // "Rendered" widened at P13.S3 and the wording is the point: a part name is
+    // now used by a manifest row *or* by a stage callout, and the windshield is
+    // the one that is only ever the second. Left as rows-only, this guard would
+    // have read "fa.json names windshield, which no row uses" -- true, and the
+    // wrong conclusion, because the string is on screen every time chapter 3
+    // lifts the glass off the car.
+    const used = new Set(calloutSubjects().map((subject) => subject.nameKey));
+    for (const entry of manifestEntries()) used.add(entry.nameKey);
+
     for (const key of Object.keys(partStrings)) {
-      expect(used, `fa.json names "${key}", which no row uses`).toContain(key);
+      expect(used, `fa.json names "${key}", which nothing on the stage renders`).toContain(key);
     }
+  });
+
+  it("has a why-line for every callout, and none for anything else", () => {
+    // The why-line is what turns "a thing moved" into "we sell this" (§1.3), so
+    // a subject without one renders a plate with a hole in it. The reverse
+    // matters too: a stray line is copy nobody will ever see, which is how a
+    // locale file rots.
+    const why = whyStrings;
+    const subjects = calloutSubjects().map((subject) => subject.nameKey);
+
+    for (const key of subjects) {
+      expect(why[key], `no why-line for "${key}"`).toBeTruthy();
+      expect(why[key], `${key}'s why-line is not Persian`).not.toMatch(/[A-Za-z]/);
+    }
+    expect(Object.keys(why).sort()).toEqual([...subjects].sort());
   });
 
   it("orders rows by the chapter that checks them in", () => {
