@@ -1,12 +1,15 @@
 "use client"; // scroll-linked undock -- useScroll/useTransform need the client
 
+import type { ReactNode } from "react";
 import { motion, useReducedMotion, useTransform, type MotionValue } from "motion/react";
 import { useHeroScroll } from "./HeroScrollProvider";
 import { landingAsset, landingFallback, landingSrcSet } from "@/lib/landing-image";
+import { cameraTrack } from "./cameraRig";
 import { manifestPartByLayerId } from "./manifestData";
 import {
   beatOf,
   HERO_BASE_ASSET,
+  HERO_CAMERA_PERSPECTIVE_CQW,
   HERO_CANVAS,
   HERO_ENGINE_CHAPTER,
   HERO_ENGINE_PARTS,
@@ -282,6 +285,60 @@ function DockedEnginePart({ part }: { part: HeroEnginePart }) {
   );
 }
 
+/**
+ * Computed once. `cameraTrack()` is a pure function of two constants and a
+ * build-time-inlined asset manifest, so recomputing it per render would be work
+ * with no possible different answer -- and this runs inside a Client Component
+ * on a route already over its JS budget.
+ */
+const CAMERA_TRACK = cameraTrack();
+
+/**
+ * The camera: one wrapper, one transform, the whole scene inside it (P13.S2).
+ *
+ * It is a separate element from the frame rather than a transform on it, and
+ * that is not a stylistic choice. The frame carries
+ * `transform: translate(-50%, -50%)` for its own centring; motion composes its
+ * own transform string from `x`/`y`/`scale`, so writing the camera onto the
+ * frame would overwrite that and throw the car into the corner the first time
+ * the camera moved. `.hero-camera` is `inset-0` -- the same box as the stage --
+ * so the frame's 50% centring resolves against an identical rectangle and every
+ * canvas coordinate in this file is unchanged.
+ *
+ * **No `will-change`.** The plan asked for one, toggled on pin. Motion already
+ * promotes an element it is animating a transform on, so the attribute would
+ * buy nothing during the move and cost a permanent compositor layer wrapping
+ * eleven images the rest of the time -- on a route already 61ms over its TBT
+ * budget. If P13.S13 measures a real cost here, it can be added there with a
+ * number attached rather than on the assumption that it helps.
+ */
+function HeroCamera({
+  progress,
+  still,
+  children,
+}: {
+  progress: MotionValue<number>;
+  still: boolean;
+  children: ReactNode;
+}) {
+  const scale = useTransform(progress, CAMERA_TRACK.input, CAMERA_TRACK.scale);
+  const x = useTransform(progress, CAMERA_TRACK.input, CAMERA_TRACK.x);
+  const y = useTransform(progress, CAMERA_TRACK.input, CAMERA_TRACK.y);
+  const rotateX = useTransform(progress, CAMERA_TRACK.input, CAMERA_TRACK.rotateX);
+  const rotateZ = useTransform(progress, CAMERA_TRACK.input, CAMERA_TRACK.rotateZ);
+
+  // Reduced motion gets the neutral framing and no subscription at all -- the
+  // same shape as the layers below, where the docked composite is already the
+  // correct finished picture rather than a degraded one.
+  if (still) return <div className="hero-camera absolute inset-0">{children}</div>;
+
+  return (
+    <motion.div className="hero-camera absolute inset-0" style={{ scale, x, y, rotateX, rotateZ }}>
+      {children}
+    </motion.div>
+  );
+}
+
 /** The same layer with no motion attached: the dock, and nothing else. */
 function DockedLayer({ layer, index }: { layer: HeroLayer; index: number }) {
   const box = place(layer.asset, layer.dock);
@@ -343,62 +400,92 @@ export function HeroStage({ label, carAlt, hint }: Props) {
           role="group"
           aria-label={label}
           dir="ltr"
-          className="hero-stage relative aspect-[16/11] w-full"
-          // The container-query context the frame's `perspective` measures against.
-          style={{ containerType: "inline-size" }}
+          // `overflow-x-clip`, and only x. A push-in translates the frame
+          // sideways to bring the nose to the middle of the stage, so at
+          // chapter 1's 1.35 the frame runs well past both edges -- without
+          // this it spills over the copy column beside it. The y axis stays
+          // `visible` because vertical spill is load-bearing: the frame is
+          // already taller than the stage, and the bands parts undock into are
+          // outside the stage box by design. `clip` is what allows that pair;
+          // `hidden` on one axis would force the other to `auto` and give the
+          // stage a scrollbar.
+          className="hero-stage relative aspect-[16/11] w-full overflow-x-clip"
+          style={{
+            // The container-query context the frame's `perspective` measures
+            // against.
+            containerType: "inline-size",
+            // The camera's own vanishing point (P13.S2). Two nested
+            // perspectives, deliberately: this one is the room the camera moves
+            // in, and the frame's is the one the sprites share. Putting the
+            // camera's rotateX under the frame's perspective instead would tilt
+            // the car relative to its own layers rather than tilt the view.
+            perspective: `${HERO_CAMERA_PERSPECTIVE_CQW}cqw`,
+          }}
         >
-          {/* The 1024² master frame, centred in the stage. Every layer inside is
-              positioned as a percentage of THIS box, which is what makes the trim
-              offsets the pipeline recorded usable as dock coordinates.
+          {/* `useReducedMotion` is `boolean | null` -- null until it has read the
+              media query. Null means "not yet known to prefer reduced", which is
+              the same branch as false everywhere else in this file. */}
+          <HeroCamera progress={scrollYProgress} still={Boolean(reduceMotion)}>
+            {/* The 1024² master frame, centred in the camera -- which is the
+                same box as the stage, so every percentage below is unchanged
+                from before the camera existed. Every layer inside is positioned
+                as a percentage of THIS box, which is what makes the trim offsets
+                the pipeline recorded usable as dock coordinates.
 
-              `perspective` belongs here and nowhere else: one shared camera for
-              all eight layers. Written per layer it would give each sprite its own
-              vanishing point, and the composite would stop reading as one car. */}
-          <div
-            className="absolute aspect-square"
-            style={{
-              insetInlineStart: "50%",
-              top: "50%",
-              width: `${HERO_FRAME_WIDTH_PCT}%`,
-              transform: "translate(-50%, -50%)",
-              perspective: `${HERO_PERSPECTIVE_CQW}cqw`,
-              transformStyle: "preserve-3d",
-            }}
-          >
-            <img
-              src={landingFallback(base.asset)}
-              srcSet={landingSrcSet(base.asset)}
-              sizes={sizesFor(base.width)}
-              width={base.asset.intrinsic.width}
-              height={base.asset.intrinsic.height}
-              alt={carAlt}
-              loading="eager"
-              fetchPriority="high"
-              decoding="sync"
-              className="absolute"
+                `perspective` belongs here and nowhere else: one shared camera for
+                all eight layers. Written per layer it would give each sprite its own
+                vanishing point, and the composite would stop reading as one car. */}
+            <div
+              className="absolute aspect-square"
               style={{
-                insetInlineStart: pct(base.left),
-                top: pct(base.top),
-                width: pct(base.width),
-                height: "auto",
-                zIndex: 1,
+                insetInlineStart: "50%",
+                top: "50%",
+                width: `${HERO_FRAME_WIDTH_PCT}%`,
+                transform: "translate(-50%, -50%)",
+                perspective: `${HERO_PERSPECTIVE_CQW}cqw`,
+                transformStyle: "preserve-3d",
               }}
-            />
-            {HERO_ENGINE_PARTS.map((part) =>
-              reduceMotion ? (
-                <DockedEnginePart key={part.id} part={part} />
-              ) : (
-                <EnginePartLayer key={part.id} part={part} progress={scrollYProgress} />
-              ),
-            )}
-            {HERO_LAYERS.map((layer, index) =>
-              reduceMotion ? (
-                <DockedLayer key={layer.id} layer={layer} index={index} />
-              ) : (
-                <PartLayer key={layer.id} layer={layer} index={index} progress={scrollYProgress} />
-              ),
-            )}
-          </div>
+            >
+              <img
+                src={landingFallback(base.asset)}
+                srcSet={landingSrcSet(base.asset)}
+                sizes={sizesFor(base.width)}
+                width={base.asset.intrinsic.width}
+                height={base.asset.intrinsic.height}
+                alt={carAlt}
+                loading="eager"
+                fetchPriority="high"
+                decoding="sync"
+                className="absolute"
+                style={{
+                  insetInlineStart: pct(base.left),
+                  top: pct(base.top),
+                  width: pct(base.width),
+                  height: "auto",
+                  zIndex: 1,
+                }}
+              />
+              {HERO_ENGINE_PARTS.map((part) =>
+                reduceMotion ? (
+                  <DockedEnginePart key={part.id} part={part} />
+                ) : (
+                  <EnginePartLayer key={part.id} part={part} progress={scrollYProgress} />
+                ),
+              )}
+              {HERO_LAYERS.map((layer, index) =>
+                reduceMotion ? (
+                  <DockedLayer key={layer.id} layer={layer} index={index} />
+                ) : (
+                  <PartLayer
+                    key={layer.id}
+                    layer={layer}
+                    index={index}
+                    progress={scrollYProgress}
+                  />
+                ),
+              )}
+            </div>
+          </HeroCamera>
         </div>
         <p className="font-mono text-caption text-graphite-400 motion-reduce:hidden">{hint}</p>
       </div>

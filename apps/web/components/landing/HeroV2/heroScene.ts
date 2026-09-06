@@ -63,6 +63,15 @@ export type ScenePart = {
   readonly box: CanvasBox;
   /** What the visitor actually sees -- `box` narrowed by `clip`, if any. */
   readonly visual: CanvasBox;
+  /**
+   * The visible rectangle at the top of this part's beat: `visual` moved by
+   * `undock` and grown by `undock.scale`.
+   *
+   * This is what the camera has to keep on screen (`cameraRig.ts`). Framing a
+   * chapter against the parts' *docked* boxes would push the very thing the
+   * chapter is about out of the stage at exactly the moment it matters.
+   */
+  readonly peak: CanvasBox;
   /** Centre of the visible pixels once the part has left the car. */
   readonly anchor: { readonly x: number; readonly y: number };
   /** The clear band the part travelled into, and so where its label belongs. */
@@ -284,6 +293,18 @@ export function sceneParts(): readonly ScenePart[] {
       chapter: part.chapter,
       box: part.box,
       visual,
+      // Peak scale is taken about the ELEMENT box centre, like every other
+      // scale in the scene, so the visible rectangle grows about a point that
+      // is not its own centre whenever the part is clipped.
+      peak: (() => {
+        const s = part.undock.scale;
+        return {
+          left: boxMiddle.x + (visual.left - boxMiddle.x) * s + part.undock.dx,
+          top: boxMiddle.y + (visual.top - boxMiddle.y) * s + part.undock.dy,
+          width: visual.width * s,
+          height: visual.height * s,
+        };
+      })(),
       // The undock vector is a straight translation of the whole element, so
       // the visible centre travels with it -- peak scale is taken about the box
       // centre and does not move it.

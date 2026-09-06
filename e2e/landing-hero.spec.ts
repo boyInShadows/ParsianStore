@@ -338,13 +338,30 @@ async function scrollHeroTo(page: Page, fraction: number) {
   await page.waitForTimeout(300);
 }
 
-/** Every layer's box relative to the base's, in the stage's own pixels. */
+/**
+ * Every layer's box relative to the base's, **as a fraction of the base's own
+ * width**.
+ *
+ * The fraction is what makes this survive the camera (P13.S2). These offsets
+ * used to be raw pixels, which was fine while the stage was a fixed-size
+ * picture: a docked layer sat the same number of pixels from the base at every
+ * scroll position. A camera scale multiplies both boxes, so the *difference*
+ * between them scales too -- at chapter 1's 1.35 every docked part suddenly
+ * measured 35% further from the base than it did at rest, and the suite
+ * reported all nine as detached at once. Dividing by a length that scales
+ * identically cancels the camera out.
+ *
+ * It does not cancel the tilt exactly: `rotateX` under a perspective is not an
+ * affine transform, so a docked part can still drift by a fraction of a percent
+ * of the base's width. That is what `DOCKED_TOLERANCE` is sized against, with
+ * the smallest real undock more than four times larger.
+ */
 async function layerOffsets(page: Page) {
   return page.locator(".hero-stage img").evaluateAll((images) => {
     const [base, ...layers] = images.map((image) => image.getBoundingClientRect());
     return layers.map((box) => ({
-      x: box.left - base.left,
-      y: box.top - base.top,
+      x: (box.left - base!.left) / base!.width,
+      y: (box.top - base!.top) / base!.width,
     }));
   });
 }
@@ -372,11 +389,23 @@ async function partOffsets(page: Page): Promise<Record<string, { x: number; y: n
         /\/landing\/hero\/([a-z-]+?)-\d+\./.exec(image.currentSrc || image.src)?.[1];
       if (!id) continue;
       const box = image.getBoundingClientRect();
-      out[id] = { x: box.left - base.left, y: box.top - base.top };
+      out[id] = { x: (box.left - base.left) / base.width, y: (box.top - base.top) / base.width };
     }
     return out;
   });
 }
+
+/**
+ * How far a part may sit from its resting place and still count as docked,
+ * as a fraction of the base car's width.
+ *
+ * 0.03 is about 18px at the desktop stage. It has to clear two sources of
+ * noise -- sub-pixel layout, and the non-affine drift the chapter-2 tilt adds
+ * -- while staying far below a real separation. The smallest undock in the
+ * scene is the grille's 117 canvas pixels, which is 0.14 of the car's 823, so
+ * there is more than four times the margin between "noise" and "moved".
+ */
+const DOCKED_TOLERANCE = 0.03;
 
 /** Which parts are away from where they sit at rest. */
 function awayFrom(
@@ -384,7 +413,9 @@ function awayFrom(
   now: Record<string, { x: number; y: number }>,
 ): string[] {
   return Object.keys(now)
-    .filter((id) => Math.hypot(now[id]!.x - docked[id]!.x, now[id]!.y - docked[id]!.y) > 8)
+    .filter(
+      (id) => Math.hypot(now[id]!.x - docked[id]!.x, now[id]!.y - docked[id]!.y) > DOCKED_TOLERANCE,
+    )
     .sort();
 }
 
@@ -465,6 +496,6 @@ test("the hero ends its scroll as a whole car, not a pile of panels", async ({ p
     expect(
       Math.hypot(box.x - docked[i].x, box.y - docked[i].y),
       `layer ${i} is still in the air at the end of the track`,
-    ).toBeLessThan(9);
+    ).toBeLessThan(DOCKED_TOLERANCE);
   }
 });

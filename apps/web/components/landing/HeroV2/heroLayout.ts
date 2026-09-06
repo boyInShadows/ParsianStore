@@ -79,6 +79,19 @@ export const HERO_FRAME_WIDTH_PCT = 92;
 export const HERO_PERSPECTIVE_CQW = 140;
 
 /**
+ * The CAMERA's vanishing point, in the same container-query units.
+ *
+ * A second, wider perspective than the frame's, and the two are not
+ * interchangeable. The frame's 140cqw is the room the eight sprites share, so
+ * they read as one object. This one is the room the camera moves in: the
+ * chapter-2 tilt happens under it, and at 140 that tilt would foreshorten the
+ * whole stage hard enough to show the frame's corners against the background.
+ * Wider means a longer lens -- less distortion, which is what a camera move
+ * over a car should look like.
+ */
+export const HERO_CAMERA_PERSPECTIVE_CQW = 220;
+
+/**
  * Which canvas rows the stage actually shows.
  *
  * The frame is square and spans `HERO_FRAME_WIDTH_PCT` of a stage that is
