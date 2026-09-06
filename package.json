@@ -22,7 +22,8 @@
     "e2e": "playwright test",
     "optimize:landing": "node scripts/optimize-landing.mjs",
     "prepare": "husky",
-    "check:hero": "node scripts/check-hero-registration.mjs"
+    "check:hero": "node scripts/check-hero-registration.mjs",
+    "shots:hero": "node scripts/hero-shots.mjs"
   },
   "devDependencies": {
     "@axe-core/playwright": "4.12.1",

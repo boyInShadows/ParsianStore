@@ -79,6 +79,20 @@ export default tseslint.config(
     },
   },
   {
+    // The one script that drives a browser (P13.S0's hero scrub harness).
+    //
+    // `window` and `document` appear in it only inside `page.evaluate()`
+    // callbacks, which Playwright serialises and runs in Chromium -- so they
+    // are genuinely defined where they execute, and `no-undef` is reading them
+    // in the wrong runtime. Scoped to this one file rather than added to the
+    // `scripts/**` block above, because in any other script a bare `document`
+    // really would be the mistake that rule is for.
+    files: ["scripts/hero-shots.mjs"],
+    languageOptions: {
+      globals: { window: "readonly", document: "readonly" },
+    },
+  },
+  {
     // ESM tool configs (next.config.mjs) -- Node ESM read by the framework at
     // build time, never bundled into a browser chunk, so `process` here is a
     // real Node global rather than the app-code smell `no-undef` guards
