@@ -1,3 +1,4 @@
+export { FindMyPart } from "./FindMyPart";
 export { HeroV2 } from "./HeroV2";
 export { TrustStrip } from "./TrustStrip";
 export { BestSellers } from "./BestSellers";

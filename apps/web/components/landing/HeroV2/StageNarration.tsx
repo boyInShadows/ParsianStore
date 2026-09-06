@@ -4,6 +4,9 @@ import { useEffect, useRef } from "react";
 import { useMotionValueEvent, useReducedMotion } from "motion/react";
 import { CHAPTER_RANGE, CHAPTER_SEQUENCE, FINALE_BEAT, beatFor, coverOf } from "./heroLayout";
 
+import { calloutSubjectByLayerId } from "./manifestData";
+import { useHeroScroll } from "./HeroScrollProvider";
+
 /**
  * The finale's own `data-callout` value.
  *
@@ -12,8 +15,15 @@ import { CHAPTER_RANGE, CHAPTER_SEQUENCE, FINALE_BEAT, beatFor, coverOf } from "
  * caption for X" and "show the finale" one code path instead of two.
  */
 const FINALE_ID = "__finale";
-import { calloutSubjectByLayerId } from "./manifestData";
-import { useHeroScroll } from "./HeroScrollProvider";
+
+/**
+ * The scroll invitation, shown only while it is still true.
+ *
+ * The audit's first finding: the hint "keeps showing even after the last
+ * chapter and even after the car has fully re-docked". It is beat 0 now -- on
+ * until the first part starts to move, then gone for the rest of the track.
+ */
+const HINT_ID = "__hint";
 
 /**
  * Which callout is on screen, and nothing else (P13.S3).
@@ -61,6 +71,10 @@ export function StageNarration() {
     // beat both are live -- and once every part is in the air, naming one of
     // them is the wrong caption. The stage stops narrating and starts selling.
     if (value >= FINALE_BEAT[1] && value <= FINALE_BEAT[2]) return FINALE_ID;
+
+    // Before anything has left the car, the only thing worth saying is how to
+    // make it leave.
+    if (value < CHAPTER_RANGE[1][0]) return HINT_ID;
 
     for (const chapter of [1, 2, 3] as const) {
       const [from, to] = CHAPTER_RANGE[chapter];

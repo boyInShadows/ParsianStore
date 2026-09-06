@@ -6,22 +6,35 @@ import { manifestEntries, type ManifestEntry } from "./manifestData";
 import { ManifestCheckIn } from "./ManifestCheckIn";
 
 /**
- * The parts manifest: the numbered list a workshop manual prints beside its
- * exploded drawing (fableTasks2 §2).
+ * The job card: the numbered list a workshop manual prints beside its exploded
+ * drawing (fableTasks2 §2, fableTasks v1.1 §1.4).
  *
- * **A server component, deliberately.** Nine rows of image, text and link are
- * exactly the kind of thing that does not need to reach the browser as
- * JavaScript, and the hero is already 18KB over its route budget. The two
- * things that genuinely cannot be server-rendered -- the check-in choreography
- * and the row/sprite highlight -- are two small client leaves that touch this
- * markup through data attributes rather than owning it.
+ * **A Server Component, deliberately.** Nine rows of image, text and link are
+ * exactly what does not need to reach the browser as JavaScript. The two things
+ * that genuinely cannot be server-rendered -- the check-in choreography and the
+ * row/sprite highlight -- are small client leaves that touch this markup
+ * through data attributes rather than owning it.
  *
- * ## What a row is
+ * ## One node, two layouts (P13.S7)
  *
- * One `<a>` per part, wrapping everything: thumbnail, Persian name, the mono
- * `SYS-xx` code, and the real product count for that system. Not a div with a
- * nested link -- the whole row is the target, so the pointer affordance and the
- * focus ring describe the same rectangle.
+ * This used to render **twice**: a desktop side panel and a mobile chip rail,
+ * with CSS hiding one. That was not a stylistic choice -- the panel had to be
+ * sticky beside the drawing and the rail had to sit under the stage, and one
+ * element cannot be in two grid cells, so the markup was duplicated instead.
+ *
+ * `docs/performance-landing.md` measured what that cost: the visible manifest
+ * is the **entire** Phase 12 TBT regression, 130ms -> 261ms against a 200ms
+ * budget, and that same document names "render it once" as the fix it could not
+ * reach because of the layout conflict. P13.S7 dissolves the conflict by moving
+ * the job card inside the pinned block at both breakpoints, so one instance can
+ * be a column beside the stage at `lg` and a snap-scrolling strip under it
+ * below `lg`.
+ *
+ * The row markup is therefore one shape that reads both ways: a vertical card
+ * in a horizontal scroller by default, a horizontal row in a column at `lg`.
+ * The `SYS-xx` code is the only thing that differs -- hidden below `lg`, because
+ * it earns its place in a full-width row and would push the part's own name
+ * onto a second line in an 8rem chip, and the name is what a visitor scans for.
  *
  * ## The accessible-name rule this obeys
  *
@@ -86,13 +99,17 @@ function ManifestRow({
       data-chapter={entry.chapter}
       data-part={entry.id}
       // The scroll position this row ticks in at, read by ManifestCheckIn.
-      // Rounded to four places because it becomes an attribute and back.
       data-check-in={entry.checkInAt.toFixed(4)}
-      className="manifest-row"
+      // `w-32` below lg, auto at lg. The spacing scale is REPLACED with
+      // 0,1,2,3,4,6,8,12,16,20,24,32, so `w-36` generates nothing and
+      // `flex-none` would then size each chip to its own text -- measured 74px
+      // to 99px, a visibly ragged rail. Same silent off-scale-utility failure
+      // P11.S3 hit with `w-11`.
+      className="manifest-row w-32 flex-none snap-start lg:w-auto"
     >
       <a
         href={entry.href}
-        className="relative flex min-h-12 items-center gap-3 border-b border-graphite-800 py-2 text-graphite-100 transition-colors duration-fast hover:text-brand focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus motion-reduce:transition-none"
+        className="relative flex h-full min-h-12 flex-col gap-1 border border-graphite-800 p-3 text-graphite-100 transition-colors duration-fast hover:border-brand hover:text-brand focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus motion-reduce:transition-none lg:flex-row lg:items-center lg:gap-3 lg:border-x-0 lg:border-t-0 lg:p-0 lg:py-2"
       >
         {/* Decorative: the row's name says what the part is, so alt text here
             would make a screen reader announce it twice. */}
@@ -105,23 +122,23 @@ function ManifestRow({
           alt=""
           loading="lazy"
           decoding="async"
-          // h-12 w-12, not h-10: this config REPLACES Tailwind's spacing scale
-          // with 0,1,2,3,4,6,8,12,16,20,24,32 (tailwind.config.js), so `h-10`
-          // generates no CSS at all and the image falls back to `height:auto` --
-          // the piston rendered 118px tall inside a 48px row. Same silent
-          // off-scale-utility failure P11.S3 hit with `w-11`.
+          // h-12 w-12, not h-10: `h-10` is off the replaced spacing scale and
+          // generates no CSS at all, so the image falls back to `height:auto`
+          // and the piston rendered 118px tall inside a 48px row.
           className="h-12 w-12 flex-none object-contain"
         />
-        <span className="flex-1 text-body-sm">{name}</span>
+        <span className="text-body-sm lg:flex-1">{name}</span>
         {/* The half that arrives when the part does. A ghosted row is a line on
             a blank job card -- the part's name, nothing filled in yet -- and
             checking in fills the rest. Grouped in one element so the fade is
-            one transition rather than three that can drift apart. */}
+            one transition rather than several that can drift apart. */}
         <span className="manifest-detail flex items-center gap-3">
-          <span className="font-mono text-caption text-graphite-400">{entry.system}</span>
+          <span className="hidden font-mono text-caption text-graphite-400 lg:inline">
+            {entry.system}
+          </span>
           {/* Omitted, never rendered as zero, when the API could not answer --
-            `getSystemPartCounts` returns null for "unknown", and a fabricated
-            "۰ قطعه" would read as real out-of-stock data. */}
+              `getSystemPartCounts` returns null for "unknown", and a fabricated
+              "۰ قطعه" would read as real out-of-stock data. */}
           {count !== null ? (
             <span className="font-mono text-caption text-graphite-400">{count}</span>
           ) : null}
@@ -132,118 +149,28 @@ function ManifestRow({
   );
 }
 
-/**
- * The mobile form (§2.2): the same parts as a compact horizontal rail under the
- * stage, snap-scrolled, same links, same accumulate rule.
- *
- * A chip drops the SYS code and keeps thumbnail, name and count. The code earns
- * its place in a full-width row where there is space for it; in a 9rem chip it
- * would push the part's own name to a second line, and the name is the thing a
- * visitor is scanning for.
- */
-function ManifestChip({
-  entry,
-  name,
-  count,
-  action,
-}: {
-  entry: ManifestEntry;
-  name: string;
-  count: string | null;
-  action: string;
-}) {
-  const asset = landingAsset(`/landing/${entry.assetGroup}/${entry.asset}`);
-
-  return (
-    <li
-      data-chapter={entry.chapter}
-      data-part={entry.id}
-      data-check-in={entry.checkInAt.toFixed(4)}
-      // w-32, not w-36: the spacing scale is REPLACED with
-      // 0,1,2,3,4,6,8,12,16,20,24,32, so `w-36` generates nothing and
-      // `flex-none` then sizes each chip to its own text -- measured 74px to
-      // 99px, a visibly ragged rail. Same silent failure as `h-10` above, and
-      // as the audit's own item 2 where a `w-64` card computed to 992px.
-      className="manifest-row manifest-chip w-32 flex-none snap-start"
-    >
-      <a
-        href={entry.href}
-        className="relative flex h-full min-h-12 flex-col gap-1 border border-graphite-800 p-3 text-graphite-100 transition-colors duration-fast hover:border-brand hover:text-brand focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus motion-reduce:transition-none"
-      >
-        <img
-          src={landingFallback(asset)}
-          srcSet={landingSrcSet(asset)}
-          sizes={`${THUMB_CSS_PX}px`}
-          width={THUMB_WIDTH}
-          height={Math.round((asset.intrinsic.height / asset.intrinsic.width) * THUMB_WIDTH)}
-          alt=""
-          loading="lazy"
-          decoding="async"
-          className="h-12 w-12 object-contain"
-        />
-        <span className="text-body-sm">{name}</span>
-        {count !== null ? (
-          <span className="font-mono text-caption text-graphite-400">{count}</span>
-        ) : null}
-        <span className="sr-only">{action}</span>
-      </a>
-    </li>
-  );
-}
-
-/**
- * `panel` is the desktop side list, `rail` the mobile chip strip. Both render
- * on every request and CSS shows exactly one -- `hidden` is `display:none`, so
- * the other is out of the accessibility tree entirely and there is never a
- * duplicate navigation landmark.
- */
-export async function PartsManifest({ variant }: { variant: "panel" | "rail" }) {
+export async function PartsManifest() {
   if (MANIFEST_HIDDEN) return null;
 
   const t = await getTranslations("Landing.manifest");
   const counts = await getSystemPartCounts();
   const entries = manifestEntries();
-  const isPanel = variant === "panel";
-
-  const rows = entries.map((entry) => {
-    const props = {
-      entry,
-      name: t(`parts.${entry.nameKey}`),
-      count:
-        counts[entry.system] === null
-          ? null
-          : // Persian digits, per the system rail beside it -- see the note there.
-            t("partsCount", { count: toPersianDigits(counts[entry.system] as number) }),
-      action: t("rowAction"),
-    };
-    return isPanel ? (
-      <ManifestRow key={entry.id} {...props} />
-    ) : (
-      <ManifestChip key={entry.id} {...props} />
-    );
-  });
 
   return (
-    <nav
-      aria-label={t("navLabel")}
-      className={isPanel ? "hidden flex-col gap-3 lg:flex" : "flex flex-col gap-3 lg:hidden"}
-    >
+    <nav aria-label={t("navLabel")} className="flex min-w-0 flex-col gap-3">
       <div className="flex items-baseline justify-between gap-3">
         <h2 className="text-body font-bold text-graphite-0">{t("title")}</h2>
-        {/* The counter, pre-rendered once per possible value with CSS showing
-            the one that matches (P13.S4).
-
-            Ten spans rather than one the client rewrites, because the count is
-            Persian-shaped text: `toPersianDigits` and the ICU message both live
-            on the server, and having the browser rebuild "۳ از ۹" would mean
-            shipping the digit mapping and the message format to a route already
-            over budget -- to render ten strings that are known at build time.
-            The client's whole job stays what it is everywhere else in this
-            hero: write one attribute. */}
+        {/* The counter, pre-rendered once per possible value with the client
+            marking the one that is true (P13.S4). Ten spans rather than one the
+            browser rewrites, because the count is Persian-shaped text:
+            `toPersianDigits` and the ICU message both live on the server, and
+            rebuilding "۳ از ۹" in the browser would ship the digit mapping and
+            the message formatter to a route already over budget, to render ten
+            strings that are known at build time. */}
         <p className="manifest-counter font-mono text-caption text-graphite-400">
-          {/* Ascending, so the LAST span is the complete count -- which is what
-              CSS falls back to when JavaScript never marks one, and which is the
-              state a no-JS visitor's fully-rendered list is actually in. */}
+          {/* Ascending, so the LAST span is the complete count -- what CSS falls
+              back to when JavaScript never marks one, and the state a no-JS
+              visitor's fully-rendered list is actually in. */}
           {Array.from({ length: entries.length + 1 }, (_, count) => (
             <span key={count} data-count={count}>
               {t("counter", {
@@ -259,21 +186,29 @@ export async function PartsManifest({ variant }: { variant: "panel" | "rail" }) 
       {/* `data-chapter-reached` starts at the LAST chapter, not the first: with
           no JavaScript, or with reduced motion, every row must already be
           present (§2.3). The client leaf below only ever takes rows *away* --
-          and only once it knows it can animate them back in. */}
+          and only once it knows it can bring them back. */}
       <ManifestCheckIn>
         <ol
-          className={
-            isPanel
-              ? "manifest-list flex flex-col"
-              : "manifest-list flex snap-x snap-mandatory gap-3 overflow-x-auto pb-2"
-          }
+          className="manifest-list flex snap-x snap-mandatory gap-3 overflow-x-auto pb-2 lg:flex-col lg:gap-0 lg:overflow-x-visible lg:pb-0"
           data-chapter-reached="3"
         >
-          {rows}
+          {entries.map((entry) => (
+            <ManifestRow
+              key={entry.id}
+              entry={entry}
+              name={t(`parts.${entry.nameKey}`)}
+              count={
+                counts[entry.system] === null
+                  ? null
+                  : // Persian digits, per the system rail beside it.
+                    t("partsCount", { count: toPersianDigits(counts[entry.system] as number) })
+              }
+              action={t("rowAction")}
+            />
+          ))}
         </ol>
-        {/* Must stay the list's immediately next sibling -- it finds the list
-            through `currentScript.previousElementSibling` rather than an id,
-            because this component renders twice on every page. */}
+        {/* Must stay the list's immediately next sibling -- `PRE_PAINT` finds
+            the list through `currentScript.previousElementSibling`. */}
         <script dangerouslySetInnerHTML={{ __html: PRE_PAINT }} />
       </ManifestCheckIn>
     </nav>

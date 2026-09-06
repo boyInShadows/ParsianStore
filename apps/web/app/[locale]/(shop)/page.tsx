@@ -10,6 +10,7 @@ import {
   BrandWall,
   ClosingBeat,
   Deals,
+  FindMyPart,
   GuidesTeaser,
   HeroV2,
   InterstitialPlate,
@@ -62,6 +63,11 @@ export default function LandingPage() {
     <main>
       <JsonLd data={[organizationJsonLd(), websiteJsonLd()]} />
       <HeroV2 />
+      {/* The two entry paths and the system index, which P13.S7 moved out of
+          the hero so the job card could take the pinned space beside the
+          drawing. Immediately after it, so a visitor who already knows their
+          car reaches the selector the moment the diagram lets go. */}
+      <FindMyPart />
       <TrustStrip />
       <BestSellers />
       <AuthenticityStory />

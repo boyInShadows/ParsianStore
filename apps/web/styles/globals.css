@@ -396,6 +396,18 @@
     display: block;
   }
 
+  /* Beat 0's invitation. Hidden by default so it never outlives its own truth;
+     StageNarration shows it only before the first part moves. Without
+     JavaScript nothing ever moves either, so a permanently hidden hint is the
+     honest state -- the same reasoning as the captions. */
+  .hero-hint {
+    visibility: hidden;
+  }
+
+  .hero-hint[data-shown] {
+    visibility: visible;
+  }
+
   .hero-callout-plate {
     pointer-events: auto;
     display: flex;

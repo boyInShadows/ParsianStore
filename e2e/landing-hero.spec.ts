@@ -140,15 +140,32 @@ test("the whole hero is reachable by keyboard, with a visible focus ring", async
     reached.push(`${focused.tag}:${focused.name}`);
   }
 
-  // The two entry paths and the index rail all have to be on the tab order.
-  expect(reached.some((entry) => entry.startsWith("input"))).toBe(true);
-  expect(reached.some((entry) => entry.startsWith("button"))).toBe(true);
-  expect(reached.filter((entry) => entry.startsWith("a:")).length).toBeGreaterThanOrEqual(10);
+  // The hero is a diagram and a job card now: every row, and nothing that is
+  // not a link. P13.S7 moved the vehicle selector and the code field to
+  // `#find-my-part`, which is asserted separately below -- they were never
+  // part of the diagram, and in the hero they pushed the job card off screen.
+  expect(reached.filter((entry) => entry.startsWith("a:")).length).toBeGreaterThanOrEqual(9);
+});
+
+test("the two entry paths are reachable, in their own section", async ({ page }) => {
+  await page.goto("/");
+  const section = page.locator("#find-my-part");
+  await section.waitFor();
+
+  await expect(section.locator("input[name='code']")).toHaveCount(1);
+  await expect(section.locator("button")).not.toHaveCount(0);
+  // The system index came with them: ten cards, each a real category route.
+  const links = section.locator("ul[aria-labelledby='shop-by-system-heading'] a[href^='/c/']");
+  await expect(links).toHaveCount(10);
+
+  // The closing beat's CTA and the hero's finale button both target this.
+  await expect(page.locator("#driver-path")).toHaveCount(1);
 });
 
 test("the part-code field sends a typed code into search", async ({ page }) => {
-  await gotoHero(page);
-  const field = page.locator("#hero input[name='code']");
+  await page.goto("/");
+  await page.locator("#find-my-part").waitFor();
+  const field = page.locator("#find-my-part input[name='code']");
   await field.fill("۰۴۴۶۵-YZZ");
   await field.press("Enter");
   await page.waitForURL(/\/search\?/);
@@ -157,9 +174,10 @@ test("the part-code field sends a typed code into search", async ({ page }) => {
 });
 
 test("an empty part code is refused instead of searching for nothing", async ({ page }) => {
-  await gotoHero(page);
-  await page.locator("#hero input[name='code']").press("Enter");
-  await expect(page.locator("#hero [role='alert']")).toBeVisible();
+  await page.goto("/");
+  await page.locator("#find-my-part").waitFor();
+  await page.locator("#find-my-part input[name='code']").press("Enter");
+  await expect(page.locator("#find-my-part [role='alert']")).toBeVisible();
   expect(page.url()).not.toContain("/search");
 });
 
@@ -168,15 +186,18 @@ test("an empty part code is refused instead of searching for nothing", async ({ 
  * panel and a mobile chip rail -- with CSS showing exactly one.
  */
 test.describe("parts manifest", () => {
-  test("shows exactly one of its two forms, and never both", async ({ page }) => {
+  test("renders exactly once, at every width", async ({ page }) => {
     await gotoHero(page);
     const navs = page.locator("#hero nav[aria-label]");
-    // Both are in the DOM; `hidden` is display:none, so only one is in the
-    // accessibility tree and there is never a duplicate navigation landmark.
-    await expect(navs).toHaveCount(2);
+    // Strictly stronger than what this asserted before P13.S7, which was "two
+    // are in the DOM and one is display:none". The duplication was measured as
+    // the entire Phase 12 TBT regression (130ms -> 261ms against a 200ms
+    // budget), so one NODE is the property now, not one visible node.
+    await expect(navs).toHaveCount(1);
     await expect(navs.filter({ visible: true })).toHaveCount(1);
 
     await page.setViewportSize({ width: 390, height: 760 });
+    await expect(navs).toHaveCount(1);
     await expect(navs.filter({ visible: true })).toHaveCount(1);
   });
 
@@ -238,7 +259,7 @@ test.describe("parts manifest", () => {
       // for chips that were never asked to arrive.
       await page.waitForFunction(
         () => {
-          const chips = [...document.querySelectorAll("#hero .manifest-chip")];
+          const chips = [...document.querySelectorAll("#hero .manifest-row")];
           if (chips.length > 0 && chips.every((chip) => getComputedStyle(chip).opacity === "1")) {
             return true;
           }

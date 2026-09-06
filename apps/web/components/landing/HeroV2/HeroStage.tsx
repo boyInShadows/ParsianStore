@@ -66,6 +66,21 @@ type Props = {
    * frame at the finale is where the ten parked parts are.
    */
   finale?: ReactNode;
+  /**
+   * The job card (P13.S7), rendered INSIDE the pinned block.
+   *
+   * That placement is the whole point of the step. It used to render twice --
+   * a sticky panel in the copy column and a chip rail under the stage --
+   * because one element could not be in two grid cells, and
+   * `docs/performance-landing.md` measured that duplication as the entire
+   * Phase 12 TBT regression. Inside the pin it is one node in one place, laid
+   * out as a column beside the stage at `lg` and a strip under it below.
+   *
+   * It also fixes what the audit actually complained about: the card is now
+   * pinned with the drawing, so it is on screen for every beat instead of
+   * sitting below the fold until the animation has finished.
+   */
+  manifest?: ReactNode;
 };
 
 /** Roughly how wide the stage itself is, for `sizes`. */
@@ -524,7 +539,7 @@ function DockedLayer({ layer, index }: { layer: HeroLayer; index: number }) {
  * every sprite. It collapses the track and unpins the stage, and leaves the
  * layers alone.
  */
-export function HeroStage({ label, carAlt, hint, callouts, bloom, finale }: Props) {
+export function HeroStage({ label, carAlt, hint, callouts, bloom, finale, manifest }: Props) {
   const reduceMotion = useReducedMotion();
   // The measurement itself lives in HeroScrollProvider so the parts manifest,
   // which renders in the other grid column, reads the same value (P12.S4).
@@ -550,40 +565,51 @@ export function HeroStage({ label, carAlt, hint, callouts, bloom, finale }: Prop
       // the entire hero. A slot's beat is 13.4% of the track (BEAT_SPAN x the
       // chapter span), which is 257px here -- about 0.9s at an unhurried
       // ~300px/s scroll, the "one second per frame" this always wanted to be.
-      className="hero-track relative min-h-[calc(100vh+56rem)] lg:min-h-[calc(100vh+120rem)]"
+      // 72rem on mobile, up from 56rem (P13.S7). Four beats now play here
+      // rather than three, and 56rem gave each station well under the 1.5
+      // viewport-heights the plan asks for -- on a 844px-tall phone the whole
+      // sequence ran in about two flicks.
+      className="hero-track relative min-h-[calc(100vh+72rem)] lg:min-h-[calc(100vh+120rem)]"
     >
-      <div className="hero-pin sticky top-24 flex flex-col gap-6">
-        <div
-          role="group"
-          aria-label={label}
-          dir="ltr"
-          // `overflow-x-clip`, and only x. A push-in translates the frame
-          // sideways to bring the nose to the middle of the stage, so at
-          // chapter 1's 1.35 the frame runs well past both edges -- without
-          // this it spills over the copy column beside it. The y axis stays
-          // `visible` because vertical spill is load-bearing: the frame is
-          // already taller than the stage, and the bands parts undock into are
-          // outside the stage box by design. `clip` is what allows that pair;
-          // `hidden` on one axis would force the other to `auto` and give the
-          // stage a scrollbar.
-          className="hero-stage relative aspect-[16/11] w-full overflow-x-clip"
-          style={{
-            // The container-query context the frame's `perspective` measures
-            // against.
-            containerType: "inline-size",
-            // The camera's own vanishing point (P13.S2). Two nested
-            // perspectives, deliberately: this one is the room the camera moves
-            // in, and the frame's is the one the sprites share. Putting the
-            // camera's rotateX under the frame's perspective instead would tilt
-            // the car relative to its own layers rather than tilt the view.
-            perspective: `${HERO_CAMERA_PERSPECTIVE_CQW}cqw`,
-          }}
-        >
-          {/* `useReducedMotion` is `boolean | null` -- null until it has read the
+      {/* Stage and job card share the pinned block: side by side from `lg`,
+          stacked below it. One grid, so the card is pinned with the drawing at
+          every width instead of waiting below the fold. `min-w-0` on both
+          cells because the card is a horizontal scroller below `lg` and a grid
+          item's automatic minimum size is its min-content width -- without it
+          the rail refuses to shrink and overflows the phone. */}
+      <div className="hero-pin sticky top-24 grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,20rem)] lg:items-start lg:gap-8">
+        <div className="flex min-w-0 flex-col gap-4">
+          <div
+            role="group"
+            aria-label={label}
+            dir="ltr"
+            // `overflow-x-clip`, and only x. A push-in translates the frame
+            // sideways to bring the nose to the middle of the stage, so at
+            // chapter 1's 1.35 the frame runs well past both edges -- without
+            // this it spills over the copy column beside it. The y axis stays
+            // `visible` because vertical spill is load-bearing: the frame is
+            // already taller than the stage, and the bands parts undock into are
+            // outside the stage box by design. `clip` is what allows that pair;
+            // `hidden` on one axis would force the other to `auto` and give the
+            // stage a scrollbar.
+            className="hero-stage relative aspect-[16/11] w-full overflow-x-clip"
+            style={{
+              // The container-query context the frame's `perspective` measures
+              // against.
+              containerType: "inline-size",
+              // The camera's own vanishing point (P13.S2). Two nested
+              // perspectives, deliberately: this one is the room the camera moves
+              // in, and the frame's is the one the sprites share. Putting the
+              // camera's rotateX under the frame's perspective instead would tilt
+              // the car relative to its own layers rather than tilt the view.
+              perspective: `${HERO_CAMERA_PERSPECTIVE_CQW}cqw`,
+            }}
+          >
+            {/* `useReducedMotion` is `boolean | null` -- null until it has read the
               media query. Null means "not yet known to prefer reduced", which is
               the same branch as false everywhere else in this file. */}
-          <HeroCamera progress={scrollYProgress} still={Boolean(reduceMotion)}>
-            {/* The 1024² master frame, centred in the camera -- which is the
+            <HeroCamera progress={scrollYProgress} still={Boolean(reduceMotion)}>
+              {/* The 1024² master frame, centred in the camera -- which is the
                 same box as the stage, so every percentage below is unchanged
                 from before the camera existed. Every layer inside is positioned
                 as a percentage of THIS box, which is what makes the trim offsets
@@ -592,101 +618,113 @@ export function HeroStage({ label, carAlt, hint, callouts, bloom, finale }: Prop
                 `perspective` belongs here and nowhere else: one shared camera for
                 all eight layers. Written per layer it would give each sprite its own
                 vanishing point, and the composite would stop reading as one car. */}
-            <div
-              className="absolute aspect-square"
-              style={{
-                insetInlineStart: "50%",
-                top: "50%",
-                width: `${HERO_FRAME_WIDTH_PCT}%`,
-                transform: "translate(-50%, -50%)",
-                perspective: `${HERO_PERSPECTIVE_CQW}cqw`,
-                transformStyle: "preserve-3d",
-              }}
-            >
-              {/* The floor the car stands on, and the light that arrives with
+              <div
+                className="absolute aspect-square"
+                style={{
+                  insetInlineStart: "50%",
+                  top: "50%",
+                  width: `${HERO_FRAME_WIDTH_PCT}%`,
+                  transform: "translate(-50%, -50%)",
+                  perspective: `${HERO_PERSPECTIVE_CQW}cqw`,
+                  transformStyle: "preserve-3d",
+                }}
+              >
+                {/* The floor the car stands on, and the light that arrives with
                   it (P13.S5). Both sit inside the frame, so they share the
                   sprites' coordinates and move with the camera; both are
                   decorative and paint below every part. */}
-              <div className="hero-floor" aria-hidden="true" />
-              <div
-                className="hero-sweep"
-                aria-hidden="true"
-                style={
-                  {
-                    // Masked by the stripped body's own render, so the light
-                    // falls on the car rather than on the empty stage around
-                    // it. Same file the base image already loaded, so the mask
-                    // costs no second request.
-                    "--hero-sweep-mask": `url(${landingFallback(base.asset)})`,
+                <div className="hero-floor" aria-hidden="true" />
+                <div
+                  className="hero-sweep"
+                  aria-hidden="true"
+                  style={
+                    {
+                      // Masked by the stripped body's own render, so the light
+                      // falls on the car rather than on the empty stage around
+                      // it. Same file the base image already loaded, so the mask
+                      // costs no second request.
+                      "--hero-sweep-mask": `url(${landingFallback(base.asset)})`,
+                      insetInlineStart: pct(base.left),
+                      top: pct(base.top),
+                      width: pct(base.width),
+                      height: pct(base.height),
+                    } as CSSProperties
+                  }
+                />
+                <img
+                  src={landingFallback(base.asset)}
+                  srcSet={landingSrcSet(base.asset)}
+                  sizes={sizesFor(base.width)}
+                  width={base.asset.intrinsic.width}
+                  height={base.asset.intrinsic.height}
+                  alt={carAlt}
+                  loading="eager"
+                  fetchPriority="high"
+                  decoding="sync"
+                  className="absolute"
+                  style={{
                     insetInlineStart: pct(base.left),
                     top: pct(base.top),
                     width: pct(base.width),
-                    height: pct(base.height),
-                  } as CSSProperties
-                }
-              />
-              <img
-                src={landingFallback(base.asset)}
-                srcSet={landingSrcSet(base.asset)}
-                sizes={sizesFor(base.width)}
-                width={base.asset.intrinsic.width}
-                height={base.asset.intrinsic.height}
-                alt={carAlt}
-                loading="eager"
-                fetchPriority="high"
-                decoding="sync"
-                className="absolute"
-                style={{
-                  insetInlineStart: pct(base.left),
-                  top: pct(base.top),
-                  width: pct(base.width),
-                  height: "auto",
-                  zIndex: 1,
-                }}
-              />
-              {HERO_ENGINE_PARTS.map((part) =>
-                reduceMotion ? (
-                  <DockedEnginePart key={part.id} part={part} />
-                ) : (
-                  <EnginePartLayer
-                    key={part.id}
-                    part={part}
-                    progress={scrollYProgress}
-                    finaleMix={finaleMix}
-                    driftAngle={driftAngle}
-                  />
-                ),
-              )}
-              {HERO_LAYERS.map((layer, index) =>
-                reduceMotion ? (
-                  <DockedLayer key={layer.id} layer={layer} index={index} />
-                ) : (
-                  <PartLayer
-                    key={layer.id}
-                    layer={layer}
-                    index={index}
-                    progress={scrollYProgress}
-                    finaleMix={finaleMix}
-                    driftAngle={driftAngle}
-                  />
-                ),
-              )}
-              {/* Inside the frame, because the glow has to sit on the lamp:
+                    height: "auto",
+                    zIndex: 1,
+                  }}
+                />
+                {HERO_ENGINE_PARTS.map((part) =>
+                  reduceMotion ? (
+                    <DockedEnginePart key={part.id} part={part} />
+                  ) : (
+                    <EnginePartLayer
+                      key={part.id}
+                      part={part}
+                      progress={scrollYProgress}
+                      finaleMix={finaleMix}
+                      driftAngle={driftAngle}
+                    />
+                  ),
+                )}
+                {HERO_LAYERS.map((layer, index) =>
+                  reduceMotion ? (
+                    <DockedLayer key={layer.id} layer={layer} index={index} />
+                  ) : (
+                    <PartLayer
+                      key={layer.id}
+                      layer={layer}
+                      index={index}
+                      progress={scrollYProgress}
+                      finaleMix={finaleMix}
+                      driftAngle={driftAngle}
+                    />
+                  ),
+                )}
+                {/* Inside the frame, because the glow has to sit on the lamp:
                   a percentage resolves against the nearest positioned
                   ancestor, and as a sibling of the frame it would measure
                   against the stage's 814x560 box instead of the frame's 749
                   square -- up to 40px off, and close enough to look right in a
                   screenshot. */}
-              {bloom}
-            </div>
-          </HeroCamera>
-          {/* Outside the camera, deliberately: a caption in canvas space is
+                {bloom}
+              </div>
+            </HeroCamera>
+            {/* Outside the camera, deliberately: a caption in canvas space is
               scaled by the camera and clipped by it, which is exactly what
               chapter 1's push-in did to the first version. See PartCallout. */}
-          {callouts}
+            {callouts}
+          </div>
+          {/* The invitation, and only while it is true (P13.S7). It used to be
+              a permanent <p> under the stage, still reading "scroll to separate
+              the parts" after the last chapter had played and the car had
+              re-docked -- the audit's first finding names it. It is beat 0 now:
+              shown until the first part moves, then never again. */}
+          <p
+            className="hero-hint font-mono text-caption text-graphite-400 motion-reduce:hidden"
+            data-callout="__hint"
+          >
+            {hint}
+          </p>
+          {finale}
         </div>
-        {finale}
-        <p className="font-mono text-caption text-graphite-400 motion-reduce:hidden">{hint}</p>
+        {manifest}
       </div>
     </div>
   );
