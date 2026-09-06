@@ -257,6 +257,20 @@
     color: var(--brand);
   }
 
+  /* The finale's call to action. Same show/hide mechanism as a plate, placed
+     in the lower band where the parked parts are not. */
+  /* Shown by the same `data-shown` mechanism as a plate, so the finale and the
+     captions are one code path rather than two. `display` rather than opacity
+     for the same reason the plates use it: these are links, and a hidden link
+     is a destination in the tab order that nobody can see. */
+  .hero-finale {
+    display: none;
+  }
+
+  .hero-finale[data-shown] {
+    display: flex;
+  }
+
   /* Steel Blue, never Marigold: this is a line pointing at a thing, and
      tokens.css reserves Marigold for where money changes hands. */
   .hero-leader {

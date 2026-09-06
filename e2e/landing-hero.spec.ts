@@ -3,9 +3,21 @@ import AxeBuilder from "@axe-core/playwright";
 import {
   CHAPTER_RANGE,
   CHAPTER_SEQUENCE,
+  FINALE_BEAT,
   beatFor,
   coverOf,
 } from "../apps/web/components/landing/HeroV2/heroLayout";
+
+/**
+ * Inside the finale's hold every part is in the air at once (P13.S8).
+ *
+ * This is the one place the "exactly one slot is away" invariant does not
+ * apply, and it does not apply *by definition* rather than by accident: the
+ * finale is the beat where the whole catalogue is on screen. Chapter 3's last
+ * slot runs to 0.980 and the finale opens at 0.860, so several of the derived
+ * sample points land inside it.
+ */
+const inFinale = (at: number) => at >= FINALE_BEAT[1] && at <= FINALE_BEAT[2];
 
 /**
  * P9.S6 — the proof pass for the rebuilt hero. Everything the scaffold could
@@ -487,10 +499,14 @@ test("plays one part at a time, and is a whole car between chapters", async ({ p
 
   for (const step of holdSamples()) {
     await scrollHeroTo(page, step.at);
+    // Inside the finale, "one slot at a time" is replaced by "all of them" --
+    // and that is still an assertion, not an exemption: a finale that left a
+    // part docked would be a catalogue with a hole in it.
+    const expected = inFinale(step.at) ? Object.keys(docked).sort() : [...step.away].sort();
     expect(
       awayFrom(docked, await partOffsets(page)),
       `${step.what} @ ${step.at.toFixed(3)}`,
-    ).toEqual([...step.away].sort());
+    ).toEqual(expected);
   }
 });
 
@@ -519,7 +535,14 @@ test("the hero ends its scroll as a whole car, not a pile of panels", async ({ p
  */
 test.describe("part callouts", () => {
   /** The middle of a slot's hold: one part out, one caption showing. */
-  const holds = () => holdSamples().filter((sample) => sample.away.length > 0 && sample.at > 0);
+  // The finale is excluded on purpose: there the stage stops naming one part
+  // and shows the catalogue's call to action instead, which is asserted
+  // separately below. Several derived samples land inside it, because chapter
+  // 3's last slot and the finale overlap by design.
+  const holds = () =>
+    holdSamples().filter(
+      (sample) => sample.away.length > 0 && sample.at > 0 && !inFinale(sample.at),
+    );
 
   test("names exactly one part at a time, and nothing at rest", async ({ page }) => {
     await gotoHero(page);
@@ -750,5 +773,57 @@ test.describe("the job card", () => {
       );
     expect(shown).toEqual(["9"]);
     await context.close();
+  });
+});
+
+/**
+ * The finale (P13.S8) — Gate B's shape: the exploded catalogue is the climax,
+ * not the resting state.
+ */
+test.describe("the finale", () => {
+  test("puts every part in the air at once, then docks them again", async ({ page }) => {
+    await gotoHero(page);
+    await scrollHeroTo(page, 0);
+    const docked = await partOffsets(page);
+
+    await scrollHeroTo(page, 0.93);
+    const exploded = awayFrom(docked, await partOffsets(page));
+    expect(exploded.sort(), "a part stayed on the car through the finale").toEqual(
+      Object.keys(docked).sort(),
+    );
+
+    // Gate B: the car the visitor scrolls away from is whole. This is also
+    // covered by "ends its scroll as a whole car"; asserted here too because it
+    // is the half of the finale that is easiest to lose while tuning the other.
+    await scrollHeroTo(page, 1);
+    expect(awayFrom(docked, await partOffsets(page)), "the hero ends exploded").toEqual([]);
+  });
+
+  test("shows one call to action, and only at the finale", async ({ page }) => {
+    await gotoHero(page);
+    const cta = page.locator(".hero-finale[data-shown]");
+
+    await scrollHeroTo(page, 0.5);
+    await expect(cta, "the CTA is showing mid-scroll").toHaveCount(0);
+
+    await scrollHeroTo(page, 0.93);
+    await expect(cta).toHaveCount(1);
+    await expect(cta.locator("a")).toHaveCount(2);
+    await expect(cta.locator("a").first()).toHaveAttribute("href", "/search");
+
+    // The two-accent rule: tokens.css reserves marigold for where money changes
+    // hands, and this button is the only place in the hero that spends it. The
+    // check is "how many links share the CTA's exact colour", not "how many
+    // links have a background" -- the first version asked the looser question
+    // and counted ten, because every row in the system index has one too.
+    const sharing = await page.evaluate(() => {
+      const cta = document.querySelector<HTMLElement>(".hero-finale a");
+      if (!cta) return -1;
+      const accent = getComputedStyle(cta).backgroundColor;
+      return [...document.querySelectorAll<HTMLElement>("#hero a")].filter(
+        (link) => getComputedStyle(link).backgroundColor === accent,
+      ).length;
+    });
+    expect(sharing, "the hero spends its one accent colour more than once").toBe(1);
   });
 });

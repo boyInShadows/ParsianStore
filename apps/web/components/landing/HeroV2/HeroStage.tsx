@@ -5,6 +5,7 @@ import { motion, useReducedMotion, useTransform, type MotionValue } from "motion
 import { useHeroScroll } from "./HeroScrollProvider";
 import { landingAsset, landingFallback, landingSrcSet } from "@/lib/landing-image";
 import { cameraTrack } from "./cameraRig";
+import { scenePartById } from "./heroScene";
 import { calloutSubjectByLayerId } from "./manifestData";
 import {
   beatOf,
@@ -16,6 +17,8 @@ import {
   HERO_FRAME_WIDTH_PCT,
   HERO_LAYERS,
   HERO_PERSPECTIVE_CQW,
+  FINALE_BEAT,
+  FINALE_DRIFT,
   type HeroClip,
   type HeroDock,
   type HeroEnginePart,
@@ -49,6 +52,14 @@ type Props = {
    * sprites' coordinate space and the leader lines stay attached.
    */
   callouts?: ReactNode;
+  /**
+   * The finale's CTA (P13.S8) -- pinned with the stage, but outside its box.
+   *
+   * Separate from `callouts` because it is not part of the diagram: it must not
+   * scale, tilt or clip with the camera, and the only clear space inside the
+   * frame at the finale is where the ten parked parts are.
+   */
+  finale?: ReactNode;
 };
 
 /** Roughly how wide the stage itself is, for `sizes`. */
@@ -175,6 +186,72 @@ function layerImageProps(box: ReturnType<typeof place>) {
 }
 
 /**
+ * The chapter beat and the finale, crossfaded into one transform (P13.S8).
+ *
+ * Every value is a percentage of the part's OWN box, which is what lets a
+ * single element carry the whole transform — so the finale's canvas-pixel
+ * vector from `heroScene` is converted here rather than there, where the box is
+ * not known.
+ *
+ * The drift is the difference between "parked" and "frozen". Nine parts holding
+ * perfectly still for 6% of the track is the one genuinely dead stretch the
+ * scroll would otherwise have, and it lands on the beat the visitor is meant to
+ * stop and read. It is driven by scroll position rather than by time, like
+ * everything else here, so it scrubs both ways and costs no animation frame.
+ */
+function useFinale(
+  id: string,
+  box: { width: number; height: number },
+  driftAngle: MotionValue<number>,
+  mix: MotionValue<number>,
+  chapter: {
+    chapterX: MotionValue<number>;
+    chapterY: MotionValue<number>;
+    chapterScale: MotionValue<number>;
+  },
+) {
+  const part = SCENE_BY_ID.get(id);
+  if (!part) {
+    throw new Error(
+      `Hero layer "${id}" is on the stage but not in the solved scene, so it has no parking ` +
+        `spot for the finale. Every layer must reach heroScene.sceneParts().`,
+    );
+  }
+
+  const finaleX = (part.finale.dx / box.width) * 100;
+  const finaleY = (part.finale.dy / box.height) * 100;
+  const driftPct = (FINALE_DRIFT.amplitude / box.height) * 100;
+  // A phase per part, from the id, so nine parts do not bob in unison — which
+  // would read as the whole stage breathing rather than nine things suspended.
+  const phase = [...id].reduce((sum, char) => sum + char.charCodeAt(0), 0);
+
+  const blend = (from: number, to: number, m: number) => from * (1 - m) + to * m;
+
+  // The explicit multi-input form, not `useTransform(() => ...)`.
+  //
+  // The closure form was the first cut and it shipped a real bug. The blend read
+  // `mix` inside a nested helper, and motion's implicit dependency tracking did
+  // not reliably re-run the transform when only `mix` changed -- so at the end
+  // of the track every part rendered a state about ten pixels of scroll stale,
+  // and the car did NOT finish docked. That is the one promise Gate B is built
+  // on, and it failed intermittently, which is the worst way for it to fail.
+  // Naming the inputs takes the guess out of it.
+  return {
+    x: useTransform(
+      [chapter.chapterX, mix],
+      ([cx, m]: number[]) => `${blend(cx ?? 0, finaleX, m ?? 0).toFixed(3)}%`,
+    ),
+    y: useTransform([chapter.chapterY, mix, driftAngle], ([cy, m, angle]: number[]) => {
+      const drift = Math.sin((angle ?? 0) + phase) * driftPct * (m ?? 0);
+      return `${(blend(cy ?? 0, finaleY, m ?? 0) + drift).toFixed(3)}%`;
+    }),
+    scale: useTransform([chapter.chapterScale, mix], ([cs, m]: number[]) =>
+      blend(cs ?? 1, part.finale.scale, m ?? 0),
+    ),
+  };
+}
+
+/**
  * One part, lifting away from the car and settling back over its chapter.
  *
  * Out and back, not out and gone. `[from, peak, to] -> [0, 1, 0]` is the whole
@@ -195,10 +272,14 @@ function PartLayer({
   layer,
   index,
   progress,
+  finaleMix,
+  driftAngle,
 }: {
   layer: HeroLayer;
   index: number;
   progress: MotionValue<number>;
+  finaleMix: MotionValue<number>;
+  driftAngle: MotionValue<number>;
 }) {
   const box = place(layer.asset, layer.dock);
   // This layer's own span inside the chapter, not the chapter's (P12.S6). Four
@@ -206,16 +287,19 @@ function PartLayer({
   const beat = beatOf(layer.chapter, layer.id);
 
   /** Docked -> lifted -> HELD -> docked, for a value that is zero at rest. */
-  const lift = (value: number) => {
-    const at = `${value.toFixed(2)}%`;
-    return ["0%", at, at, "0%"];
-  };
+  const lift = (value: number) => [0, value, value, 0];
   /** The mirror image, for a rotation that is non-zero at rest and unwinds. */
   const unwind = (value: number) => [value, 0, 0, value];
 
-  const x = useTransform(progress, beat, lift((layer.undock.dx / box.width) * 100));
-  const y = useTransform(progress, beat, lift((layer.undock.dy / box.height) * 100));
-  const scale = useTransform(progress, beat, [1, layer.undock.scale, layer.undock.scale, 1]);
+  const chapterX = useTransform(progress, beat, lift((layer.undock.dx / box.width) * 100));
+  const chapterY = useTransform(progress, beat, lift((layer.undock.dy / box.height) * 100));
+  const chapterScale = useTransform(progress, beat, [1, layer.undock.scale, layer.undock.scale, 1]);
+
+  const { x, y, scale } = useFinale(layer.id, box, driftAngle, finaleMix, {
+    chapterX,
+    chapterY,
+    chapterScale,
+  });
   const rotateX = useTransform(progress, beat, unwind(layer.dock.rotateX ?? 0));
   const rotateY = useTransform(progress, beat, unwind(layer.dock.rotateY ?? 0));
   const rotateZ = useTransform(progress, beat, unwind(layer.dock.rotateZ ?? 0));
@@ -241,22 +325,29 @@ function PartLayer({
 function EnginePartLayer({
   part,
   progress,
+  finaleMix,
+  driftAngle,
 }: {
   part: HeroEnginePart;
   progress: MotionValue<number>;
+  finaleMix: MotionValue<number>;
+  driftAngle: MotionValue<number>;
 }) {
   const box = placePart(part.asset, part.place);
   // Its own slot inside the hood's open window -- the lid is chapter 2's
   // cover, not one of its beats, so every part here plays while it is up.
   const beat = beatOf(HERO_ENGINE_CHAPTER, part.id);
-  const lift = (value: number) => {
-    const at = `${value.toFixed(2)}%`;
-    return ["0%", at, at, "0%"];
-  };
+  const lift = (value: number) => [0, value, value, 0];
 
-  const x = useTransform(progress, beat, lift((part.undock.dx / box.width) * 100));
-  const y = useTransform(progress, beat, lift((part.undock.dy / box.height) * 100));
-  const scale = useTransform(progress, beat, [1, part.undock.scale, part.undock.scale, 1]);
+  const chapterX = useTransform(progress, beat, lift((part.undock.dx / box.width) * 100));
+  const chapterY = useTransform(progress, beat, lift((part.undock.dy / box.height) * 100));
+  const chapterScale = useTransform(progress, beat, [1, part.undock.scale, part.undock.scale, 1]);
+
+  const { x, y, scale } = useFinale(part.id, box, driftAngle, finaleMix, {
+    chapterX,
+    chapterY,
+    chapterScale,
+  });
 
   return (
     <motion.img
@@ -309,6 +400,45 @@ function DockedEnginePart({ part }: { part: HeroEnginePart }) {
  * on a route already over its JS budget.
  */
 const CAMERA_TRACK = cameraTrack();
+
+/** The solved scene, computed once for the same reason the camera track is. */
+const SCENE_BY_ID = scenePartById();
+
+/**
+ * How much of the finale is showing, 0 to 1 (P13.S8).
+ *
+ * A **blend**, not a second translation added on top of the chapter beat, and
+ * the overlap is why. Chapter 3's last slot runs 0.854 to 0.980 and the finale
+ * runs 0.860 to 1.000, so for almost all of the windshield's beat both are
+ * live. Adding them would put the windshield at its parking spot *plus* its
+ * chapter lift -- a coordinate neither transform ever meant, and one no test
+ * of either would have caught, because each is correct on its own.
+ *
+ * So the finale crossfades over the chapter: as the mix rises the chapter's
+ * contribution falls away and the parking position takes over. It returns to
+ * zero by p=1, which is Gate B -- the exploded catalogue is the climax, and
+ * the car the visitor scrolls away from is whole again.
+ */
+function useFinaleMix(progress: MotionValue<number>) {
+  return useTransform(progress, [...FINALE_BEAT], [0, 1, 1, 0]);
+}
+
+/**
+ * The drift's phase angle, one hop from scroll progress.
+ *
+ * It exists as its own value rather than being computed from `progress` inside
+ * the y transform, and the reason is the shape of the dependency graph. `mix`
+ * is derived from `progress`; a transform that reads *both* `progress` and
+ * `mix` sits one hop from the first and two from the second, so it recomputes
+ * as soon as progress changes -- using the previous frame's `mix`. That is a
+ * value one scroll event stale, and it was: x and scale (which read only
+ * `mix`) landed correctly at the end of the track while y did not, leaving the
+ * parts a step short of docked. Keeping every input to y exactly one hop from
+ * progress puts them all on the same tick.
+ */
+function useDriftAngle(progress: MotionValue<number>) {
+  return useTransform(progress, (value) => value * FINALE_DRIFT.cycles);
+}
 
 /**
  * The camera: one wrapper, one transform, the whole scene inside it (P13.S2).
@@ -388,12 +518,16 @@ function DockedLayer({ layer, index }: { layer: HeroLayer; index: number }) {
  * every sprite. It collapses the track and unpins the stage, and leaves the
  * layers alone.
  */
-export function HeroStage({ label, carAlt, hint, callouts }: Props) {
+export function HeroStage({ label, carAlt, hint, callouts, finale }: Props) {
   const reduceMotion = useReducedMotion();
   // The measurement itself lives in HeroScrollProvider so the parts manifest,
   // which renders in the other grid column, reads the same value (P12.S4).
   const { trackRef, progress: scrollYProgress } = useHeroScroll();
   const base = place(HERO_BASE_ASSET, { dx: 0, dy: 0, scale: 1 });
+  // One mix for the whole scene: eleven copies of the same interpolation would
+  // be eleven subscriptions to one number.
+  const finaleMix = useFinaleMix(scrollYProgress);
+  const driftAngle = useDriftAngle(scrollYProgress);
 
   return (
     // The track only exists to buy scroll distance: `100vh` keeps the pinned
@@ -486,7 +620,13 @@ export function HeroStage({ label, carAlt, hint, callouts }: Props) {
                 reduceMotion ? (
                   <DockedEnginePart key={part.id} part={part} />
                 ) : (
-                  <EnginePartLayer key={part.id} part={part} progress={scrollYProgress} />
+                  <EnginePartLayer
+                    key={part.id}
+                    part={part}
+                    progress={scrollYProgress}
+                    finaleMix={finaleMix}
+                    driftAngle={driftAngle}
+                  />
                 ),
               )}
               {HERO_LAYERS.map((layer, index) =>
@@ -498,6 +638,8 @@ export function HeroStage({ label, carAlt, hint, callouts }: Props) {
                     layer={layer}
                     index={index}
                     progress={scrollYProgress}
+                    finaleMix={finaleMix}
+                    driftAngle={driftAngle}
                   />
                 ),
               )}
@@ -513,6 +655,7 @@ export function HeroStage({ label, carAlt, hint, callouts }: Props) {
             </div>
           </HeroCamera>
         </div>
+        {finale}
         <p className="font-mono text-caption text-graphite-400 motion-reduce:hidden">{hint}</p>
       </div>
     </div>

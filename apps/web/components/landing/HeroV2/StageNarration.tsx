@@ -2,7 +2,16 @@
 
 import { useEffect, useRef } from "react";
 import { useMotionValueEvent, useReducedMotion } from "motion/react";
-import { CHAPTER_RANGE, CHAPTER_SEQUENCE, beatFor, coverOf } from "./heroLayout";
+import { CHAPTER_RANGE, CHAPTER_SEQUENCE, FINALE_BEAT, beatFor, coverOf } from "./heroLayout";
+
+/**
+ * The finale's own `data-callout` value.
+ *
+ * Deliberately not a part id: the finale block is shown by the same mechanism
+ * as a plate, and giving it a name no part can have is what keeps "show the
+ * caption for X" and "show the finale" one code path instead of two.
+ */
+const FINALE_ID = "__finale";
 import { calloutSubjectByLayerId } from "./manifestData";
 import { useHeroScroll } from "./HeroScrollProvider";
 
@@ -46,6 +55,12 @@ export function StageNarration() {
    */
   const subjectAt = (value: number): string | null => {
     const byLayer = calloutSubjectByLayerId();
+
+    // The finale outranks the chapter it overlaps. Chapter 3's last slot runs
+    // to 0.980 and the finale opens at 0.860, so for most of the windshield's
+    // beat both are live -- and once every part is in the air, naming one of
+    // them is the wrong caption. The stage stops narrating and starts selling.
+    if (value >= FINALE_BEAT[1] && value <= FINALE_BEAT[2]) return FINALE_ID;
 
     for (const chapter of [1, 2, 3] as const) {
       const [from, to] = CHAPTER_RANGE[chapter];

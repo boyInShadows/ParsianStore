@@ -153,3 +153,50 @@ export async function PartCallouts() {
     </div>
   );
 }
+
+/**
+ * The finale's call to action (P13.S8).
+ *
+ * Rendered **outside** the canvas frame, unlike the plates, and the difference
+ * is what each thing is. A plate is part of the diagram: it points at a panel,
+ * it belongs in the panel's coordinate space, and it is right for it to scale
+ * and tilt with the camera. A button is not part of the diagram. Inside the
+ * frame it would tilt six degrees during chapter 2, grow 35% during chapter 1,
+ * and -- the reason it moved -- sit at canvas row 635, which is the middle of
+ * the car, because the two clear bands are exactly where the ten parked parts
+ * are.
+ *
+ * So it pins with the stage instead, under the diagram, where a call to action
+ * on a landing page belongs.
+ */
+export async function StageFinale() {
+  const t = await getTranslations("Landing.manifest");
+
+  return (
+    <div className="hero-finale flex items-center justify-center gap-4" data-callout="__finale">
+      {/* The one marigold on the stage. tokens.css §6.3 reserves it for where
+          money changes hands, and the whole hero has been steel blue up to this
+          point precisely so this button is the first thing that is not.
+
+          It goes to /search, not /c. The plan asked for «مشاهده همه
+          دسته‌بندی‌ها» pointing at /c -- and there is no /c: the app has
+          /c/[slug] and no category index, so that link 404s. The landing page's
+          own link sweep caught it. Rather than invent an index route inside a
+          hero step, the button goes to the catalogue that does exist and the
+          copy says what the destination actually is. A /c index is worth
+          having; it is a catalogue decision, recorded for the phase close. */}
+      <a
+        className="inline-flex min-h-12 items-center justify-center rounded-md bg-cta px-6 py-3 text-body-sm font-bold text-cta-fg transition-opacity hover:opacity-90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus motion-reduce:transition-none"
+        href="/search"
+      >
+        {t("finale.cta")}
+      </a>
+      <a
+        className="inline-flex min-h-12 items-center justify-center border border-graphite-700 px-6 py-3 text-body-sm text-graphite-100 transition-colors hover:border-brand hover:text-brand focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus motion-reduce:transition-none"
+        href="#driver-path"
+      >
+        {t("finale.secondary")}
+      </a>
+    </div>
+  );
+}

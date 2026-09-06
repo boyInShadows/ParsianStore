@@ -172,7 +172,11 @@
         "windshield": "شیشه جلو — فعلاً در فهرست فروش نیست."
       },
       "counter": "{n} از {total}",
-      "complete": "همه را داریم"
+      "complete": "همه را داریم",
+      "finale": {
+        "cta": "مشاهده همه قطعه‌ها",
+        "secondary": "خودرویم را انتخاب می‌کنم"
+      }
     },
     "sections": {
       "guidesTeaser": {

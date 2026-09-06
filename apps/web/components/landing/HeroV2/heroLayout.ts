@@ -640,6 +640,17 @@ export const FINALE_MARGIN = 32;
 export const FINALE_BEAT: readonly [number, number, number, number] = [0.86, 0.9, 0.96, 1.0];
 
 /**
+ * The suspended drift of a parked part, in canvas pixels and cycles per track.
+ *
+ * Small on purpose -- 3 pixels is under half a CSS pixel at the desktop stage,
+ * so it reads as "these are hanging" rather than as a second animation
+ * competing with the one that just finished. It is what stops the finale's
+ * 6%-of-track hold from being the one genuinely frozen stretch of the scroll,
+ * on the beat the visitor is meant to stop and read.
+ */
+export const FINALE_DRIFT = { amplitude: 3, cycles: 220 } as const;
+
+/**
  * The label plate a callout draws, in canvas pixels (fableTasks v1.1 §1.3).
  *
  * One size for every part rather than a box that fits its own copy. The plates
