@@ -24,10 +24,17 @@ function flatten(tree: unknown, prefix = ""): Record<string, string> {
 const BEATS = flatten(fa.Landing.beats, "Landing.beats");
 
 describe("Landing.beats — the Phase 9 rebuild's string set", () => {
-  it("covers all eleven beats of the v1.27 inventory", () => {
-    // The mega footer (beat 11) lives in the layout namespace, not here.
+  it("covers every beat, in render order", () => {
+    // The mega footer lives in the layout namespace, not here.
+    //
+    // `findMyPart` joined at P13.S7: the vehicle selector, the code field and
+    // the system index moved out of the hero so the job card could take the
+    // pinned space beside the drawing, and what they moved into is a section of
+    // its own. This list is in the order page.tsx renders them, which is what
+    // makes the numbering assertion below meaningful.
     expect(Object.keys(fa.Landing.beats)).toEqual([
       "hero",
+      "findMyPart",
       "trustStrip",
       "bestSellers",
       "authenticityStory",
@@ -40,9 +47,38 @@ describe("Landing.beats — the Phase 9 rebuild's string set", () => {
     ]);
   });
 
-  it("numbers the beats 01-10 in render order", () => {
-    const codes = Object.values(fa.Landing.beats).map((beat) => (beat as { code: string }).code);
-    expect(codes).toEqual(["01", "02", "03", "04", "05", "06", "07", "08", "09", "10"]);
+  it("numbers the beats contiguously, in render order", () => {
+    // Contiguous and derived, not a written list. The audit's own complaint was
+    // that the visible numbering ran 01, 03, 04, 05, 06, —, 08, —, 10: a
+    // manual-page affectation that only works when it is complete. Inserting a
+    // section is exactly what breaks it, and inserting a section is exactly
+    // what P13.S7 did — so the assertion is now "there are no gaps" rather than
+    // a literal sequence that has to be retyped every time.
+    // Only the beats that actually render carry a plate. `deals` returns null
+    // until a live-deals source exists (see the component), and a number nobody
+    // can see is precisely the gap the audit reported -- so it has no code, and
+    // gets one on the day it renders.
+    const codes = Object.values(fa.Landing.beats)
+      .map((beat) => (beat as { code?: string }).code)
+      .filter((code): code is string => code !== undefined);
+    const expected = codes.map((_, index) => String(index + 1).padStart(2, "0"));
+    expect(codes).toEqual(expected);
+  });
+
+  it("gives a plate to every beat that renders, and none to one that does not", () => {
+    // The pair that keeps the numbering honest in both directions: a rendered
+    // section without a plate leaves a hole in the sequence, and an unrendered
+    // section with one consumes a number nobody sees.
+    const withCode = Object.entries(fa.Landing.beats)
+      .filter(([, beat]) => (beat as { code?: string }).code !== undefined)
+      .map(([key]) => key);
+    // Neither the deals section (renders null) nor the trust strip (no visible
+    // heading, and four ordinals of its own directly below a plate would read
+    // as the broken numbering this set out to fix).
+    expect(withCode).not.toContain("deals");
+    expect(withCode).not.toContain("trustStrip");
+    expect(withCode).toContain("findMyPart");
+    expect(withCode).toContain("closing");
   });
 
   it("has no empty or placeholder copy", () => {

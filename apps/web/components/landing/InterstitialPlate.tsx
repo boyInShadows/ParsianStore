@@ -32,6 +32,12 @@ export async function InterstitialPlate() {
           keeps its own two thirds legible as artwork. */}
       <div className="interstitial-scrim absolute inset-0 -z-10" />
       <div className="mx-auto flex max-w-container flex-col justify-center gap-3 px-4 py-20 lg:px-8 lg:py-32">
+        {/* One of the three sections that carried a code and never rendered it
+            (P13.S10/S12). */}
+        <p className="flex items-center gap-3">
+          <span className="h-px w-12 bg-cta" />
+          <span className="font-mono text-data text-graphite-300">{t("code")}</span>
+        </p>
         <h2
           id="interstitial-heading"
           className="max-w-md font-display text-h2 font-black text-graphite-0"
