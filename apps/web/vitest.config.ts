@@ -9,6 +9,13 @@ export default defineConfig({
       // dist/ for real consumers, but tests run against the TypeScript source
       // so a stale build can never mask a failure.
       schemas: fileURLToPath(new URL("../../packages/schemas/src/index.ts", import.meta.url)),
+      // `@/` is the app's own path alias (tsconfig.json "paths"), and until
+      // P13.S1 every tested module here happened to avoid it -- so a module
+      // that imports `@/lib/...` failed to resolve under vitest with "Cannot
+      // find package", which reads like a missing dependency rather than a
+      // missing alias. Mirrored from tsconfig rather than invented, so the two
+      // cannot disagree about what `@/` means.
+      "@": fileURLToPath(new URL(".", import.meta.url)),
     },
   },
   test: {

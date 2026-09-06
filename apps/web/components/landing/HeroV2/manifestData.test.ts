@@ -8,6 +8,8 @@ import { CATALOG_SYSTEMS } from "schemas";
 import { HERO_BAY, HERO_ENGINE_CHAPTER, HERO_ENGINE_PARTS, HERO_LAYERS } from "./heroLayout.js";
 import {
   MANIFEST_EXCLUDED_LAYERS,
+  calloutSubjectByLayerId,
+  calloutSubjects,
   manifestByChapter,
   manifestEntries,
   manifestPartByLayerId,
@@ -192,6 +194,40 @@ describe("parts manifest data (P12.S2)", () => {
     const headlights = manifestEntries().find((entry) => entry.id === "headlights");
     expect(headlights?.layerIds).toEqual(["lamp-far", "lamp-near"]);
     const byLayer = manifestPartByLayerId();
+    expect(byLayer.get("lamp-far")).toBe(byLayer.get("lamp-near"));
+  });
+});
+
+describe("callout subjects", () => {
+  it("labels every part in the scene, including the one with nothing to sell", () => {
+    const subjects = calloutSubjects();
+    const labelled = new Set(subjects.flatMap((subject) => subject.layerIds));
+    const scene = [...HERO_LAYERS.map((l) => l.id), ...HERO_ENGINE_PARTS.map((p) => p.id)];
+
+    // Every sprite that moves gets a name. A part that slides off the car
+    // un-named is exactly the defect this phase exists to fix, so it is worth a
+    // failing test rather than a review comment.
+    for (const id of scene) {
+      expect(labelled.has(id), `layer "${id}" undocks with no callout`).toBe(true);
+    }
+  });
+
+  it("gives the windshield a name and no link, rather than a link to nowhere", () => {
+    const windshield = calloutSubjects().find((subject) => subject.id === "windshield");
+    expect(windshield, "the windshield lost its callout").toBeDefined();
+    expect(windshield!.href).toBeNull();
+    expect(windshield!.system).toBeNull();
+  });
+
+  it("keeps a link on every part the catalogue actually sells", () => {
+    for (const entry of manifestEntries()) {
+      const subject = calloutSubjects().find((candidate) => candidate.id === entry.id);
+      expect(subject?.href, `${entry.id} is sold but its callout has no route`).toBe(entry.href);
+    }
+  });
+
+  it("pairs both headlight sprites to one label", () => {
+    const byLayer = calloutSubjectByLayerId();
     expect(byLayer.get("lamp-far")).toBe(byLayer.get("lamp-near"));
   });
 });

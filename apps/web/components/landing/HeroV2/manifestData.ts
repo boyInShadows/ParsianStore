@@ -291,3 +291,80 @@ export function manifestPartByLayerId(): ReadonlyMap<string, ManifestEntry> {
   }
   return byLayer;
 }
+
+/**
+ * A part the stage can put a label on (fableTasks v1.1 §1.3, P13.S1).
+ *
+ * Nearly the manifest, but not quite, and the difference is the point. The
+ * manifest is a list of things you can buy; the callouts are a narration of
+ * what is happening on screen. Nine parts are both. The **windshield** is only
+ * the second: it undocks in chapter 3 and has no category route to send anyone
+ * to, so it is a real event in the scene with nothing behind it.
+ *
+ * The alternative was to stop animating it, and that is worse -- a car whose
+ * windscreen stays welded on while every panel around it lifts away is not a
+ * simpler scene, it is a scene with a hole in it. So it moves, it gets a name,
+ * and `href` is `null` so it can never render as a link to nowhere. "Every
+ * detachment is a sale" holds for everything that is actually for sale, and
+ * the one exception says so out loud instead of being quietly faked.
+ */
+export type CalloutSubject = {
+  readonly id: string;
+  /** The sprites this label belongs to. Two, for the headlights. */
+  readonly layerIds: readonly string[];
+  readonly chapter: HeroLayer["chapter"];
+  /** Key under `Landing.manifest.parts`. Also the key under `.why`. */
+  readonly nameKey: string;
+  /** The category route, or `null` for a part the catalogue does not sell. */
+  readonly href: string | null;
+  /** The system code shown on the plate, or `null` where there is none. */
+  readonly system: CatalogSystemCode | null;
+};
+
+/**
+ * Every label the stage renders, in the order the parts leave the car.
+ *
+ * Derived from the manifest plus `MANIFEST_EXCLUDED_LAYERS`, so the two can
+ * never drift: a layer that gains a category route becomes a row and a linked
+ * callout in the same edit, and one that loses its route degrades to a
+ * name-only plate instead of a 404.
+ */
+export function calloutSubjects(): readonly CalloutSubject[] {
+  const rows: CalloutSubject[] = manifestEntries().map((entry) => ({
+    id: entry.id,
+    layerIds: entry.layerIds,
+    chapter: entry.chapter,
+    nameKey: entry.nameKey,
+    href: entry.href,
+    system: entry.system,
+  }));
+
+  const unsold: CalloutSubject[] = Object.keys(MANIFEST_EXCLUDED_LAYERS).map((layerId) => {
+    const layer = HERO_LAYERS.find((candidate) => candidate.id === layerId);
+    if (!layer) {
+      throw new Error(
+        `MANIFEST_EXCLUDED_LAYERS names "${layerId}", which is not a hero layer. An exclusion ` +
+          `has to exclude something that exists, or it is a note about a sprite that is gone.`,
+      );
+    }
+    return {
+      id: layer.id,
+      layerIds: [layer.id],
+      chapter: layer.chapter,
+      nameKey: layer.id,
+      href: null,
+      system: null,
+    };
+  });
+
+  return [...rows, ...unsold].sort((a, b) => a.chapter - b.chapter);
+}
+
+/** Which label a sprite belongs to, including the sprites with no manifest row. */
+export function calloutSubjectByLayerId(): ReadonlyMap<string, CalloutSubject> {
+  const byLayer = new Map<string, CalloutSubject>();
+  for (const subject of calloutSubjects()) {
+    for (const layerId of subject.layerIds) byLayer.set(layerId, subject);
+  }
+  return byLayer;
+}

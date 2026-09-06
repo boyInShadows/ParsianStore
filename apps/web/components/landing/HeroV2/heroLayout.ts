@@ -44,6 +44,18 @@
 export const HERO_CANVAS = 1024;
 
 /**
+ * The stage's aspect ratio, as data rather than only as a Tailwind class.
+ *
+ * `HeroStage` draws `aspect-[16/11]`; this is the same number in a form the
+ * rest of the module can compute with. P13 needs it because the finale has to
+ * park ten parts in the empty canvas rows above and below the car, and "which
+ * rows are empty" is a function of how much of the square frame the stage
+ * actually shows. `heroScene.test.ts` fails if the class and this constant
+ * ever disagree.
+ */
+export const HERO_STAGE_ASPECT = 16 / 11;
+
+/**
  * How much of the stage's width the canvas frame spans.
  *
  * The car occupies 823 of the canvas's 1024 columns and only 367 of its 1024
@@ -65,6 +77,26 @@ export const HERO_FRAME_WIDTH_PCT = 92;
  * points do not read as one object.
  */
 export const HERO_PERSPECTIVE_CQW = 140;
+
+/**
+ * Which canvas rows the stage actually shows.
+ *
+ * The frame is square and spans `HERO_FRAME_WIDTH_PCT` of a stage that is
+ * `HERO_STAGE_ASPECT` wide for every 1 tall, so the stage is shorter than the
+ * frame and crops it top and bottom. Horizontally nothing is cropped -- the
+ * frame is narrower than the stage -- which is why only the rows are recorded.
+ *
+ * Every existing comment in this file quotes "roughly 130..894" from a
+ * calculation someone did once by hand. This is that calculation, so it stays
+ * true when the frame width or the stage's aspect is retuned. P13's finale
+ * needs it as a number rather than as prose: the two clear bands it parks
+ * parts in are exactly (visible top -> car top) and (car bottom -> visible
+ * bottom).
+ */
+export const HERO_VISIBLE_ROWS = (() => {
+  const span = HERO_CANVAS / (HERO_STAGE_ASPECT * (HERO_FRAME_WIDTH_PCT / 100));
+  return { top: (HERO_CANVAS - span) / 2, bottom: (HERO_CANVAS + span) / 2 } as const;
+})();
 
 /**
  * A layer's placement relative to its own native registration.
@@ -494,3 +526,102 @@ export function slotFor(chapter: HeroLayer["chapter"], id: string): number {
 export function beatOf(chapter: HeroLayer["chapter"], id: string): number[] {
   return coverOf(chapter) === id ? coverBeatFor(chapter) : beatFor(chapter, slotFor(chapter, id));
 }
+
+/**
+ * Where the camera looks during each chapter, in canvas pixels.
+ *
+ * Only the point, never the magnification. How hard to push in is bounded by
+ * the stage's own geometry rather than by taste -- the frame is already 92% of
+ * the stage width, so anything past about 1.087 pushes the car out over the
+ * copy column beside it -- and that bound belongs with the code that owns the
+ * transform (`cameraRig.ts`, P13.S2), not with the scene description here.
+ *
+ * The points are the middle of what each chapter is about: the front-end
+ * cluster, the engine bay `HERO_BAY` already describes, and the flank the
+ * door and fender come off. `heroScene.test.ts` checks each one actually sits
+ * inside the parts of its own chapter, so a retuned dock cannot leave the
+ * camera aimed at empty air.
+ */
+export const STATION_FOCUS: Record<
+  HeroLayer["chapter"],
+  { readonly x: number; readonly y: number }
+> = {
+  1: { x: 250, y: 515 },
+  2: { x: (HERO_BAY.left + HERO_BAY.right) / 2, y: (HERO_BAY.top + HERO_BAY.bottom) / 2 },
+  3: { x: 581, y: 489 },
+};
+
+/**
+ * The finale (fableTasks v1.1 §1.2 beat 4): every part parked around the
+ * stripped body at once, so the last thing the visitor sees is the catalogue.
+ *
+ * ## Why membership is authored and everything else is derived
+ *
+ * There are exactly two places to park anything -- the clear canvas rows above
+ * the car and the clear rows below it, because the car itself occupies the
+ * middle and stays. Which band a part belongs in is a judgement (`the hood
+ * lifted, so it reads as belonging above`); where it lands inside that band is
+ * arithmetic, and arithmetic that has to survive a re-cut sprite. So this
+ * declares the bands and `heroScene.ts` solves the positions.
+ *
+ * Order inside a band is not declared either: parts are laid out by their own
+ * docked x-centre, so a band reads left to right in the same order the parts
+ * sit on the car. An exploded diagram that shuffled its parts horizontally
+ * would be harder to read than the car it came from.
+ *
+ * Membership is decided by room, not by which way the part travelled. Those
+ * two are different questions and they disagree for four layers here: the two
+ * headlights lift upward but park below, and the grille and door drop but park
+ * above. The upper band is 204 canvas rows against the lower band's 195, and
+ * it has to hold the door, which is the tallest thing in the scene -- so the
+ * split is what fits, and `heroScene.ts` derives label placement separately
+ * from the part's own motion.
+ */
+export const FINALE_BAND: Record<"above" | "below", readonly string[]> = {
+  above: ["grille", "hood", "windshield", "door"],
+  below: ["lamp-far", "air-filter", "bumper", "piston", "alternator", "lamp-near", "fender"],
+};
+
+/**
+ * How big a part is at the finale, per pipeline group.
+ *
+ * Two numbers rather than one, for the same reason `undock.scale` is 1.05 for a
+ * fender and 2.4 for a piston: the two groups are sized by different things. A
+ * hero sprite is at its true size on the car and has to come *down* to fit ten
+ * parts into two bands. An engine part is sized at rest by what a closed hood
+ * can hide -- about 32 canvas pixels tall -- so shrinking it would make the
+ * climax of the hero the moment the piston became invisible.
+ *
+ * 0.72 is not a preference either. The door is 232 canvas pixels tall and the
+ * upper band is about 204, so with the label clearance below the scale cannot
+ * exceed 0.757; 0.72 is that ceiling with a little margin.
+ * `heroScene.test.ts` re-derives the ceiling and fails if this passes it.
+ */
+export const FINALE_SCALE: Record<"hero" | "hero-parts", number> = {
+  hero: 0.72,
+  "hero-parts": 1.9,
+};
+
+/**
+ * Clear space required around every parked part, in canvas pixels.
+ *
+ * The finale is not just ten shapes that miss each other -- each one carries a
+ * name chip (§1.3). A pack that merely avoids overlap puts those chips on top
+ * of the neighbouring part, so the clearance is what the chips live in and the
+ * overlap test asserts it rather than asserting zero.
+ */
+export const FINALE_CLEARANCE = 28;
+
+/** Canvas pixels kept clear at each side of a band, so nothing parks flush. */
+export const FINALE_MARGIN = 32;
+
+/**
+ * Where the finale plays, as a fraction of the hero's scroll.
+ *
+ * It overlaps the tail of chapter 3, which is the one place the sequential
+ * rule bends: the finale is *about* everything being in the air at once, so
+ * "one slot at a time" cannot describe it. Everything re-docks by 1.0 --
+ * `e2e/landing-hero.spec.ts` asserts the hero ends as a whole car, and Gate B
+ * settled that the finale is the climax rather than the resting state.
+ */
+export const FINALE_BEAT: readonly [number, number, number, number] = [0.86, 0.9, 0.96, 1.0];
