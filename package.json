@@ -23,7 +23,8 @@
     "optimize:landing": "node scripts/optimize-landing.mjs",
     "prepare": "husky",
     "check:hero": "node scripts/check-hero-registration.mjs",
-    "shots:hero": "node scripts/hero-shots.mjs"
+    "shots:hero": "node scripts/hero-shots.mjs",
+    "og:landing": "node scripts/og-image.mjs"
   },
   "devDependencies": {
     "@axe-core/playwright": "4.12.1",

@@ -17,8 +17,23 @@ export function localizedPath(locale: (typeof routing.locales)[number], path = "
   return path === "/" ? `/${locale}` : `/${locale}${path}`;
 }
 
+/**
+ * Locales worth advertising to a crawler (P13.S9).
+ *
+ * `en` is architected but not translated: `i18n/messages.ts` layers `fa`
+ * underneath it, so /en serves Persian copy under an English URL. Telling a
+ * crawler that is the English alternate of the Persian page is a soft error --
+ * two URLs, one language. The route stays (nothing is broken, and the locale
+ * returns one day); the advertisement stops.
+ *
+ * One line to reverse when the translations land.
+ */
+const SUSPENDED_LOCALES = new Set<string>(["en"]);
+
 export function hreflangAlternates(path = "/"): Record<string, string> {
   return Object.fromEntries(
-    routing.locales.map((locale) => [locale, absoluteUrl(localizedPath(locale, path))]),
+    routing.locales
+      .filter((locale) => !SUSPENDED_LOCALES.has(locale))
+      .map((locale) => [locale, absoluteUrl(localizedPath(locale, path))]),
   );
 }

@@ -87,7 +87,7 @@ export default tseslint.config(
     // in the wrong runtime. Scoped to this one file rather than added to the
     // `scripts/**` block above, because in any other script a bare `document`
     // really would be the mistake that rule is for.
-    files: ["scripts/hero-shots.mjs"],
+    files: ["scripts/hero-shots.mjs", "scripts/og-image.mjs"],
     languageOptions: {
       globals: { window: "readonly", document: "readonly" },
     },

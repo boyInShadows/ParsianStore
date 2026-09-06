@@ -479,3 +479,39 @@ export function getDesignTokens(): DesignTokens {
 
   return { ramps, groups, contrast, typeScale: readTypeScale(), fonts: FONTS };
 }
+
+/**
+ * The page background in each theme, for `<meta name="theme-color">`.
+ *
+ * Read from tokens.css rather than written here, and that is not tidiness:
+ * CLAUDE.md rule 5 makes tokens.css the sole hex source, and Next's
+ * `themeColor` metadata cannot reference a CSS custom property -- it needs a
+ * literal at build time. Parsing the value keeps the rule intact instead of
+ * pasting `#0e1418` into a `.ts` file and hoping the two stay in step. The
+ * browser paints its own chrome with this, so a drift would be visible as a
+ * seam between the page and the address bar.
+ *
+ * `--bg` specifically, not a graphite step: theme-color has to match what the
+ * page's body actually paints, which is `var(--bg)` (globals.css).
+ */
+export function readThemeColors(): { light: string; dark: string } {
+  const source = stripComments(readFileSync(TOKENS_PATH, "utf8"));
+
+  // `--bg` is declared twice: once under `:root` and once under the dark
+  // override. Order in the file is light then dark, and that is asserted rather
+  // than assumed -- reversing them would silently swap the two.
+  const values = [...source.matchAll(/--bg:\s*(#[0-9a-fA-F]{3,8})\s*;/g)].map(
+    (match) => match[1] as string,
+  );
+  const darkBlock = source.indexOf('[data-theme="dark"]');
+  const firstIsLight = darkBlock === -1 || source.indexOf(`--bg: ${values[0]}`) < darkBlock;
+
+  if (values.length < 2 || !firstIsLight) {
+    throw new Error(
+      `Expected tokens.css to declare --bg for the light theme and then for [data-theme="dark"], ` +
+        `found ${values.length} declaration(s). theme-color is read from those two.`,
+    );
+  }
+
+  return { light: values[0]!, dark: values[1]! };
+}
