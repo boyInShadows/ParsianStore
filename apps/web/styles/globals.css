@@ -84,16 +84,56 @@
       transform var(--duration-base) var(--ease-out);
   }
 
-  /* Rows accumulate: reaching chapter 3 leaves 1 and 2 checked in, because the
-     manifest by the end of the hero is supposed to be the whole list. */
-  .manifest-list[data-chapter-reached="1"] .manifest-row[data-chapter="1"],
-  .manifest-list[data-chapter-reached="2"] .manifest-row[data-chapter="1"],
-  .manifest-list[data-chapter-reached="2"] .manifest-row[data-chapter="2"],
-  .manifest-list[data-chapter-reached="3"] .manifest-row[data-chapter="1"],
-  .manifest-list[data-chapter-reached="3"] .manifest-row[data-chapter="2"],
-  .manifest-list[data-chapter-reached="3"] .manifest-row[data-chapter="3"] {
+  /* Rows accumulate: a row that has checked in stays checked in, because the
+     job card by the end of the hero is supposed to be the whole list.
+
+     Per row as of P13.S4, keyed off `data-checked` rather than the nine
+     chapter-pair selectors this replaced. Those grouped three rows onto one
+     beat, so chapter 1's whole block arrived while only the headlights were
+     moving -- the list said three parts had come off while one had. */
+  .manifest-list[data-choreographed] .manifest-row[data-checked] {
     opacity: 1;
     transform: none;
+  }
+
+  /* A ghosted row is a line on a blank job card: the part's name, and nothing
+     filled in beside it. The code, the count and the action arrive with the
+     part, which is what makes the list read as being written rather than
+     revealed. Never `display: none` -- the row has to hold its height or every
+     check-in would shift the nine below it. */
+  .manifest-list[data-choreographed] .manifest-detail {
+    opacity: 0;
+    transition: opacity var(--duration-base) var(--ease-out);
+  }
+
+  .manifest-list[data-choreographed] .manifest-row[data-checked] .manifest-detail {
+    opacity: 1;
+  }
+
+  /* The counter shows one of its pre-rendered values.
+
+     Every possible count is in the markup and the client marks the true one,
+     rather than CSS matching a count attribute against a value -- CSS cannot
+     compare two attributes, and the alternative was one selector per possible
+     total, which would quietly stop covering the list the day a tenth part
+     joined the scene.
+
+     The default with no JavaScript is the *complete* count, because a visitor
+     without JavaScript is reading the complete list: the number and the rows
+     under it have to agree. */
+  .manifest-counter > span {
+    display: none;
+  }
+
+  .manifest-counter:not([data-live]) > span:last-child,
+  .manifest-counter > span[data-shown-count] {
+    display: inline;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .manifest-list .manifest-detail {
+      transition: none !important;
+    }
   }
 
   /* The row half of the bidirectional highlight. Steel Blue, never Marigold:

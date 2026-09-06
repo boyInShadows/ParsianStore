@@ -82,7 +82,14 @@ function ManifestRow({
   const asset = landingAsset(`/landing/${entry.assetGroup}/${entry.asset}`);
 
   return (
-    <li data-chapter={entry.chapter} data-part={entry.id} className="manifest-row">
+    <li
+      data-chapter={entry.chapter}
+      data-part={entry.id}
+      // The scroll position this row ticks in at, read by ManifestCheckIn.
+      // Rounded to four places because it becomes an attribute and back.
+      data-check-in={entry.checkInAt.toFixed(4)}
+      className="manifest-row"
+    >
       <a
         href={entry.href}
         className="relative flex min-h-12 items-center gap-3 border-b border-graphite-800 py-2 text-graphite-100 transition-colors duration-fast hover:text-brand focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus motion-reduce:transition-none"
@@ -106,13 +113,19 @@ function ManifestRow({
           className="h-12 w-12 flex-none object-contain"
         />
         <span className="flex-1 text-body-sm">{name}</span>
-        <span className="font-mono text-caption text-graphite-400">{entry.system}</span>
-        {/* Omitted, never rendered as zero, when the API could not answer --
+        {/* The half that arrives when the part does. A ghosted row is a line on
+            a blank job card -- the part's name, nothing filled in yet -- and
+            checking in fills the rest. Grouped in one element so the fade is
+            one transition rather than three that can drift apart. */}
+        <span className="manifest-detail flex items-center gap-3">
+          <span className="font-mono text-caption text-graphite-400">{entry.system}</span>
+          {/* Omitted, never rendered as zero, when the API could not answer --
             `getSystemPartCounts` returns null for "unknown", and a fabricated
             "۰ قطعه" would read as real out-of-stock data. */}
-        {count !== null ? (
-          <span className="font-mono text-caption text-graphite-400">{count}</span>
-        ) : null}
+          {count !== null ? (
+            <span className="font-mono text-caption text-graphite-400">{count}</span>
+          ) : null}
+        </span>
         <span className="sr-only">{action}</span>
       </a>
     </li>
@@ -145,6 +158,7 @@ function ManifestChip({
     <li
       data-chapter={entry.chapter}
       data-part={entry.id}
+      data-check-in={entry.checkInAt.toFixed(4)}
       // w-32, not w-36: the spacing scale is REPLACED with
       // 0,1,2,3,4,6,8,12,16,20,24,32, so `w-36` generates nothing and
       // `flex-none` then sizes each chip to its own text -- measured 74px to
@@ -214,7 +228,32 @@ export async function PartsManifest({ variant }: { variant: "panel" | "rail" }) 
       aria-label={t("navLabel")}
       className={isPanel ? "hidden flex-col gap-3 lg:flex" : "flex flex-col gap-3 lg:hidden"}
     >
-      <h2 className="text-body font-bold text-graphite-0">{t("title")}</h2>
+      <div className="flex items-baseline justify-between gap-3">
+        <h2 className="text-body font-bold text-graphite-0">{t("title")}</h2>
+        {/* The counter, pre-rendered once per possible value with CSS showing
+            the one that matches (P13.S4).
+
+            Ten spans rather than one the client rewrites, because the count is
+            Persian-shaped text: `toPersianDigits` and the ICU message both live
+            on the server, and having the browser rebuild "۳ از ۹" would mean
+            shipping the digit mapping and the message format to a route already
+            over budget -- to render ten strings that are known at build time.
+            The client's whole job stays what it is everywhere else in this
+            hero: write one attribute. */}
+        <p className="manifest-counter font-mono text-caption text-graphite-400">
+          {/* Ascending, so the LAST span is the complete count -- which is what
+              CSS falls back to when JavaScript never marks one, and which is the
+              state a no-JS visitor's fully-rendered list is actually in. */}
+          {Array.from({ length: entries.length + 1 }, (_, count) => (
+            <span key={count} data-count={count}>
+              {t("counter", {
+                n: toPersianDigits(count),
+                total: toPersianDigits(entries.length),
+              })}
+            </span>
+          ))}
+        </p>
+      </div>
       {/* Read instead of the choreography, which a screen reader never sees. */}
       <p className="sr-only">{t("intro")}</p>
       {/* `data-chapter-reached` starts at the LAST chapter, not the first: with

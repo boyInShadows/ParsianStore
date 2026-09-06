@@ -1,5 +1,11 @@
 import { CATALOG_SYSTEMS, type CatalogSystemCode } from "schemas";
-import { HERO_ENGINE_CHAPTER, HERO_ENGINE_PARTS, HERO_LAYERS, type HeroLayer } from "./heroLayout";
+import {
+  HERO_ENGINE_CHAPTER,
+  HERO_ENGINE_PARTS,
+  HERO_LAYERS,
+  beatOf,
+  type HeroLayer,
+} from "./heroLayout";
 
 /**
  * The parts manifest: the numbered list a workshop manual prints beside its
@@ -186,6 +192,17 @@ export type ManifestEntry = ManifestPart & {
    * manifest never offers a second way into the same place (§2.4).
    */
   readonly href: string;
+  /**
+   * The scroll progress at which this row checks in: the moment its own part
+   * starts leaving the car (P13.S4).
+   *
+   * Per part, not per chapter. Until now a row appeared when its *chapter*
+   * opened, so all three of chapter 1's rows arrived together while the
+   * headlights were still the only thing moving -- the list said three parts
+   * had come off while the visitor could see one. Read from `beatOf` rather
+   * than restated, so a retuned BEAT_SPAN moves the rows with the parts.
+   */
+  readonly checkInAt: number;
 };
 
 const systemByCode = new Map(CATALOG_SYSTEMS.map((system) => [system.code, system]));
@@ -260,6 +277,7 @@ export function manifestEntries(): readonly ManifestEntry[] {
       entry: {
         ...part,
         chapter: first.chapter,
+        checkInAt: beatOf(first.chapter, first.id)[0] ?? 0,
         systemSlug: system.slug,
         systemNameFa: system.name.fa,
         href: `/c/${system.slug}`,

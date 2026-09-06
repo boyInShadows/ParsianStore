@@ -660,3 +660,95 @@ test("every leader line lands on the part its caption names", async ({ page }) =
     expect(misses, `at p=${sample.at.toFixed(3)} (${sample.what})`).toEqual([]);
   }
 });
+
+/**
+ * The job card, checked in part by part (P13.S4).
+ *
+ * The failure this replaces: rows arrived per *chapter*, so all three of
+ * chapter 1's appeared the moment the headlights moved and the list claimed
+ * three parts had come off while the visitor could see one.
+ */
+test.describe("the job card", () => {
+  const visibleNav = "#hero nav[aria-label]:visible";
+
+  test("checks in one row per part, in the order the parts leave", async ({ page }) => {
+    await gotoHero(page);
+    await scrollHeroTo(page, 0);
+
+    const counts: number[] = [];
+    for (const sample of holdSamples()) {
+      await scrollHeroTo(page, sample.at);
+      counts.push(await page.locator(`${visibleNav} .manifest-row[data-checked]`).count());
+    }
+
+    // Never goes backwards while scrolling forwards, and every part ends up on
+    // the card.
+    for (let i = 1; i < counts.length; i += 1) {
+      expect(counts[i], `the card un-checked a row at sample ${i}`).toBeGreaterThanOrEqual(
+        counts[i - 1]!,
+      );
+    }
+    expect(counts[0], "rows are already checked in before anything moved").toBe(0);
+    expect(counts[counts.length - 1], "the card is not full at the end").toBe(9);
+
+    // The point of the step, asserted where it is actually true: every row has
+    // its own check-in point.
+    //
+    // Not "the count never jumps by more than one between samples" -- that was
+    // the first version and it failed for a reason that is not a defect. The
+    // samples are slot hold midpoints, and between two of them the chapter-2
+    // cover and the first part underneath it both legitimately arrive. It was
+    // measuring the sampling, not the behaviour.
+    const checkIns = await page
+      .locator(`${visibleNav} .manifest-row`)
+      .evaluateAll((rows) => rows.map((row) => row.getAttribute("data-check-in")));
+    expect(new Set(checkIns).size, "two rows check in on the same beat").toBe(checkIns.length);
+  });
+
+  test("counts what is actually on the card", async ({ page }) => {
+    await gotoHero(page);
+    for (const at of [0, 0.3, 0.55, 0.85]) {
+      await scrollHeroTo(page, at);
+      const state = await page.evaluate(() => {
+        const nav = [...document.querySelectorAll("#hero nav[aria-label]")].find(
+          (candidate) => (candidate as HTMLElement).offsetParent !== null,
+        )!;
+        const counter = nav.querySelector(".manifest-counter")!;
+        const shown = [...counter.querySelectorAll("span")].find(
+          (span) => getComputedStyle(span).display !== "none",
+        );
+        return {
+          checked: nav.querySelectorAll(".manifest-row[data-checked]").length,
+          shown: [...counter.querySelectorAll("span")].filter(
+            (span) => getComputedStyle(span).display !== "none",
+          ).length,
+          text: shown?.getAttribute("data-count"),
+        };
+      });
+      expect(state.shown, `p=${at}: more than one counter value is visible`).toBe(1);
+      expect(Number(state.text), `p=${at}: the counter disagrees with the card`).toBe(
+        state.checked,
+      );
+    }
+  });
+
+  test("shows a full card and a matching count with JavaScript disabled", async ({ browser }) => {
+    // The no-JS contract runs through the counter now too: a complete list under
+    // a count of zero would be the same lie in the other direction.
+    const context = await browser.newContext({ javaScriptEnabled: false });
+    const page = await context.newPage();
+    await page.goto("/");
+    const nav = page.locator("#hero nav[aria-label]").first();
+    await expect(nav.locator(".manifest-row")).toHaveCount(9);
+
+    const shown = await nav
+      .locator(".manifest-counter span")
+      .evaluateAll((spans) =>
+        spans
+          .filter((span) => getComputedStyle(span).display !== "none")
+          .map((span) => span.getAttribute("data-count")),
+      );
+    expect(shown).toEqual(["9"]);
+    await context.close();
+  });
+});
