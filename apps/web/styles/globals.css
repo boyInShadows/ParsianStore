@@ -161,6 +161,172 @@
     border-color: var(--brand-solid);
   }
 
+  /* ---- Light, shadow and focus (P13.S5) -------------------------------
+
+     The audit's fourth finding was "no camera, no light, no depth". P13.S2 was
+     the camera; this is the light. All of it is CSS keyed off the one
+     `data-active` / `data-focus` pair StageNarration already writes, so the
+     depth costs no motion values and no extra elements except the floor.
+
+     ## The floor
+
+     A soft ellipse under the car, in the frame's own coordinates. It is the
+     single cheapest depth cue available here: without it the sprites are
+     cutouts on a flat dark field, and nothing in the scene says the car is
+     standing on anything. Static rather than scroll-linked -- the plan wanted
+     it to widen as parts detach, which is a motion value per frame for an
+     effect at 35% opacity behind a car. */
+  .hero-floor {
+    position: absolute;
+    /* Under the car's own footprint, from the same canvas coordinates the
+       sprites use. The car spans canvas rows 333-700 and columns 103-926. */
+    inset-inline-start: 8%;
+    top: 66%;
+    width: 84%;
+    height: 7%;
+    background: radial-gradient(
+      ellipse at center,
+      color-mix(in oklab, var(--color-graphite-1000) 55%, transparent) 0%,
+      transparent 70%
+    );
+    filter: blur(18px);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* ## Focus
+
+     While one part is out, everything else drops back. This is the cinematic
+     half of "the camera moves before the part does": the camera says where to
+     look and this says what to look at. `data-focus` gates it, so a stage with
+     nothing detached is not a stage with everything dimmed. */
+  .hero-stage[data-focus] img:not([data-active]) {
+    /* Light, not transparency. The plan asked for 55% opacity and that is what
+       shipped first -- on a graphite-950 stage it made the car look see-through
+       rather than out of focus, a ghost of itself with the background showing
+       through the bodywork. Dropping brightness and saturation instead keeps
+       every panel solid and simply moves it out of the light, which is what
+       "focus" means when the subject is an object rather than a layer. */
+    filter: saturate(0.5) brightness(0.62);
+  }
+
+  .hero-stage img {
+    transition:
+      opacity var(--duration-base) var(--ease-out),
+      filter var(--duration-base) var(--ease-out);
+  }
+
+  /* ## The detached part's own shadow
+
+     Only while it is out, which is also when it is true: a docked panel sits
+     flush on the body and casts nothing. `drop-shadow` follows the alpha
+     channel, so it traces the part's real silhouette rather than boxing it --
+     the same reason the highlight uses it. */
+  .hero-stage img[data-active] {
+    filter: drop-shadow(
+      0 14px 18px color-mix(in oklab, var(--color-graphite-1000) 45%, transparent)
+    );
+  }
+
+  /* The highlight has to restate the shadow: both rules set `filter`, and the
+     later one wins outright rather than composing. A hovered part that is also
+     the part currently out should keep its shadow AND gain the glow. */
+  .hero-stage img[data-highlight][data-active] {
+    filter: drop-shadow(
+        0 14px 18px color-mix(in oklab, var(--color-graphite-1000) 45%, transparent)
+      )
+      drop-shadow(0 0 6px var(--brand-solid));
+  }
+
+  /* ## Headlight bloom
+
+     Two soft warm discs at the lamp anchors, on while the headlights are the
+     part that is out. `screen` so they add light rather than paint over the
+     lens, and marigold because that is the warm end of the palette -- this is
+     the one place in the hero it appears without being a call to action, and
+     it is light rather than an accent. */
+  .hero-bloom {
+    position: absolute;
+    display: none;
+    /* 22%, not 70%. At 70% under `screen` the two lamps rendered as flat
+       yellow discs sitting on the car rather than as light coming off it --
+       the shot at p=0.087 made that obvious in a way no number would have. */
+    background: radial-gradient(
+      circle,
+      color-mix(in oklab, var(--color-marigold-300) 22%, transparent) 0%,
+      transparent 62%
+    );
+    mix-blend-mode: screen;
+    pointer-events: none;
+  }
+
+  .hero-bloom[data-shown] {
+    display: block;
+  }
+
+  /* ## Arrival
+
+     One slow pass of light across the body as the hero comes in. Deliberately
+     NOT scroll-linked, unlike everything else here: the plan drove it from
+     p 0.00-0.02, which on the desktop track is 38 pixels of scroll -- a beat
+     almost nobody would ever see. As a one-shot on load it is what it is
+     named for, the car arriving on the lift, and it costs one CSS animation.
+
+     Masked to the base sprite so the light falls on the car and not on the
+     empty stage around it. */
+  .hero-sweep {
+    position: absolute;
+    pointer-events: none;
+    background: linear-gradient(
+      100deg,
+      transparent 40%,
+      color-mix(in oklab, var(--color-graphite-50) 22%, transparent) 50%,
+      transparent 60%
+    );
+    background-size: 300% 100%;
+    background-position: 100% 0;
+    -webkit-mask-image: var(--hero-sweep-mask);
+    mask-image: var(--hero-sweep-mask);
+    -webkit-mask-size: contain;
+    mask-size: contain;
+    -webkit-mask-repeat: no-repeat;
+    mask-repeat: no-repeat;
+    /* `forwards`, and the last keyframe is transparent. With `both` and a
+       final background-position the gradient's tail stayed parked across the
+       body for the rest of the session -- a permanent haze over the car that
+       looked like a rendering fault. A sweep has to leave. */
+    opacity: 0;
+    animation: hero-sweep 1600ms var(--ease-out) 300ms 1 forwards;
+  }
+
+  @keyframes hero-sweep {
+    0% {
+      background-position: 100% 0;
+      opacity: 0;
+    }
+    20% {
+      opacity: 1;
+    }
+    80% {
+      opacity: 1;
+    }
+    100% {
+      background-position: 0 0;
+      opacity: 0;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .hero-sweep {
+      animation: none;
+      opacity: 0;
+    }
+
+    .hero-stage img {
+      transition: none !important;
+    }
+  }
+
   /* The sprite half. `filter` rather than `outline` because these are cutouts:
      drop-shadow follows the alpha channel, so the glow traces the part's real
      silhouette instead of boxing it. It is also the one property here that
@@ -197,9 +363,33 @@
      Without JavaScript no plate is ever shown, which is correct: the car never
      separates either, and the manifest beside it carries the same names, codes
      and links in a list that needs no scrolling to read. */
+  /* One caption slot in STAGE space, not eleven in canvas space.
+
+     The version this replaces placed each plate beside its own part inside the
+     camera, with a leader line joining them. It read well at chapters 2 and 3
+     and broke at chapter 1: a plate measured in canvas pixels is magnified 35%
+     by that chapter's push-in while the window it has to fit inside shrinks to
+     roughly 760x570 at the same moment. The headlights' caption rendered cut in
+     half against the top of the stage. Narrowing the plate only makes its copy
+     wrap taller, and the band is 195 rows. There is no size that works.
+
+     Here it cannot be clipped, cannot cover the car, and needs no solver. The
+     slot takes the band the part did NOT travel into, so the caption and the
+     thing it names are never in the same half of the stage. */
   .hero-callout {
     position: absolute;
+    inset-inline-start: 3%;
+    width: min(22rem, 44%);
     display: none;
+    z-index: 3;
+  }
+
+  .hero-callout[data-band="above"] {
+    bottom: 3%;
+  }
+
+  .hero-callout[data-band="below"] {
+    top: 3%;
   }
 
   .hero-callout[data-shown] {
@@ -211,15 +401,11 @@
     display: flex;
     flex-direction: column;
     gap: var(--space-1);
-    /* The plate must not grow past the box `heroScene.ts` reserved for it --
-       that box is what every collision with the car and with the part itself is
-       computed against, so copy that overflowed it would be copy the layout
-       never checked. `box-sizing` is explicit for the same reason: without it
-       the padding and border sat *outside* the declared width and the rendered
-       plate came out 26px wider than the geometry said. */
+    /* `box-sizing` explicit: without it the padding and border sat outside the
+       declared width, and the plate rendered 26px wider than it was asked to
+       be -- which mattered a great deal when the layout was solving collisions
+       against that number, and is merely tidy now that it is not. */
     box-sizing: border-box;
-    width: 100%;
-    height: 100%;
     /* The plate is a surface on the stage, not on the page: the stage keeps its
        dark ground in both themes (HeroV2's bg-graphite-950), so these tokens are
        the fixed graphite ramp rather than the theme-flipping semantic ones. */
@@ -269,18 +455,6 @@
 
   .hero-finale[data-shown] {
     display: flex;
-  }
-
-  /* Steel Blue, never Marigold: this is a line pointing at a thing, and
-     tokens.css reserves Marigold for where money changes hands. */
-  .hero-leader {
-    display: none;
-    stroke: var(--brand-solid);
-    stroke-width: 1;
-  }
-
-  .hero-leader[data-shown] {
-    display: inline;
   }
 
   @media (prefers-reduced-motion: reduce) {

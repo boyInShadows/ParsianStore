@@ -74,6 +74,13 @@ export const CAMERA_MARGIN = 40;
  */
 const DRIFT = 0.985;
 
+export type CameraWindow = {
+  readonly left: number;
+  readonly right: number;
+  readonly top: number;
+  readonly bottom: number;
+};
+
 export type CameraStop = {
   /** Scroll progress this framing is reached at. */
   readonly at: number;
@@ -126,7 +133,12 @@ function chapterExtent(chapter: HeroLayer["chapter"]) {
  * The framing for one station: as close as its own parts allow, aimed as near
  * its focus point as the canvas allows.
  */
-function frame(chapter: HeroLayer["chapter"], drift = 1): Omit<CameraStop, "at"> {
+function frame(
+  chapter: HeroLayer["chapter"],
+  drift = 1,
+): Omit<CameraStop, "at"> & {
+  window: CameraWindow;
+} {
   const extent = chapterExtent(chapter);
   const needWidth = extent.right - extent.left + CAMERA_MARGIN * 2;
   const needHeight = extent.bottom - extent.top + CAMERA_MARGIN * 2;
@@ -160,6 +172,12 @@ function frame(chapter: HeroLayer["chapter"], drift = 1): Omit<CameraStop, "at">
     x: -(toStageX(cx) - 0.5) * scale,
     y: -(toStageY(cy) - 0.5) * scale,
     ...ANGLE[chapter],
+    window: {
+      left: cx - windowW / 2,
+      right: cx + windowW / 2,
+      top: cy - windowH / 2,
+      bottom: cy + windowH / 2,
+    },
   };
 }
 

@@ -94,6 +94,34 @@ export function StageNarration() {
         element.setAttribute("data-shown", "");
       }
     }
+
+    // The same write also drives the light (P13.S5). Focus dimming, the
+    // detached part's drop shadow and the headlight bloom are all "is this the
+    // part that is currently out", so they key off one attribute rather than
+    // three mechanisms -- and the CSS that reads it lives in globals.css.
+    //
+    // `data-active` is on the sprite; `data-focus` on the stage is what turns
+    // dimming on at all, so a stage with nothing out is not a stage with
+    // everything dimmed.
+    const stage = root.querySelector<HTMLElement>(".hero-stage");
+    for (const sprite of root.querySelectorAll(".hero-stage img[data-active]")) {
+      sprite.removeAttribute("data-active");
+    }
+    if (stage) {
+      if (id && id !== FINALE_ID) {
+        stage.dataset.focus = "";
+        for (const sprite of root.querySelectorAll(
+          `.hero-stage img[data-part="${CSS.escape(id)}"]`,
+        )) {
+          sprite.setAttribute("data-active", "");
+        }
+      } else {
+        // At the finale every part is the subject, so dimming all but one would
+        // be dimming the catalogue.
+        delete stage.dataset.focus;
+      }
+    }
+
     shown.current = id;
   };
 

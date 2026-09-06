@@ -16,15 +16,6 @@ import {
 import { finaleBands, sceneParts, scenePartById, type CanvasBox } from "./heroScene";
 
 /** The stripped body's own box, from the same source heroScene reads. */
-function carBox(): CanvasBox {
-  const bands = finaleBands();
-  return {
-    left: 0,
-    top: bands.above.bottom,
-    width: HERO_CANVAS,
-    height: bands.below.top - bands.above.bottom,
-  };
-}
 
 /**
  * The finale is the one beat nobody can eyeball.
@@ -223,57 +214,5 @@ describe("HERO_STAGE_ASPECT", () => {
     expect(HERO_VISIBLE_ROWS.top).toBeLessThan(135);
     expect(HERO_VISIBLE_ROWS.bottom).toBeGreaterThan(889);
     expect(HERO_VISIBLE_ROWS.bottom).toBeLessThan(899);
-  });
-});
-
-describe("label plates", () => {
-  const overlapping = (a: CanvasBox, b: CanvasBox, clearance = 0) =>
-    a.left < b.left + b.width + clearance &&
-    a.left + a.width + clearance > b.left &&
-    a.top < b.top + b.height + clearance &&
-    a.top + a.height + clearance > b.top;
-
-  it("never puts a plate on the car", () => {
-    // The car is the one thing on screen at every scroll position, so a plate
-    // over it is unreadable at every scroll position. §1.3 asks for this by
-    // hand ("chosen so nothing crosses the car"); this is the same rule solved.
-    const car = carBox();
-    for (const part of sceneParts()) {
-      expect(overlapping(part.label, car), `${part.id}'s plate sits on the car`).toBe(false);
-    }
-  });
-
-  it("never puts a plate on the part it names", () => {
-    for (const part of sceneParts()) {
-      expect(
-        overlapping(part.label, part.peak),
-        `${part.id}'s plate covers ${part.id} -- the label would name a part you cannot see`,
-      ).toBe(false);
-    }
-  });
-
-  it("keeps every plate inside the rows the stage shows", () => {
-    for (const part of sceneParts()) {
-      expect(part.label.top, `${part.id}'s plate is above the frame`).toBeGreaterThanOrEqual(
-        HERO_VISIBLE_ROWS.top,
-      );
-      expect(
-        part.label.top + part.label.height,
-        `${part.id}'s plate is below the frame`,
-      ).toBeLessThanOrEqual(HERO_VISIBLE_ROWS.bottom);
-      expect(part.label.left).toBeGreaterThanOrEqual(0);
-      expect(part.label.left + part.label.width).toBeLessThanOrEqual(HERO_CANVAS);
-    }
-  });
-
-  it("puts the plate on the same side the part travelled", () => {
-    // A label that appeared on the opposite side of the car from the part it
-    // names would make the leader line cross the bodywork, which is the thing
-    // §1.3 rules out.
-    const car = carBox();
-    for (const part of sceneParts()) {
-      const plateAbove = part.label.top + part.label.height <= car.top;
-      expect(plateAbove, `${part.id}'s plate is in the wrong band`).toBe(part.band === "above");
-    }
   });
 });

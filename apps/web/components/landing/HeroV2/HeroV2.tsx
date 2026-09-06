@@ -4,7 +4,7 @@ import { VehicleSelectorLazy } from "@/components/garage";
 import { getSystemPartCounts } from "@/lib/fetchers/exploded-view";
 import { HeroScrollProvider } from "./HeroScrollProvider";
 import { HeroStage } from "./HeroStage";
-import { PartCallouts, StageFinale } from "./PartCallout";
+import { HeadlightBloom, PartCallouts, StageFinale } from "./PartCallout";
 import { PartCodeSearch } from "./PartCodeSearch";
 import { PartsManifest } from "./PartsManifest";
 import { StageNarration } from "./StageNarration";
@@ -201,6 +201,7 @@ export async function HeroV2() {
               carAlt={t("staticStateAlt")}
               hint={t("scrollHint")}
               callouts={<PartCallouts />}
+              bloom={<HeadlightBloom />}
               finale={<StageFinale />}
             />
             {/* Decides which callout is showing, and renders no markup of its

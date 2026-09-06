@@ -649,31 +649,3 @@ export const FINALE_BEAT: readonly [number, number, number, number] = [0.86, 0.9
  * on the beat the visitor is meant to stop and read.
  */
 export const FINALE_DRIFT = { amplitude: 3, cycles: 220 } as const;
-
-/**
- * The label plate a callout draws, in canvas pixels (fableTasks v1.1 §1.3).
- *
- * One size for every part rather than a box that fits its own copy. The plates
- * appear one at a time as the visitor scrolls, so a plate that changed shape
- * per part would read as the panel itself moving; a constant rectangle reads as
- * one caption slot being refilled.
- *
- * **Both numbers are measured, not chosen.** The first draft reserved 300x90
- * and the plates rendered 326x183 -- so every collision in `heroScene.ts` was
- * computed against a box half the height of the thing on screen, and the tests
- * passed while a caption sat on the car.
- *
- * The width is set by the tightest part in the scene rather than by taste. A
- * plate shares its band with the part it names, so it has to fit beside it: the
- * fender's peak spans canvas 316-621 and leaves 371 clear pixels to the end
- * edge, which is the smallest gap any part leaves. 360 fits that with the
- * clearance; 400 did not, and the overlap test said so.
- *
- * The height is what 360 actually renders at once the link shares the name's
- * row, and the plate is capped to it in CSS -- so copy can never push past the
- * box the layout reserved and quietly invalidate every collision check.
- */
-export const LABEL_PLATE = { width: 360, height: 150 } as const;
-
-/** Canvas pixels kept between a plate and the car, its own part, or an edge. */
-export const LABEL_CLEARANCE = 16;

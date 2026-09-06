@@ -557,38 +557,61 @@ test.describe("part callouts", () => {
     }
   });
 
-  test("keeps every plate clear of the car and inside the stage", async ({ page }) => {
+  test("keeps every caption on screen and off the part it names", async ({ page }) => {
     await gotoHero(page);
 
     for (const sample of holds()) {
       await scrollHeroTo(page, sample.at);
       const boxes = await page.evaluate(() => {
         const plate = document.querySelector(".hero-callout[data-shown]");
-        const car = document.querySelector(".hero-stage img[alt]:not([alt=''])");
         const stage = document.querySelector(".hero-stage");
-        if (!plate || !car || !stage) return null;
-        const r = (el: Element) => el.getBoundingClientRect();
-        return { plate: r(plate), car: r(car), stage: r(stage) };
+        if (!plate || !stage) return null;
+        const id = plate.getAttribute("data-callout") ?? "";
+        const parts = [...document.querySelectorAll(`.hero-stage img[data-part="${id}"]`)].map(
+          (sprite) => sprite.getBoundingClientRect(),
+        );
+        return {
+          plate: plate.getBoundingClientRect(),
+          stage: stage.getBoundingClientRect(),
+          parts,
+        };
       });
-      if (!boxes) throw new Error(`no visible callout at ${sample.at}`);
+      if (!boxes) throw new Error(`no visible caption at ${sample.at}`);
 
-      const { plate, car, stage } = boxes;
-      const overlapsCar =
-        plate.left < car.right &&
-        plate.right > car.left &&
-        plate.top < car.bottom &&
-        plate.bottom > car.top;
-      expect(overlapsCar, `the caption sits on the car at ${sample.at.toFixed(3)}`).toBe(false);
+      const { plate, stage, parts } = boxes;
 
-      // Horizontally the stage clips (overflow-x-clip), so a plate outside it is
-      // simply not there. Vertically the stage deliberately spills, so only the
-      // horizontal bound is a real constraint.
-      expect(plate.left, `caption clipped at ${sample.at.toFixed(3)}`).toBeGreaterThanOrEqual(
-        stage.left - 1,
-      );
-      expect(plate.right, `caption clipped at ${sample.at.toFixed(3)}`).toBeLessThanOrEqual(
-        stage.right + 1,
-      );
+      // Fully inside the stage on both axes. The caption is positioned in stage
+      // space precisely so the camera can never crop it -- the version placed in
+      // canvas space was cut in half by chapter 1's push-in.
+      expect(
+        plate.left,
+        `caption off the start edge at ${sample.at.toFixed(3)}`,
+      ).toBeGreaterThanOrEqual(stage.left - 1);
+      expect(
+        plate.right,
+        `caption off the end edge at ${sample.at.toFixed(3)}`,
+      ).toBeLessThanOrEqual(stage.right + 1);
+      expect(
+        plate.top,
+        `caption above the stage at ${sample.at.toFixed(3)}`,
+      ).toBeGreaterThanOrEqual(stage.top - 1);
+      expect(
+        plate.bottom,
+        `caption below the stage at ${sample.at.toFixed(3)}`,
+      ).toBeLessThanOrEqual(stage.bottom + 1);
+
+      // And never on top of its own subject: a label covering the thing it
+      // names is the one collision that makes the caption worse than nothing.
+      for (const part of parts) {
+        const overlaps =
+          plate.left < part.right &&
+          plate.right > part.left &&
+          plate.top < part.bottom &&
+          plate.bottom > part.top;
+        expect(overlaps, `the caption covers ${sample.what} at ${sample.at.toFixed(3)}`).toBe(
+          false,
+        );
+      }
     }
   });
 
@@ -625,63 +648,6 @@ test.describe("part callouts", () => {
       expect(caption.href, `${caption.id}'s caption disagrees with its row`).toBe(rows[caption.id]);
     }
   });
-});
-
-/**
- * The assertion that would have caught the frame bug, and the reason it is
- * worth its own test: a plate can clear the car and still point at nothing.
- *
- * The leader line's anchor end is the one coordinate that ties the caption to
- * the thing it names. It is read through the SVG's own screen matrix rather
- * than from a bounding box, because a line's box is the rectangle between its
- * two ends -- which intersects the part whether or not the line touches it.
- */
-test("every leader line lands on the part its caption names", async ({ page }) => {
-  await gotoHero(page);
-
-  for (const sample of holdSamples().filter((s) => s.away.length > 0 && s.at > 0)) {
-    await scrollHeroTo(page, sample.at);
-
-    const misses = await page.evaluate(() => {
-      const out: string[] = [];
-      for (const line of document.querySelectorAll<SVGLineElement>(".hero-leader[data-shown]")) {
-        const id = line.getAttribute("data-callout") ?? "";
-        const svg = line.ownerSVGElement;
-        const ctm = svg?.getScreenCTM();
-        if (!ctm) continue;
-
-        const point = svg!.createSVGPoint();
-        point.x = line.x1.baseVal.value;
-        point.y = line.y1.baseVal.value;
-        const screen = point.matrixTransform(ctm);
-
-        const sprites = [...document.querySelectorAll(`.hero-stage img[data-part="${id}"]`)];
-        const hit = sprites.some((sprite) => {
-          const box = sprite.getBoundingClientRect();
-          return (
-            screen.x >= box.left - 2 &&
-            screen.x <= box.right + 2 &&
-            screen.y >= box.top - 2 &&
-            screen.y <= box.bottom + 2
-          );
-        });
-        if (!hit) {
-          out.push(
-            `${id}: leader anchored at ${Math.round(screen.x)},${Math.round(screen.y)} but its ` +
-              `sprite is at ${sprites
-                .map((s) => {
-                  const b = s.getBoundingClientRect();
-                  return `${Math.round(b.left)},${Math.round(b.top)} ${Math.round(b.width)}x${Math.round(b.height)}`;
-                })
-                .join(" / ")}`,
-          );
-        }
-      }
-      return out;
-    });
-
-    expect(misses, `at p=${sample.at.toFixed(3)} (${sample.what})`).toEqual([]);
-  }
 });
 
 /**

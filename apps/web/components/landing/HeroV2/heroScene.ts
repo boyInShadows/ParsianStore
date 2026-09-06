@@ -1,5 +1,4 @@
 import { landingAsset } from "@/lib/landing-image";
-import { calloutSubjects } from "./manifestData";
 import {
   FINALE_BAND,
   FINALE_MARGIN,
@@ -10,8 +9,6 @@ import {
   HERO_ENGINE_PARTS,
   HERO_LAYERS,
   HERO_VISIBLE_ROWS,
-  LABEL_CLEARANCE,
-  LABEL_PLATE,
   type HeroClip,
   type HeroLayer,
 } from "./heroLayout";
@@ -79,14 +76,6 @@ export type ScenePart = {
   readonly anchor: { readonly x: number; readonly y: number };
   /** The clear band the part travelled into, and so where its label belongs. */
   readonly band: "above" | "below";
-  /**
-   * Where this part's label plate sits while the part is out, in canvas pixels.
-   *
-   * Solved, not authored: it has to clear the car and the part's own peak box,
-   * and both of those move whenever a sprite is re-cut or an undock retuned.
-   * `heroScene.test.ts` asserts both clearances.
-   */
-  readonly label: CanvasBox;
   /** The transform that parks it in the finale, in the same units as `undock`. */
   readonly finale: { readonly dx: number; readonly dy: number; readonly scale: number };
 };
@@ -167,7 +156,7 @@ function enginePartBox(part: (typeof HERO_ENGINE_PARTS)[number]): CanvasBox {
 }
 
 /** The stripped body, which never moves and so defines the two clear bands. */
-function baseBox(): CanvasBox {
+export function baseBox(): CanvasBox {
   const asset = landingAsset(`/landing/hero/${HERO_BASE_ASSET}`);
   if (!asset.trim) throw new Error("The stripped base is untrimmed and cannot anchor the scene.");
   return {
@@ -268,60 +257,6 @@ function finaleTargets(parts: ReturnType<typeof rawParts>) {
 }
 
 /**
- * Where a part's label plate goes while that part is out.
- *
- * Two constraints and no more, because only two things are on screen: the car,
- * which never moves, and this one part at its peak. Every chapter plays one
- * slot at a time (`CHAPTER_SEQUENCE` staggered by `BEAT_SPAN`), so a plate can
- * never contend with another plate however many parts share a band -- which is
- * what makes this a per-part solve rather than a global packing problem.
- *
- * The plate goes in the clear band the part travelled toward. That is the only
- * region guaranteed to be empty of car, and putting it there means the leader
- * line runs from the part outward rather than back across the bodywork -- §1.3
- * asks for exactly that, by hand; this works it out instead.
- *
- * Where the part is itself in that band -- the hood, the bumper, the engine
- * trio -- centring the plate under it would bury the label in the part it
- * names, so it slides sideways to whichever side of the part has more room.
- */
-function labelBox(peak: CanvasBox, band: "above" | "below", car: CanvasBox): CanvasBox {
-  const bands = {
-    above: { top: HERO_VISIBLE_ROWS.top, bottom: car.top },
-    below: { top: car.top + car.height, bottom: HERO_VISIBLE_ROWS.bottom },
-  };
-  const lane = bands[band];
-  const { width, height } = LABEL_PLATE;
-  const top = (lane.top + lane.bottom) / 2 - height / 2;
-
-  const minLeft = LABEL_CLEARANCE;
-  const maxLeft = HERO_CANVAS - width - LABEL_CLEARANCE;
-  const clampLeft = (value: number) => Math.min(Math.max(value, minLeft), maxLeft);
-
-  // First choice: centred under (or over) the part it names.
-  const centred = clampLeft(peak.left + peak.width / 2 - width / 2);
-
-  const overlapsPart =
-    top < peak.top + peak.height + LABEL_CLEARANCE &&
-    top + height + LABEL_CLEARANCE > peak.top &&
-    centred < peak.left + peak.width + LABEL_CLEARANCE &&
-    centred + width + LABEL_CLEARANCE > peak.left;
-
-  if (!overlapsPart) return { left: centred, top, width, height };
-
-  // The part is in the same band. Take whichever side of it has more room, and
-  // sit flush against it with the clearance between.
-  const roomStart = peak.left - LABEL_CLEARANCE * 2;
-  const roomEnd = HERO_CANVAS - (peak.left + peak.width) - LABEL_CLEARANCE * 2;
-  const left =
-    roomEnd >= roomStart
-      ? clampLeft(peak.left + peak.width + LABEL_CLEARANCE)
-      : clampLeft(peak.left - LABEL_CLEARANCE - width);
-
-  return { left, top, width, height };
-}
-
-/**
  * The whole scene with every derived field resolved.
  *
  * Computed once at module scope, like `manifestEntries()`'s own consumers do:
@@ -331,8 +266,6 @@ function labelBox(peak: CanvasBox, band: "above" | "below", car: CanvasBox): Can
 export function sceneParts(): readonly ScenePart[] {
   const parts = rawParts();
   const targets = finaleTargets(parts);
-  const car = baseBox();
-
   return parts.map((part) => {
     const visual = clipped(part.box, part.clip);
     const boxMiddle = centre(part.box);
@@ -390,7 +323,6 @@ export function sceneParts(): readonly ScenePart[] {
       // upward but park below for the same reason in reverse. Reusing one
       // number for both would put four labels in the wrong half of the stage.
       band,
-      label: labelBox(peak, band, car),
       finale: { dx: target.x - parkedX, dy: target.y - parkedY, scale },
     };
   });
@@ -399,56 +331,4 @@ export function sceneParts(): readonly ScenePart[] {
 /** The scene keyed by id, for the components that look a single part up. */
 export function scenePartById(): ReadonlyMap<string, ScenePart> {
   return new Map(sceneParts().map((part) => [part.id, part]));
-}
-
-/**
- * One callout's geometry: where its plate sits, and every point it points at.
- *
- * Per *subject*, not per layer, and the headlights are why. They are one part
- * -- one name, one row, one link -- rendered as two clipped instances of a
- * single file sitting in two sockets a third of the car apart. Two plates
- * reading «چراغ جلو» would say the car has two different parts with the same
- * name; one plate with two leader lines says what is true.
- */
-export type CalloutPlacement = {
-  readonly id: string;
-  readonly anchors: readonly { readonly x: number; readonly y: number }[];
-  readonly label: CanvasBox;
-  readonly band: "above" | "below";
-};
-
-export function calloutPlacements(): readonly CalloutPlacement[] {
-  const byId = scenePartById();
-  const car = baseBox();
-
-  return calloutSubjects().map((subject) => {
-    const parts = subject.layerIds.map((layerId) => {
-      const part = byId.get(layerId);
-      if (!part) {
-        throw new Error(
-          `Callout "${subject.id}" names layer "${layerId}", which is not in the scene.`,
-        );
-      }
-      return part;
-    });
-
-    // The union of the subject's peaks, so a two-lamp plate is placed clear of
-    // both lamps rather than clear of whichever happened to come first.
-    const left = Math.min(...parts.map((p) => p.peak.left));
-    const top = Math.min(...parts.map((p) => p.peak.top));
-    const peak = {
-      left,
-      top,
-      width: Math.max(...parts.map((p) => p.peak.left + p.peak.width)) - left,
-      height: Math.max(...parts.map((p) => p.peak.top + p.peak.height)) - top,
-    };
-
-    const band = parts[0]!.band;
-    return {
-      id: subject.id,
-      anchors: parts.map((part) => part.anchor),
-      label: labelBox(peak, band, car),
-      band,
-    };
-  });
 }

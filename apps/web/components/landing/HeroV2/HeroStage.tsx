@@ -1,6 +1,6 @@
 "use client"; // scroll-linked undock -- useScroll/useTransform need the client
 
-import type { ReactNode } from "react";
+import type { CSSProperties, ReactNode } from "react";
 import { motion, useReducedMotion, useTransform, type MotionValue } from "motion/react";
 import { useHeroScroll } from "./HeroScrollProvider";
 import { landingAsset, landingFallback, landingSrcSet } from "@/lib/landing-image";
@@ -47,11 +47,17 @@ type Props = {
    *
    * This component is a Client Component, so it cannot render an async Server
    * Component itself -- but it can receive one as a prop from its server
-   * parent, which is what keeps eleven plates of text and links out of the
-   * route's JavaScript. It belongs inside the camera so the plates share the
-   * sprites' coordinate space and the leader lines stay attached.
+   * parent, which is what keeps ten plates of text and links out of the route's
+   * JavaScript. It renders OUTSIDE the camera: a caption measured in canvas
+   * pixels is magnified and clipped by the camera, which is what chapter 1's
+   * push-in did to the first version of it.
    */
   callouts?: ReactNode;
+  /**
+   * The headlights' glow, which unlike the captions belongs in canvas space --
+   * it is light on a lamp, so it must move with the lamp.
+   */
+  bloom?: ReactNode;
   /**
    * The finale's CTA (P13.S8) -- pinned with the stage, but outside its box.
    *
@@ -518,7 +524,7 @@ function DockedLayer({ layer, index }: { layer: HeroLayer; index: number }) {
  * every sprite. It collapses the track and unpins the stage, and leaves the
  * layers alone.
  */
-export function HeroStage({ label, carAlt, hint, callouts, finale }: Props) {
+export function HeroStage({ label, carAlt, hint, callouts, bloom, finale }: Props) {
   const reduceMotion = useReducedMotion();
   // The measurement itself lives in HeroScrollProvider so the parts manifest,
   // which renders in the other grid column, reads the same value (P12.S4).
@@ -597,6 +603,28 @@ export function HeroStage({ label, carAlt, hint, callouts, finale }: Props) {
                 transformStyle: "preserve-3d",
               }}
             >
+              {/* The floor the car stands on, and the light that arrives with
+                  it (P13.S5). Both sit inside the frame, so they share the
+                  sprites' coordinates and move with the camera; both are
+                  decorative and paint below every part. */}
+              <div className="hero-floor" aria-hidden="true" />
+              <div
+                className="hero-sweep"
+                aria-hidden="true"
+                style={
+                  {
+                    // Masked by the stripped body's own render, so the light
+                    // falls on the car rather than on the empty stage around
+                    // it. Same file the base image already loaded, so the mask
+                    // costs no second request.
+                    "--hero-sweep-mask": `url(${landingFallback(base.asset)})`,
+                    insetInlineStart: pct(base.left),
+                    top: pct(base.top),
+                    width: pct(base.width),
+                    height: pct(base.height),
+                  } as CSSProperties
+                }
+              />
               <img
                 src={landingFallback(base.asset)}
                 srcSet={landingSrcSet(base.asset)}
@@ -643,17 +671,19 @@ export function HeroStage({ label, carAlt, hint, callouts, finale }: Props) {
                   />
                 ),
               )}
-              {/* Inside the frame, not beside it. The callouts are positioned
-                  in canvas percentages exactly like the sprites, and a
-                  percentage resolves against the nearest positioned ancestor --
-                  so as a sibling of the frame they measured against the stage's
-                  814x560 box instead of the frame's 749 square, and every
-                  anchor sat up to 40px off the part it pointed at. Close enough
-                  to look right in a screenshot, which is why it is worth a
-                  comment. */}
-              {callouts}
+              {/* Inside the frame, because the glow has to sit on the lamp:
+                  a percentage resolves against the nearest positioned
+                  ancestor, and as a sibling of the frame it would measure
+                  against the stage's 814x560 box instead of the frame's 749
+                  square -- up to 40px off, and close enough to look right in a
+                  screenshot. */}
+              {bloom}
             </div>
           </HeroCamera>
+          {/* Outside the camera, deliberately: a caption in canvas space is
+              scaled by the camera and clipped by it, which is exactly what
+              chapter 1's push-in did to the first version. See PartCallout. */}
+          {callouts}
         </div>
         {finale}
         <p className="font-mono text-caption text-graphite-400 motion-reduce:hidden">{hint}</p>
