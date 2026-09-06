@@ -1,4 +1,5 @@
 import { getTranslations } from "next-intl/server";
+import { toPersianDigits } from "schemas";
 import { fetchVehicleTreeWithGenerationsSafe } from "@/lib/fetchers/vehicles";
 import { Reveal } from "@/components/motion";
 
@@ -53,8 +54,15 @@ export async function ShopByVehicle() {
                         className="flex min-h-12 items-center justify-between gap-2 text-body-sm text-text-muted transition-colors hover:text-brand focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus motion-reduce:transition-none"
                       >
                         <span>{model.name.fa}</span>
-                        <span className="font-mono text-caption text-text-muted">
-                          {newest.yearFrom}
+                        {/* Persian digits, and isolated (P13.S10). A year is a
+                            quantity in a Persian sentence, not a code, so the
+                            digit policy puts it in Persian numerals -- it was
+                            rendering "2007" beside «تیبا» while the header chip
+                            two sections up said «۲۰۲۰», which is the same page
+                            answering one question two ways. The href keeps the
+                            Latin year: that is a route segment, not copy. */}
+                        <span className="evidence-code font-mono text-caption text-text-muted">
+                          {toPersianDigits(String(newest.yearFrom))}
                         </span>
                       </a>
                     ) : (

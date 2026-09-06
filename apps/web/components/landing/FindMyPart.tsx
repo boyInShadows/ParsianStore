@@ -28,7 +28,11 @@ import { SystemGlyph, hasSystemGlyph } from "./SystemGlyph";
  * than on where it used to be.
  */
 export async function FindMyPart() {
+  // Two namespaces: this section has its own plate and heading, and it still
+  // renders the hero's two entry paths and system index, whose copy stays where
+  // it was so nothing had to be duplicated to move a component.
   const t = await getTranslations("Landing.beats.hero");
+  const tSection = await getTranslations("Landing.beats.findMyPart");
   const counts = await getSystemPartCounts();
 
   return (
@@ -41,10 +45,10 @@ export async function FindMyPart() {
         <div className="flex flex-col gap-2">
           <div className="flex items-center gap-3">
             <span className="h-px w-12 bg-cta" />
-            <p className="font-mono text-data text-graphite-300">{t("findCode")}</p>
+            <p className="font-mono text-data text-graphite-300">{tSection("code")}</p>
           </div>
           <h2 id="find-my-part-heading" className="font-display text-h2 font-black text-graphite-0">
-            {t("findTitle")}
+            {tSection("title")}
           </h2>
         </div>
 
