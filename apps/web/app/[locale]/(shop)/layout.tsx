@@ -7,6 +7,7 @@ import { GarageUrlSync } from "@/components/garage";
 import { AuthSession } from "@/components/auth";
 import { CartSession } from "@/components/cart";
 import { Toaster } from "@/components/primitives";
+import { RevealBoot } from "@/components/motion";
 
 export default async function ShopLayout({ children }: { children: ReactNode }) {
   // Header is a Client Component (needs interactive menus/modals) but
@@ -23,6 +24,13 @@ export default async function ShopLayout({ children }: { children: ReactNode }) 
 
   return (
     <div className="flex min-h-screen flex-col">
+      {/* First, and it has to stay first: it opts the document into the hidden
+          pre-reveal state before any `[data-reveal]` element is parsed, so
+          those elements' first paint is already the right one. Rendered later
+          they would paint visible and then be hidden -- the flash masterPlan.md
+          §6.7 forbids. It arms nothing on a page with no reveals, and its own
+          watchdog disarms if hydration never signals. */}
+      <RevealBoot />
       {/* useSearchParams() (inside GarageUrlSync) requires a Suspense
           boundary or Next.js forces the whole route out of static
           rendering -- masterPlan.md §10 wants the landing route SSG. */}

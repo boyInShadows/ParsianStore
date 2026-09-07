@@ -39,7 +39,7 @@ export async function ShopByVehicle() {
         </h2>
         <p className="max-w-2xl text-body text-text-muted">{t("subtitle")}</p>
       </Reveal>
-      <div className="mt-6 grid grid-cols-1 gap-6 sm:grid-cols-2">
+      <Reveal stagger className="mt-6 grid grid-cols-1 gap-6 sm:grid-cols-2">
         {tree.map(({ make, models }) => (
           <div key={make.id} className="rounded-lg border border-border bg-surface p-4">
             <h3 className="font-display text-h3 font-bold text-text">{make.name.fa}</h3>
@@ -76,7 +76,7 @@ export async function ShopByVehicle() {
             </ul>
           </div>
         ))}
-      </div>
+      </Reveal>
     </section>
   );
 }

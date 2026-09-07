@@ -410,6 +410,48 @@
     display: block;
   }
 
+  /* Beat 0's narration, in the stage rather than above it (P14.S3).
+
+     It was a page paragraph between the subline and the stage, and at 1440x900
+     it and its gap were 122px of the 459px that stood between the header and
+     the top of the drawing. It is not page copy -- it describes the picture --
+     so it moves inside as the caption of the beat before any part has left,
+     shown and hidden by the same `data-callout`/`data-shown` write as every
+     other caption.
+
+     A lower third, not a plate. It spans the stage rather than taking the
+     `.hero-callout` slot's 44% column, because at 390px that column is 157px
+     wide and an 85-character sentence sets seven lines in it. Full width it
+     sets two, in a band that is empty at beat 0 by construction: nothing has
+     undocked yet, and the callouts that will use the same lower band are never
+     on screen at the same time as this is -- `StageNarration` shows exactly
+     one subject. The scrim is there for the `hero-floor` gradient underneath,
+     not for the car.
+
+     The TOP band, not the bottom, and that was measured rather than chosen: at
+     1440x900 the stage runs y312..1015 at rest, so a lower third sits at y957
+     -- below the fold, which would have moved this sentence out of the first
+     screen in the very step that exists to pull things into it. The upper band
+     is 187px of clear canvas above the car at that width and 65px at 390, and
+     the caption sets 36px and 52px. */
+  .hero-lead {
+    position: absolute;
+    inset-inline: 3%;
+    top: 3%;
+    z-index: 3;
+    display: none;
+    box-sizing: border-box;
+    background-color: color-mix(in oklab, var(--stage) 88%, transparent);
+    padding: var(--space-2) var(--space-3);
+    color: var(--stage-text-muted);
+    text-align: start;
+    text-wrap: pretty;
+  }
+
+  .hero-lead[data-shown] {
+    display: block;
+  }
+
   /* Beat 0's invitation. Hidden by default so it never outlives its own truth;
      StageNarration shows it only before the first part moves. Without
      JavaScript nothing ever moves either, so a permanently hidden hint is the
@@ -503,6 +545,17 @@
   @media (prefers-reduced-motion: reduce) {
     .hero-callout-plate {
       transition: none !important;
+    }
+
+    /* The one caption that is NOT a narration of something moving. Reduced
+       motion renders the docked car and `StageNarration` shows nothing at all,
+       which is right for ten plates naming parts that never detach and wrong
+       for this sentence: it is the hero's value proposition, and it was
+       readable page copy before this step moved it into the stage. So it stays
+       on, permanently, over a lower band that is permanently empty. The
+       `noscript` block in HeroV2 is the other half of the pair. */
+    .hero-lead {
+      display: block;
     }
   }
 
@@ -640,28 +693,207 @@
     background-color: color-mix(in srgb, var(--stage) 50%, transparent);
   }
 
-  /* Marquee loop (components/motion/Marquee.tsx). Translating by exactly
-     -50% works because the marquee duplicates its content once, making the
-     track exactly double the width of one copy. */
-  @keyframes marquee {
-    from {
-      transform: translateX(0);
-    }
-    to {
-      transform: translateX(-50%);
+  /* ---- Enter-on-view reveals (components/motion/Reveal.tsx, P14.S7) ----
+
+     CSS, not motion's `whileInView`, and the reason is the route's measured
+     problem rather than a preference. `/` sits at 197KB First Load JS against
+     a 193KB gate and 306ms TBT against 200ms, and the attribution pass found
+     692 of ~936ms across the long tasks is Style & Layout recalculation, not
+     script execution. `motion` is already in this route's chunk (the hero), so
+     a `whileInView` wrapper would cost ~0 KB -- but roughly forty more
+     VisualElements to mount and measure at hydration is exactly the work that
+     number is made of. An IntersectionObserver plus a class costs one observer
+     for the whole page and does no layout reads on scroll at all.
+
+     Travel and duration are masterPlan.md §5's motion budget (<=24px, <=400ms)
+     and live in tokens.css. No scale, no blur, no bounce -- deliberately: this
+     is a workshop manual, not a startup deck.
+
+     Two shapes, one attribute:
+       [data-reveal]                      the block fades and rises as one
+       [data-reveal][data-reveal-stagger] its *children* do, 60ms apart
+
+     The observer only ever writes `data-reveal="in"`, so both shapes share one
+     code path and neither re-renders React.
+
+     ## The hidden state is OPT-IN, and that is the load-bearing part
+
+     Every rule that hides anything is gated on `:root[data-reveal-armed]`,
+     which nothing in this stylesheet and nothing on the server ever sets --
+     only `RevealBoot`'s blocking inline script does, before paint. The
+     server-rendered page is therefore *visible*, and JavaScript is what asks
+     for it to be hidden first.
+
+     Written the other way round -- hidden by default, cleared by an observer
+     that only exists after successful hydration -- the whole landing page below
+     the hero disappears permanently on any failure between paint and
+     hydration: a chunk 404, a throw from an unrelated component, an extension
+     eating part of the bundle. None of those are the no-JS visitor a
+     `scripting: none` query covers, and there is no error boundary that can
+     reach a CSS opacity. `ManifestCheckIn` already states this rule for the job
+     card -- "it only ever hides rows that it can bring back" -- and this is the
+     same rule for the rest of the page. The reveal is a nicety; the content is
+     the product. */
+  :root[data-reveal-armed] [data-reveal]:not([data-reveal-stagger]),
+  :root[data-reveal-armed] [data-reveal-stagger] > * {
+    opacity: 0;
+    transform: translate3d(0, var(--reveal-travel), 0);
+    transition:
+      opacity var(--duration-slow) var(--ease-out),
+      transform var(--duration-slow) var(--ease-out);
+  }
+
+  :root[data-reveal-armed] [data-reveal="in"]:not([data-reveal-stagger]),
+  :root[data-reveal-armed] [data-reveal-stagger][data-reveal="in"] > * {
+    opacity: 1;
+    transform: none;
+  }
+
+  /* The stagger, as :nth-child rather than an index written onto each child.
+     Cloning children to stamp a `--reveal-i` would turn every staggered grid
+     into client-owned markup, which is the one thing a leaf wrapper exists to
+     avoid. Capped at eight so a ten-chip grid's last chip is not held back
+     half a second after the first.
+
+     Not gated on `data-reveal-armed`: a `transition-delay` with no `transition`
+     to delay is inert, so an unarmed page carries these declarations and is
+     unaffected by them. Gating them would only add specificity noise. */
+  [data-reveal-stagger] > :nth-child(2) {
+    transition-delay: calc(1 * var(--reveal-stagger-step));
+  }
+  [data-reveal-stagger] > :nth-child(3) {
+    transition-delay: calc(2 * var(--reveal-stagger-step));
+  }
+  [data-reveal-stagger] > :nth-child(4) {
+    transition-delay: calc(3 * var(--reveal-stagger-step));
+  }
+  [data-reveal-stagger] > :nth-child(5) {
+    transition-delay: calc(4 * var(--reveal-stagger-step));
+  }
+  [data-reveal-stagger] > :nth-child(6) {
+    transition-delay: calc(5 * var(--reveal-stagger-step));
+  }
+  [data-reveal-stagger] > :nth-child(7) {
+    transition-delay: calc(6 * var(--reveal-stagger-step));
+  }
+  [data-reveal-stagger] > :nth-child(n + 8) {
+    transition-delay: calc(7 * var(--reveal-stagger-step));
+  }
+
+  /* Reduced motion renders the FINAL state, never the hidden one -- and does it
+     in CSS so it is true of the very first paint, before hydration has decided
+     anything. The same guarantee the marquee already had a backstop for.
+
+     `RevealBoot` reads the same preference and simply does not arm, so on the
+     normal path this query has nothing to override. It is kept for the two
+     cases the script cannot answer:
+
+       - the visitor turns reduced motion ON after the page armed. A media query
+         is live; the script ran once, at parse.
+       - `window.matchMedia` is missing, so the script armed without being able
+         to ask.
+
+     `(scripting: none)` is GONE from this query, and deliberately. It was a
+     Media Queries Level 5 feature with uneven engine support being asked to
+     carry the entire no-JS guarantee -- if it did not match, the page stayed
+     invisible. With the hidden state opted into by a script, a browser with no
+     scripting never arms and the query has nothing left to do.
+
+     Carries the `:root[data-reveal-armed]` prefix so it matches the specificity
+     of the rules it overrides and wins on source order. Without the prefix it
+     is two attribute selectors against four and would silently lose. */
+  @media (prefers-reduced-motion: reduce) {
+    :root[data-reveal-armed] [data-reveal]:not([data-reveal-stagger]),
+    :root[data-reveal-armed] [data-reveal-stagger] > * {
+      opacity: 1;
+      transform: none;
+      transition: none;
+      transition-delay: 0s;
     }
   }
 
-  /* CSS-level backstop for the same reduced-motion check Marquee.tsx does
-     in JS: `useReducedMotion()` needs `window.matchMedia`, unavailable
-     during SSR, so the very first paint (before hydration resolves the
-     preference) could otherwise briefly run the animation. This guarantees
-     it never does, independent of hydration timing. Targets a stable class
-     (not an inline-style attribute selector, whose serialized string order
-     isn't guaranteed across browsers for shorthand properties). */
+  /* ---- Marquee (components/motion/Marquee.tsx, P14.S7) ----------------
+
+     The track is two structurally identical runs. Each run is
+     item, separator, item, separator, ... including a *trailing* separator, so
+     the rhythm across the seam is the same as the rhythm inside a run -- the
+     previous shape put fifteen real nodes beside one wrapper holding the
+     duplicate, and the missing separator between the last name and the first
+     is what made the loop visibly restart.
+
+     Spacing lives on the separator (`ms-8 me-8`), never on a `gap`. A gap on
+     the track would sit between the two runs as well, making the track
+     2 x run + gap wide while the animation translates by exactly half of it --
+     off by half a gap every lap, which is a seam you can see.
+
+     Direction: `50%`, not `-50%`. Under `dir="rtl"` an overflowing block hangs
+     its inline-start edge on the container's *right* edge and spills to the
+     left, so the visible window shows the head of run 1 and everything to the
+     left of it is off-screen. Translating negatively walks the track's right
+     edge away from the container's and opens a growing blank band -- which is
+     what "not infinite" looked like. Translating positively feeds the
+     off-screen duplicate in from the left and lands run 2's first item exactly
+     where run 1's was. The custom property keeps the LTR case correct without
+     forcing `direction: ltr` onto Persian text. */
+  .motion-marquee-track {
+    --marquee-shift: -50%;
+    animation: marquee calc(var(--marquee-items) * var(--marquee-item-duration)) linear infinite;
+    /* Paused until the section is on screen. This is the default, not a state
+       JS has to reach in time: at scrollY=0 the brand wall is far below the
+       fold and `document.getAnimations()` must report `paused`. */
+    animation-play-state: paused;
+  }
+
+  [dir="rtl"] .motion-marquee-track {
+    --marquee-shift: 50%;
+  }
+
+  .motion-marquee[data-inview="true"] .motion-marquee-track {
+    animation-play-state: running;
+  }
+
+  /* After the in-view rule, so it wins at equal specificity. Hover and
+     focus-within both: a keyboard user tabbing through fifteen brand links
+     cannot chase a moving target. */
+  .motion-marquee:hover .motion-marquee-track,
+  .motion-marquee:focus-within .motion-marquee-track {
+    animation-play-state: paused;
+  }
+
+  @keyframes marquee {
+    from {
+      transform: translate3d(0, 0, 0);
+    }
+    to {
+      transform: translate3d(var(--marquee-shift), 0, 0);
+    }
+  }
+
+  /* Reduced motion is a different *layout*, not a slower loop: the names wrap
+     into rows and stay put. Done in CSS rather than by branching in the
+     component so the first paint is already correct -- `useReducedMotion()`
+     needs `window.matchMedia`, which does not exist during SSR, so a JS branch
+     would render the scrolling shape and swap it at hydration. The duplicate
+     run is display:none here rather than merely still, so a screen reader and
+     a Tab press meet each brand exactly once. */
   @media (prefers-reduced-motion: reduce) {
     .motion-marquee-track {
       animation: none !important;
+    }
+
+    /* `width` and `flex-shrink` both have to be undone: the run carries
+       `w-max shrink-0` so that it can be exactly half a track, and a
+       max-content run that cannot shrink is a run that cannot wrap. */
+    .motion-marquee-track,
+    .motion-marquee-run {
+      width: auto;
+      flex-shrink: 1;
+      flex-wrap: wrap;
+      row-gap: var(--space-4);
+    }
+
+    .motion-marquee-run[data-clone] {
+      display: none;
     }
   }
 }

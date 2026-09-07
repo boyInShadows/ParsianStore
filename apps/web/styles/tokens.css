@@ -308,6 +308,26 @@
   --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
   --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
 
+  /* ---- Enter-on-view + marquee (P14.S7) ----------------------------
+
+     `--reveal-travel` is motion distance, not layout spacing, which is why it
+     is its own token rather than `--space-4`: masterPlan.md §5 caps
+     scroll-reveal at 24px of travel and 400ms, and the cap belongs on the
+     thing being capped. The reveal reuses `--duration-slow` (400ms) rather
+     than minting a longer one -- fableTasks §P14.S7 asks for 500ms, which is
+     over that budget; 400ms is the longest value the budget allows.
+
+     `--reveal-stagger-step` is the per-child delay; globals.css multiplies it
+     by the child's index with :nth-child, so no component computes a delay.
+
+     `--marquee-item-duration` is seconds *per item*: the track sets
+     `--marquee-items` (a unitless count) inline and the duration is
+     count x this, so a longer brand list runs proportionally longer instead of
+     faster. */
+  --reveal-travel: 16px;
+  --reveal-stagger-step: 60ms;
+  --marquee-item-duration: 3.5s;
+
   /* ---- Rail card (§6.6) --------------------------------------------
      The width of one card inside a horizontal snap rail. It needs to be a
      definite length: inside a no-wrap flex rail an `auto` width resolves to

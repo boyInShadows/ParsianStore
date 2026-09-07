@@ -75,7 +75,7 @@ export async function ClosingBeat() {
               {/* A real <ol>: this is a sequence, and the numbering is the content,
               not decoration. Ruled rows rather than four cards -- the same four
               facts, without pretending each is a separate object. */}
-              <ol className="border-t border-stage-border">
+              <Reveal as="ol" stagger className="border-t border-stage-border">
                 {steps.map((step, index) => (
                   <li
                     key={step}
@@ -87,10 +87,13 @@ export async function ClosingBeat() {
                     <span className="text-body text-stage-text-muted">{step}</span>
                   </li>
                 ))}
-              </ol>
+              </Reveal>
             </div>
 
-            <aside className="flex flex-col gap-6 lg:border-s lg:border-stage-border lg:ps-16">
+            <Reveal
+              as="aside"
+              className="flex flex-col gap-6 lg:border-s lg:border-stage-border lg:ps-16"
+            >
               <div className="flex flex-col gap-2">
                 <h3 className="font-display text-h3 font-bold text-stage-text">
                   {t("support.title")}
@@ -131,7 +134,7 @@ export async function ClosingBeat() {
                 </a>
                 <p className="text-caption text-stage-text-faint">{t("ctaHint")}</p>
               </div>
-            </aside>
+            </Reveal>
           </div>
         </div>
       </div>

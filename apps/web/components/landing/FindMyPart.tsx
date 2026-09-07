@@ -2,6 +2,7 @@ import { getTranslations } from "next-intl/server";
 import { CATALOG_SYSTEMS, toPersianDigits } from "schemas";
 import { VehicleSelectorLazy } from "@/components/garage";
 import { getSystemPartCounts } from "@/lib/fetchers/exploded-view";
+import { Reveal } from "@/components/motion";
 import { PartCodeSearch } from "./HeroV2/PartCodeSearch";
 import { SystemGlyph, hasSystemGlyph } from "./SystemGlyph";
 
@@ -42,7 +43,7 @@ export async function FindMyPart() {
       className="border-b border-border bg-bg text-text"
     >
       <div className="mx-auto flex max-w-container flex-col gap-8 border-x border-border px-4 py-12 lg:px-8 lg:py-16">
-        <div className="flex flex-col gap-2">
+        <Reveal className="flex flex-col gap-2">
           <div className="flex items-center gap-3">
             <span className="h-px w-12 bg-cta-ink" />
             <p className="font-mono text-data text-text-muted">{tSection("code")}</p>
@@ -50,7 +51,7 @@ export async function FindMyPart() {
           <h2 id="find-my-part-heading" className="font-display text-h2 font-bold text-text">
             {tSection("title")}
           </h2>
-        </div>
+        </Reveal>
 
         {/* Side by side from `md`, because these are alternatives rather than
             steps: a visitor has either a car or a part number, never both to
@@ -72,7 +73,7 @@ export async function FindMyPart() {
             shrink and stops the items' own `min-width: auto` from re-applying
             a content floor. `md:grid-cols-2` was already written this way,
             which is why the overflow only ever showed below `md`. */}
-        <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+        <Reveal stagger className="grid grid-cols-1 gap-6 md:grid-cols-2">
           <div
             id="driver-path"
             className="flex scroll-mt-24 flex-col gap-3 border border-border p-6"
@@ -94,7 +95,7 @@ export async function FindMyPart() {
               emptyError={t("mechanicPath.codeEmptyError")}
             />
           </div>
-        </div>
+        </Reveal>
 
         {/* The third path: neither a car nor a code, just a system.
             A 5x2 grid of real cards rather than the two-column text list this
@@ -106,7 +107,9 @@ export async function FindMyPart() {
           <h3 id="shop-by-system-heading" className="text-body font-bold text-text">
             {t("systemIndexTitle")}
           </h3>
-          <ul
+          <Reveal
+            as="ul"
+            stagger
             aria-labelledby="shop-by-system-heading"
             className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5"
           >
@@ -147,7 +150,7 @@ export async function FindMyPart() {
                 </li>
               );
             })}
-          </ul>
+          </Reveal>
         </div>
       </div>
     </section>

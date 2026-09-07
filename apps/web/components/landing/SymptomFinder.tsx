@@ -32,7 +32,7 @@ export async function SymptomFinder() {
         </h2>
         <p className="max-w-2xl text-body text-text-muted">{t("subtitle")}</p>
       </Reveal>
-      <ul className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+      <Reveal as="ul" stagger className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {CATALOG_SYSTEMS.map((system, index) => (
           <li key={system.code}>
             <a
@@ -43,7 +43,7 @@ export async function SymptomFinder() {
             </a>
           </li>
         ))}
-      </ul>
+      </Reveal>
     </section>
   );
 }

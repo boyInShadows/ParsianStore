@@ -43,13 +43,21 @@ export async function BestSellers() {
         </h2>
         <p className="max-w-2xl text-body text-text-muted">{t("subtitle")}</p>
       </Reveal>
-      <ul className="mt-6 flex snap-x gap-4 overflow-x-auto pb-2 sm:grid sm:grid-cols-2 sm:overflow-visible lg:grid-cols-4">
-        {ordered.map((product) => (
-          <li key={product.id} className="w-rail flex-none snap-start sm:w-auto">
-            <ProductCard product={product} noPhotoLabel={t("noPhoto")} />
-          </li>
-        ))}
-      </ul>
+      {/* The rail reveals as one block, not card by card, and the reason is
+          the rail itself: below `sm` it is `overflow-x-auto`, which makes the
+          computed `overflow-y` `auto` too, so 16px of downward travel on each
+          <li> would push a transient vertical scrollbar onto the section every
+          time the section arrives. The staggered form is right for every other
+          grid on this page because none of them is a scroll container. */}
+      <Reveal className="mt-6">
+        <ul className="flex snap-x gap-4 overflow-x-auto pb-2 sm:grid sm:grid-cols-2 sm:overflow-visible lg:grid-cols-4">
+          {ordered.map((product) => (
+            <li key={product.id} className="w-rail flex-none snap-start sm:w-auto">
+              <ProductCard product={product} noPhotoLabel={t("noPhoto")} />
+            </li>
+          ))}
+        </ul>
+      </Reveal>
     </section>
   );
 }

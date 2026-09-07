@@ -1,54 +1,36 @@
-"use client";
-
-import { motion, useReducedMotion } from "motion/react";
 import type { ReactNode } from "react";
-import { DURATION, EASE_OUT, REVEAL_TRAVEL_PX } from "@/lib/motion-tokens";
+import { Reveal } from "./Reveal";
 
 type RootProps = {
   children: ReactNode;
   className?: string;
-  staggerDelay?: number;
+  as?: "div" | "ul" | "ol" | "aside";
 };
 
-function StaggerRoot({ children, className, staggerDelay = 0.08 }: RootProps) {
-  const reduceMotion = useReducedMotion();
-
-  if (reduceMotion) {
-    return <div className={className}>{children}</div>;
-  }
-
+/**
+ * The named shape of `<Reveal stagger>`, kept because the styleguide documents
+ * "a group whose children arrive one after another" as its own idea.
+ *
+ * It is a thin alias, not a second implementation. P14.S7 moved the reveal off
+ * `motion` and onto one shared IntersectionObserver plus CSS; leaving Stagger
+ * on `motion.div` variants would have meant two mechanisms with two different
+ * timings claiming to be the same page behaviour -- and would have kept a
+ * `motion` import alive on a route that no longer needs one.
+ *
+ * `Stagger.Item` is a plain element: the delay comes from the parent's
+ * :nth-child rules, so an item has nothing of its own to do and stays server
+ * markup.
+ */
+function StaggerRoot({ children, className, as }: RootProps) {
   return (
-    <motion.div
-      className={className}
-      initial="hidden"
-      whileInView="visible"
-      viewport={{ once: true, margin: "-64px" }}
-      variants={{ visible: { transition: { staggerChildren: staggerDelay } } }}
-    >
+    <Reveal stagger className={className} as={as}>
       {children}
-    </motion.div>
+    </Reveal>
   );
 }
 
 function Item({ children, className }: { children: ReactNode; className?: string }) {
-  const reduceMotion = useReducedMotion();
-
-  if (reduceMotion) {
-    return <div className={className}>{children}</div>;
-  }
-
-  return (
-    <motion.div
-      className={className}
-      variants={{
-        hidden: { opacity: 0, y: REVEAL_TRAVEL_PX },
-        visible: { opacity: 1, y: 0 },
-      }}
-      transition={{ duration: DURATION.base, ease: EASE_OUT }}
-    >
-      {children}
-    </motion.div>
-  );
+  return <div className={className}>{children}</div>;
 }
 
 export const Stagger = Object.assign(StaggerRoot, { Item });

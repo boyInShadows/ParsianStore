@@ -247,13 +247,14 @@ export default function StyleguidePage() {
         <span className="text-body text-text-muted">قطعه در انبار</span>
       </Card>
 
-      <Marquee>
-        {["بوش", "والئو", "NGK", "دنسو", "ساچمی"].map((brand) => (
+      <Marquee
+        separator={<span className="text-caption text-border">◆</span>}
+        items={["بوش", "والئو", "NGK", "دنسو", "ساچمی"].map((brand) => (
           <span key={brand} className="text-h3 font-semibold text-text-muted">
             {brand}
           </span>
         ))}
-      </Marquee>
+      />
 
       {/* ---- Workshop Docket: the document surfaces added for the
            account/commerce design pass. Kept here so e2e/styleguide-a11y
