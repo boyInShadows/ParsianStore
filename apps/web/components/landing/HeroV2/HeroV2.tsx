@@ -46,7 +46,7 @@ export async function HeroV2() {
   const tManifest = await getTranslations("Landing.manifest");
 
   return (
-    <section id="hero" className="overflow-x-clip bg-graphite-950 text-graphite-50">
+    <section id="hero" className="overflow-x-clip bg-bg text-text">
       {/* The no-JS half of the pair in globals.css. Without JavaScript the
           undock never runs, so the stage shows the docked car -- correct, and
           exactly what a reduced-motion visitor gets -- but the track's extra
@@ -65,22 +65,25 @@ export async function HeroV2() {
         }}
       />
       <HeroScrollProvider>
-        <div className="lg:gap-10 mx-auto flex max-w-container flex-col gap-8 border-x border-graphite-800 px-4 py-12 lg:px-8 lg:py-16">
+        <div className="lg:gap-10 mx-auto flex max-w-container flex-col gap-8 border-x border-border px-4 py-12 lg:px-8 lg:py-16">
           {/* The headline reads across the container now rather than down a
               26rem column, so the same copy sets in fewer lines at the same
               token size. `text-balance` is still what removes the orphan. */}
           <header className="flex max-w-4xl flex-col gap-3">
             <div className="flex items-center gap-3">
-              <span className="h-px w-12 bg-cta" />
-              <p className="font-mono text-data text-graphite-300">{t("code")}</p>
+              {/* `cta-ink` on a theme-following ground: --cta is 1.87:1 on --bg, so
+                  the rule beside the plate number simply vanished in light mode.
+                  The dark plates (interstitial, closing) keep --cta. */}
+              <span className="h-px w-12 bg-cta-ink" />
+              <p className="font-mono text-data text-text-muted">{t("code")}</p>
             </div>
-            <h1 className="text-balance font-display text-display-1 font-extrabold text-graphite-0">
+            <h1 className="text-balance font-display text-display-1 font-extrabold text-text">
               {t("headline")}
             </h1>
-            <p className="max-w-prose text-body-lg text-graphite-200">{t("subheadline")}</p>
+            <p className="max-w-prose text-body-lg text-text-muted">{t("subheadline")}</p>
           </header>
 
-          <p className="max-w-prose text-body text-graphite-200">{t("diagramLead")}</p>
+          <p className="max-w-prose text-body text-text-muted">{t("diagramLead")}</p>
 
           <HeroStage
             label={t("diagramLabel")}
@@ -105,9 +108,9 @@ export async function HeroV2() {
               a prop, which is what the slots above are. */}
           <StageNarration />
 
-          <div className="flex items-center gap-3 font-mono text-caption text-graphite-400">
+          <div className="flex items-center gap-3 font-mono text-caption text-text-muted">
             <span>SAIPA</span>
-            <span className="h-px w-6 bg-graphite-700" />
+            <span className="h-px w-6 bg-border" />
             <span>IRAN KHODRO</span>
           </div>
         </div>

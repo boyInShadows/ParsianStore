@@ -153,6 +153,76 @@
   --price: #78550c;
   --brand-subtle: #eaf1ff;
 
+  /* ---- Stage tokens (§6.4, P14.S2) ------------------------------------
+     A LIT WORKSHOP, not a theme. These six do not flip with [data-theme],
+     and that is the whole point: the hero's sprites, the interstitial plate,
+     the closing clip and the authenticity clip were all rendered on a dark
+     ground, and a light stage would show cut-out edges and dark drop shadows
+     against white. So in light mode the stage becomes a FRAMED plate -- the
+     section around it follows the theme, the plate keeps its own dark ground
+     and gains a 1px --border edge and a radius.
+
+     They exist so that "dark ground" is sayable without a graphite literal.
+     Before this, every element sitting on a permanently dark surface reached
+     for `bg-graphite-950` / `text-graphite-0` directly, which is exactly what
+     made the theme audit impossible to run: a graphite utility on a section
+     that should flip and a graphite utility on a plate that must not flip
+     were indistinguishable. Now the first is a bug the ESLint rule catches
+     and the second is a token.
+
+     Contrast, computed rather than eyeballed, against --stage (#0e1418):
+       --stage-text        18.55:1   headings, the strong line
+       --stage-text-muted  12.25:1   running copy
+       --stage-text-faint   8.78:1   labels, mono codes, hints
+       --stage-link         7.72:1   links on the plate
+     --cta lands at 8.77:1 light / 9.44:1 dark on the same ground, so the
+     accent needs no stage-specific variant. --stage-border is a container
+     edge (1.78:1), which 1.4.11 does not govern on its own -- same reasoning
+     as --border, see CONTRAST_SPECS in lib/design-tokens.ts.
+
+     `text-faint` replaces the graphite-400 (5.30:1) these plates used for
+     hints. It passes either way; one fewer near-identical step is the
+     reason, not a contrast fix. */
+  --stage: #0e1418;
+  --stage-border: #36414c;
+  --stage-text: #ffffff;
+  --stage-text-muted: #cbd3da;
+  --stage-text-faint: #a8b4be;
+  /* Steel-300: the link colour --brand already takes in dark mode, pinned so
+     it cannot follow the theme. This is the token that was missing, and its
+     absence was a live contrast bug rather than a tidiness problem --
+     `.hero-callout-go` and the closing beat's contact links painted
+     var(--brand) on the dark stage, which in LIGHT theme resolves to
+     steel-700 and lands at 2.51:1 on --stage. 7.72:1 here, in both themes,
+     and it keeps §6.3's two-accent discipline: a link on the stage is still
+     blue, not marigold. */
+  --stage-link: #7ba6ff;
+
+  /* Marigold that survives as TEXT (§6.3, P14.S2). --cta is 2.12:1 on
+     --surface and 1.87:1 on --bg -- it is a fill colour and always was, and
+     the landing's `text-cta` ordinals were only ever legible because the
+     sections under them were dark. Real relative-luminance figures for the
+     ramp on --surface: marigold-500 2.12, -600 2.98, -700 4.47 (misses),
+     -800 6.77. So -800 light, and -300 in dark (10.60:1 on --bg, 9.18:1 on
+     --surface) -- the same one-step-brighter move --cta and --price both
+     make.
+
+     Byte-identical to --price today, deliberately NOT an alias of it: §6.3
+     gives Marigold two jobs on this palette, money and action, and --price
+     is the money one. A trust-strip ordinal is neither, so borrowing --price
+     for it would quietly turn "Marigold owns prices" into "Marigold owns
+     anything warm". If the price colour is ever retuned, this must not
+     follow it. */
+  --cta-ink: #78550c;
+
+  /* --surface behind a backdrop-filter (P14.S2). The header is the one
+     element that sits over scrolling content in both themes, and an opaque
+     bar there loses the depth cue that says it is floating. 88% -- written
+     as 8-digit hex rather than `--surface / 88%`, because an opacity
+     modifier on an opaque var() colour generates NO CSS in Tailwind 3.4
+     (see --brand-subtle above for the same trap). */
+  --surface-translucent: #ffffffe0;
+
   /* ---- Type scale (§6.5, P14.S1) --------------------------------------
      The scale used to live only in tailwind.config.js, because a fontSize
      step is a (size, leading, tracking) triple rather than a single value.
@@ -180,7 +250,14 @@
   --type-display-1-ls: 0em;
   --type-display-2-size: clamp(1.75rem, 1.42rem + 1.35vw, 2.5rem); /* 28 -> 40px */
   --type-display-2-lh: 1.3;
-  --type-h1-size: clamp(1.75rem, 3vw, 2.25rem); /* 28 -> 36px */
+  /* 28 -> 36px on the same hybrid `rem + vw` line as every other step
+     (P14.S2). It kept the pre-P14 shape -- `clamp(1.75rem, 3vw, 2.25rem)` --
+     whose pure-vw middle term does not reach the 28px floor until 933px, so
+     h1 sat pinned at its minimum across the entire phone-to-laptop range
+     while h2 (retuned in P14.S1) grew from 390px upward. The two crossed at
+     ~934px, where h2 momentarily set LARGER than h1. Same endpoints, now
+     reached at 390px and 1280px like the rest of the scale. */
+  --type-h1-size: clamp(1.75rem, 1.53rem + 0.9vw, 2.25rem); /* 28 -> 36px */
   --type-h1-lh: 1.3;
   --type-h2-size: clamp(1.375rem, 1.1rem + 1.12vw, 2rem); /* 22 -> 32px */
   --type-h2-lh: 1.35;
@@ -278,9 +355,16 @@
    stylesheet source order -- a bundler detail, not a decision. The element
    selector makes this rule strictly more specific, so it is deterministic.
 
-   The 900-weight Estedad file stays loaded in lib/fonts.ts on purpose:
-   removing it is a separate step, to be taken once no route still asks for
-   `font-black` on the display family. */
+   The Estedad files are GONE from lib/fonts.ts (P14.S2). The note here used
+   to say removal waited "once no route still asks for `font-black` on the
+   display family" -- but this very rule is what makes that condition
+   unreachable-by-construction rather than something to wait for: `html:root`
+   wins unconditionally, so `--font-display` resolves to Vazirmatn for every
+   element at every weight, and `font-black` on a `font-display` heading has
+   been rendering Vazirmatn's 900 variable axis since the alias shipped.
+   Nothing could reach Estedad, so the two preloaded WOFF2 files were ~64KB
+   on every route's critical path serving a family with no consumers. The
+   files stay on disk under public/fonts/estedad/ with their OFL.txt. */
 html:root {
   --font-display: var(--font-body);
 }
@@ -325,6 +409,12 @@ html:root {
   --surface-sunken: #0e1418;
   --price: #efbc55;
   --brand-subtle: #0a1733;
+
+  /* Marigold-300, the same step --price takes in dark. The stage tokens
+     above are deliberately absent from this block: they do not flip. */
+  --cta-ink: #efbc55;
+
+  --surface-translucent: #1a222ae0;
 
   /* Dark mode uses NO shadows -- elevation comes from --surface-raised
      + --border instead (§6.6). */

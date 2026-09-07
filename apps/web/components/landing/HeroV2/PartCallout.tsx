@@ -190,7 +190,7 @@ export async function StageFinale() {
         {t("finale.cta")}
       </a>
       <a
-        className="inline-flex min-h-12 items-center justify-center border border-graphite-700 px-6 py-3 text-body-sm text-graphite-100 transition-colors hover:border-brand hover:text-brand focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus motion-reduce:transition-none"
+        className="inline-flex min-h-12 items-center justify-center border border-border px-6 py-3 text-body-sm text-text transition-colors hover:border-brand hover:text-brand focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus motion-reduce:transition-none"
         href="#driver-path"
       >
         {t("finale.secondary")}

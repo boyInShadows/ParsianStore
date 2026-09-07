@@ -432,23 +432,36 @@
        be -- which mattered a great deal when the layout was solving collisions
        against that number, and is merely tidy now that it is not. */
     box-sizing: border-box;
-    /* The plate is a surface on the stage, not on the page: the stage keeps its
-       dark ground in both themes (HeroV2's bg-graphite-950), so these tokens are
-       the fixed graphite ramp rather than the theme-flipping semantic ones. */
-    border: 1px solid var(--color-graphite-700);
-    background-color: color-mix(in oklab, var(--color-graphite-950) 88%, transparent);
+    /* The plate is a surface on the stage, not on the page: the stage keeps
+       its dark ground in both themes (P14.S2 frames it rather than lightening
+       it), so these are the --stage-* tokens, which by construction do not
+       flip. They used to be raw graphite steps, which said the same thing but
+       could not be told apart from a section that had simply forgotten to
+       switch. */
+    border: 1px solid var(--stage-border);
+    background-color: color-mix(in oklab, var(--stage) 88%, transparent);
     padding: var(--space-3);
-    color: var(--color-graphite-100);
+    color: var(--stage-text-muted);
     text-align: start;
     transition:
       border-color var(--duration-fast) var(--ease-out),
       color var(--duration-fast) var(--ease-out);
   }
 
+  /* --stage-link, for the same reason .hero-callout-go below takes it, and it
+     was the same live bug: --brand-solid flips with the theme and this ground
+     does not. In LIGHT theme --brand-solid is #1e52d6, which is 2.86:1 on the
+     stage -- under 1.4.11's 3:1 floor for a focus indicator, and invisible to
+     every dark-theme screenshot because the plate looks identical in both.
+     --stage-link is 7.72:1 in both themes and is already this plate's blue:
+     the plate IS a link, so its focus edge taking the link colour is the
+     token doing what it was minted for. Guarded now -- see
+     lib/design-tokens.test.ts, which fails if any token painted on the stage
+     starts flipping with the theme. */
   a.hero-callout-plate:hover,
   a.hero-callout-plate:focus-visible {
-    border-color: var(--brand-solid);
-    color: var(--color-graphite-0);
+    border-color: var(--stage-link);
+    color: var(--stage-text);
   }
 
   /* Type sizes are Tailwind utilities on the elements themselves, not custom
@@ -457,16 +470,20 @@
      and the family, which are real tokens, are set in CSS. */
   .hero-callout-name {
     font-family: var(--font-display);
-    color: var(--color-graphite-0);
+    color: var(--stage-text);
   }
 
   .hero-callout-code,
   .hero-callout-why {
-    color: var(--color-graphite-300);
+    color: var(--stage-text-faint);
   }
 
+  /* --stage-link, not --brand. --brand flips with the theme and the plate does
+     not: in LIGHT theme --brand is steel-700, which is 2.51:1 on the stage --
+     the "see the part" link was unreadable in light mode from the day the
+     plate shipped, and no screenshot of the dark theme could show it. */
   .hero-callout-go {
-    color: var(--brand);
+    color: var(--stage-link);
   }
 
   /* The finale's call to action. Same show/hide mechanism as a plate, placed
@@ -552,18 +569,18 @@
   .interstitial-scrim {
     background: linear-gradient(
       to left,
-      var(--color-graphite-950) 0%,
-      color-mix(in srgb, var(--color-graphite-950) 82%, transparent) 38%,
-      color-mix(in srgb, var(--color-graphite-950) 25%, transparent) 100%
+      var(--stage) 0%,
+      color-mix(in srgb, var(--stage) 82%, transparent) 38%,
+      color-mix(in srgb, var(--stage) 25%, transparent) 100%
     );
   }
 
   [dir="ltr"] .interstitial-scrim {
     background: linear-gradient(
       to right,
-      var(--color-graphite-950) 0%,
-      color-mix(in srgb, var(--color-graphite-950) 82%, transparent) 38%,
-      color-mix(in srgb, var(--color-graphite-950) 25%, transparent) 100%
+      var(--stage) 0%,
+      color-mix(in srgb, var(--stage) 82%, transparent) 38%,
+      color-mix(in srgb, var(--stage) 25%, transparent) 100%
     );
   }
 
@@ -576,18 +593,42 @@
   .closing-scrim {
     background: linear-gradient(
       to top,
-      var(--color-graphite-950) 0%,
-      color-mix(in srgb, var(--color-graphite-950) 88%, transparent) 55%,
-      color-mix(in srgb, var(--color-graphite-950) 72%, transparent) 100%
+      var(--stage) 0%,
+      color-mix(in srgb, var(--stage) 88%, transparent) 55%,
+      color-mix(in srgb, var(--stage) 72%, transparent) 100%
     );
+  }
+
+  /* The authenticity beat's clip runs behind copy docked to its bottom edge,
+     so the scrim is vertical like the closing one but weighted to the bottom.
+
+     It replaces a Tailwind gradient that was half-dead: the element read
+     `via-graphite-950/70 bg-gradient-to-t from-graphite-950 to-transparent`,
+     and the `via` stop generated NO CSS -- an opacity modifier on an opaque
+     var() colour is exactly the trap --brand-subtle documents. The middle of
+     the ramp was therefore linear from opaque to nothing, which is why the
+     copy sat on the thinnest part of it. */
+  .authenticity-scrim {
+    background: linear-gradient(
+      to top,
+      var(--stage) 0%,
+      color-mix(in srgb, var(--stage) 70%, transparent) 45%,
+      transparent 100%
+    );
+  }
+
+  /* The product tile behind the example record: same vertical ramp, shorter,
+     because the artwork under it is a product render on the same ground. */
+  .authenticity-tile-scrim {
+    background: linear-gradient(to top, var(--stage) 0%, transparent 100%);
   }
 
   .hero-scrim {
     background: linear-gradient(
       to left,
-      var(--color-graphite-950) 12%,
-      color-mix(in srgb, var(--color-graphite-950) 92%, transparent) 52%,
-      color-mix(in srgb, var(--color-graphite-950) 18%, transparent) 100%
+      var(--stage) 12%,
+      color-mix(in srgb, var(--stage) 92%, transparent) 52%,
+      color-mix(in srgb, var(--stage) 18%, transparent) 100%
     );
   }
 
@@ -596,7 +637,7 @@
      building Modal/Drawer, P1.S7) -- plain CSS is the reliable path here.
      color-mix() keeps this token-driven without a new hex literal. */
   dialog::backdrop {
-    background-color: color-mix(in srgb, var(--color-graphite-950) 50%, transparent);
+    background-color: color-mix(in srgb, var(--stage) 50%, transparent);
   }
 
   /* Marquee loop (components/motion/Marquee.tsx). Translating by exactly

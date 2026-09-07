@@ -87,6 +87,19 @@ module.exports = {
       surface: "var(--surface)",
       "surface-raised": "var(--surface-raised)",
       "surface-sunken": "var(--surface-sunken)",
+      // --surface behind a backdrop-filter; the sticky header's ground.
+      "surface-translucent": "var(--surface-translucent)",
+      // The lit workshop (§6.4). These six do NOT flip with the theme --
+      // the hero stage, the interstitial plate and the two video plates keep
+      // a dark ground in light mode and gain a frame instead. Anything
+      // painted on one of those grounds uses these; anything on a section
+      // that follows the theme uses `surface`/`text`/`border`.
+      stage: "var(--stage)",
+      "stage-border": "var(--stage-border)",
+      "stage-text": "var(--stage-text)",
+      "stage-text-muted": "var(--stage-text-muted)",
+      "stage-text-faint": "var(--stage-text-faint)",
+      "stage-link": "var(--stage-link)",
       text: "var(--text)",
       "text-muted": "var(--text-muted)",
       border: "var(--border)",
@@ -105,6 +118,10 @@ module.exports = {
       "brand-fg": "var(--brand-fg)",
       cta: "var(--cta)",
       "cta-fg": "var(--cta-fg)",
+      // Marigold as TEXT. `text-cta` is 2.12:1 on --surface -- a fill colour
+      // used as ink. Any marigold glyph on a theme-following surface takes
+      // this instead (§6.3).
+      "cta-ink": "var(--cta-ink)",
       focus: "var(--focus)",
     },
     spacing: {

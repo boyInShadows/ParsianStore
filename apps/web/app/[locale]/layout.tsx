@@ -4,7 +4,7 @@ import { hasLocale, NextIntlClientProvider } from "next-intl";
 import { notFound } from "next/navigation";
 import { ThemeProvider } from "next-themes";
 import "../../styles/globals.css";
-import { bodyFont, displayFont, monoFont } from "@/lib/fonts";
+import { bodyFont, monoFont } from "@/lib/fonts";
 import { routing } from "@/i18n/routing";
 import { siteUrl } from "@/lib/seo";
 import { readThemeColors } from "@/lib/design-tokens";
@@ -73,7 +73,10 @@ export default async function LocaleLayout({ children, params }: Props) {
       lang={locale}
       dir={dir}
       suppressHydrationWarning
-      className={`${displayFont.variable} ${bodyFont.variable} ${monoFont.variable}`}
+      // No `displayFont.variable` -- there is no display family any more
+      // (P14.S2). `--font-display` is defined in tokens.css as an alias of
+      // `--font-body`, so every `font-display` utility still resolves.
+      className={`${bodyFont.variable} ${monoFont.variable}`}
     >
       <body className="font-body">
         <ThemeProvider attribute="data-theme" defaultTheme="system" enableSystem>

@@ -2,11 +2,13 @@ import js from "@eslint/js";
 import tseslint from "typescript-eslint";
 import react from "eslint-plugin-react";
 import reactHooks from "eslint-plugin-react-hooks";
+import noGraphiteUtility from "./eslint-rules/no-graphite-utility.mjs";
 import noPhysicalDirection from "./eslint-rules/no-physical-direction.mjs";
 import noRawHex from "./eslint-rules/no-raw-hex.mjs";
 
 const local = {
   rules: {
+    "no-graphite-utility": noGraphiteUtility,
     "no-physical-direction": noPhysicalDirection,
     "no-raw-hex": noRawHex,
   },
@@ -38,6 +40,13 @@ export default tseslint.config(
     rules: {
       "local/no-physical-direction": "error",
       "local/no-raw-hex": "error",
+      // The graphite ramp does not flip with [data-theme]; reaching for it in
+      // app code is how the site ended up with a light theme in tokens.css and
+      // a dark header, hero, find-my-part, trust strip, interstitial and
+      // closing beat on screen (P14.S2). `allowPaths` is deliberately empty --
+      // the hero stage was the one case that needed the ramp, and it has
+      // --stage-* tokens now. See eslint-rules/no-graphite-utility.mjs.
+      "local/no-graphite-utility": ["error", { allowPaths: [] }],
     },
   },
   {

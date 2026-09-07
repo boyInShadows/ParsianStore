@@ -405,7 +405,8 @@
   "Header": {
     "signInAria": "ورود",
     "signedInAria": "حساب کاربری",
-    "signOutAria": "خروج از حساب"
+    "signOutAria": "خروج از حساب",
+    "themeToggleAria": "حالت تیره"
   },
   "Auth": {
     "login": {

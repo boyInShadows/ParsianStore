@@ -44,7 +44,7 @@ export function PartCodeSearch({ label, placeholder, hint, submit, emptyError }:
 
   return (
     <form onSubmit={onSubmit} noValidate className="flex flex-col gap-2">
-      <label htmlFor={inputId} className="text-body-sm font-medium text-graphite-100">
+      <label htmlFor={inputId} className="text-body-sm font-medium text-text">
         {label}
       </label>
       <div className="flex gap-2">
@@ -61,7 +61,7 @@ export function PartCodeSearch({ label, placeholder, hint, submit, emptyError }:
           autoComplete="off"
           aria-describedby={error ? `${hintId} ${errorId}` : hintId}
           aria-invalid={error ? true : undefined}
-          className="min-w-0 flex-1 border border-graphite-700 bg-graphite-950 px-3 py-2 font-mono text-body-sm text-graphite-50 outline-none placeholder:text-graphite-400 focus-visible:border-focus focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
+          className="min-w-0 flex-1 border border-border bg-surface px-3 py-2 font-mono text-body-sm text-text outline-none placeholder:text-text-muted focus-visible:border-focus focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
         />
         <button
           type="submit"
@@ -70,7 +70,7 @@ export function PartCodeSearch({ label, placeholder, hint, submit, emptyError }:
           {submit}
         </button>
       </div>
-      <p id={hintId} className="text-caption text-graphite-400">
+      <p id={hintId} className="text-caption text-text-muted">
         {hint}
       </p>
       {error ? (

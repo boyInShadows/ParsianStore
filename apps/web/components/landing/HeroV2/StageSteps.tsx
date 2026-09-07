@@ -74,14 +74,14 @@ export function StageSteps({ next, previous }: { next: string; previous: string 
       <button
         type="button"
         onClick={() => go(-1)}
-        className="inline-flex min-h-12 items-center border border-graphite-800 px-4 font-mono text-caption text-graphite-300 transition-colors hover:border-brand hover:text-brand focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus motion-reduce:transition-none"
+        className="inline-flex min-h-12 items-center border border-border px-4 font-mono text-caption text-text-muted transition-colors hover:border-brand hover:text-brand focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus motion-reduce:transition-none"
       >
         {previous}
       </button>
       <button
         type="button"
         onClick={() => go(1)}
-        className="inline-flex min-h-12 items-center border border-graphite-800 px-4 font-mono text-caption text-graphite-300 transition-colors hover:border-brand hover:text-brand focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus motion-reduce:transition-none"
+        className="inline-flex min-h-12 items-center border border-border px-4 font-mono text-caption text-text-muted transition-colors hover:border-brand hover:text-brand focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus motion-reduce:transition-none"
       >
         {next}
       </button>

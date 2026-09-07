@@ -26,7 +26,7 @@ export async function TrustStrip() {
     <section
       id="trust-strip"
       aria-labelledby="trust-strip-heading"
-      className="border-y border-graphite-800 bg-graphite-900"
+      className="border-y border-border bg-surface"
     >
       <h2 id="trust-strip-heading" className="sr-only">
         {t("title")}
@@ -46,11 +46,16 @@ export async function TrustStrip() {
             one is excluded from the sequence the way `deals` is. Its `code`
             key is gone from fa.json rather than left unrendered, because an
             unrendered number is what consumed a slot in the first place. */}
-        <ul className="mx-auto flex max-w-container flex-col divide-y divide-graphite-800 px-4 sm:flex-row sm:divide-x sm:divide-y-0">
+        <ul className="mx-auto flex max-w-container flex-col divide-y divide-border px-4 sm:flex-row sm:divide-x sm:divide-y-0">
           {items.map((item, index) => (
             <li key={item.title} className="flex flex-1 flex-col gap-2 px-4 py-6">
               <p className="flex items-center gap-3">
-                <span className="font-mono text-caption text-cta">
+                {/* `cta-ink`, not `cta` (P14.S2). This strip used to sit on
+                    graphite-900, where marigold-500 is 8.21:1; it follows the
+                    theme now, and the same colour is 2.12:1 on a light
+                    surface. --cta is a fill, --cta-ink is the same accent as
+                    ink. See tokens.css. */}
+                <span className="font-mono text-caption text-cta-ink">
                   {/* Persian digits, like the closing beat's four steps
                       (P13.S10). These are ordinals a reader reads, not
                       identifiers -- the digit policy puts them in Persian
@@ -59,9 +64,9 @@ export async function TrustStrip() {
                       plates stay Latin because those ARE identifiers. */}
                   {toPersianDigits(String(index + 1).padStart(2, "0"))}
                 </span>
-                <span className="text-body-sm font-bold text-graphite-0">{item.title}</span>
+                <span className="text-body-sm font-bold text-text">{item.title}</span>
               </p>
-              <p className="text-caption leading-relaxed text-graphite-300">{item.detail}</p>
+              <p className="text-caption leading-relaxed text-text-muted">{item.detail}</p>
             </li>
           ))}
         </ul>

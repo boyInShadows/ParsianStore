@@ -109,7 +109,7 @@ function ManifestRow({
     >
       <a
         href={entry.href}
-        className="relative flex h-full min-h-12 flex-col gap-1 border border-graphite-800 p-3 text-graphite-100 transition-colors duration-fast hover:border-brand hover:text-brand focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus motion-reduce:transition-none lg:flex-row lg:items-center lg:gap-3 lg:border-x-0 lg:border-t-0 lg:p-0 lg:py-2"
+        className="relative flex h-full min-h-12 flex-col gap-1 border border-border p-3 text-text transition-colors duration-fast hover:border-brand hover:text-brand focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus motion-reduce:transition-none lg:flex-row lg:items-center lg:gap-3 lg:border-x-0 lg:border-t-0 lg:p-0 lg:py-2"
       >
         {/* Decorative: the row's name says what the part is, so alt text here
             would make a screen reader announce it twice. */}
@@ -133,14 +133,14 @@ function ManifestRow({
             checking in fills the rest. Grouped in one element so the fade is
             one transition rather than several that can drift apart. */}
         <span className="manifest-detail flex items-center gap-3">
-          <span className="hidden font-mono text-caption text-graphite-400 lg:inline">
+          <span className="hidden font-mono text-caption text-text-muted lg:inline">
             {entry.system}
           </span>
           {/* Omitted, never rendered as zero, when the API could not answer --
               `getSystemPartCounts` returns null for "unknown", and a fabricated
               "۰ قطعه" would read as real out-of-stock data. */}
           {count !== null ? (
-            <span className="font-mono text-caption text-graphite-400">{count}</span>
+            <span className="font-mono text-caption text-text-muted">{count}</span>
           ) : null}
         </span>
         <span className="sr-only">{action}</span>
@@ -159,7 +159,7 @@ export async function PartsManifest() {
   return (
     <nav aria-label={t("navLabel")} className="flex min-w-0 flex-col gap-3">
       <div className="flex items-baseline justify-between gap-3">
-        <h2 className="text-body font-bold text-graphite-0">{t("title")}</h2>
+        <h2 className="text-body font-bold text-text">{t("title")}</h2>
         {/* The counter, pre-rendered once per possible value with the client
             marking the one that is true (P13.S4). Ten spans rather than one the
             browser rewrites, because the count is Persian-shaped text:
@@ -167,7 +167,7 @@ export async function PartsManifest() {
             rebuilding "۳ از ۹" in the browser would ship the digit mapping and
             the message formatter to a route already over budget, to render ten
             strings that are known at build time. */}
-        <p className="manifest-counter font-mono text-caption text-graphite-400">
+        <p className="manifest-counter font-mono text-caption text-text-muted">
           {/* Ascending, so the LAST span is the complete count -- what CSS falls
               back to when JavaScript never marks one, and the state a no-JS
               visitor's fully-rendered list is actually in. */}

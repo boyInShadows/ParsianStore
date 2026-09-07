@@ -144,6 +144,25 @@ function luminance([r, g, b]: [number, number, number]): number {
   return 0.2126 * srgbToLinear(r) + 0.7152 * srgbToLinear(g) + 0.0722 * srgbToLinear(b);
 }
 
+/**
+ * The two resolved theme maps from tokens.css SOURCE TEXT. Split out from
+ * getDesignTokens() so a test can hold the stage tokens to their contrast
+ * floors without going through process.cwd() -- and, more to the point, so
+ * there is exactly one parser and exactly one luminance formula in this repo
+ * rather than a second copy living in a test file.
+ */
+export function readThemes(css: string): {
+  light: Record<string, string>;
+  dark: Record<string, string>;
+} {
+  const stripped = stripComments(css);
+  const light = readBlock(stripped, /:root\s*\{([^}]*)\}/);
+  const darkOverrides = readBlock(stripped, /\[data-theme="dark"\]\s*\{([^}]*)\}/);
+  // The dark block only lists what it changes, so it layers over light --
+  // exactly how the cascade resolves it in the browser.
+  return { light, dark: { ...light, ...darkOverrides } };
+}
+
 export function contrastRatio(foreground: string, background: string): number | null {
   const fg = parseHex(foreground);
   const bg = parseHex(background);
@@ -183,7 +202,20 @@ const GROUP_SPECS = [
     id: "surfaces",
     title: "زمینه و سطح‌ها",
     note: "چهار پلهٔ ارتفاع. در تم تیره سایه‌ای وجود ندارد و ارتفاع فقط با همین پله‌ها ساخته می‌شود.",
-    names: ["bg", "surface", "surface-raised", "surface-sunken"],
+    names: ["bg", "surface", "surface-raised", "surface-sunken", "surface-translucent"],
+  },
+  {
+    id: "stage",
+    title: "صحنه (زمینهٔ همیشه-تیره)",
+    note: "این شش توکن با تم عوض نمی‌شوند: اسپرایت‌های هیرو و پلیت‌های ویدئویی روی زمینهٔ تیره رندر شده‌اند، پس در تم روشن صحنه قاب می‌گیرد، نه اینکه روشن شود.",
+    names: [
+      "stage",
+      "stage-border",
+      "stage-text",
+      "stage-text-muted",
+      "stage-text-faint",
+      "stage-link",
+    ],
   },
   {
     id: "ink",
@@ -195,7 +227,17 @@ const GROUP_SPECS = [
     id: "accents",
     title: "دو لهجهٔ رنگی",
     note: "انضباط دو-لهجه‌ای (§۶.۳): فولادی صاحب ناوبری است و همیشه‌بهار صاحب پول.",
-    names: ["brand", "brand-solid", "brand-fg", "brand-subtle", "cta", "cta-fg", "price", "focus"],
+    names: [
+      "brand",
+      "brand-solid",
+      "brand-fg",
+      "brand-subtle",
+      "cta",
+      "cta-fg",
+      "cta-ink",
+      "price",
+      "focus",
+    ],
   },
   {
     id: "status",
@@ -314,6 +356,43 @@ const CONTRAST_SPECS: {
   { label: "متن روی CTA", fg: "cta-fg", bg: "cta", min: 4.5, note: "دکمهٔ افزودن به سبد" },
   { label: "قیمت روی سطح", fg: "price", bg: "surface", min: 4.5, note: "قیمت داخل کارت" },
   { label: "قیمت روی زمینه", fg: "price", bg: "bg", min: 4.5, note: "قیمت روی زمینهٔ صفحه" },
+  {
+    label: "لهجهٔ همیشه‌بهار روی سطح",
+    fg: "cta-ink",
+    bg: "surface",
+    min: 4.5,
+    note: "شمارهٔ ترتیبی و گلیف طلایی — «cta» خودش ۲٫۱۲ است",
+  },
+  {
+    label: "لهجهٔ همیشه‌بهار روی زمینه",
+    fg: "cta-ink",
+    bg: "bg",
+    min: 4.5,
+    note: "همان لهجه روی زمینهٔ صفحه",
+  },
+  { label: "متن روی صحنه", fg: "stage-text", bg: "stage", min: 4.5, note: "تیتر روی پلیت تیره" },
+  {
+    label: "متن ملایم روی صحنه",
+    fg: "stage-text-muted",
+    bg: "stage",
+    min: 4.5,
+    note: "متن جاری روی پلیت تیره",
+  },
+  {
+    label: "متن کم‌رنگ روی صحنه",
+    fg: "stage-text-faint",
+    bg: "stage",
+    min: 4.5,
+    note: "برچسب و کد تک‌عرض روی پلیت تیره",
+  },
+  { label: "CTA روی صحنه", fg: "cta", bg: "stage", min: 4.5, note: "شمارهٔ ترتیبی روی پلیت تیره" },
+  {
+    label: "لینک روی صحنه",
+    fg: "stage-link",
+    bg: "stage",
+    min: 4.5,
+    note: "«brand» در تم روشن روی صحنه ۲٫۵۱ می‌شود — این توکن ثابت است",
+  },
   {
     label: "متن روی «موفق»",
     fg: "success-fg",
@@ -447,12 +526,7 @@ const FONTS: FontFamily[] = [
 ];
 
 export function getDesignTokens(): DesignTokens {
-  const css = stripComments(readFileSync(TOKENS_PATH, "utf8"));
-  const light = readBlock(css, /:root\s*\{([^}]*)\}/);
-  const darkOverrides = readBlock(css, /\[data-theme="dark"\]\s*\{([^}]*)\}/);
-  // The dark block only lists what it changes, so it layers over light --
-  // exactly how the cascade resolves it in the browser.
-  const dark = { ...light, ...darkOverrides };
+  const { light, dark } = readThemes(readFileSync(TOKENS_PATH, "utf8"));
 
   const toToken = (name: string): TokenValue => ({
     name,

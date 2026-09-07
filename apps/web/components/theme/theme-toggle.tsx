@@ -19,13 +19,47 @@ function useHasHydrated() {
   );
 }
 
+type Props = {
+  /** The button's accessible name. STABLE -- it names the feature ("dark
+   *  theme"), never the next action; `aria-pressed` is what says whether the
+   *  feature is on. See the note below. */
+  label: string;
+};
+
 /**
  * Standalone theme toggle -- masterPlan.md §6.7/§10 (keyboard reachable,
  * visible focus, reduced-motion safe: only color/opacity transition here).
- * Gets folded into the Header in P1.S9; kept as its own component now so
- * P1.S5 has a real, reusable deliverable rather than inline page markup.
+ *
+ * ## Why the name is stable, and why it is a prop
+ *
+ * A toggle button reports state through `aria-pressed`, so its accessible name
+ * must stay FIXED and name the feature -- the way a Mute button stays "Mute"
+ * whether or not sound is currently muted. Pairing `aria-pressed` with a name
+ * that describes the next action instead is the documented anti-pattern, and
+ * this component shipped it: the name flipped between «تغییر به تم روشن» and
+ * «تغییر به تم تیره», so in dark mode a screen reader announced "switch to
+ * light theme, button, pressed" -- "pressed" appearing to confirm the one
+ * thing that is not true. One name now, «حالت تیره», with `aria-pressed`
+ * carrying the state: "dark theme, button, pressed" = the dark theme is on.
+ *
+ * It is a prop rather than a `useTranslations` call because this renders
+ * inside the Header on every route including the landing page, whose JS budget
+ * P4.S4 already blew once by calling that hook in a Client Component. It was
+ * also a hardcoded English string before P14.S2, in an app whose only shipping
+ * locale is Persian -- the one control a screen-reader user needs a name for,
+ * announcing in the wrong language.
+ *
+ * ## Why it does not paint its own colours any more
+ *
+ * It used to set `border-border text-text-muted` -- page-theme tokens -- inside
+ * a header that was `bg-graphite-950` in BOTH themes. In light mode that put a
+ * 12.25:1 ring around a 3.38:1 glyph, which reads as an empty circle: the
+ * outline was the only thing with contrast. The header follows the theme now
+ * (P14.S2), so the tokens finally describe the ground they sit on, and the
+ * glyph takes `text-text` rather than `text-text-muted` so the icon -- not the
+ * ring -- is the part that carries the control.
  */
-export function ThemeToggle() {
+export function ThemeToggle({ label }: Props) {
   const { resolvedTheme, setTheme } = useTheme();
   const mounted = useHasHydrated();
 
@@ -36,8 +70,13 @@ export function ThemeToggle() {
       type="button"
       disabled={!mounted}
       onClick={() => setTheme(isDark ? "light" : "dark")}
-      aria-label={isDark ? "Switch to light theme" : "Switch to dark theme"}
-      className="inline-flex h-12 w-12 items-center justify-center rounded-full border border-border text-text-muted transition-colors duration-fast hover:text-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2 focus-visible:ring-offset-bg disabled:opacity-0"
+      aria-label={label}
+      // The name above never changes; this is what changes. pressed = "the
+      // dark theme is on". The glyph still shows the destination rather than
+      // the state -- a sun to go light -- which is the sighted convention and
+      // cannot conflict with the name, because both icons are aria-hidden.
+      aria-pressed={isDark}
+      className="inline-flex h-12 w-12 items-center justify-center rounded-full border border-border text-text transition-colors duration-fast hover:text-brand focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2 focus-visible:ring-offset-bg disabled:opacity-0"
     >
       {isDark ? <SunIcon /> : <MoonIcon />}
     </button>

@@ -88,6 +88,13 @@ export const CN_COLORS = [
   "surface",
   "surface-raised",
   "surface-sunken",
+  "surface-translucent",
+  "stage",
+  "stage-border",
+  "stage-text",
+  "stage-text-muted",
+  "stage-text-faint",
+  "stage-link",
   "text",
   "text-muted",
   "border",
@@ -99,6 +106,7 @@ export const CN_COLORS = [
   "brand-fg",
   "cta",
   "cta-fg",
+  "cta-ink",
   "focus",
 ] as const;
 

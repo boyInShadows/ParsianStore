@@ -606,7 +606,16 @@ export function HeroStage({
             // outside the stage box by design. `clip` is what allows that pair;
             // `hidden` on one axis would force the other to `auto` and give the
             // stage a scrollbar.
-            className="hero-stage relative aspect-[16/11] w-full overflow-x-clip"
+            // `bg-stage`, not a theme surface, and that is the deliberate
+            // half of P14.S2. Every sprite in here was rendered against a dark
+            // ground: a light stage would show cut edges and dark drop
+            // shadows on white. So the stage does not follow the theme -- it
+            // becomes a FRAMED stage instead. The section around it is
+            // `bg-bg` and flips; the plate keeps its workshop ground and gains
+            // a 1px `--border` edge and a radius, which is what tells a
+            // light-mode reader that the dark box is a picture rather than a
+            // section that forgot to switch.
+            className="hero-stage relative aspect-[16/11] w-full overflow-x-clip rounded-lg border border-border bg-stage"
             style={{
               // The container-query context the frame's `perspective` measures
               // against.
@@ -731,7 +740,10 @@ export function HeroStage({
               re-docked -- the audit's first finding names it. It is beat 0 now:
               shown until the first part moves, then never again. */}
           <p
-            className="hero-hint font-mono text-caption text-graphite-400 motion-reduce:hidden"
+            // Outside the stage box, so it takes page-theme ink rather than
+            // stage ink -- same for the finale CTA and the station buttons
+            // below it, and for the job card beside it.
+            className="hero-hint font-mono text-caption text-text-muted motion-reduce:hidden"
             data-callout="__hint"
           >
             {hint}

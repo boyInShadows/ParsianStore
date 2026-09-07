@@ -18,6 +18,7 @@ export default async function ShopLayout({ children }: { children: ReactNode }) 
     signInAria: t("signInAria"),
     signedInAria: t("signedInAria"),
     signOutAria: t("signOutAria"),
+    themeToggleAria: t("themeToggleAria"),
   };
 
   return (
