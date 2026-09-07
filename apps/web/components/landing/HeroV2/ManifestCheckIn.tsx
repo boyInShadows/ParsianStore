@@ -32,9 +32,12 @@ import { useHeroScroll } from "./HeroScrollProvider";
  * it the other way round would mean a no-JS visitor gets an empty panel.
  *
  * The row/sprite highlight is NOT here -- it lives in `HeroScrollProvider`,
- * which mounts once. The manifest renders twice (the desktop panel and the
- * mobile chip rail, one hidden by CSS at any width), and a listener owned by
- * this component would be attached to the hero twice over.
+ * which mounts once. It was put there when the manifest still rendered twice,
+ * as a desktop panel and a mobile chip rail with CSS hiding one, so a listener
+ * owned by this component would have been attached to the hero twice over.
+ * P13.S7 merged those into the single node this now wraps, and the highlight
+ * stays where it is: the provider already owns the scroll subscription the
+ * sprites read, and moving it back would buy a second listener for nothing.
  */
 export function ManifestCheckIn({ children }: { children: ReactNode }) {
   const { progress } = useHeroScroll();
@@ -66,6 +69,18 @@ export function ManifestCheckIn({ children }: { children: ReactNode }) {
     const match = counter.querySelector<HTMLElement>(`[data-count="${count}"]`);
     if (match) match.dataset.shownCount = "";
   };
+
+  /**
+   * Is the job card currently the horizontal strip rather than the column?
+   *
+   * Two questions, both of which have to be yes. `overflow-x` is the layout
+   * switch itself -- `overflow-x-auto` below `lg`, `lg:overflow-x-visible`
+   * above -- so it separates the two shapes without this file holding a copy of
+   * the breakpoint. The width comparison then asks whether there is anywhere to
+   * scroll, which is false on a wide phone where all nine rows already fit.
+   */
+  const isStrip = (list: HTMLElement) =>
+    getComputedStyle(list).overflowX !== "visible" && list.scrollWidth > list.clientWidth;
 
   const rowsOf = (list: HTMLElement) =>
     [...list.querySelectorAll<HTMLElement>("[data-check-in]")].sort(
@@ -138,15 +153,33 @@ export function ManifestCheckIn({ children }: { children: ReactNode }) {
 
     const active = apply(list, value);
 
-    // The mobile rail is a horizontal scroller: a chip that checks in off the
-    // end of it is a row the visitor never sees arrive, which is the whole
-    // point of the beat. `apply` returns null when nothing changed, so this
-    // runs at most nine times across the track.
-    if (active?.classList.contains("manifest-chip")) {
+    // Below `lg` the job card is a horizontal scroller: a row that checks in
+    // off the end of it is a row the visitor never sees arrive, which is the
+    // whole point of the beat. At `lg` it is a static column, and scrolling
+    // that would yank a list the visitor can already see in full.
+    //
+    // The test is the scroller itself, not the class the rows carry. It used to
+    // be `active.classList.contains("manifest-chip")`, and P13.S7 -- which
+    // merged the desktop panel and the mobile rail into this one node -- took
+    // that class with it, so the guard had been false at every width since:
+    // nothing in the repo has set `manifest-chip` and the rail never scrolled
+    // itself. Asking the element whether it is currently overflowing cannot rot
+    // the same way; it is the same question the layout is already answering
+    // (`overflow-x-auto`, `lg:overflow-x-visible`), read from the DOM instead of
+    // restated as a breakpoint this file would then have to keep in sync.
+    //
+    // `apply` returns null when nothing changed, so this runs at most nine
+    // times across the track. Reduced motion never reaches here: the early
+    // return above leaves that visitor the complete, un-choreographed list,
+    // which has nothing to scroll to.
+    if (active && isStrip(list)) {
       active.scrollIntoView({
         inline: "center",
+        // Never vertically: the strip is on screen whenever a row checks in, so
+        // "nearest" is a no-op there -- and anything else would fight the
+        // scroll-driven animation that produced this event.
         block: "nearest",
-        behavior: reduceMotion ? "auto" : "smooth",
+        behavior: "smooth",
       });
     }
   });

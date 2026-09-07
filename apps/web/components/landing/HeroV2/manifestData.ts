@@ -208,13 +208,18 @@ export type ManifestEntry = ManifestPart & {
 const systemByCode = new Map(CATALOG_SYSTEMS.map((system) => [system.code, system]));
 
 /**
- * Everything in the scene a row can point at, in reading order.
+ * Everything in the scene a row can point at: the lookup a row uses to find its
+ * own layer, and nothing more.
  *
- * Panels first, then the internals they cover, which is the order the beat
- * happens in: the hood opens, and what was under it comes out. That is the
- * reverse of the paint order -- the engine parts are drawn *beneath* the hood
- * so a closed car is closed -- and the two are allowed to disagree, because one
- * is about depth and this one is about how the list reads.
+ * The index a layer happens to sit at here is *not* the order the list reads
+ * in. `HERO_LAYERS` is a paint order -- `HeroStage` maps over it to stack the
+ * sprites, so the engine internals are drawn beneath the hood and a closed car
+ * is closed -- and depth has no reason to agree with the order the parts leave
+ * the car. It does not: chapter 1 paints grille → headlights → bumper while the
+ * headlights detach first, and chapter 3 paints fender → door while the door
+ * goes first. `manifestEntries()` therefore sorts by check-in time and uses
+ * this index only to break a tie, so the paint order stays exactly where it
+ * belongs -- in the stage -- and never leaks into the list.
  */
 const SCENE: readonly { readonly id: string; readonly chapter: HeroLayer["chapter"] }[] = [
   ...HERO_LAYERS.map((layer) => ({ id: layer.id, chapter: layer.chapter })),
@@ -225,12 +230,22 @@ const layerById = new Map(SCENE.map((layer) => [layer.id, layer]));
 const paintOrder = new Map(SCENE.map((layer, index) => [layer.id, index]));
 
 /**
- * The manifest, in the order the parts check in: chapter first, then the
- * order they are painted within it.
+ * The manifest, in the order the parts actually check in.
  *
- * Ordering by chapter is what makes the accumulate rule (§2.1) legible -- a
- * row appearing at the end of a list the visitor has already read is a very
- * different thing from one appearing in the middle of it.
+ * Sorted by `checkInAt` -- each row's own beat -- rather than by chapter and
+ * paint index. That distinction is not cosmetic: rows tick in scene order
+ * (`CHAPTER_SEQUENCE`) but used to be *rendered* in paint order, and the two
+ * disagree inside a chapter. At progress 0.74 the list had the door ticked and
+ * the fender, one row above it, still blank; because an unchecked row keeps its
+ * height rather than collapsing (globals.css), that read as an empty slot in
+ * the middle of the job card.
+ *
+ * Ordering by check-in is also what makes the accumulate rule (§2.1) legible --
+ * a row appearing at the end of a list the visitor has already read is a very
+ * different thing from one appearing in the middle of it -- and it keeps this
+ * list in step with `StationOutline`, which reads `CHAPTER_SEQUENCE` directly.
+ * Chapter order falls out of it for free: the chapters own disjoint, ascending
+ * progress ranges, so a chapter-2 beat cannot start before a chapter-1 one.
  */
 export function manifestEntries(): readonly ManifestEntry[] {
   const ordered = PARTS.map((part) => {
@@ -270,9 +285,12 @@ export function manifestEntries(): readonly ManifestEntry[] {
 
     return {
       // The layer's own index in HERO_LAYERS, carried alongside rather than on
-      // the entry: it is a sort key, not something the UI has any business
+      // the entry: it is a tie-break, not something the UI has any business
       // reading, and looking it up again after the map would reintroduce the
-      // "first element might not exist" problem this guard just settled.
+      // "first element might not exist" problem this guard just settled. Two
+      // parts cannot share a beat today -- BEAT_SPAN staggers every slot -- so
+      // this only ever decides an order that a retune could otherwise leave to
+      // whatever the sort happened to do.
       paintIndex: paintOrder.get(first.id) ?? 0,
       entry: {
         ...part,
@@ -286,7 +304,7 @@ export function manifestEntries(): readonly ManifestEntry[] {
   });
 
   return ordered
-    .sort((a, b) => a.entry.chapter - b.entry.chapter || a.paintIndex - b.paintIndex)
+    .sort((a, b) => a.entry.checkInAt - b.entry.checkInAt || a.paintIndex - b.paintIndex)
     .map(({ entry }) => entry);
 }
 
@@ -346,6 +364,13 @@ export type CalloutSubject = {
  * never drift: a layer that gains a category route becomes a row and a linked
  * callout in the same edit, and one that loses its route degrades to a
  * name-only plate instead of a 404.
+ *
+ * Sorted on the beat itself rather than on the chapter. Sorting by chapter
+ * says nothing about the order *inside* one: an unsold subject is appended
+ * after the rows, so it landed last in its chapter whether or not it detaches
+ * last, and the windshield genuinely being last in chapter 3 made that look
+ * settled. `beatOf` says when each one moves, so the claim above holds by
+ * construction rather than by luck.
  */
 export function calloutSubjects(): readonly CalloutSubject[] {
   const rows: CalloutSubject[] = manifestEntries().map((entry) => ({
@@ -375,7 +400,10 @@ export function calloutSubjects(): readonly CalloutSubject[] {
     };
   });
 
-  return [...rows, ...unsold].sort((a, b) => a.chapter - b.chapter);
+  return [...rows, ...unsold].sort(
+    (a, b) =>
+      (beatOf(a.chapter, a.layerIds[0]!)[0] ?? 0) - (beatOf(b.chapter, b.layerIds[0]!)[0] ?? 0),
+  );
 }
 
 /** Which label a sprite belongs to, including the sprites with no manifest row. */

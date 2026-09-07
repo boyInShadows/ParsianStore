@@ -409,8 +409,13 @@ export const CHAPTER_RANGE: Record<HeroLayer["chapter"], readonly [number, numbe
  * file (`lamp-far` / `lamp-near`), and a car whose two headlights leave at
  * different moments is a car with a fault, not a diagram.
  *
- * The order matches the manifest's rows, so a visitor reading the list top to
- * bottom sees the scene play in the same sequence.
+ * This order is what the manifest's rows are sorted by, so a visitor reading
+ * the list top to bottom sees the scene play in the same sequence. It is a
+ * derivation, not a coincidence: `manifestEntries()` sorts on `checkInAt`,
+ * which is this table read through `beatOf`. It was a coincidence once, and an
+ * untrue one -- the rows were ordered by how the sprites are *painted*, and
+ * chapter 1 paints the grille before the headlights while the headlights leave
+ * first, so the list ticked a row further down before the one above it.
  */
 export const CHAPTER_SEQUENCE: Record<HeroLayer["chapter"], readonly (readonly string[])[]> = {
   1: [["lamp-far", "lamp-near"], ["grille"], ["bumper"]],

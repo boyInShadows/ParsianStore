@@ -5,7 +5,15 @@ import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
 import { CATALOG_SYSTEMS } from "schemas";
-import { HERO_BAY, HERO_ENGINE_CHAPTER, HERO_ENGINE_PARTS, HERO_LAYERS } from "./heroLayout.js";
+import {
+  CHAPTER_SEQUENCE,
+  HERO_BAY,
+  HERO_ENGINE_CHAPTER,
+  HERO_ENGINE_PARTS,
+  HERO_LAYERS,
+  beatOf,
+  coverOf,
+} from "./heroLayout.js";
 import {
   MANIFEST_EXCLUDED_LAYERS,
   calloutSubjectByLayerId,
@@ -162,6 +170,70 @@ describe("parts manifest data (P12.S2)", () => {
     expect(chapters).toEqual([...chapters].sort((a, b) => a - b));
   });
 
+  /**
+   * The scene as it actually plays, built from the table `StationOutline`
+   * reads: each chapter's cover opens first (the hood is the lid over chapter
+   * 2, not one of its beats), then that chapter's slots in sequence.
+   */
+  const SCENE_ORDER = ([1, 2, 3] as const).flatMap((chapter) => {
+    const cover = coverOf(chapter);
+    return [...(cover ? [[cover]] : []), ...CHAPTER_SEQUENCE[chapter]];
+  });
+
+  // The defect this pins: rows were rendered in *paint* order (chapter, then
+  // position in HERO_LAYERS) while they tick in *scene* order, and the two
+  // disagree inside a chapter -- chapter 1 paints grille → headlights → bumper
+  // while the headlights leave first, chapter 3 paints fender → door while the
+  // door leaves first.
+  it("renders rows in the order the parts actually leave the car", () => {
+    const byLayer = manifestPartByLayerId();
+    const expected = SCENE_ORDER.map((ids) => byLayer.get(ids[0]!)?.id).filter(
+      (id): id is string => id !== undefined,
+    );
+
+    expect(manifestEntries().map((entry) => entry.id)).toEqual(expected);
+  });
+
+  // The same claim stated as arithmetic, so a retuned beat cannot satisfy the
+  // sequence check above and still put the list out of order.
+  it("lists rows by ascending check-in, never by how the sprites are stacked", () => {
+    const checkIns = manifestEntries().map((entry) => entry.checkInAt);
+    expect(checkIns).toEqual([...checkIns].sort((a, b) => a - b));
+  });
+
+  /**
+   * The visible symptom, tested the way a visitor meets it.
+   *
+   * `ManifestCheckIn` counts how many rows are behind the playhead and marks
+   * that many *from the top of the rendered list*. An unchecked row keeps its
+   * height rather than collapsing (globals.css: "never `display: none`"), so
+   * the instant a row ticks in while a row above it has not, the job card shows
+   * a blank slot in the middle of the list.
+   */
+  it("never checks a row in while a row above it is still blank", () => {
+    const entries = manifestEntries();
+    for (let step = 0; step <= 100; step += 1) {
+      const p = step / 100;
+      const checked = entries.map((entry) => entry.checkInAt <= p);
+      const firstBlank = checked.indexOf(false);
+      if (firstBlank === -1) continue;
+      const strays = entries.filter((entry, index) => index > firstBlank && checked[index]);
+      expect(
+        strays.map((entry) => entry.id),
+        `at progress ${p.toFixed(2)} the list shows a gap: ${entries[firstBlank]!.id} is still ` +
+          `blank while a row below it has checked in`,
+      ).toEqual([]);
+    }
+  });
+
+  // The exact reading from the report: eight of nine ticked, and the eighth was
+  // the door with the fender above it still empty.
+  it("has the door and the fender in the order they detach", () => {
+    const ids = manifestEntries().map((entry) => entry.id);
+    expect(ids.indexOf("door")).toBeLessThan(ids.indexOf("fender"));
+    expect(ids.indexOf("headlights")).toBeLessThan(ids.indexOf("grille"));
+  });
+
   it("keeps each part inside a single chapter", () => {
     const layerChapter = new Map(SCENE.map((layer) => [layer.id, layer.chapter]));
     for (const entry of manifestEntries()) {
@@ -248,6 +320,17 @@ describe("callout subjects", () => {
       const subject = calloutSubjects().find((candidate) => candidate.id === entry.id);
       expect(subject?.href, `${entry.id} is sold but its callout has no route`).toBe(entry.href);
     }
+  });
+
+  // The plates narrate the scene, so their order is the scene's. Chapter order
+  // alone was not enough: an unsold subject is appended after the rows, so it
+  // landed last in its chapter regardless of when it actually moves, and the
+  // windshield genuinely being last in chapter 3 hid that.
+  it("orders every label by the beat it belongs to", () => {
+    const beats = calloutSubjects().map(
+      (subject) => beatOf(subject.chapter, subject.layerIds[0]!)[0] ?? 0,
+    );
+    expect(beats).toEqual([...beats].sort((a, b) => a - b));
   });
 
   it("pairs both headlight sprites to one label", () => {
