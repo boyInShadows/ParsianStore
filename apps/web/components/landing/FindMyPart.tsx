@@ -47,15 +47,32 @@ export async function FindMyPart() {
             <span className="h-px w-12 bg-cta" />
             <p className="font-mono text-data text-graphite-300">{tSection("code")}</p>
           </div>
-          <h2 id="find-my-part-heading" className="font-display text-h2 font-black text-graphite-0">
+          <h2 id="find-my-part-heading" className="font-display text-h2 font-bold text-graphite-0">
             {tSection("title")}
           </h2>
         </div>
 
         {/* Side by side from `md`, because these are alternatives rather than
             steps: a visitor has either a car or a part number, never both to
-            fill in. Stacked they read as a two-step form. */}
-        <div className="grid gap-6 md:grid-cols-2">
+            fill in. Stacked they read as a two-step form.
+
+            `grid-cols-1` is load-bearing, not decoration. Without it the
+            single mobile column is an *implicit* track, and an implicit track
+            is sized `auto` -- its floor is the min-content width of whatever
+            sits in it. The widest thing here is the code field's row: an
+            `<input>` with no `size` attribute carries a ~194px intrinsic
+            width (the browser default `size=20`), and `min-w-0 flex-1` does
+            not lower that. `min-w-0` only lets the input shrink once the
+            track already has a definite size; it does not reduce the
+            min-content the track is measured against. So the track floored at
+            ~378px, both cards were stretched to it, and below ~412px they hung
+            past the container -- 5px past the viewport at 390px, 35px at
+            360px. `grid-cols-1` emits `repeat(1, minmax(0, 1fr))`, whose min
+            sizing function is 0 rather than auto, which both lets the track
+            shrink and stops the items' own `min-width: auto` from re-applying
+            a content floor. `md:grid-cols-2` was already written this way,
+            which is why the overflow only ever showed below `md`. */}
+        <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
           <div
             id="driver-path"
             className="flex scroll-mt-24 flex-col gap-3 border border-graphite-800 p-6"
