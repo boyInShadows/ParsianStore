@@ -153,6 +153,52 @@
   --price: #78550c;
   --brand-subtle: #eaf1ff;
 
+  /* ---- Type scale (§6.5, P14.S1) --------------------------------------
+     The scale used to live only in tailwind.config.js, because a fontSize
+     step is a (size, leading, tracking) triple rather than a single value.
+     It lives here now -- one custom property per part -- and the config
+     composes them, so the same "tokens.css is the only definition" rule the
+     colours follow (CLAUDE.md rule 5) finally covers type as well.
+
+     The numbers are Persian metrics, not Latin ones. The previous scale set
+     display-1 at line-height 1.10 with letter-spacing -0.02em (= -1.12px at
+     56px). Negative tracking and 1.1 leading are Latin display habits: on a
+     Persian face they crush the dot and kashida rhythm and clip ascenders,
+     which is precisely what made every heading on the site look wrong while
+     the one heading set in the body face at 700 looked right. Persian wants
+     >= 1.3 leading at display sizes and >= 1.7 in running text, and no
+     negative tracking at all. Tracking above zero survives only on the
+     mono step (--type-data-ls), whose runs are codes and SKUs, never
+     Persian prose.
+
+     Every clamp() is a real line through two viewports: the minimum is
+     reached at 390px and the maximum at 1280px, so a 360-390 phone gets the
+     mobile figure and a >= 1280 desktop gets the desktop one, with a smooth
+     ramp in between rather than a jump at a breakpoint. */
+  --type-display-1-size: clamp(1.875rem, 1.38rem + 2.02vw, 3rem); /* 30 -> 48px */
+  --type-display-1-lh: 1.3;
+  --type-display-1-ls: 0em;
+  --type-display-2-size: clamp(1.75rem, 1.42rem + 1.35vw, 2.5rem); /* 28 -> 40px */
+  --type-display-2-lh: 1.3;
+  --type-h1-size: clamp(1.75rem, 3vw, 2.25rem); /* 28 -> 36px */
+  --type-h1-lh: 1.3;
+  --type-h2-size: clamp(1.375rem, 1.1rem + 1.12vw, 2rem); /* 22 -> 32px */
+  --type-h2-lh: 1.35;
+  --type-h3-size: clamp(1.125rem, 1.02rem + 0.45vw, 1.375rem); /* 18 -> 22px */
+  --type-h3-lh: 1.4;
+  --type-body-lg-size: clamp(1.0625rem, 1.04rem + 0.11vw, 1.125rem); /* 17 -> 18px */
+  --type-body-lg-lh: 1.75;
+  --type-body-size: clamp(0.9375rem, 0.91rem + 0.11vw, 1rem); /* 15 -> 16px */
+  --type-body-lh: 1.75;
+  --type-body-sm-size: 0.875rem; /* 14px */
+  --type-body-sm-lh: 1.7;
+  --type-caption-size: clamp(0.75rem, 0.72rem + 0.11vw, 0.8125rem); /* 12 -> 13px */
+  --type-caption-lh: 1.5;
+  --type-caption-ls: 0em;
+  --type-data-size: clamp(0.75rem, 0.72rem + 0.11vw, 0.8125rem); /* 12 -> 13px */
+  --type-data-lh: 1.5;
+  --type-data-ls: 0.01em;
+
   /* ---- Radius (§6.6) ---- */
   --radius-sm: 6px;
   --radius-md: 10px;
@@ -214,6 +260,29 @@
   --breakpoint-lg: 1024px;
   --breakpoint-xl: 1280px;
   --breakpoint-2xl: 1536px;
+}
+
+/* ---- Display family = body family (§6.5, P14.S1) ---------------------
+   The owner's complaint about "every heading" resolved to the face as well
+   as the metrics. The one heading he likes -- «فهرست قطعه‌ها» -- computes to
+   the BODY face at 700; every heading he dislikes is the display face at
+   900. So --font-display now aliases --font-body. The token name survives
+   deliberately: the MUI admin panels and .hero-callout-name read
+   var(--font-display) directly, and `font-display` is a Tailwind utility on
+   ~30 elements. They all keep working and all get the face that works.
+
+   `html:root`, not `:root`, and that is not decoration. next/font/local
+   emits its own `.__variable_<hash> { --font-display: ... }` rule onto the
+   same <html> element; a class selector and `:root` carry identical
+   specificity, so a bare `:root` here would win or lose purely on
+   stylesheet source order -- a bundler detail, not a decision. The element
+   selector makes this rule strictly more specific, so it is deterministic.
+
+   The 900-weight Estedad file stays loaded in lib/fonts.ts on purpose:
+   removing it is a separate step, to be taken once no route still asks for
+   `font-black` on the display family. */
+html:root {
+  --font-display: var(--font-body);
 }
 
 @media (min-width: 1024px) {

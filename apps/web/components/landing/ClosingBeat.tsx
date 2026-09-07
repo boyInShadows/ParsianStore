@@ -60,7 +60,7 @@ export async function ClosingBeat() {
               <span className="h-px w-12 bg-cta" />
               <p className="font-mono text-data text-graphite-300">{t("code")}</p>
             </div>
-            <h2 id="closing-heading" className="font-display text-h2 font-black text-graphite-0">
+            <h2 id="closing-heading" className="font-display text-h2 font-bold text-graphite-0">
               {t("title")}
             </h2>
           </Reveal>
@@ -85,9 +85,7 @@ export async function ClosingBeat() {
 
         <aside className="flex flex-col gap-6 lg:border-s lg:border-graphite-800 lg:ps-16">
           <div className="flex flex-col gap-2">
-            <h3 className="font-display text-h3 font-black text-graphite-0">
-              {t("support.title")}
-            </h3>
+            <h3 className="font-display text-h3 font-bold text-graphite-0">{t("support.title")}</h3>
             <p className="text-body-sm text-graphite-300">{t("support.subtitle")}</p>
           </div>
 

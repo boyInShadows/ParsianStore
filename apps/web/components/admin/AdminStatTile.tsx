@@ -173,13 +173,16 @@ export function AdminStatTile({
         component="p"
         sx={{
           mt: isHero ? 1.5 : 1,
-          // The display face (Estedad) rather than the body face -- Persian
-          // numerals at this size are the one place on the screen where
-          // typographic character actually shows.
+          // --font-display, which since P14.S1 is an alias of the body face:
+          // one text family for the whole product. The weight is what gives
+          // Persian numerals their character at this size, not a second face.
           fontFamily: "var(--font-display)",
           fontWeight: 900,
-          lineHeight: 1.15,
-          letterSpacing: "-0.01em",
+          // P14.S1: was 1.15 leading with -0.01em tracking. Both are Latin
+          // display habits and the content here is Persian numerals, whose
+          // dots and descenders are exactly what negative tracking collides.
+          lineHeight: 1.3,
+          letterSpacing: 0,
           fontSize: isHero ? "clamp(1.75rem, 1.2rem + 2.2vw, 2.75rem)" : "1.5rem",
           color: "text.primary",
         }}

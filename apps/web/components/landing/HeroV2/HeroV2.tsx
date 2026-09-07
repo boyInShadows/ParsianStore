@@ -74,7 +74,7 @@ export async function HeroV2() {
               <span className="h-px w-12 bg-cta" />
               <p className="font-mono text-data text-graphite-300">{t("code")}</p>
             </div>
-            <h1 className="text-balance font-display text-display-1 font-black text-graphite-0">
+            <h1 className="text-balance font-display text-display-1 font-extrabold text-graphite-0">
               {t("headline")}
             </h1>
             <p className="max-w-prose text-body-lg text-graphite-200">{t("subheadline")}</p>

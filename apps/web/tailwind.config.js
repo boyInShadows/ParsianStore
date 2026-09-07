@@ -161,34 +161,47 @@ module.exports = {
       flexBasis: {
         rail: "var(--rail-card)",
       },
-      // Type scale -- masterPlan.md §6.5. fontFamily/fontWeight compose with
-      // these: e.g. `font-display text-display-1` or `font-mono text-data`.
+      // fontFamily/fontSize compose: e.g. `font-display text-display-1` or
+      // `font-mono text-data`. `display` resolves to the body face --
+      // tokens.css aliases --font-display to --font-body (P14.S1).
       fontFamily: {
         display: ["var(--font-display)", "Tahoma", "sans-serif"],
         body: ["var(--font-body)", "Tahoma", "sans-serif"],
         mono: ["var(--font-mono)", "ui-monospace", "monospace"],
       },
+      // Type scale -- tokens.css owns every value (CLAUDE.md rule 5); this
+      // map only composes size + leading + tracking into Tailwind's shape.
+      // P14.S1 moved the numbers there and retuned them for Persian: the
+      // old display-1 was `clamp(2.5rem, 6vw, 3.5rem)` at line-height 1.10
+      // with letter-spacing -0.02em, which is a Latin display setting and
+      // the reason every heading read as cramped. See tokens.css for the
+      // reasoning and the mobile -> desktop figure behind each clamp().
       fontSize: {
-        // Capped at 3.5rem, not the 4.5rem it shipped with (P12.S1). The
-        // fluid term is viewport-relative but its only consumer -- the hero
-        // headline -- lives in a fixed 26/32rem column, so past 1024px the
-        // type kept growing inside a measure that did not. Measured at
-        // 1440px: 72px set the 43-character Persian headline in five ragged
-        // lines ending on the single word "آن.". 56px sets it in three.
-        // Sizes below the cap are untouched, so 768/390/360 are unaffected.
         "display-1": [
-          "clamp(2.5rem, 6vw, 3.5rem)",
-          { lineHeight: "1.1", letterSpacing: "-0.02em" },
+          "var(--type-display-1-size)",
+          {
+            lineHeight: "var(--type-display-1-lh)",
+            letterSpacing: "var(--type-display-1-ls)",
+          },
         ],
-        "display-2": ["clamp(2rem, 4.5vw, 3rem)", { lineHeight: "1.15" }],
-        h1: ["clamp(1.75rem, 3vw, 2.25rem)", { lineHeight: "1.25" }],
-        h2: ["1.5rem", { lineHeight: "1.35" }],
-        h3: ["1.25rem", { lineHeight: "1.4" }],
-        "body-lg": ["1.125rem", { lineHeight: "1.75" }],
-        body: ["1rem", { lineHeight: "1.75" }],
-        "body-sm": ["0.875rem", { lineHeight: "1.7" }],
-        caption: ["0.75rem", { lineHeight: "1.5", letterSpacing: "0.02em" }],
-        data: ["0.875rem", { letterSpacing: "0.01em" }],
+        "display-2": ["var(--type-display-2-size)", { lineHeight: "var(--type-display-2-lh)" }],
+        h1: ["var(--type-h1-size)", { lineHeight: "var(--type-h1-lh)" }],
+        h2: ["var(--type-h2-size)", { lineHeight: "var(--type-h2-lh)" }],
+        h3: ["var(--type-h3-size)", { lineHeight: "var(--type-h3-lh)" }],
+        "body-lg": ["var(--type-body-lg-size)", { lineHeight: "var(--type-body-lg-lh)" }],
+        body: ["var(--type-body-size)", { lineHeight: "var(--type-body-lh)" }],
+        "body-sm": ["var(--type-body-sm-size)", { lineHeight: "var(--type-body-sm-lh)" }],
+        caption: [
+          "var(--type-caption-size)",
+          {
+            lineHeight: "var(--type-caption-lh)",
+            letterSpacing: "var(--type-caption-ls)",
+          },
+        ],
+        data: [
+          "var(--type-data-size)",
+          { lineHeight: "var(--type-data-lh)", letterSpacing: "var(--type-data-ls)" },
+        ],
       },
     },
   },

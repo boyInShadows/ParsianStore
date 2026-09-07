@@ -27,7 +27,7 @@ export async function SymptomFinder() {
     >
       <Reveal className="flex flex-col gap-2">
         <p className="font-mono text-data text-text-muted">{t("code")}</p>
-        <h2 id="symptom-finder-heading" className="font-display text-h2 font-black text-text">
+        <h2 id="symptom-finder-heading" className="font-display text-h2 font-bold text-text">
           {t("title")}
         </h2>
         <p className="max-w-2xl text-body text-text-muted">{t("subtitle")}</p>

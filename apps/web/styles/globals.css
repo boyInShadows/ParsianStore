@@ -35,6 +35,22 @@
     color: var(--text);
   }
 
+  /* Persian line-breaking (P14.S1). `balance` keeps a two-line heading from
+     ending on a one-word orphan -- the reason HeroV2's H1 carried
+     `text-balance` as a one-off utility; as an element rule every heading on
+     every route gets it, so no new heading has to remember. `pretty` is the
+     running-text counterpart: it only prevents orphans, so it stays cheap on
+     the long paragraphs `balance` would be wrong for. Both degrade to normal
+     wrapping where unsupported, which is why there is no fallback here. */
+  h1,
+  h2 {
+    text-wrap: balance;
+  }
+
+  p {
+    text-wrap: pretty;
+  }
+
   /* Backstop for the hero's undock (P9.S5 part 3).
      Note what is NOT here: any rule touching the layers themselves. The v1
      stage's backstop read `.hero-stage > * { transform: none !important }`,

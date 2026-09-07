@@ -372,7 +372,7 @@ const CONTRAST_SPECS: {
  * custom property. Read it from the config itself for the same
  * never-goes-stale reason the colors are read from tokens.css.
  */
-function readTypeScale(): TypeStep[] {
+function readTypeScale(vars: Record<string, string>): TypeStep[] {
   // Read as TEXT, not require()'d, for two reasons. First, `require(<an
   // expression>)` is not statically analyzable, and webpack emits a real
   // "Critical dependency" warning for it. Second, tailwind.config.js
@@ -392,15 +392,23 @@ function readTypeScale(): TypeStep[] {
   const entry = /["']?([\w-]+)["']?\s*:\s*\[\s*["']([^"']+)["']\s*,\s*\{([^}]*)\}/g;
   const steps: TypeStep[] = [];
   let match: RegExpExecArray | null;
+  // P14.S1 moved the numbers themselves into tokens.css, so a step now reads
+  // `var(--type-h2-size)` here. Substitute the custom property back out or the
+  // styleguide would list variable names instead of the scale it documents.
+  // `readBlock` keys the map without the leading `--`, so the capture group
+  // deliberately excludes it.
+  const resolve = (value: string): string =>
+    value.replace(/var\(\s*--([\w-]+)\s*\)/g, (whole, token: string) => vars[token] ?? whole);
+
   while ((match = entry.exec(block)) !== null) {
     const [, name, size, meta] = match;
     if (name === undefined || size === undefined || meta === undefined) continue;
     steps.push({
       name,
-      size,
-      lineHeight: /lineHeight:\s*["']([^"']+)["']/.exec(meta)?.[1] ?? "—",
+      size: resolve(size),
+      lineHeight: resolve(/lineHeight:\s*["']([^"']+)["']/.exec(meta)?.[1] ?? "—"),
       // Only display-1, caption and data set one; the rest inherit normal.
-      letterSpacing: /letterSpacing:\s*["']([^"']+)["']/.exec(meta)?.[1] ?? "normal",
+      letterSpacing: resolve(/letterSpacing:\s*["']([^"']+)["']/.exec(meta)?.[1] ?? "normal"),
     });
   }
   return steps;
@@ -414,9 +422,14 @@ function readTypeScale(): TypeStep[] {
  */
 const FONTS: FontFamily[] = [
   {
+    // P14.S1: an alias of --font-body, not a second family. The display face
+    // (Estedad 900) set Persian headings with Latin metrics and was the thing
+    // that made every heading on the site read as cramped; the token name
+    // survives so the ~30 `font-display` utilities and the admin `sx` rules
+    // that reference it keep working.
     token: "--font-display",
-    family: "Estedad",
-    weights: "700 · 900",
+    family: "Vazirmatn Variable (هم‌نام متن)",
+    weights: "700 · 800",
     role: "تیترهای نمایشی و سرتیترها",
   },
   {
@@ -477,7 +490,7 @@ export function getDesignTokens(): DesignTokens {
     dark: contrastRatio(dark[spec.fg] ?? "", dark[spec.bg] ?? ""),
   }));
 
-  return { ramps, groups, contrast, typeScale: readTypeScale(), fonts: FONTS };
+  return { ramps, groups, contrast, typeScale: readTypeScale(light), fonts: FONTS };
 }
 
 /**

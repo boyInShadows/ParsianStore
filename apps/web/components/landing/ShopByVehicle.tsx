@@ -34,7 +34,7 @@ export async function ShopByVehicle() {
     >
       <Reveal className="flex flex-col gap-2">
         <p className="font-mono text-data text-text-muted">{t("code")}</p>
-        <h2 id="shop-by-vehicle-heading" className="font-display text-h2 font-black text-text">
+        <h2 id="shop-by-vehicle-heading" className="font-display text-h2 font-bold text-text">
           {t("title")}
         </h2>
         <p className="max-w-2xl text-body text-text-muted">{t("subtitle")}</p>
@@ -42,7 +42,7 @@ export async function ShopByVehicle() {
       <div className="mt-6 grid grid-cols-1 gap-6 sm:grid-cols-2">
         {tree.map(({ make, models }) => (
           <div key={make.id} className="rounded-lg border border-border bg-surface p-4">
-            <h3 className="font-display text-h3 font-black text-text">{make.name.fa}</h3>
+            <h3 className="font-display text-h3 font-bold text-text">{make.name.fa}</h3>
             <ul className="mt-3 grid grid-cols-2 gap-2">
               {models.map(({ model, generations }) => {
                 const newest = generations[0];

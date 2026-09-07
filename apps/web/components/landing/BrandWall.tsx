@@ -29,7 +29,7 @@ export async function BrandWall() {
     >
       <Reveal className="flex flex-col gap-2">
         <p className="font-mono text-data text-text-muted">{t("code")}</p>
-        <h2 id="brand-wall-heading" className="font-display text-h2 font-black text-text">
+        <h2 id="brand-wall-heading" className="font-display text-h2 font-bold text-text">
           {t("title")}
         </h2>
       </Reveal>
@@ -63,7 +63,7 @@ export async function BrandWall() {
                 // three disconnected shapes. The spacing that reads as
                 // deliberate here is between the names, which is what the gap
                 // and the separator above do.
-                className="whitespace-nowrap font-display text-h1 font-black text-text-muted grayscale transition-colors duration-base hover:text-text hover:grayscale-0 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-focus motion-reduce:transition-none"
+                className="whitespace-nowrap font-display text-h1 font-bold text-text-muted grayscale transition-colors duration-base hover:text-text hover:grayscale-0 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-focus motion-reduce:transition-none"
               >
                 {brand.name.fa}
               </a>

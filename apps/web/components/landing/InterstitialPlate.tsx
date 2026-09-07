@@ -40,7 +40,7 @@ export async function InterstitialPlate() {
         </p>
         <h2
           id="interstitial-heading"
-          className="max-w-md font-display text-h2 font-black text-graphite-0"
+          className="max-w-md font-display text-h2 font-bold text-graphite-0"
         >
           {t("title")}
         </h2>

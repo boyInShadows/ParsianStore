@@ -40,7 +40,7 @@ export async function AuthenticityStory() {
         <div className="via-graphite-950/70 absolute inset-0 bg-gradient-to-t from-graphite-950 to-transparent" />
         <Reveal className="absolute inset-x-0 bottom-0 mx-auto flex max-w-container flex-col gap-2 p-4 lg:p-8">
           <p className="font-mono text-data text-graphite-300">{t("code")}</p>
-          <h2 id="authenticity-heading" className="font-display text-h2 font-black text-graphite-0">
+          <h2 id="authenticity-heading" className="font-display text-h2 font-bold text-graphite-0">
             {t("title")}
           </h2>
           <p className="max-w-2xl text-body text-graphite-200">{t("subtitle")}</p>
@@ -59,7 +59,7 @@ export async function AuthenticityStory() {
             />
           ) : null}
           <div className="absolute inset-0 bg-gradient-to-t from-graphite-950 to-transparent" />
-          <p className="relative z-10 font-display text-h2 font-black">{product.name.fa}</p>
+          <p className="relative z-10 font-display text-h2 font-bold">{product.name.fa}</p>
           <p className="relative z-10 mt-2 flex text-data text-marigold-300">
             <EvidenceCode code={product.authenticity.verificationCode} />
           </p>
