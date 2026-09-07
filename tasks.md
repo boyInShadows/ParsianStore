@@ -1,12 +1,20 @@
 # ParsianStore — Remaining Work Checklist
 
-> **The two Fable plan files are gone.** `fableTasks.md` (Phase 9) and
-> `fableTasks2.md` (Phase 12) were deleted on 2026-09-05 at the owner's request,
-> once every step in both had shipped. Around thirty source comments still cite
-> them by section — `fableTasks §3.2`, `fableTasks2 §2.1`, and so on. Those
-> citations are not dangling references to fix: they are the reasoning behind a
-> decision, and **the two SHIPPED sections in this file are what they now point
-> at**. Both were written fuller than a checklist needs to be for exactly this.
+> **The three Fable plan files are gone.** `fableTasks.md` (Phase 9) and
+> `fableTasks2.md` (Phase 12) were deleted on 2026-09-05 once every step in both
+> had shipped; `fableTasks.md` v1.1 (Phase 13) followed on 2026-09-07. All three
+> at the owner's request. Around forty source comments still cite them by
+> section — `fableTasks §3.2`, `fableTasks2 §2.1`, `fableTasks v1.1 P13.S7`, and so
+> on. Those citations are not dangling references to fix: they are the reasoning
+> behind a decision, and **the phase sections in this file are what they now
+> point at**. Each was written fuller than a checklist needs to be for exactly
+> this — and the Phase 13 section fullest of all, because that plan was deleted
+> with four steps still open, so it carries their specifications too.
+>
+> **The name has since been reused.** A *new* `fableTasks.md` landed at the root
+> on 2026-09-07 carrying the **Phase 14** landing plan — same filename, different
+> file, no relation to the three above. A comment citing `fableTasks` means one
+> of the deleted three; a comment citing `P14.Sn` means the live one.
 
 ## SHIPPED — Landing rebuild, Phase 9 (P9.S2 → S17) — closed 2026-08-26
 
@@ -1458,6 +1466,245 @@ than suspected. Ordered by how much it would cost to discover later.
   rather than the page.
 - **Measure `/`, never `/fa`.** `fa` is the default locale with `as-needed`
   prefixing, so `/fa` 307-redirects — worth ~0.6s of apparent LCP.
+
+## Phase 14 — mobile-first landing, typography, real light mode, hero pacing — ACTIVE, opened 2026-09-07
+
+Step-level plan of record: **`fableTasks.md`** at the root (Fable, round 3),
+**tracked this time** rather than deleted at close. Read its **§0.5 CTO
+amendments** first — it overrides §1 wherever the two disagree, because §1 was
+written from a browser session and §0.5 is what survived verification.
+
+Ten steps, S0–S9, landing route only (owner's scope call). Numbered 14 because
+**Phase 12 closed 2026-09-05 and Phase 13 is still open** — the plan arrived
+tagged `[P12.Sn]`, which would have collided silently with shipped commits.
+All ten tags were renumbered before any work began.
+
+### Owner decisions
+
+- **The finale holds exploded.** Reverses "Gate B" (`heroLayout.ts:632`), which
+  three assertions pin — `e2e/landing-hero.spec.ts:515`, `:534`, `:786`. Those
+  get **rewritten to assert the new ending, never deleted.** Settled 2026-09-07;
+  do not re-litigate.
+- **Shared type scale vs. a landing-only fork — OPEN.** `display-1`/`h1`/`h2`
+  are shared with cart, checkout and `PageHeader`. S1 does not start until this
+  is answered.
+
+### S0 — evidence, done 2026-09-07
+
+`scripts/hero-shots.mjs` extended (not rewritten) with `SHOTS_MODE=evidence`:
+390×844, 412×915 and 1440×900, thirteen scrub points, both themes, full-page
+shots and the open mobile menu. Output in `docs/shots/p14/` (gitignored) —
+85 screenshots, a contact sheet, and five Lighthouse runs.
+
+**Measured, median of five:** TBT **474ms** against a 200ms gate (last
+documented at 261ms), performance **0.87** against 0.90, route JS **197 KB**
+against 193. LCP 1.64s ✓, CLS 0 ✓, a11y and SEO 100 ✓. The box was busy, so
+treat TBT as directional — but it is directionally *worse*, so **a TBT
+attribution pass runs before S4**, not after S9. S4 and S7 both add client JS
+to a route already failing two budgets; find the cost before spending more.
+
+**Two premises of the plan died here.** The car is *not* below the fold at
+390×844 (it sits y546–663; the **job card** is what falls off at y888–1020), and
+the light-mode dark-section list was wrong in both directions — `#authenticity`
+is already light, `#trust-strip` is dark and was missing. Full table in §0.5.
+
+**Method note:** Playwright `fullPage: true` renders a phantom ~75px band above
+the header on this page that does not exist in a real viewport. Judge the fold
+from a viewport screenshot or a live `getBoundingClientRect`, never from
+`full-page.png`. That artefact is probably what produced the fold claim.
+
+### Fixed on the way — the job card reads in the order the parts leave
+
+Two real bugs, each confirmed independently by a source review and by
+instrumented evidence before a line was changed.
+
+- **The blank slot mid-list was an ordering disagreement, not a counter bug.**
+  Rows were emitted in sprite *paint* order while they tick in *scene* order,
+  and those disagree inside a chapter: chapter 1 paints grille→headlights→bumper
+  but the headlights detach first, and chapter 3 lists fender before door while
+  the door goes first. `ManifestCheckIn` marks the first N rows from the top, so
+  a ticked row could sit below a still-blank one — a gap. Visible at p≈0.70–0.76
+  **and** at p≈0.02–0.11. `manifestEntries()` now sorts on `checkInAt` with
+  `paintIndex` kept only as a deterministic tie-break; sprite painting reads
+  `HERO_LAYERS` directly and was not touched. The comment in `heroLayout.ts`
+  that already *claimed* list order matched scene order is now true by
+  derivation instead of by coincidence.
+- **`calloutSubjects()` was correct by luck.** It sorted by chapter alone and
+  relied on `Array.sort` stability plus the windshield happening to be chapter
+  3's last beat. It now sorts on the beat itself.
+- **The mobile job card never auto-scrolled.** `ManifestCheckIn` guarded
+  scroll-into-view on a class `manifest-chip` that no element carries — it died
+  in the P13.S7 two-lists-into-one merge and the guard was never updated. The
+  guard now reads the layout off `overflow-x` rather than holding a fourth
+  hand-synced copy of the `lg` breakpoint, so it cannot rot the same way.
+
+Five regression tests, including a p=0→1 sweep asserting the checked rows are
+always an unbroken run from the top — the visitor-facing invariant. All five
+were verified to fail against the old sort. Reviewed: zero findings.
+
+### Open, carried into the numbered steps
+
+- **`/` overflows 5px at 390** — `scrollWidth` 395 vs 390, from the vehicle
+  selector `#driver-path` (`FindMyPart.tsx:60`) rendering 378px wide at
+  `left:-5`. Clean at 412 and 1440, which is why it survived. → **S6**
+- **The finale collides on mobile.** At 390 the bumper overlaps headlight-left
+  by ~11px and headlight-right by ~5px. No `finaleMobile` parking table exists.
+  → **S5.4**
+- **The desktop fold was never re-measured.** The mobile claim was refuted; the
+  1440 one is still untested. Measure before S3 rather than building to it.
+- **A cosmetic highlight-bar defect at mobile widths**, deliberately not fixed:
+  restoring it needs a fourth hand-synced copy of the `lg` breakpoint in
+  `globals.css` and would move visual baselines.
+- **No unit test covers the scroll guard.** `vitest.config.ts` runs
+  `environment: "node"`, so `scrollWidth`/`clientWidth` are 0 and
+  `scrollIntoView` is a stub — a test there would assert nothing. Needs jsdom,
+  which is a dependency decision, not a step.
+
+## Phase 13 — the Job Card: narrating the hero — ACTIVE, opened 2026-09-06
+
+Step-level plan of record was **`fableTasks.md` v1.1** (external plan by Fable
+5, reconciled against the repo at `d43a391`). **That file was deleted on
+2026-09-07 at the owner's request**, the same way `fableTasks.md` (Phase 9) and
+`fableTasks2.md` (Phase 12) were — so this section is what the source comments
+citing `fableTasks v1.1 §…` / `P13.Sn` now point at. It is deliberately fuller
+than a checklist: the plan was deleted before the phase closed, so the four
+remaining steps below are specified here rather than merely named.
+
+The premise: the v1 hero animated a car coming apart and never said what came
+off. A part slid 40–80px away and slid back, and nothing told the visitor what
+had detached, that we sell it, or where to click. Phase 13 turns the animation
+into a workshop job card — every detachment gets a name, a system code, a
+reason, and a route into the catalogue.
+
+**The audit that opened the phase was about a third wrong**, and the plan's §0
+checked every finding against the running site before adopting it. Findings
+that did not reproduce — the brand wall, the authenticity SKU ellipsis, "36
+targets under 40px" — were not built against.
+
+### Shipped
+
+| Step | Commit | What |
+|---|---|---|
+| PLAN | `d43a391` | fableTasks v1.1 — audit reconciled, renumbered to Phase 13 |
+| S0 | `35b91a3` | `pnpm shots:hero` scrub harness — 17 points × 2 viewports × 2 themes |
+| S1 | `da46cbf` | `heroScene.ts` — geometry **solved, not typed**; finale packing + tests |
+| S2 | `27f8550` | `cameraRig.ts` — framing derived per chapter (1.35 / 1.125 / 1.098) |
+| S3 | `ee4e8f3` | `PartCallout` (server-rendered) + `StageNarration` client leaf |
+| S4 | `81360ba` | the job card checks in per part; pre-rendered Persian counter |
+| S8 | `064a0be` | finale — crossfade, drift, CTA; the car is whole again at `p=1` |
+| S5 | `c2aabcf` | light / shadow / focus; **captions moved to a fixed stage-space slot** |
+| S7 | `b45d3fd` | restructure: job card inside the pin, manifest renders ONCE, `#find-my-part` |
+| S9 | `159ec42` | OG card rendered from the page, `theme-color`, hreflang, JSON-LD |
+| S10 | `ae4738d`, `523b4e5` | digit policy + locale-file test; section numbering contiguous 01–09 |
+
+**S6 (real copy) was absorbed into S3/S4/S7** — a plate cannot render a missing
+key, so the copy landed with the components that needed it rather than as a
+step of its own.
+
+Two decisions worth keeping:
+
+- **The caption is a fixed slot in stage space, not a label beside the part.**
+  A plate inside the camera is measured in canvas pixels, so the camera scales
+  it: chapter 1 pushes in to 1.35, magnifying the plate 35% exactly where the
+  visible canvas is smallest. The headlights' caption rendered cut in half at
+  the top edge of the stage. No geometry keeps the why-line. The cost is the
+  leader line, and with one part detached at a time and everything else dimmed
+  to 55%, there is only one thing the caption could be describing.
+- **The manifest rendering twice was the entire Phase 12 TBT regression**
+  (130ms → 261ms). It was duplicated because one element cannot be in two grid
+  cells — a sticky panel beside the drawing and a rail under the stage. S7
+  dissolved the conflict by moving the job card inside the pinned block at both
+  breakpoints. Whether that actually recovers the TBT is S13's measurement, and
+  **it is still unmeasured**.
+
+### Open
+
+- [ ] **P13.S11 — Accessibility & interaction quality.** Mostly done.
+      ✅ Footer links padded to `py-2` — they were 22px, under WCAG 2.2 AA's
+      24px minimum (measured; the audit's "36 targets under 40px" used the
+      wrong threshold, and the brand wall at 35px and the closing row at 24px
+      both pass AA). ✅ `StageSteps.tsx` — «قدم بعدی» / «قدم قبلی» keyboard
+      scrubbing, which **scrolls the window and never sets progress directly**,
+      so the scrollbar stays the single source of truth for where the hero is.
+      ✅ `StationOutline.tsx` — an `sr-only` ordered list of the three chapters
+      and their nine stations, derived from `CHAPTER_SEQUENCE` +
+      `calloutSubjectByLayerId` so it cannot describe an animation the page no
+      longer plays. Remaining:
+      - `suppressHydrationWarning` on `<body>` — `cz-shortcut-listen` is a
+        browser-extension attribute, not a bug, and the warning is noise in
+        every screenshot run.
+      - The theme toggle's "empty circle in light mode" — **it is a real bug,
+        and not the one first suspected.** `disabled:opacity-0` hides the whole
+        button, ring included, so the pre-hydration state cannot produce a
+        circle. The cause: the toggle paints page-theme tokens
+        (`border-border text-text-muted`) inside a header that is
+        `bg-graphite-950` in **both** themes. In light mode the ring `#cbd3da`
+        on `#0e1418` is **12.25:1** and the icon `#5c6b78` is **3.38:1** — a
+        bright ring around a near-invisible glyph. Dark mode is fine (icon
+        8.78:1). Confirmed by computing both ratios from `tokens.css`.
+      - The toggle's accessible name is **English** — `"Switch to light theme"`,
+        hardcoded, in no locale file — the same class as the `aria-label="Close"`
+        bug P11.S3 fixed. It also lacks `aria-pressed`, a gap
+        `WishlistButton.tsx:23` already notes.
+      - Accept: Lighthouse a11y stays 100; axe zero serious on the hero in both
+        themes and on the mobile rail; keyboard walk headline → stage CTA with a
+        visible focus ring at every stop, recorded in the commit body.
+- [ ] **P13.S12 — Content defects.** Only the items the plan's §0 confirmed —
+      **not** the brand wall (shipped P12.S12, already a 15-brand marquee) and
+      **not** the authenticity SKU (shipped P12.S10; the ellipsis is CSS and the
+      full code is in the DOM).
+      - «پیشنهاد ما» shows duplicate names. The seed makes one product per
+        template per brand, and `fetchFeaturedProducts` asks
+        `?sort=newest&limit=8`, which returns two templates. De-duplicate by
+        template **in the fetcher** — there is no `?featured=true`, and if
+        de-duplication needs API support that is a `BLOCKED:` block naming the
+        endpoint, not an invented query param.
+      - `SYS-10`'s Persian name «فیلتر و روغن» is narrower than its own contents
+        (it holds antifreeze and brake fluid) and than its English «Filters &
+        Fluids». Rename to cover fluids — a `packages/schemas` change, so check
+        every consumer.
+      - Footer `پارسیان -- Ash Tech Group` → « · » or an en-dash.
+      - «ساعات پاسخگویی به‌زودی اعلام می‌شود» — real hours, or delete the line.
+      - اینماد / نشان ملی — **owner call.** If they stay, "pending registration"
+        must be legible on screen, not only in an `aria-label`.
+      - Section numbering is already done (S10).
+      - Accept: no repeated product name in «پیشنهاد ما»; no visible placeholder
+        on `/` that is not labelled as pending.
+- [ ] **P13.S13 — Performance gate.** The point of the phase, and **not yet
+      re-measured.** Route JS is 197 KB against a ≤193 KB gate; TBT was 261ms
+      against a ≤200ms gate, and S7's single-render manifest is the intended
+      fix. Other gates, with the P12-close numbers: `motion` chunk ≤45 KB
+      (39.9), LCP ≤2.0s (1.65), CLS ≤0.05 (0.034), Lighthouse perf ≥90 (94),
+      a11y 100, SEO 100.
+      Also: preload only the base and the three station-1 sprites; no new image
+      files (glow and rim-light reuse the same `src`); assert the **attribute-write
+      budget** — `data-shown` / `data-active` / `data-checked` / `data-highlight`,
+      **≤12 changes per value across the whole track** (there is no `activePart`
+      identifier; `StageNarration.tsx`'s own comment states the budget); take route JS from the build's own
+      route-size output — **there is no `pnpm analyze`**. The measurement recipe
+      is in `docs/performance-landing.md` — production build, `next start` on an
+      explicit port, `NEXT_PUBLIC_SITE_URL` set to that origin, Lighthouse
+      mobile 360×640 DPR 2, `--throttling-method=devtools`, five runs, median,
+      and measure `/` never `/fa`. If TBT is still over after S7, **say so with
+      the attribution breakdown** — a regression that is measured and named is a
+      finding; one quietly omitted is a defect the next phase inherits.
+- [ ] **P13.S14 — Close the phase.** Update
+      `docs/landing-hero-sprite-brief.md` to record that `anchor`, `labelSide`
+      and `finale` are **derived, not authored** — P13.S1 deliberately solved
+      them rather than storing three hand-written fields per sprite
+      (`heroScene.ts` header: "a number that can be computed is computed").
+      fableTasks v1.1 asked for the opposite and this checklist inherited the
+      ask without reconciling it against the step that shipped; the brief
+      currently contains none of the three words. Append the closing measurement to `docs/performance-landing.md` in
+      the P12.S13 block's format. Then mark this section SHIPPED.
+
+### Phase 13 — deferrals to log at close
+
+Engine-bay depth pass (a second stripped base with the bay shadowed, for
+hood-open frames) · light-theme stage variant · English locale return · real
+brand badge assets · product-image pipeline for best-sellers · `?v=`
+slugification · Gate C's catalogue sub-category question · the classic-coupé
+artwork in the interstitial and the authenticity video · no `/c` index route.
 
 ## Phase 9 — Content, SEO, hardening
 
