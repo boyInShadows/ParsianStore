@@ -61,15 +61,47 @@ export async function HeroV2() {
         dangerouslySetInnerHTML={{
           __html:
             "<style>.hero-track{min-height:0!important}" +
-            ".hero-pin{position:static!important}</style>",
+            ".hero-pin{position:static!important}" +
+            // The beat-0 narration is a caption the scroll turns off, so it is
+            // hidden until `StageNarration` shows it (P14.S3). Without
+            // JavaScript nothing ever shows it and the sentence would simply be
+            // gone -- and unlike the scroll hint beside it, this one is the
+            // hero's actual value proposition. Reduced motion gets the same
+            // treatment from globals.css.
+            ".hero-lead{display:block!important}</style>",
         }}
       />
       <HeroScrollProvider>
-        <div className="lg:gap-10 mx-auto flex max-w-container flex-col gap-8 border-x border-border px-4 py-12 lg:px-8 lg:py-16">
-          {/* The headline reads across the container now rather than down a
-              26rem column, so the same copy sets in fewer lines at the same
-              token size. `text-balance` is still what removes the orphan. */}
-          <header className="flex max-w-4xl flex-col gap-3">
+        {/* DOM order is the DESKTOP order, and the reading order: headline,
+            subline, stage, outline, brands. Below `lg` the `order-*` utilities
+            lift the stage above the subline -- see the header below for why.
+            `lg:order-none` on every child hands the column back to source
+            order at the breakpoint, so the desktop layout needs no ordering at
+            all. Only the subline actually moves; the other four carry an order
+            because a flex column with *some* ordered items puts every
+            unordered one first, which would have shuffled the outline and the
+            brand rule above the stage.
+
+            `gap-6`, down from `gap-8`, and the `lg:gap-10` that used to sit
+            beside it is gone entirely: the spacing scale is replaced (10 is not
+            a step) so that class had emitted no CSS since the day it was
+            written. The step down to 6 buys the fold its margin -- at gap-8 the
+            stage started at 34.7% of a 900px viewport against a 35% target,
+            which is three pixels of headroom and less than the variance in
+            font rasterisation between machines. At gap-6 it is 32.9%.
+
+            `py-12` at every width, where desktop used to take `lg:py-16`: 16px
+            of the same budget, spent above a section that opens directly under
+            the header. */}
+        <div className="mx-auto flex max-w-container flex-col gap-6 border-x border-border px-4 py-12 lg:px-8">
+          {/* The headline strip (P14.S3): one line of H1 and one subline.
+              `max-w-6xl`, not `max-w-4xl` -- the 50-character headline sets
+              1055px wide at the desktop `display-1`, so a 896px column forced
+              it onto two lines and spent 63px of the first screen on a wrap.
+              At 1152px it sets on one line from 1024px up, which is the whole
+              of the "kill the gap" measurement: it is the single biggest item
+              above the stage. */}
+          <header className="order-1 flex max-w-6xl flex-col gap-3 lg:order-none">
             <div className="flex items-center gap-3">
               {/* `cta-ink` on a theme-following ground: --cta is 1.87:1 on --bg, so
                   the rule beside the plate number simply vanished in light mode.
@@ -80,15 +112,31 @@ export async function HeroV2() {
             <h1 className="text-balance font-display text-display-1 font-extrabold text-text">
               {t("headline")}
             </h1>
-            <p className="max-w-prose text-body-lg text-text-muted">{t("subheadline")}</p>
           </header>
 
-          <p className="max-w-prose text-body text-text-muted">{t("diagramLead")}</p>
+          {/* The subline. Out of `<header>` and into its own cell so it can be
+              ordered independently, and DELIBERATELY still above the stage in
+              source: this is the desktop order, where it belongs to the
+              headline strip. Only the mobile `order-3` moves it, and it must
+              move rather than the stage: the track is `100vh + 72rem` tall, so
+              anything ordered after it lands a whole screen and a half further
+              down the page.
+
+              Measured at 390x844, leaving it above the stage put the job card
+              -- the one element on this screen that turns the animation into
+              commerce -- at y742..912, 68px past the fold. Below it, the card
+              lands at y628..798 and the whole hero fits the first screen. It
+              carries nothing focusable, so moving it visually cannot disagree
+              with the tab order. */}
+          <p className="order-3 max-w-prose text-body-lg text-text-muted lg:order-none">
+            {t("subheadline")}
+          </p>
 
           <HeroStage
             label={t("diagramLabel")}
             carAlt={t("staticStateAlt")}
             hint={t("scrollHint")}
+            lead={t("diagramLead")}
             callouts={<PartCallouts />}
             bloom={<HeadlightBloom />}
             finale={<StageFinale />}
@@ -108,7 +156,12 @@ export async function HeroV2() {
               a prop, which is what the slots above are. */}
           <StageNarration />
 
-          <div className="flex items-center gap-3 font-mono text-caption text-text-muted">
+          {/* `order-4` for the same reason the subline carries one: an
+              unordered flex item sorts ahead of every ordered one, which would
+              have floated the brand rule to the top of the mobile column.
+              (`StationOutline` needs none -- `sr-only` is out of flow -- and
+              `StageNarration` renders no element at all.) */}
+          <div className="order-4 flex items-center gap-3 font-mono text-caption text-text-muted lg:order-none">
             <span>SAIPA</span>
             <span className="h-px w-6 bg-border" />
             <span>IRAN KHODRO</span>

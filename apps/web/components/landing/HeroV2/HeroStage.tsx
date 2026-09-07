@@ -43,6 +43,23 @@ type Props = {
    *  screen for exactly as long as the invitation is true. */
   hint: string;
   /**
+   * Beat 0's narration -- "this car is built from the very parts we stock"
+   * (P14.S3).
+   *
+   * It used to be a page paragraph above the stage, and it was the single
+   * cheapest thing to cut from the first screen: measured at 1440x900 it and
+   * its gap cost 122px of the space between the header and the car. It is not
+   * page copy though -- it describes the drawing -- so it moves *into* the
+   * stage as the caption of the beat before any part has moved, at the same
+   * slot and by the same `data-callout`/`data-shown` mechanism as every other
+   * caption. It shares `__hint`'s id with the scroll invitation because the two
+   * are the same beat; `StageNarration` needs no new branch for it.
+   *
+   * A plain string, not a `ReactNode`: unlike the plates there is no markup to
+   * keep on the server, and taking the text lets the stage own where it sits.
+   */
+  lead: string;
+  /**
    * The server-rendered callout layer (P13.S3), passed in as a slot.
    *
    * This component is a Client Component, so it cannot render an async Server
@@ -548,6 +565,7 @@ export function HeroStage({
   label,
   carAlt,
   hint,
+  lead,
   callouts,
   bloom,
   finale,
@@ -583,7 +601,10 @@ export function HeroStage({
       // rather than three, and 56rem gave each station well under the 1.5
       // viewport-heights the plan asks for -- on a 844px-tall phone the whole
       // sequence ran in about two flicks.
-      className="hero-track relative min-h-[calc(100vh+72rem)] lg:min-h-[calc(100vh+120rem)]"
+      // `order-2 lg:order-none` is the hero column's mobile ordering (P14.S3),
+      // declared here because this element is the stage's cell in it. See
+      // HeroV2 for why every sibling carries one.
+      className="hero-track relative order-2 min-h-[calc(100vh+72rem)] lg:order-none lg:min-h-[calc(100vh+120rem)]"
     >
       {/* Stage and job card share the pinned block: side by side from `lg`,
           stacked below it. One grid, so the card is pinned with the drawing at
@@ -733,6 +754,16 @@ export function HeroStage({
               scaled by the camera and clipped by it, which is exactly what
               chapter 1's push-in did to the first version. See PartCallout. */}
             {callouts}
+            {/* Beat 0's narration, in the stage's lower band (P14.S3).
+                `dir="rtl"` because the stage box is `dir="ltr"` -- that is
+                correct for a diagram whose coordinates are LTR percentages,
+                and wrong for three lines of Persian prose inside it, which
+                need their own paragraph direction to break and align. It is
+                the one long run of copy in here; the plates are short enough
+                that the difference does not show. */}
+            <p className="hero-lead text-caption" data-callout="__hint" dir="rtl">
+              {lead}
+            </p>
           </div>
           {/* The invitation, and only while it is true (P13.S7). It used to be
               a permanent <p> under the stage, still reading "scroll to separate

@@ -122,7 +122,15 @@ export function StageNarration() {
       sprite.removeAttribute("data-active");
     }
     if (stage) {
-      if (id && id !== FINALE_ID) {
+      // `__hint` excluded alongside `__finale` (P14.S3). Both are beats rather
+      // than parts, so neither has a sprite -- and the branch below turns
+      // dimming ON and then finds nothing to exempt from it, which dropped
+      // every layer of the car to `saturate(.5) brightness(.62)` with no
+      // subject to look at. That is the exact state the comment above says
+      // cannot happen. It was latent while beat 0 was invisible until the
+      // first scroll event; fixing that (see the mount effect below) put a
+      // dimmed car on the first frame, which is how it surfaced.
+      if (id && id !== FINALE_ID && id !== HINT_ID) {
         stage.dataset.focus = "";
         for (const sprite of root.querySelectorAll(
           `.hero-stage img[data-part="${CSS.escape(id)}"]`,
@@ -131,7 +139,7 @@ export function StageNarration() {
         }
       } else {
         // At the finale every part is the subject, so dimming all but one would
-        // be dimming the catalogue.
+        // be dimming the catalogue. At beat 0 nothing has left the car yet.
         delete stage.dataset.focus;
       }
     }
@@ -148,7 +156,27 @@ export function StageNarration() {
     // read rather than scrubbed. Eleven captions stacked on a stationary car
     // would be strictly worse than the list beside it.
     if (reduceMotion) show(null);
+    // Otherwise: state the CURRENT beat rather than waiting for the first
+    // scroll event (P14.S3).
+    //
+    // `useMotionValueEvent` only fires on change, so nothing was shown until
+    // the visitor scrolled -- which meant the beat-0 caption was blank on the
+    // one frame everybody sees, the one at scrollY=0. It was invisible from
+    // the day the hint shipped and cost nothing while the hint was the only
+    // thing in the slot: `visibility: hidden` still reserved its line, so the
+    // page looked intact. P14.S3 moves the hero's value proposition into that
+    // slot, which makes the missing first frame the whole step's subject.
+    //
+    // `progress.get()` rather than 0: a reload restores the scroll position
+    // before this mounts, so a visitor returning to mid-track must get the
+    // caption for where they actually are.
+    else show(subjectAt(progress.get()));
     return () => show(null);
+    // `show` and `subjectAt` are re-created every render and close over
+    // nothing that changes; `progress` is the provider's motion value, stable
+    // for the hero's lifetime. Listing them would re-run the effect on every
+    // render to write the attribute it just wrote.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [reduceMotion]);
 
   useMotionValueEvent(progress, "change", (value) => {
