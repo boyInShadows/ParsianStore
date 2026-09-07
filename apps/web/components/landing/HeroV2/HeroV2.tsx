@@ -4,6 +4,8 @@ import { HeroStage } from "./HeroStage";
 import { HeadlightBloom, PartCallouts, StageFinale } from "./PartCallout";
 import { PartsManifest } from "./PartsManifest";
 import { StageNarration } from "./StageNarration";
+import { StageSteps } from "./StageSteps";
+import { StationOutline } from "./StationOutline";
 
 /**
  * Hero v2 — the Exploded View, restructured (fableTasks v1.1 P13.S7).
@@ -41,6 +43,7 @@ import { StageNarration } from "./StageNarration";
  */
 export async function HeroV2() {
   const t = await getTranslations("Landing.beats.hero");
+  const tManifest = await getTranslations("Landing.manifest");
 
   return (
     <section id="hero" className="overflow-x-clip bg-graphite-950 text-graphite-50">
@@ -87,7 +90,13 @@ export async function HeroV2() {
             bloom={<HeadlightBloom />}
             finale={<StageFinale />}
             manifest={<PartsManifest />}
+            steps={<StageSteps next={tManifest("stepNext")} previous={tManifest("stepPrevious")} />}
           />
+
+          {/* What the animation says, for anyone who cannot watch it (P13.S11).
+              Crawlable prose as well as screen-reader content: it is the only
+              place the page states the order the parts come off in. */}
+          <StationOutline />
 
           {/* Decides which caption is showing and which sprite is lit. Renders
               no markup of its own, and sits outside the stage so the

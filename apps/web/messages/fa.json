@@ -178,7 +178,10 @@
       "finale": {
         "cta": "مشاهده همه قطعه‌ها",
         "secondary": "خودرویم را انتخاب می‌کنم"
-      }
+      },
+      "stepNext": "قدم بعدی ←",
+      "stepPrevious": "→ قدم قبلی",
+      "stations": "ترتیب جدا شدن قطعه‌ها"
     },
     "sections": {
       "guidesTeaser": {

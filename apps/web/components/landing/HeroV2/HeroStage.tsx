@@ -81,6 +81,11 @@ type Props = {
    * sitting below the fold until the animation has finished.
    */
   manifest?: ReactNode;
+  /**
+   * Station-to-station controls (P13.S11): the keyboard's equivalent of a
+   * scroll gesture, for an animation that is otherwise pointer-only.
+   */
+  steps?: ReactNode;
 };
 
 /** Roughly how wide the stage itself is, for `sizes`. */
@@ -539,7 +544,16 @@ function DockedLayer({ layer, index }: { layer: HeroLayer; index: number }) {
  * every sprite. It collapses the track and unpins the stage, and leaves the
  * layers alone.
  */
-export function HeroStage({ label, carAlt, hint, callouts, bloom, finale, manifest }: Props) {
+export function HeroStage({
+  label,
+  carAlt,
+  hint,
+  callouts,
+  bloom,
+  finale,
+  manifest,
+  steps,
+}: Props) {
   const reduceMotion = useReducedMotion();
   // The measurement itself lives in HeroScrollProvider so the parts manifest,
   // which renders in the other grid column, reads the same value (P12.S4).
@@ -723,6 +737,7 @@ export function HeroStage({ label, carAlt, hint, callouts, bloom, finale, manife
             {hint}
           </p>
           {finale}
+          {steps}
         </div>
         {manifest}
       </div>

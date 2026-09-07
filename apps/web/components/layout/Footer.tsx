@@ -37,7 +37,16 @@ function FooterColumn({
       <ul className="flex flex-col gap-1">
         {links.map((link) => (
           <li key={link.href}>
-            <Link href={link.href} className="text-body-sm text-text-muted hover:text-text">
+            {/* `py-1.5` is not available: the spacing scale is REPLACED with
+              0,1,2,3,4,6,8,12,16,20,24,32, so anything off it generates no CSS
+              at all. `py-2` takes a 22px link to 38px, clearing WCAG 2.2's
+              Target Size (Minimum) of 24x24 -- which these were failing at 22px
+              (P13.S11). `inline-flex` because padding on an inline element
+              does not grow its box. */}
+            <Link
+              href={link.href}
+              className="inline-flex items-center py-2 text-body-sm text-text-muted hover:text-text"
+            >
               {link.label}
             </Link>
           </li>
@@ -104,7 +113,7 @@ export async function Footer() {
                   href={channel.href}
                   dir="ltr"
                   aria-label={`${channelLabel[channel.kind]}: ${channel.display}`}
-                  className="text-body-sm text-text-muted hover:text-text"
+                  className="inline-flex items-center py-2 text-body-sm text-text-muted hover:text-text"
                 >
                   {channel.display}
                 </a>
