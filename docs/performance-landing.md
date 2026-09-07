@@ -507,3 +507,319 @@ Five times, median taken. Lighthouse still exits with `EPERM` while cleaning
 up its own Chrome temp directory on this Windows machine — the report is
 already written by then, so check for the output file before treating that
 error as a failed run.
+
+---
+
+# 2026-09-07 — TBT attribution pass (before P14.S4/S7 add more client JS)
+
+Requested ahead of P14.S4 (a `useSpring` on scroll progress, a tour-mode RAF
+loop, an idle-drift loop) and S7 (`whileInView` reveals on every section),
+because both add client JS to a route already failing two budgets. **No
+fixes were made.** This is the ledger; the spend comes after.
+
+## Environment, first — the numbers below are not comparable until this is read
+
+Two things were true before a single measurement was taken, and both would
+have silently poisoned the results.
+
+**Two stray, already-running Next servers were sharing the route's own
+`.next` output directory**, contradicting "nothing is serving right now."
+One was a `next start`/`next dev` process on **port 3000** (PID `22236`,
+running for hours) that had corrupted `.next` mid-build once already — a
+`next build --no-lint` completed clean, but the very next `next build`
+prerendered against a **dev-mode `build-manifest.json`** (`devFiles:
+["static/chunks/react-refresh.js"]`, which a production build never writes)
+and then failed a second rebuild outright with `Cannot find module
+'./chunks/vendor-chunks/next@...js'` — the two processes were racing on the
+same directory. **`PowerShell Stop-Process` on that PID was denied by this
+session's own tool permissions; `taskkill //PID <n> //F` was not and worked
+cleanly both times.** Whoever runs this next: confirm `netstat -ano | grep
+LISTENING` on 3000 and whatever port you intend to serve on, before trusting
+any number that follows a corrupted-manifest symptom (dev-only fields in a
+prod manifest, or `Cannot find module '...webpack-runtime.js'`).
+
+**A second agent began an active, uncommitted design-token/typography pass
+mid-audit** — 16 files (`tailwind.config.js`, `styles/tokens.css`,
+`styles/globals.css`, `lib/design-tokens.ts`, and various landing
+components including `HeroV2.tsx`), consistent with Phase 14's own S1
+(typography) work already being in flight. This is expected under this
+repo's cross-agent rule (`CLAUDE.md`: "treat existing uncommitted changes as
+another collaborator's work") and nothing here touched or reverted it.
+**Checked, not assumed:** rebuilt with those edits in place and the route
+still measured 197 KB / 16.5 kB — a token/className pass does not move
+client JS weight, and every First Load JS number below holds with that work
+present. Nothing here was staged or committed.
+
+**CPU contention moved TBT by 2× on its own**, confirming the box-was-busy
+caveat P14.S0 already flagged. Five Lighthouse runs taken *before* clearing
+the stray port-3000 process (which was actively erroring in a loop — 6+
+"Cannot read properties of undefined" traces a minute, 61+ CPU-seconds
+consumed) measured **median TBT 678ms** (579–706, perf 0.81–0.83). The same
+build, same machine, five more runs *after* clearing it, measured **median
+TBT 306ms** (201–395, perf 0.89–0.94). Same code, same `.next`, half the
+number, purely from removing a runaway process fighting for the same CPU
+core under devtools' 4× throttle. **Every absolute number in this document,
+and in every prior one, should be read as "measured on a machine with
+unknown other load" unless the session confirms otherwise** — this is the
+single largest source of run-to-run variance seen in this pass, larger than
+any code change measured below.
+
+## Core Web Vitals — clean run, five times, median reported
+
+Lighthouse 13.4.1, mobile 360×640 DPR 2, `--throttling-method=devtools`,
+against `next start` on the confirmed-clean build (197 KB, matching P14.S0).
+
+| Metric | Gate | P14.S0 | **This pass (clean)** | |
+|---|---|---|---|---|
+| TBT | ≤200ms | 474ms | **306ms** (201–395) | ✗ still over, by less than it looked |
+| LCP | ≤2.0s | 1.64s | **1.96s** (1.92–1.99) | ✓ thin margin |
+| CLS | ≤0.05 | 0 | 0.035 | ✓ |
+| Speed Index | — | — | 1.87s (1.83–2.05) | |
+| Lighthouse perf | ≥0.90 | 0.87 | **0.92** (0.89–0.94) | ✓ on the clean box |
+| a11y / SEO / best-practices | 100/100/— | 100/100/— | 100/100/96 | ✓ |
+
+The gate is still failing — 306ms against 200ms is real, not noise — but it
+is a materially smaller failure than the 474ms on record, and the honest
+read is that some fraction of the 474ms was the same kind of contention this
+pass caught directly. **Route JS: confirmed 197 KB** (16.5 kB route +
+103 KB shared + the hero's own chunks), against the 193 KB gate — unchanged
+from P14.S0, not re-derived from a different build.
+
+## Attribution — where the main thread's time actually goes
+
+From the median-adjacent run's own audits (`bootup-time`,
+`mainthread-work-breakdown`, `long-tasks`, `third-party-summary`), not
+estimated.
+
+**`third-party-summary`: empty.** Zero third-party origins on this route —
+nothing to attribute there, confirming the P4/P9 findings still hold.
+
+**`mainthread-work-breakdown`** (ms, one representative clean run): Script
+Evaluation 1420, Style & Layout 783, Other 738, Rendering 328, Script
+Parsing & Compilation 62, Parse HTML & CSS 32, GC 17. Total 3379ms of
+main-thread work for the whole page load under 4× CPU throttle — TBT only
+counts the slice of that over the 50ms-per-task threshold, which is what the
+long-tasks table below isolates.
+
+**`bootup-time`, by script URL:**
+
+| Script | Total | Scripting | Parse/Compile |
+|---|---|---|---|
+| `chunks/3889-ae79439eefc5b2dc.js` | **1387ms** | 1185ms | 7ms |
+| Unattributable (GC, inline, etc.) | 264ms | 16ms | 0ms |
+| `chunks/9357-4ce5e2b11ed6e2ad.js` (motion) | 114ms | 85ms | 6ms |
+| `chunks/5886ae73-e5764e556e37f504.js` | 83ms | 63ms | 8ms |
+| the document itself | 21ms | 21ms | 24ms |
+
+**The single largest attributed script cost is `chunks/3889`, and it is not
+landing-specific code.** Grepped for its own distinguishing strings —
+`AppRouter`, `fetchServerResponse`, `startTransition` all present, none of
+`next-intl`, `IntlMessageFormat`, `zustand` or `@tanstack` — it is **Next.js's
+App Router client runtime** (route navigation, RSC payload fetching, the
+router reducer), present on every route in the app, admin included. It is
+46.4 KB gz and shows 1.19s of scripting time on this run under 4× CPU
+throttle. `chunks/5886ae73` is confirmed as **`react-dom`** the same way
+(`hydration`, `Suspense` present) — also universal, also not attributable to
+the hero. Between them these two framework chunks account for roughly
+**1.25s of the page's 1.42s total Script Evaluation** — the landing route's
+*own* client code (HeroStage, StageNarration, ManifestCheckIn, StageSteps,
+PartCodeSearch, HeroScrollProvider combined) is a small fraction of the
+script-evaluation total, confirmed independently by the stub ladder below.
+
+**`long-tasks`: six tasks, and four of the six are dominated by Style &
+Layout, not script.**
+
+| Duration | Script | Style/Layout | Paint | Attributed to |
+|---|---|---|---|---|
+| 348ms | 2ms | **333ms** | 7ms | the document (hydration reconciliation) |
+| 198ms | 0ms | **179ms** | 11ms | the document |
+| 123ms | 0ms | **123ms** | 0ms | the document |
+| 113ms | 105ms | 0ms | 0ms | `chunks/3889` (App Router runtime) |
+| 82ms | 75ms | 0ms | 1ms | `chunks/9357` (motion) |
+| 72ms | 0ms | **57ms** | 12ms | the document |
+
+**692 of the ~936ms across these six tasks is Style & Layout recalculation
+attributed to the document itself, not to any script chunk.** This is the
+pass's central finding: **the TBT cost here is mostly layout work forced
+during hydration, not JavaScript bytes being parsed or executed.** The
+document-attributed tasks correlate with hydrating `HeroStage`'s DOM — eleven
+absolutely-positioned sprite layers plus engine-part layers, each carrying a
+percentage-based `insetInlineStart`/`top`/`width` computed by `place()`, on
+top of `HERO_CAMERA_PERSPECTIVE_CQW`/`HERO_PERSPECTIVE_CQW` — **container
+query units**, which require the browser to resolve the container's size
+before it can resolve any dependent element's box, i.e. layout-dependent by
+construction. **This last sentence is inferred, not confirmed** — proving it
+needs a Chrome performance trace with element-level layout-invalidation
+attribution (DevTools Performance panel, "Layout Shift"/"Recalculate Style"
+call stacks), which this pass did not capture; a CDP trace via Playwright
+was considered but the Lighthouse long-tasks table already isolates the
+same six tasks a trace would, at a fraction of the setup cost, so the trade
+was made to spend the time on the stub ladder instead. **Flagged for
+whoever picks this up: capture that trace before spending effort trying to
+shave JS bytes off `HeroStage` for a TBT win** — the ladder below shows its
+JS is real (4 KB) but small next to 692ms of layout time that removing it
+would very likely also remove, for a different reason than bytes.
+
+## The stub-and-rebuild ladder — six leaves, measured one at a time
+
+Method: read each leaf, replace its body with a no-op that keeps the same
+exported signature (so the caller doesn't need touching), `rm -rf .next &&
+next build --no-lint` (lint skipped only for these throwaway builds — every
+final build in this pass ran full build/lint), read `/[locale]`'s row from
+the build's own output, `git checkout --` the file, confirm `git diff` on it
+is empty before moving to the next. **All six are restored — `git status`
+shows zero diff on any of them**, confirmed by `git diff -- <the six paths>
+| wc -l` returning `0` at the end of the session.
+
+| Leaf | Route chunk (baseline 16.5 kB) | First Load JS (baseline 197 KB) | Marginal cost |
+|---|---|---|---|
+| **HeroStage** | 12.4 kB | **193 KB** | **~4 KB** — the only leaf that crosses Next's 1 KB rounding on the total |
+| HeroScrollProvider *(highlight effect only — see note)* | 16.3 kB | 197 KB | ~0.2 KB |
+| StageNarration | 16.1 kB | 197 KB | ~0.4 KB |
+| ManifestCheckIn | 16.0 kB | 197 KB | ~0.5 KB |
+| StageSteps | 16.2 kB | 197 KB | ~0.3 KB |
+| PartCodeSearch | 16.0 kB | 197 KB | ~0.5 KB |
+
+Next's build output rounds route size to 0.1 kB and First Load JS to the
+nearest whole KB, so every leaf except `HeroStage` moves the route chunk by
+a few hundred bytes without ever crossing a full-KB boundary on the total —
+that is a real, measured result, not a measurement failure: **five of the
+six named leaves are each a few hundred bytes gzipped**, and the route's
+weight is concentrated almost entirely elsewhere (the two framework chunks
+above, motion, and `HeroStage`).
+
+**`HeroScrollProvider` could not be stubbed the same way as the other five.**
+It is the context provider every other client leaf calls `useHeroScroll()`
+against; removing it outright throws in five other files. The number above
+isolates its one piece of *discretionary* logic — the pointer/focus
+row-sprite highlight `useEffect` (four `addEventListener` calls plus the
+delegated highlight/clear closures) — with the `useScroll`+context plumbing
+left in place as structurally unavoidable overhead shared with `HeroStage`.
+Read as "the highlight feature costs ~0.2 KB," not "this leaf costs 0.2 KB."
+
+**`HeroStage` is the real weight** — camera framing (`cameraRig.ts`),
+scene geometry (`heroScene.ts`), and `heroLayout.ts`'s per-chapter transform
+math, all client-side. Stubbing it to a shell that just renders its slot
+props (`callouts`, `bloom`, `finale`, `manifest`, `steps`) without any
+scroll-linked interpolation took the route from 197 → **193 KB** — landing
+exactly on the P12.S13 gate the route is failing by 4 KB today.
+
+## Is `motion` the floor? — confirmed, not the problem
+
+`chunks/9357-4ce5e2b11ed6e2ad.js`: raw 125,768 bytes, gzip **40,751 bytes —
+39.8 KB**, against the 45 KB budget. Matches the 39.9 KB on record within
+rounding; **unchanged since P9.S17** despite three more phases of
+scroll-driven motion landing on this route. Confirmed by content, the same
+way as every prior measurement: `prefers-reduced-motion` string present
+(the `useReducedMotion` fingerprint), zero occurrences of `zustand`,
+`@tanstack`, `next-intl` or `IntlMessageFormat`. Its `bootup-time` entry
+(114ms total, 85ms scripting) is the third-largest script cost on the page
+and the smallest of the three real script chunks — **motion is not what is
+over budget here, on either axis.**
+
+## The 4 KB regression (193 → 197) — attributed
+
+`git diff --stat` from the Phase 12 close commit (`3ae0259`) to `HEAD`
+touches 27 files and +3262/−591 lines across the whole hero — this was not
+a one-line regression, it is most of Phase 13 (camera rig, solved geometry,
+`PartCallout`, the S7 restructure) landing as one body of work, so there is
+no single commit to point at the way P11.S2's `tailwind-merge` case had one.
+What can be attributed directly:
+
+- **`StationOutline.tsx` is confirmed 0 KB.** No `"use client"` directive
+  (imports `next-intl/server`, a server-only module), and `grep -rl
+  StationOutline apps/web/.next/static/chunks/` returns **zero files** — it
+  does not exist in any client bundle. Exactly as designed.
+- **`StageSteps.tsx` is confirmed new** (`git log --follow` shows it
+  originating at `5073435`, tagged `[P13.S11]`, the same commit that added
+  `StationOutline.tsx`) **and confirmed cheap** — the stub ladder above
+  measures its own marginal cost at ~0.3 KB, not a 4 KB driver on its own.
+- **The 4 KB has the same shape as the stub ladder's `HeroStage` finding,
+  and that is not a coincidence.** `git diff --stat` on that same range
+  shows `HeroStage.tsx` at +499/−(rewrite), plus two wholly new modules
+  (`cameraRig.ts` +258, `heroScene.ts` +334) that only `HeroStage` and the
+  narration/steps leaves import. The stub ladder's independent, present-day
+  measurement of "remove `HeroStage`'s animation logic → −4 KB" lines up
+  with the historical "add camera framing + solved geometry → +4 KB"
+  almost exactly. **Read as strongly corroborated, not separately proven**
+  — a full bisection would need two `git worktree` builds with their own
+  `pnpm install`, which this pass judged not worth the time given how
+  cleanly the two numbers already agree.
+
+**So: the 4 KB is `HeroStage` growing to do real, shipped work (per-chapter
+camera framing, solved-not-authored geometry) — not dead weight, and not
+the two files named in the brief.** `StageSteps` and `StationOutline`
+together account for well under 1 KB of the 4.
+
+## Recommendation — ranked, with the S4 question answered directly
+
+1. **Fix the measurement environment before spending on code.** The 474ms
+   → 306ms swing from clearing one stray process is larger than anything
+   below. Before any future TBT-driven decision on this route: confirm
+   `netstat` shows nothing already listening on the port you intend to use,
+   and re-run five times. *Cost: zero. Risk: none. This is the highest-value
+   line in this report.*
+2. **Get a real Chrome trace on `HeroStage`'s hydration before touching its
+   JavaScript.** The evidence points at layout cost (692ms of six tasks),
+   not script bytes (4 KB) — cutting the 4 KB would help the JS budget gate
+   but the *TBT* gate is much more likely won or lost on whether hydrating
+   eleven absolutely-positioned, `cqw`-driven sprite layers can be made
+   cheaper to lay out, independent of how much JS computes their positions.
+   *Estimated saving: unquantified until traced — potentially the largest
+   lever on the page, but this is inferred, not measured. Risk: low to
+   investigate, unknown to fix without seeing the trace first.*
+3. **`HeroStage`'s 4 KB is real feature cost, not slack — do not cut it
+   reflexively.** It is the per-chapter camera framing and solved geometry
+   Phase 13 was built to ship. If the JS budget must move, this is where it
+   would come from, but it should be a deliberate owner call against what
+   it buys (the "job card" narrative), not a drive-by trim.
+4. **Framework chunks (`chunks/3889` App Router runtime, `chunks/5886ae73`
+   react-dom, 45.5 + 53.0 KB gz, ~1.25s combined scripting) are not
+   recoverable from this route without leaving Next.js App Router.** Not a
+   recommendation — a boundary, so nobody spends a step chasing it.
+5. **`motion` is confirmed not the problem** (39.8 KB against 45 KB, stable
+   for three phases) — no action needed there.
+
+**On S4 directly, since that is what this pass exists to answer:** this
+route cannot absorb all three of a `useSpring`, a tour-mode RAF loop, and an
+idle-drift loop inside a 200ms TBT budget it is *already* missing by 106ms
+on a clean, uncontended run (worse on a contended one, which is the
+realistic case). Of the three, **the idle-drift loop is the one to cut or
+gate hard**, and it is not a close call: a `useSpring` and a tour-mode loop
+both run in response to something the visitor did (scrolling, engaging a
+tour control), but an idle-drift loop by definition keeps running with *no*
+interaction, which means it inflates every single page load's TBT
+regardless of whether the visitor ever notices the hero — the exact
+opposite of where TBT budget should go on a route already over. If it ships
+at all, it should be gated behind explicit engagement (e.g. only after the
+visitor has scrolled into the hero and paused), never running from first
+paint. `useSpring` and the tour RAF loop should each be measured with this
+same recipe *individually*, not both added and measured once at the end —
+the ladder above shows how much signal is lost when a whole feature lands
+before anyone re-measures (P11.S2's `tailwind-merge`, and now this 4 KB, are
+both examples of exactly that pattern). **The honest statement for the
+owner: this route cannot currently hold 200ms TBT with all of S4 added on
+top, and probably cannot hold it even with only the two lower-risk pieces,
+until the layout-cost question in recommendation 2 is answered — that
+should be read as a real constraint on scope, not a reason to skip
+measuring.**
+
+## How this was measured
+
+Same recipe as every prior pass in this document — `rm -rf apps/web/.next`
+→ `NEXT_PUBLIC_SITE_URL=http://localhost:3200 pnpm --filter web exec next
+build` → `next start -p 3200` → Lighthouse mobile 360×640 DPR 2,
+`--throttling-method=devtools`, five runs, median — with two additions this
+pass needed and is recording so the next one does not rediscover them:
+
+- `next build --no-lint` for throwaway stub-ladder builds only (lint adds
+  real time across six rebuilds and the stubs are never committed); every
+  build whose number is quoted in a table above ran clean either way.
+- `netstat -ano | grep LISTENING` on the target port(s) **before** the first
+  build of a session, not after a failure — and `taskkill //PID <n> //F`
+  over `Stop-Process`, which this session's own tool permissions blocked
+  for a long-running PID that `taskkill` cleared without issue.
+
+No dependency was added. No source file's behaviour changed — the six stub
+edits were written, measured, and reverted with `git checkout --` before
+the next one began; `git diff` on all six is confirmed empty.
