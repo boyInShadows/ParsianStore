@@ -38,6 +38,21 @@
  *   pnpm build
  *   pnpm --filter web exec next start -p 3200
  *   SHOTS_BASE_URL=http://localhost:3200 pnpm shots:hero
+ *
+ * ## Evidence mode (P14.S0)
+ *
+ * Phase 14 opens on an audit that could not resize its own browser below
+ * 1382px, so every mobile finding in it is an inference. `SHOTS_MODE=evidence`
+ * turns this same harness into the thing that replaces those inferences with
+ * screenshots: it adds the 412x915 Android-class viewport, swaps the
+ * beat-derived sample points for the plan's own fixed scrub list (a mobile
+ * regression like an overflowing finale does not care whether a beat is
+ * mid-hold or mid-camera-move, and the fixed list is what the plan's Accept
+ * lines are written against), and adds one shot of the open mobile drawer.
+ * Default (`pnpm shots:hero`, no env var) is byte-for-byte the P13 behaviour.
+ *
+ *   SHOTS_MODE=evidence SHOTS_OUT=docs/shots/p14 \
+ *     SHOTS_BASE_URL=http://localhost:3200 pnpm shots:hero
  */
 
 import { mkdir, writeFile, rm } from "node:fs/promises";
@@ -52,6 +67,7 @@ import {
 
 const BASE_URL = process.env.SHOTS_BASE_URL ?? "http://localhost:3000";
 const OUT_ROOT = process.env.SHOTS_OUT ?? path.join("docs", "shots", "p13");
+const EVIDENCE_MODE = process.env.SHOTS_MODE === "evidence";
 
 /**
  * 1440x900 and 390x844 on purpose.
@@ -66,9 +82,26 @@ const OUT_ROOT = process.env.SHOTS_OUT ?? path.join("docs", "shots", "p13");
 const VIEWPORTS = [
   { name: "1440", width: 1440, height: 900 },
   { name: "390", width: 390, height: 844 },
+  // 412x915 (Android-class) only under evidence mode -- P13's shots never
+  // needed a second phone viewport, and adding it unconditionally would
+  // triple every P13 run's frame count for a comparison nobody asked for.
+  ...(EVIDENCE_MODE ? [{ name: "412", width: 412, height: 915 }] : []),
 ];
 
 const THEMES = ["dark", "light"];
+
+/**
+ * The plan's own scrub list (fableTasks P12.S0 / tasks.md's Phase 14 section),
+ * used only in evidence mode.
+ *
+ * Deliberately NOT derived from `heroLayout.ts` the way `samplePoints()` is
+ * below -- this list exists to answer "does the plan's own claim hold at the
+ * fractions the plan itself named", not "what does a beat's hold midpoint
+ * look like". Sampling at beat-derived points here would let a claim about
+ * p=0.66 quietly get checked at whatever the nearest beat mid-point happens
+ * to be instead.
+ */
+const EVIDENCE_POINTS = [0, 0.05, 0.12, 0.2, 0.28, 0.38, 0.46, 0.55, 0.66, 0.74, 0.82, 0.9, 1.0];
 
 /**
  * The scroll positions worth a frame, derived from the layout module.
@@ -80,6 +113,12 @@ const THEMES = ["dark", "light"];
  *  - `finale`    beat 4's hold and the re-dock at the end of the track
  */
 function samplePoints() {
+  if (EVIDENCE_MODE) {
+    return dedupe(
+      EVIDENCE_POINTS.map((p) => ({ p: round(p), what: `evidence scrub p=${round(p)}` })),
+    );
+  }
+
   const points = [{ p: 0, what: "arrival, everything docked" }];
 
   for (const chapter of [1, 2, 3]) {
@@ -175,11 +214,46 @@ async function assertPageIsReal(page) {
   }
 }
 
+/**
+ * One shot of the open hamburger drawer at 390x844 (P14.S0 deliverable 1).
+ *
+ * Light theme, not dark: the header itself is `bg-graphite-950` in both
+ * themes (a Phase 14 finding this same evidence pass exists to confirm), so
+ * a dark-theme drawer shot would not show whether the drawer's own content
+ * follows the theme or inherits the header's permanent dark surface. Light
+ * is the theme where that distinction is visible.
+ *
+ * Uses the page already on screen at the end of the full-page pass rather
+ * than opening a fresh context, so this costs one click and one screenshot,
+ * not a whole extra viewport/theme pass.
+ */
+async function captureMobileMenu(page, dir) {
+  const trigger = page.getByRole("button", { name: "باز کردن منو" });
+  if ((await trigger.count()) === 0) {
+    console.warn("No mobile-menu trigger found at 390x844 -- skipping that shot.");
+    return null;
+  }
+  await trigger.click();
+  // The drawer animates open; Playwright's own visibility wait is the
+  // condition that matters, not a fixed delay.
+  await page.locator('nav[aria-label="منوی موبایل"]').waitFor({ state: "visible" });
+  const file = path.join(dir, "mobile-menu.png");
+  await page.screenshot({ path: file });
+  // `dir` is an OS-native path (`path.join`); the contact sheet needs a
+  // forward-slash `src` regardless of host OS, the same reason `cell()`
+  // below builds its own `src` with `path.posix.join` instead of reusing
+  // an OS-native path directly.
+  return path.posix.join(path.basename(path.dirname(dir)), path.basename(dir), "mobile-menu.png");
+}
+
 async function shoot() {
   const started = Date.now();
   const points = samplePoints();
   const browser = await chromium.launch();
   const taken = [];
+  // Set once, under evidence mode, at 390x844/light -- see the comment on
+  // `captureMobileMenu` for why one shot and why that combination.
+  let mobileMenuShot = null;
 
   try {
     for (const viewport of VIEWPORTS) {
@@ -221,11 +295,15 @@ async function shoot() {
           fullPage: true,
         });
 
+        if (EVIDENCE_MODE && viewport.name === "390" && theme === "light" && !mobileMenuShot) {
+          mobileMenuShot = await captureMobileMenu(page, dir);
+        }
+
         await context.close();
       }
     }
 
-    await writeContactSheet(points, taken);
+    await writeContactSheet(points, taken, mobileMenuShot);
   } finally {
     await browser.close();
   }
@@ -246,7 +324,7 @@ async function shoot() {
  * directory listing does not work -- the whole point is seeing p=0.11 next to
  * p=0.15.
  */
-async function writeContactSheet(points, taken) {
+async function writeContactSheet(points, taken, mobileMenuShot = null) {
   const columns = VIEWPORTS.flatMap((v) => THEMES.map((t) => ({ viewport: v.name, theme: t })));
   const cell = (p, column) => {
     const shot = taken.find(
@@ -277,7 +355,7 @@ async function writeContactSheet(points, taken) {
   .p { font-family: ui-monospace, monospace; white-space: nowrap; }
   .what { max-width: 22ch; color: GrayText; }
 </style></head><body>
-<h1>Hero scrub — Phase 13</h1>
+<h1>Hero scrub — ${EVIDENCE_MODE ? "Phase 14 evidence (P14.S0)" : "Phase 13"}</h1>
 <p>${BASE_URL} · ${new Date().toISOString()} · ${points.length} scroll positions</p>
 <table><thead><tr><th>p</th><th>what</th>${columns
     .map((c) => `<th>${c.viewport} · ${c.theme}</th>`)
@@ -290,7 +368,14 @@ ${points
       `</tr>`,
   )
   .join("\n")}
-</tbody></table></body></html>`;
+</tbody></table>
+${
+  mobileMenuShot
+    ? `<h2>Open mobile menu — 390×844, light</h2>
+<img src="${mobileMenuShot}" alt="open mobile menu at 390x844, light theme">`
+    : ""
+}
+</body></html>`;
 
   await writeFile(path.join(OUT_ROOT, "index.html"), html, "utf8");
 }

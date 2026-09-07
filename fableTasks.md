@@ -1,982 +1,282 @@
-# fableTasks.md — v1.1 · Phase 13: «برگه تعمیر» (The Job Card) hero + landing quality pass
+# fableTasks.md — Phase 14: mobile-first landing, typography reset, real light mode, hero pacing
 
-**Repo:** `D:\coding\Projects\ParsianStore\parsian-store` · branch `development` · `apps/web`
-**Audit date:** 2026-09-06 (Fable, live at `http://localhost:3000/` under `next dev`)
-**Revision date:** 2026-09-06 · **v1.1 — reconciled against the repository**
-**Author:** Fable (senior full-stack review) · **Reviser:** Claude (verification pass) · **Executor:** Claude CLI agent
-
----
-
-## v1.1 — why this revision exists, and how to read it
-
-v1.0 was written by a reviewer with no access to this repository's history: it
-audited the rendered page and inferred the code behind it. The creative reading
-is strong and is kept almost whole. The *engineering* claims were checked line
-by line against the working tree, and roughly a third of them turned out to be
-stale, already shipped, or measuring a deliberate decision as if it were a bug.
-
-Nothing has been softened to be polite. Where a finding is real it is sharper
-here than in v1.0, because it now names the actual file and the actual number.
-Where a finding is wrong it is marked wrong **with the evidence**, so nobody
-re-litigates it in three weeks.
-
-**Read §0 before §2.** §0 is the verification log; §2's tasks are written on top
-of its verdicts, and several v1.0 tasks disappeared there because the work is
-already on `development`.
-
-### Three things v1.0 got structurally wrong
-
-1. **The phase number.** v1.0 calls itself "Phase 11". Phase 11
-   (design-system consolidation) is **open** — S4, S5 and S6 are unstarted
-   (`tasks.md:851`) — and P11.S1/S2/S3 are shipped commits. Phase 12 closed
-   2026-09-05. Tagging this work `[P11.Sn]` would collide with both.
-   **This is Phase 13.** Every tag below is `[P13.Sn]`.
-2. **The filename.** `fableTasks.md` and `fableTasks2.md` were the Phase 9 and
-   Phase 12 plans; both were deleted on 2026-09-05, and about thirty source
-   comments still cite them by section (`fableTasks §3.2`,
-   `fableTasks2 §2.1`). Those citations now resolve to the two SHIPPED sections
-   of `tasks.md`. **Citation convention for this file: `fableTasks v1.1 §…`,
-   never a bare `fableTasks §…`.** A comment written by this phase saying
-   `fableTasks §3.2` will be read as the deleted Phase 9 document.
-3. **It supersedes nothing.** v1.0 says it "supersedes fableTasks2.md (Phase
-   10)". fableTasks2 was Phase **12**, it is deleted, and every step in it
-   shipped. This file adds a phase; it retracts nothing.
-
-### Working rules this file inherits (CLAUDE.md, non-negotiable)
-
-- **Commit and push to `development` after every completed step.** v1.0's S13
-  asked for four grouped PRs; that is not this repository's flow. Format:
-  `<type>(<scope>): [P13.Sn] <subject>`. Emit the `STEP COMPLETE:` block
-  (masterPlan §0) at the end of each step, or the `BLOCKED:` block and stop.
-- Zero new dependencies. `three`, `r3f`, `drei`, GSAP and `model-viewer` stay
-  forbidden. Everything below is CSS transforms plus the `motion@12.42.2`
-  already shipped — it is the `motion` package, **not** `framer-motion`, so
-  v1.0's "Framer ≤45KB" is the right budget under the wrong name.
-- `tokens.css` is the sole hex source. Logical properties only. Real Persian
-  copy only. Server Components by default; every `'use client'` justified.
-- English locale parity stays suspended: write `fa.json` only, and do not break
-  `/en` (`i18n/messages.ts` layers `fa` underneath it).
+**Repo:** `parsian-store` · branch `development` · `apps/web` · landing route only (other pages come in a later phase — owner's instruction)
+**Audit date:** 2026-09-07 · live at `http://localhost:3000/`, desktop 1382×847, dark + light, Chrome
+**Author:** Fable · **Executor:** Claude CLI agent · **Owner:** Kasra
+**Input read:** owner's chat brief (this session) + the CLI agent's summary of `docs/fable-next-phase-brief.md` §2 (what the last audit got wrong) and its invisible-rules list.
 
 ---
 
-## 0. Verification log — every v1.0 finding, checked
+## 0. Method — read before the tasks
 
-Legend: **CONFIRMED** (real, do it) · **NARROWED** (real, but smaller or
-different than described) · **SHIPPED** (already done) · **FALSE** (measured a
-deliberate decision, or simply not true).
+The last audit was partly wrong because I read a rendered page without repo history. I accept the corrections in the brief and this file changes method accordingly:
 
-### 0.1 The seven headline findings
-
-| # | v1.0 finding | Verdict | Evidence |
-|---|---|---|---|
-| 1 | "The animation has no narrator" — parts move, nothing names them; the hint never leaves | **CONFIRMED** | `HeroStage.tsx` renders `hint` as a permanent `<p>` inside `.hero-pin`. No label component exists anywhere in `HeroV2/`. This is the best idea in v1.0 and the reason Phase 13 exists. |
-| 2 | "The Manifest rail and the stage never meet"; no row ever gets an active state | **NARROWED** | The rail is *not* 2000px down — `PartsManifest variant="panel"` renders **inside the sticky copy column** (`HeroV2.tsx`, `lg:sticky lg:top-24`). It sits below the vehicle selector and the code field, and that is what pushes it under the fold on an 847px-tall viewport. And rows **do** have live state: `ManifestCheckIn` writes `data-chapter-reached` on the `<ol>`, and `HeroScrollProvider` writes `data-highlight` on paired `[data-part]` elements. v1.0 grepped for `aria-current`, which this repo never used. **The real fix is column order, not relocation.** |
-| 3 | "Dead zones — the car fully re-docks between chapters" | **BY DESIGN — owner decision, §0.3 Gate A** | `heroLayout.ts`'s `CHAPTER_RANGE` is documented as "Sequential, not overlapping, and each chapter returns to zero before the next opens", and `e2e/landing-hero.spec.ts:444` (`"plays one part at a time, and is a whole car between chapters"`) enforces it. v1.0 is describing the feature. Whether it is the *right* feature is a fair question — but changing it is a reversal, not a fix. |
-| 4 | "No camera, no light, no depth" | **CONFIRMED** | There is no camera transform anywhere. The only shared 3D is `perspective: 140cqw` on the sprite frame. No shadow, no glow, no focus dimming in `HeroV2/`. Highest-value item after the callouts. |
-| 5 | "Fabricated evidence on the rail — every row says «۳۲ قطعه»" | **FALSE** | The count is real. `getSystemPartCounts()` (`lib/fetchers/exploded-view.ts`) reads `GET /api/v1/catalog/facets` and returns `null` — *rendered as nothing, never as «۰»* — when the API is unreachable. Five rows show the same number because five parts genuinely belong to `SYS-06 body-exterior`, and the catalogue has exactly ten systems. v1.0's remedy ("add a count endpoint, it's one aggregate query") describes code that shipped at P4.S2. |
-| 5b | "Every row links to only 4 slugs; five rows go to the same page" | **CONFIRMED as fact, REJECTED as defect** | True and deliberate. `manifestData.ts` resolves every row through `CATALOG_SYSTEMS`, a **closed set of ten** (`packages/schemas/src/catalogSystems.ts`). There is no `lighting`, no `body-front`, no `doors` — v1.0 invented those. The module's own comment: the href is "identical to the system index's own link, so the manifest never offers a second way into the same place". **Do not** invent `?part=hood`; no category page reads it. See Gate C. |
-| 6 | "The rail is rendered twice → duplicate `<h2>`, duplicate links for screen readers and crawlers" | **NARROWED — and it is the open TBT regression** | The a11y half is wrong: one copy is always `display:none`, so exactly one is in the accessibility tree — asserted by `e2e/landing-hero.spec.ts:159`. The *cost* half is right, and worse than v1.0 knew: `docs/performance-landing.md` attributes the entire Phase-12 **TBT regression (130ms → 261ms, against a 200ms budget)** to the visible manifest, and names "render it once" as the fix it could not reach, because §2.1 wants the panel sticky beside the drawing and §2.2 wants the rail under the stage. **S7 is the resolution that measurement asked for.** |
-| 7 | "The finale is a whimper" | **CONFIRMED as a gap; the proposed ending reverses a tested decision** | There is no finale. But `e2e/landing-hero.spec.ts:459` (`"the hero ends its scroll as a whole car, not a pile of panels"`) asserts every layer is within 9px of home at `p=1`. v1.0's persistent exploded ending deletes that test. Owner decision — Gate B. |
-
-### 0.2 The site-wide findings (v1.0's S8–S12)
-
-**SEO**
-
-| v1.0 claim | Verdict | Evidence |
-|---|---|---|
-| `twitter:card=summary`, no `og:image` | **CONFIRMED** | `app/[locale]/(shop)/page.tsx`. `public/og/` does not exist. |
-| JSON-LD uses `http://localhost:3000` → "read from `NEXT_PUBLIC_SITE_URL`" | **FALSE** | `lib/seo.ts:6` already reads it; `localhost:3000` is the local fallback. This is the trap written up twice already — `docs/performance-landing.md` and `tasks.md:1450`: *set `NEXT_PUBLIC_SITE_URL` to the origin you are serving on, or every canonical-dependent audit measures the mismatch rather than the page.* No code change. |
-| Add `ItemList` + `BreadcrumbList` + `Organization.contactPoint` | **CONFIRMED** | `lib/json-ld.ts` ships `Organization` + `WebSite` only. Genuinely additive. |
-| `hreflang alternate` points at `/en` while English is suspended | **CONFIRMED** | `i18n/routing.ts` has `locales: ["fa","en"]`; `hreflangAlternates()` emits both. Drop the *alternate*, not the route — `/en` must keep resolving. |
-| "29 of 33 `<img>` have empty alt" | **FALSE as a defect** | The count is roughly right and every instance is correct. The hero's sprites are layers of **one** picture whose base carries `alt={carAlt}`; the manifest thumbnails sit inside a link whose text already names the part (`PartsManifest.tsx`, with the reason in a comment). Lighthouse a11y is **100** and axe reports zero violations on the hero in both themes. |
-| "Best-seller cards must have alt = product name" | **SHIPPED** | `BestSellers.tsx` already renders `alt={product.name.fa}`. |
-| Section numbering is broken (01, 03, 04, 05, 06, —, 08, —, 10) | **CONFIRMED, better fix available** | All ten codes exist in `fa.json` (`Landing.beats.*.code`, 01→10, none missing). Three components simply never render theirs: `TrustStrip` (02), `InterstitialPlate` (07), `Deals` (09). `SectionShell` already takes a `code` prop. **Render the three; do not strip the other seven.** The numbering is a deliberate workshop-manual device and is three one-line fixes from complete. |
-| `theme-color` missing | **CONFIRMED, with a rule conflict** | Real gap. But CLAUDE.md rule 5 forbids the hex literals v1.0 supplies, and Next's `themeColor` metadata cannot read a CSS custom property. Resolve it the way `lib/design-tokens.ts` already does — parse the value out of `tokens.css` at build time — or state the exception explicitly in the commit body. Do not paste `#0E1418` into a `.ts` file and say nothing. |
-| `?v=<uuid>` is opaque; use a slug or drop it from the URL | **REJECTED as specified** | `?v=` is `makeId:modelId:genId:year[:engineId]` and is mandated by masterPlan §3.4 ("reflected in the URL as `?v=<vehicleKey>` so results are shareable and crawlable"). `vehicleKeySchema` validates it on **every** fitment and catalogue API route. Slugifying it is a cross-cutting API change, not an SEO tweak; removing it contradicts the plan outright. The canonical already omits the query (built from `localizedPath(locale)`, no search params) — **verify that, and log slugification as a deferral.** |
-| Lighthouse SEO ≥ 95 | **ALREADY 100** | `docs/performance-landing.md`, P12.S13 close, five-run median. Do not regress it. |
-
-**Typography, accessibility, content**
-
-| v1.0 claim | Verdict | Evidence |
-|---|---|---|
-| Mixed-script collision «۳۲ قطعهSYS-02»; wrap codes with `unicode-bidi: isolate` | **CONFIRMED, and the primitive exists** | P12.S10 shipped `components/authenticity/EvidenceCode.tsx` plus `.evidence-code { unicode-bidi: isolate }` in `globals.css` for exactly this failure. **Reuse or generalise it — do not write a second one.** |
-| Digit policy is inconsistent (years Latin, chips Persian) | **CONFIRMED** | `ShopByVehicle.tsx` prints `newest.yearFrom` raw. `toPersianDigits` already exists in `packages/schemas/src/fa.ts` and is used by the manifest, the system rail and the admin tables. This is an application gap, not a missing helper — **do not add a `faDigits()`.** |
-| H1 wraps to 3 lines at 1440 | **NARROWED** | P12.S1 (`f841d5b`, "the hero headline sets in three lines, not five") already tuned this with `text-balance` and a retuned display token. Three lines is the *result* of a deliberate pass. Re-measure at 1440×900 first, and treat "does the subline clear the fold" as the real question. |
-| Trust-strip contrast may be below AA | **UNVERIFIED — measure it** | Plausible and cheap. `docs/decisions/0005` carries ratios for every token pair; compute, do not eyeball. |
-| "36 of 158 interactive targets under 40px (rail rows, footer links, brand chips)" | **NARROWED** | Manifest rows and chips are already `min-h-12` = **48px** (`--space-12: 48px`). Footer links and marquee entries are the plausible offenders. **Re-measure, then fix only what fails.** ⚠️ The spacing scale is REPLACED with `0 1 2 3 4 6 8 12 16 20 24 32` — `p-11`, `min-h-10`, `w-36` generate **no CSS at all** and silently fall back to content sizing. That bug class has bitten this repo five times (`w-11`, `h-10`, `w-36`, `w-64`, and the piston thumbnail). |
-| `cz-shortcut-listen` hydration warning → `suppressHydrationWarning` on `<body>` | **CONFIRMED** | It is on `<html>` (next-themes needs it there) and not on `<body>`. One line; correct diagnosis. |
-| Theme toggle renders an empty circle in light mode | **PROBABLY A SCREENSHOT ARTEFACT** | `theme-toggle.tsx` renders Sun/Moon SVGs in `currentColor` and carries `disabled:opacity-0` until hydration — pre-hydration it is invisible, not empty. Reproduce it against a **production build** before writing a fix; `next dev` timing is not evidence here. |
-| Symptom-finder chips may be `<div>`s that go nowhere | **FALSE** | `SymptomFinder.tsx` — they are `<a href={"/c/" + system.slug}>`, real links to real category routes. |
-| «پیشنهاد ما» shows four identical «گریس یاتاقان» then four «ضدیخ رادیاتور»; "pull 8 distinct products with `?featured=true`" | **CONFIRMED as a defect, WRONG fix** | Real: the seed generates one product per template **per brand/vehicle**, so several records share a display name, and `fetchFeaturedProducts` asks for `?sort=newest&inStock=true&limit=8` — the eight newest are the last-seeded two templates. There is no `?featured=true` param. The honest fix is **de-duplication by template in the fetcher** (or a diversified sort), not an invented flag. |
-| "Antifreeze is not a filter" | **CONFIRMED — and the bug is the label** | `SYS-10` is `filters-fluids`, `en: "Filters & Fluids"`. Antifreeze is a fluid and is correctly filed. The Persian name «فیلتر و روغن» (*filters and oil*) is narrower than the English and than its own contents. **Rename the fa label**; do not re-file the product. |
-| Authenticity card truncates the SKU mid-word | **FALSE — that is the shipped design** | P12.S10 (`e0918f0`). `EvidenceCode` truncates with `text-overflow` **only**: the full code stays in the DOM, is read whole by a screen reader, copies whole, and shows on hover via `title`. The commit body explains why shortening the stored code is a data migration, not a display fix. |
-| Brand wall "renders three names with a lot of empty track"; make it a marquee with all 16 | **FALSE — shipped at P12.S12** | `BrandWall.tsx` is already a `Marquee` (pauses on hover, respects reduced motion) over **every** seeded brand, in a ruled band at h1 scale. There are **15**, not 16. v1.0 photographed a marquee mid-cycle. |
-| «ساعات پاسخگویی به‌زودی اعلام می‌شود» | **CONFIRMED** | `fa.json:131`. Real hours, or delete the line. |
-| Footer `پارسیان -- Ash Tech Group` double hyphen | **CONFIRMED** | `Footer.tsx:139`. |
-| اینماد / نشان ملی boxes are empty placeholders → hide them | **CONFIRMED as fact, CHECK before hiding** | `Footer.tsx:126–133`, and one already carries `aria-label="… (در انتظار ثبت)"`. These are Iranian e-commerce trust marks that are legally obtained, not designed. "Pending registration", labelled as such, may be the honest state. **Owner call.** |
-| Mobile track is 56rem, too short for four beats | **CONFIRMED** | `HeroStage.tsx` — `min-h-[calc(100vh+56rem)] lg:min-h-[calc(100vh+120rem)]`. Mobile really is 56rem against desktop's 120rem, and it now has to carry a fourth beat. Good catch. |
-
-**Tooling and process**
-
-| v1.0 claim | Verdict | Evidence |
-|---|---|---|
-| "Reuse the Playwright screenshot script from Phase 10" | **DOES NOT EXIST** | There is no `scripts/hero-shots.ts`. What exists is `e2e/landing.spec.ts` with committed baselines at 1440/390/360 × dark/light/reduced-motion. S0 writes the scrub harness from scratch. |
-| Extend `pnpm check:hero` to fail on 404ing slugs / duplicate hrefs | **WRONG HOME** | `scripts/check-hero-registration.mjs` measures sprite **registration** against `landing-src/`, which is gitignored and exists on one machine only (`tasks.md:1437`). It can never run in CI. Route assertions belong in the e2e suite, which already has `"every manifest link resolves"` and `"every system in the index rail links somewhere real"`. |
-| `pnpm build && pnpm analyze` | **NO SUCH SCRIPT** | There is no `analyze` script and no `@next/bundle-analyzer`. Route JS is read from `pnpm --filter web build`'s own route-size output — the method is written down in `docs/performance-landing.md` §"How this was measured". |
-| "JS ≤180KB, 188KB overage owner-accepted; do not grow it" | **STALE BY 5 KB** | The real ledger: 176 → 189 (P9.S17) → 200 (P12.S5) → **193 KB (P12.S13 close)** against a 180 KB budget. `motion` sub-budget **39.9 KB** of 45. **193 is the number to hold.** |
-| "Lighthouse Performance ≥ 90 mobile" | **CURRENTLY 94 — and TBT is the open wound** | LCP 1.65s ✓, CLS 0.034 ✓, a11y 100, SEO 100, **TBT 261ms against a 200ms budget ✗**. v1.0 does not mention TBT at all, and it is the one regression Phase 12 left open. S13 makes it a gate. |
-| "Append to `docs/deferred.md`" | **NO SUCH FILE** | Deferrals live in `tasks.md`. Do not create a second ledger. |
-
-### 0.3 Owner decision gates — answer these before S2, S7 and S8
-
-Three v1.0 proposals do not fix bugs; they **reverse decisions that shipped with
-tests attached**. Executing them silently would delete a test and call it
-progress. Each is stated here with what it costs.
-
-> **GATE A — Do chapters keep re-docking, or do they cross-fade?**
-> *Today:* each chapter returns to zero before the next opens
-> (`CHAPTER_RANGE`), so the car is whole at every rest point. Enforced by
-> `e2e/landing-hero.spec.ts:444`.
-> *v1.0 wants:* chapter N re-docks **during** chapter N+1's camera move, so the
-> stage is never static.
-> *Cost of changing:* the "whole car between chapters" invariant is deleted, and
-> `beatFor` / `coverBeatFor` / `BEAT_SPAN` / `BEAT_HOLD` — the whole P12.S8
-> staggering system, which exists precisely because "the separation was not
-> legible" — must be recomputed against overlapping ranges.
-> **Recommendation: a middle path.** Keep the invariant; kill the dead frames by
-> giving the *camera* the gaps. Chapter N+1's camera move starts while chapter
-> N's parts are still settling, so nothing on screen is ever frozen, but there
-> is still a scroll position at which the car is whole. This delivers v1.0's
-> stated goal — "at no point can you say nothing is happening" — without
-> deleting a tested promise. **S2 is written for this path.**
-
-> **GATE B — Does the hero end exploded, or whole?**
-> *Today:* every layer is within 9px of home at `p=1`
-> (`e2e/landing-hero.spec.ts:459`).
-> *v1.0 wants:* the finale explosion persists; the visitor scrolls away from a
-> full catalogue.
-> *Cost:* that test inverts. It is a real product argument — "the last thing you
-> saw is everything we sell" versus "the car you arrived at is the car you
-> leave" — and it is the owner's to settle, not the executor's.
-> **Recommendation: ship the finale, keep the ending whole.** Put the exploded
-> catalogue and the CTA at `p ≈ 0.88–0.96`, hold it there, and re-dock over the
-> last 4% as the hero un-pins. The finale becomes the climax rather than the
-> resting state; the invariant survives; and the CTA still occupies the longest
-> single hold in the whole track. **S8 is written for this path.**
-
-> **GATE C — May the job card point nine rows at four destinations?**
-> *Today:* five rows resolve to `/c/body-exterior`, because the catalogue has
-> exactly ten systems and no finer ones.
-> *v1.0 wants:* "never two identical destinations", via slugs that do not exist
-> or a `?part=` query no page reads.
-> *Options:* (a) leave it — the row names the part, the destination names the
-> system, and nothing is dishonest; (b) add real sub-categories under
-> `body-exterior`, which is a catalogue and seed change with a migration, well
-> outside a landing-page phase; (c) deep-link to a category page pre-filtered by
-> a **real, existing** facet, if one fits.
-> **Recommendation: (a) for Phase 13**, logged in `tasks.md` as a catalogue
-> question. The manifest's job is to make the animation clickable, and it does.
+- Every finding is tagged **[V]** (verified in the browser this session — the proof is named) or **[I]** (inferred — plausible, unproven; the agent verifies before acting and may close it as "not a bug" with a one-line reason).
+- **Nothing here invents an artefact.** No new endpoints, flags, slugs or scripts are asserted to exist. Where I want one, it says "add" or "if absent".
+- Corrections from the brief that this file honours: the «۳۲ قطعه» counts are real and stay; the empty `alt` on decorative sprites is correct; WCAG 2.2 AA target minimum is 24×24 (this file asks for 44px on *primary mobile* controls as a product choice, not as a compliance claim); the brand wall is a marquee; the truncated SKU is CSS with the full value in the DOM.
+- Rules I now assume: Tailwind spacing scale is replaced (never use a bare numeric spacing utility that isn't in the project scale — check `tailwind.config` before writing `gap-5`/`p-11`); physical CSS directions are banned (logical only); hero has **ten** parts, every sprite docks natively at 0,0; `tokens.css` is the sole hex source; JS budget for `/` is at 197KB gz (owner-accepted overage; **do not grow it**); no 3D/GSAP libs; do not touch port 3000 ownership or `.next` under a live server.
+- **Mobile was not screenshot-verified.** Chrome's window in this session was maximized and the extension cannot un-maximize it; the owner opened a second small window but the extension can only drive its own tab group. So every mobile item is **[I]** unless it comes from the responsive class list I did read from the DOM. Task S0 makes the agent produce the mobile evidence *before* mobile work starts. Since the owner says most users are on phones, S0 is not optional.
 
 ---
 
-## 1. The story: «برگه تعمیر» — *The Job Card*
+## 0.5 CTO amendments — 2026-09-07, after verification
 
-### 1.1 Concept
+This plan was written from a browser session. Before any of it was built, every
+claim was checked against the source and against fresh instrumented evidence
+(`docs/shots/p14/`, 85 screenshots, Lighthouse ×5, live `getBoundingClientRect`
+reads). **Where this section and §1 disagree, this section wins.**
 
-Unchanged from v1.0, because it is right. A parts store has one story worth
-telling on a landing page: *"Here is your car. We know every piece of it. Every
-piece you see leave the body is a piece you can buy right now."* The Persian
-workshop metaphor for that is the **job card** (برگه تعمیر) — the sheet the
-mechanic fills in as he takes the car apart, one line per part.
+### Renumbered: this is Phase 14, not Phase 12
 
-So the scroll is an **inspection**. The visitor is the mechanic; scrolling is
-walking around the car on the lift. Each part that comes off is written onto the
-job card in real time, with its Persian name, its system code and a «مشاهده»
-link. By the bottom of the hero the job card is full — and the job card *is* the
-catalogue navigation.
+Phase 12 **closed 2026-09-05** (`tasks.md`) and Phase 13 is the active phase.
+Every `[P12.Sn]` tag collided with commits that already exist, and commitlint
+would have accepted them silently. All ten step tags are now `P14.Sn`. The
+screenshot harness this plan calls "Phase 11 S0" is **P13.S0** (`pnpm
+shots:hero`, `scripts/hero-shots.mjs`).
 
-Three rules every task below obeys:
+### Owner decisions
 
-- **Every detachment is a sale.** No part moves without a label appearing and a
-  rail row lighting up. (One deliberate exception, named in §1.2.)
-- **The camera moves before the part does.** Push-in, tilt or pull-back happens
-  in the first quarter of each chapter; then the parts come off.
-- **The stage is never visually static while pinned.** Gate A sets how far that
-  is taken.
+- **Finale holds exploded (S5.3): APPROVED.** This reverses "Gate B", which
+  `heroLayout.ts:632` documents and which **three** assertions pin
+  (`e2e/landing-hero.spec.ts:515`, `:534`, `:786`). Those assertions are to be
+  **rewritten to assert the new ending**, never deleted. Record the reversal in
+  `tasks.md` so it is not re-litigated.
+- **Type tokens (S1): OPEN.** `display-1` / `h1` / `h2` are *shared* — cart,
+  checkout and `PageHeader` all render `text-h1 font-black`. Retuning them for
+  Persian metrics retypesets the whole storefront. Awaiting the owner's call
+  between one shared scale (recommended) and a landing-only fork.
 
-### 1.2 The scene as it actually is
+### Claims that did not survive verification — do not build these
 
-v1.0's beat sheet was written against an imagined nine-part scene. The real one
-lives in `heroLayout.ts` and differs in four ways that change the choreography.
+| Claim | Finding |
+|---|---|
+| V1/V11 car pushed below the fold on mobile | **Refuted at 390×844.** Car sits y546–663, fully visible. What is below the fold is the **job card** (y888–1020). S3's mobile target changes accordingly. The desktop (1440) fold has not been re-measured — do that before S3. |
+| V2 "plate renders top-start regardless of the part" | **Half wrong.** The plate alternates top/bottom by `data-band` on purpose — a part that lifted gets a low caption. Only the *leader line* is genuinely absent, and `PartCallout.tsx:24-48` documents why it was removed: a plate in canvas space is magnified 35% by chapter 1's 1.35 push-in and rendered clipped in half. **Re-add the anchor dot and leader; keep the plate in its fixed slot.** |
+| V7 light-mode section list | **Wrong in both directions.** `#authenticity` is *already* light (`rgb(238,241,244)`) — do not "fix" it. `#trust-strip` **is** dark and is missing from the plan's list. Verified dark: header, `#hero`, `#find-my-part`, `#trust-strip`, `#interstitial`, `#closing`. |
+| V12 "contact links are 24px" | **Stale.** Fixed at P13.S11 to `py-2` (38px). The 22px reading predates that. |
+| V13 "section 05 is missing" | **Refuted.** `fa.json` carries `01`–`09` contiguous, `05` = shop-by-vehicle. TrustStrip and Deals deliberately carry no `code`. Not reproducible; a section may have been absent in the audit session (a dead Postgres container silently removes `#shop-by-vehicle`). |
+| S9 "counter must say ten" | **Wrong.** Nine rows is correct and pinned (`e2e/landing-hero.spec.ts:752`). The windshield has a callout but no row because the catalogue has no glass route (`manifestData.ts:92`). |
+| S9 "note it in `docs/deferred.md`" | **That file does not exist** and was previously flagged as an invented artefact. Deferrals go in `tasks.md`. |
 
-**Eleven layer elements, ten parts, nine manifest rows.**
+### Confirmed, with the measurements
 
-| Layer id | Asset group | Chapter | Manifest row |
-|---|---|---|---|
-| `lamp-far` + `lamp-near` | hero sprite (one file, two clips) | 1 | headlights — `SYS-05` |
-| `grille` | hero sprite | 1 | grille — `SYS-06` |
-| `bumper` | hero sprite | 1 | bumper — `SYS-06` |
-| `hood` | hero sprite | 2 — **cover, not a beat** | hood — `SYS-06` |
-| `air-filter` | hero-parts | 2 | air filter — `SYS-10` |
-| `piston` | hero-parts | 2 | piston — `SYS-01` |
-| `alternator` | hero-parts | 2 | alternator — `SYS-05` |
-| `door` | hero sprite | 3 | door — `SYS-06` |
-| `fender` | hero sprite | 3 | fender — `SYS-06` |
-| `windshield` | hero sprite | 3 | **none, deliberately** |
+- **V3 blank slot: real.** Reproduced at p≈0.70–0.76 *and* at p≈0.02–0.11.
+  Cause is not a running index — the list was ordered by sprite paint order
+  while rows tick in scene order. **FIXED** (rows now sort on `checkInAt`;
+  five regression tests, including a p=0→1 sweep asserting the checked set is
+  always a prefix of the list).
+- **Dead selector, not in the plan: the mobile job card never auto-scrolled.**
+  `ManifestCheckIn` guarded scroll-into-view on a class `manifest-chip` that no
+  element carries — dead since the P13.S7 merge. **FIXED** (the guard now reads
+  the layout off `overflow-x` instead of a hand-synced class).
+- **Horizontal overflow at 390, not in the plan.** `scrollWidth` 395 vs 390;
+  the vehicle-selector box `#driver-path` (`FindMyPart.tsx:60`) renders 378px
+  wide at `left:-5`. Clean at 412 and 1440. **→ S6.**
+- **The finale collides on mobile (I4 confirmed).** At 390 the bumper overlaps
+  headlight-left by ~11px and headlight-right by ~5px. No `finaleMobile`
+  parking table exists. **→ S5.4.**
+- **V6 typography: exact.** `display-1` = `clamp(2.5rem,6vw,3.5rem)`,
+  `lineHeight 1.1`, `letterSpacing -0.02em` (= −1.12px at 56px), weight 900
+  everywhere. The 700 face *is* loaded but used by nothing — dead weight.
+- **V9 marquee: confirmed.** 15 real nodes plus **one wrapper** holding the
+  duplicate — that asymmetry is the seam.
+- **V10 header: confirmed exactly.** At 390 the visible controls are theme,
+  account, cart, wordmark, hamburger. Search and the vehicle chip are hidden.
 
-- **The windshield exists and v1.0 never mentions it.** It undocks in chapter 3
-  and carries no manifest row, because there is no glass category route —
-  `MANIFEST_EXCLUDED_LAYERS` in `manifestData.ts` records the reason. It
-  therefore needs a callout decision, and "every detachment is a sale" cannot
-  cover it. **Recommendation: it keeps moving and gets a name-only plate with
-  no «مشاهده» link.** The visitor sees a windscreen come off a car, which is
-  honest, and nothing pretends to be for sale that is not.
-- **The hood is a cover, not a beat.** `CHAPTER_COVER[2] = "hood"`: it opens
-  across `COVER_SWING` (16% of the chapter), stays open while all three engine
-  slots play inside it, then shuts. It was given an ordinary beat slot once, and
-  the filmstrip showed the piston emerging through a closed bonnet. Do not
-  regress that.
-- **The engine trio moves *down*, not up.** The lifted hood already occupies the
-  clear band above the car: canvas rows 130–894 are visible, the car sits at
-  333–700, and the lower band is 194px of nothing. v1.0's "air filter rises,
-  alternator rises, piston rises highest" was tried and produced an alternator
-  entirely hidden behind the hood.
-- **Real chapter ranges:** `1: [0.02, 0.34]`, `2: [0.36, 0.66]`,
-  `3: [0.68, 0.98]`. v1.0's `0.08 / 0.34 / 0.62 / 0.84` is a different track and
-  leaves no room for a finale without displacing chapter 3.
+### The number that reorders the plan
 
-**Corrected beat sheet.** `p` is the pinned track's own progress. The camera
-column is new; the parts and ranges are the shipped ones.
+| Metric | Median of 5 | Gate |
+|---|---|---|
+| **TBT** | **474 ms** | ≤200 ms |
+| Performance | 0.87 | ≥0.90 |
+| Route JS `/` | 197 KB | ≤193 KB |
+| LCP | 1.64 s | ≤2.0 s ✓ |
+| CLS | 0 | ≤0.05 ✓ |
 
-| Beat | `p` | Camera (new) | Parts (shipped choreography) | Stage text / job card |
-|---|---|---|---|---|
-| **0 · Arrival** | 0.00–0.02 | scale 1 → 1.04, slow. One diagonal light sweep across the body, driven by `p` so it scrubs both ways. | All docked. | Headline visible. Hint appears, then **fades out by p=0.06 and never returns**. Job card ghosted, header «برگه تعمیر · ۰ از ۹». |
-| **1 · Station A — جلوی خودرو** | 0.02–0.34 | Push-in toward the nose over the chapter's first 20%. **Scale is capped by geometry — see S2.** A slight `rotateZ` for a hand-held feel. | Slots in order: headlights (both lamps, one beat), grille, bumper — each still holding at peak across the middle of its beat (`BEAT_HOLD`). Headlights get the bloom. | A callout per part. Rows 1–3 tick as each slot starts. Caption «ایستگاه ۱ · جلوی خودرو». |
-| **2 · Station B — موتور و کاپوت** | 0.36–0.66 | Pull back and tilt (`rotateX`) so the bay reads, during the hood's `COVER_SWING` open. | Hood opens as the cover; air filter, piston and alternator drop out of the bay in their slots at `undock.scale` 2.4; hood shuts. | Callouts for hood and the trio. Rows 4–7 tick. Caption «ایستگاه ۲ · موتور و کاپوت». |
-| **3 · Station C — بدنه** | 0.68–0.98 | Pull back to 1.0 and pan along the flank. | Door, fender, windshield in their slots. | Callouts for door and fender (linked) and windshield (name only). Rows 8–9 tick. Caption «ایستگاه ۳ · بدنه». |
-| **4 · Finale — کاتالوگ کامل** | 0.88–0.96 hold, 0.96–1.00 re-dock *(Gate B)* | Scale 0.92, centred, rotation 0. The floor shadow becomes a faint workshop grid. | All ten parts travel to pre-computed parking positions around the stripped base — nothing overlapping, clear air for every label. A ±3px `p`-driven drift so it reads suspended, not frozen. | Nine chips (the windshield's is name-only). Header flips to «برگه تعمیر · ۹ از ۹ — همه را داریم». Stage CTA «مشاهده همه دسته‌بندی‌ها» → `/c`, plus a secondary «خودرویم را انتخاب می‌کنم» → `#driver-path`. |
+TBT was last documented at 261ms. It now measures **474ms** — 2.4× the budget —
+on a busy dev box, so directional but not flattering. **A TBT attribution pass
+runs before S4**, not after S9. S4 (spring, tour mode, idle loop) and S7
+(enter-on-view reveals) both add client JS to a route already failing two
+budgets; we find and recover the cost first, then spend it deliberately.
 
-Chapters 3 and 4 overlap by design across 0.88–0.98. That is the one place the
-sequential-chapters rule bends, because the finale is *about* everything being
-in the air at once. Gate A does not cover it; it is the finale's definition.
+### Method note for every agent working from screenshots
 
-### 1.3 Callouts — the missing narrator
+**Playwright `fullPage: true` is unreliable on this page.** It renders a
+phantom ~75px band above the header that does not exist in a real viewport and
+is absent from `getBoundingClientRect`. Judge the fold from a plain viewport
+screenshot or from live DOM reads — never from `full-page.png`.
 
-The highest-value component in this phase. One `PartCallout`, absolutely
-positioned in stage coordinates:
+---
 
-- **Anchor dot** at the part's centroid in its *detached* pose. Anchors live in
-  the registry (S1) in **canvas pixels**, like every other hero coordinate — not
-  stage percentages, which would drift with the frame.
-- **Leader line** — an inline SVG `<line>`, 1px, in a steel token. Steel owns
-  links and structure; marigold is the CTA accent and stays reserved for the one
-  button (ADR 0005). It draws via `stroke-dashoffset` over the part's first 6%
-  of `p`.
-- **Label plate**, RTL: part name in `displayFont` 15/600 · system code in
-  `monoFont` 11 wrapped in the **existing** `EvidenceCode` / `.evidence-code`
-  isolation, never a second one-off · one line of "why it matters" in `bodyFont`
-  12 (S6) · «مشاهده →» to the row's real href.
-- **Focus dimming:** while a callout is live, the base image and every
-  non-active sprite drop to `opacity: .55; filter: saturate(.6)`, 300ms.
-- Callouts are real `<a>` elements, keyboard reachable. The sprite `<img>` gets
-  the same href so clicking the part navigates too. Hover or focus on either
-  lights both — **reuse the `data-part` / `data-highlight` pairing already in
-  `HeroScrollProvider`**; it is exactly this mechanism, and it mounts once.
-- Finale mode: name-only chips, no leader lines, so ten fit.
-- **Reduced motion:** the stage does not animate at all today — `HeroStage`
-  renders `DockedLayer` and never subscribes to scroll. Callouts must **still
-  render**, because they are the content. Static plates on a docked car, one per
-  part, positioned at the *docked* anchor. Never strip the labels for
-  reduced-motion users.
+## 1. What I saw this time (state of the landing after Phase 13)
 
-### 1.4 The job card — rewritten role
+The hero is now a real scene. [V] Camera push-in on station 1, headlight bloom, callout plate with «مشاهده» link, job card ticking «۳ از ۹», hood hinge + engine trio, door swing, exploded finale with all parts parked around the body and the marigold «مشاهده همه دسته‌بندی‌ها», prev/next station buttons («قدم قبلی / قدم بعدی»), `hero-sweep` runs once on load. That is a genuinely distinctive landing for a parts store. Everything below is about **pacing, framing, type, theme, mobile, and voice** — not about rebuilding it.
 
-- **Visible while the animation plays.** Not by moving it into a new pinned
-  column — it is already in the sticky one — but by **reordering that column**:
-  headline → job card → («حالا قطعه‌تان را پیدا کنید») vehicle selector → code
-  search. The two conversion tools are what get displaced, and S7 gives them
-  their own section after the hero un-pins.
-- Rows start **ghosted** (name only, 40% opacity, no code or count) and tick in
-  as their part detaches. `ManifestCheckIn` already does chapter-level check-in
-  through `data-chapter-reached`; S4 refines it to **slot** level, so a row
-  lights on its own part's beat rather than its chapter's. Scrolling up
-  un-ticks. Header counter «{n} از ۹». Clicking a ghosted row scrolls the page
-  to that part's `p`.
-- **Keep the real counts.** They are real (§0.1 #5).
-- Mobile: the chip strip auto-scrolls the active chip into view
-  (`scrollIntoView({ inline: 'center' })`, `behavior: 'auto'` under reduced
-  motion), and the active chip takes the marigold tick.
-- **Render it once** — the TBT fix, and the structural change
-  `docs/performance-landing.md` explicitly asks for. See S7.
+### 1.1 Verified findings [V]
+
+| # | Finding | Proof |
+|---|---|---|
+| V1 | **Header→car gap.** At scrollY=0 on 1382×847 the stage top is below the fold: headline (56px H1, 2 lines) + subline + the paragraph «این خودرو از همان قطعه‌هایی…» + the job-card header all stack *above* the sticky stage, so the first thing a visitor sees is text and only the car roof. | Screenshot at y=0 and y=300: car roof enters at ~y=630 of 847. |
+| V2 | **Callouts float free.** The plate for the active part is rendered at the top-start corner of the stage regardless of where the part is (piston plate top-start while the piston sits bottom-centre; door plate top-start while the door is end-side). No leader line, no anchor dot. | Screenshots y=1500 and y=1900. |
+| V3 | **Job-card row gap glitch.** At y≈1900 (door detached, fender not yet) the list shows rows 1–7, then an *empty slot*, then «درب خودرو». Untriggered rows keep their height but are invisible only when a later row has ticked. | Screenshot y=1900. |
+| V4 | **Scene ends with the intact car.** When the track un-pins, the frame visible while scrolling into «حالا قطعه‌تان را پیدا کنید» is the *docked* car, not the exploded catalog. The finale state does not persist past un-pin. | Screenshot y=2700 (intact front end scrolling away). [I] whether it re-docks at p=1 or at un-pin — check the transform graph. |
+| V5 | **Scroll pacing.** Pinned distance on desktop ≈ track (3265px) − viewport (847) ≈ 2400px for 4 beats → a standard 100px wheel tick moves ≈4% of the story; ~24 ticks for the whole scene; a trackpad flick skips a station. Owner: "really fast". | `#hero` offsetHeight 3265; track class `min-h-[calc(100vh+72rem)] lg:min-h-[calc(100vh+120rem)]`. |
+| V6 | **Typography — the font the owner loves is `bodyFont`, not `displayFont`.** «فهرست قطعه‌ها» computes to `bodyFont` 16px/700, `letter-spacing: normal`. Every heading he dislikes is `displayFont` 900 (H1: 56px, line-height 61.6px = **1.10**, letter-spacing **−1.12px**). Negative tracking and 1.1 leading are Latin display habits; on a Persian face they crush the dots/kashida rhythm and clip ascenders at 900 weight. `displayFont 700` is declared but **unloaded** (never used). | `getComputedStyle` on H1 and that H2; `document.fonts` status list. |
+| V7 | **No light mode in practice.** With `data-theme="light"`: `body` bg = `rgb(238,241,244)` ✔, but `header` bg = `rgb(14,20,24)`, `#hero` bg = `rgb(14,20,24)`, `#find-my-part`, `#authenticity`, `#closing`, `#interstitial` all render dark. Only trust-strip, best-sellers, shop-by-vehicle, symptom-finder, brand-wall and footer switch. Theme-toggle icon renders as an empty ring in light mode. | Computed backgrounds in light theme; screenshots of hero/find-my-part/authenticity/footer in light. |
+| V8 | **No enter-on-view motion anywhere.** Zero elements are in a pre-reveal state (`opacity:0`/`data-reveal`/`whileInView`) below the hero. Sections simply exist. Brand marquee `30s linear infinite` runs from page load whether or not it is on screen. | DOM query for reveal states = 0; `document.getAnimations()` shows `marquee` running while at y=0. |
+| V9 | **Marquee loop seam.** Track = 15 brand items + one clone element containing all 15 as a single string (`trackW` 5343 vs parent 1335). Clone is a *single node* while the originals are 15 nodes, so gap/separator rhythm differs at the seam and the `◆` separator is glued to the following word («◆والئو»). Owner sees it as "not infinite". | `.motion-marquee-track` children dump. |
+| V10 | **Mobile header hides search.** `FORM hidden md:flex` (search) and `BUTTON hidden sm:inline-flex` (vehicle chip). Below `md` the header is: menu button, logo, account, cart. For a parts store, search + "my car" are the two most-used mobile actions. | Header class dump. |
+| V11 | **Mobile hero stacks text above a `sticky top-24` stage** (`DIV sticky top-24 lg:grid-cols-[…]`): the same V1 gap problem, worse on a 390×844 screen — headline + subline + paragraph + job-card header before the car. Track on mobile is `100vh+72rem`. | Hero responsive class dump. (Layout consequence is [I] until S0 shots.) |
+| V12 | Footer is `grid-cols-2 sm:grid-cols-5`; the «برندهای قطعه» column has 16 links, so on mobile a 2-column grid becomes one very tall column next to short ones. Contact links (phone, Telegram) are 24px tall. Placeholder اینماد/نشان ملی boxes are still visible. | Footer class dump; bounding boxes; screenshot. |
+| V13 | Section numbering now 01,02,03,04,06,07,08,09 — **05 is missing** (shop-by-vehicle lost its number). | Section text dump. |
+| V14 | Voice. Current copy is correct and clean but *institutional*: «مخصوص سایپا و ایران‌خودرو. قطعه اصلی، اصالت‌سنجی‌شده و با ارسال سریع.», «هر کالا یک شناسه اصالت دارد…». Nothing on the page sounds like a person who knows cars talking to a person who owns one. | Read every string on `/`. |
+
+### 1.2 Inferred [I] — verify first
+
+- I1 The callout position is a fixed slot (not computed from `anchor`) — likely the `PartCallout` reads `labelSide` but not the anchor for the leader.
+- I2 Row visibility in the job card is driven by `activePart` index ≥ row index rather than by each part's own `detachAt`, which would explain V3.
+- I3 Un-pin re-dock (V4) is the trailing keyframe of the chapter transform graph, not a separate "finale hold".
+- I4 On phones the finale's 10 parked parts + chips will not fit an `aspect-[16/11]` stage at 390px; the parking layout needs a mobile variant.
+- I5 iOS Safari: `sticky top-24` inside a track with `overflow-x-clip` on the section is fine, but any ancestor with `overflow:hidden` on the *y* axis kills sticky — check the section wrapper.
+- I6 Best-sellers still shows repeated names ( «گریس یاتاقان» ×4, «ضدیخ رادیاتور» ×4 ) — I saw this last time; if the data source is still the seed, the section should be flagged off on `/` until real featured products exist (a *product* call, not a bug report).
+
 ---
 
 ## 2. Tasks
 
-Conventions: **Files / Do / Accept**. "Accept" is what you measure or screenshot
-before marking the step done. One commit per step, pushed to `development`,
-tagged `[P13.Sn]`, closing with the `STEP COMPLETE:` block.
+Every task has **Files / Do / Accept**. Shipping order is in §3. Nothing here adds a dependency.
 
-Budgets to hold rather than aspire to: route JS **≤ 193 KB gz** on `/`, `motion`
-**≤ 45 KB**, LCP ≤ 2.0s, CLS ≤ 0.05, and **TBT ≤ 200ms — currently 261ms and
-failing.** Everything below is CSS transforms plus the motion library already
-shipped.
+### P14.S0 — Evidence first: mobile scrub sheet (blocking)
 
-### The one architectural rule this phase turns on
+**Do:** Extend the existing hero screenshot script (P13.S0 — reuse, don't rewrite): viewports **390×844** (iPhone-class) and **412×915** (Android-class) plus 1440×900; `p ∈ {0, .05, .12, .2, .28, .38, .46, .55, .66, .74, .82, .9, 1.0}`; both themes; plus full-page shots of `/` and 1× screenshot of the open mobile menu. Also run Lighthouse **mobile** (throttled) on `/` and save the JSON. Commit under `docs/shots/p12/`.
+**Accept:** Contact sheets exist before any S4/S5/S6 commit. Each [I] in §1.2 gets a one-line verdict in the PR description ("I1 confirmed / I5 not an issue because …").
 
-**Callouts and job-card state must not arrive as client JavaScript per part.**
-The route is 13 KB over budget and 61ms over its TBT budget already, and the
-manifest is a Server Component *specifically* to keep nine rows of image, text
-and link off the main thread. Ten callout components with their own
-subscriptions would undo that and more.
+### P14.S1 — Typography reset: one family, Persian metrics
 
-Follow the pattern the repo already proved twice (`PartsManifest` +
-`ManifestCheckIn`, and the `data-part` / `data-highlight` delegation in
-`HeroScrollProvider`):
-
-- **Server-render the callout markup.** It is static: a name, a code, a
-  sentence, a link. It belongs in the HTML, where a crawler and a no-JS visitor
-  both get it.
-- **Drive it from one client leaf**, writing CSS custom properties and data
-  attributes onto a single container (`--p`, `data-active-part`,
-  `data-station`), with the transitions in `globals.css`.
-- **Zero React state on scroll.** `useMotionValueEvent` with thresholds, exactly
-  as `ManifestCheckIn` does. The only value allowed to change per frame is a
-  `MotionValue`.
-
-Any step that cannot be built this way is a `BLOCKED:` block, not a budget
-overrun discovered at S13.
-
----
-
-### P13.S0 — The scrub harness (build it; it does not exist)
-
-**Files:** new `scripts/hero-shots.mjs` (Node + Playwright, matching
-`optimize-landing.mjs`'s `.mjs` convention), `package.json` script
-`shots:hero`.
-**Do:** Open `/` against a **production build** (`pnpm build` then
-`next start`), not `next dev`. Viewports 1440×900 and 390×844, both themes.
-Capture the hero at `p = 0, .02, .08, .16, .26, .34, .40, .48, .56, .66, .72,
-.80, .88, .92, .96, 1.0` — the sample points are the real chapter boundaries and
-slot peaks, not v1.0's evenly-spaced ones, so a shot always lands *inside* a
-beat. Scroll position is `trackTop + p × (trackHeight − innerHeight)`; read the
-track from `.hero-track`'s bounding box, the same geometry
-`e2e/landing-hero.spec.ts`'s `scrollHeroTo` already uses — **reuse that helper
-rather than reimplementing the mapping.** Write to
-`docs/shots/p13/<viewport>/<theme>/<p>.png`, plus one full-page shot per
-viewport/theme. Emit a contact sheet (a plain HTML index is enough).
-
-⚠️ Three environment traps, all previously debugged, all still live:
-
-1. **Port 3000 is not necessarily ours** — another project's stack has claimed
-   it before. Serve on an explicit free port and pass it to the script.
-2. **`NEXT_PUBLIC_SITE_URL` must match the origin you serve on**, or every
-   canonical-dependent audit measures the mismatch.
-3. **`rm -rf apps/web/.next` between a build and an e2e/Playwright run.**
-   Otherwise nine landing tests fail on a missing `data-theme` attribute, which
-   looks like a theming bug and is not one.
-
-Also confirm the Postgres container is healthy (`docker ps -a`) before trusting
-any shot: when it dies, `ShopByVehicle` silently returns null and a whole
-section vanishes from the page.
-
-**Accept:** Runs under 90s for both viewports. `docs/shots/p13/` is gitignored
-if the images are large — the contact sheet, not the PNGs, is what goes in a
-commit body. Every later step's Accept references these shots. **Mobile
-behaviour is unverified until this exists — treat every mobile Accept below as
-blocking on S0.**
-
----
-
-### P13.S1 — Extend the part registry (do not replace it)
-
-**Files:** `components/landing/HeroV2/heroLayout.ts`,
-`components/landing/HeroV2/manifestData.ts`, their two test files.
-**Do:** v1.0 proposes a new `parts.registry.ts` with a `HeroPart` type that
-duplicates `HeroLayer`, `HeroEnginePart` and `ManifestPart`. **Do not create it.**
-Those three types already carry sprite paths, chapters, dock and undock vectors,
-clip boxes, real category slugs, system codes and locale keys — and
-`manifestData.ts`'s coverage test already fails if a new layer appears without
-either a row or a recorded exclusion. A fourth parallel definition of the same
-nine parts is exactly the drift that test exists to prevent.
-
-Add the four fields the story genuinely needs, to the existing types:
-
-```ts
-// heroLayout.ts — added to HeroLayer and HeroEnginePart
-/** Centroid of the part in its DETACHED pose, in canvas pixels.
- *  Canvas px, not stage %, for the same reason every other hero
- *  coordinate is: the frame's size moves and the canvas does not. */
-readonly anchor: { x: number; y: number };
-/** Which side of the anchor the label plate sits on, chosen by hand so
- *  no leader line crosses the car. */
-readonly labelSide: "start" | "end" | "above";
-/** The exploded-catalogue parking spot for beat 4, as a vector from
- *  home in canvas pixels — the same units and origin as `undock`. */
-readonly finale: { dx: number; dy: number; scale: number };
-```
-
-```ts
-// heroLayout.ts — the camera's focus point per chapter
-export const STATION_FOCUS: Record<HeroLayer["chapter"],
-  { x: number; y: number; scale: number }>;
-```
-
-And in `manifestData.ts`, one field on `ManifestPart`:
-
-```ts
-/** Key under `Landing.manifest.why` — one line of workshop copy. S6. */
-readonly whyKey: string;
-```
-
-**Note the namespace.** v1.0 writes `landing.hero.parts.<id>.why`. The real
-namespace is capitalised and the parts live under the manifest:
-`Landing.manifest.parts.<id>` for names today. Put the new copy at
-`Landing.manifest.why.<id>` and the station captions at
-`Landing.manifest.stations.<n>` — **`Landing.manifest.chapters.{1,2,3}` already
-exists** («جلوی خودرو» / «موتور و کاپوت» / «بدنه») and is currently unrendered;
-prefer extending it over inventing a parallel key.
-
-**Accept:** `pnpm test` — `heroLayout.test.ts` and `manifestData.test.ts` extended
-so a layer without `anchor`/`labelSide`/`finale` fails to compile, and a finale
-layout where any two parking boxes overlap fails at test time (compute it; do
-not eyeball it). No new module. `pnpm lint && pnpm build` clean.
-
----
-
-### P13.S2 — The stage camera rig
-
-**Files:** `HeroStage.tsx`, new `cameraRig.ts`, the hero's CSS in `globals.css`.
-**Do:** Insert **one new element**, `.hero-camera`, as an `inset-0` absolutely
-positioned child of `.hero-stage`, with the existing square frame unchanged
-inside it. Do not put the camera transform on the frame: the frame carries
-`transform: translate(-50%, -50%)` for its own centring, and motion's
-`style={{ x, y, scale, rotateX }}` composes its own transform string and would
-overwrite it — the car would jump to the corner the first time the camera moved.
-Because `.hero-camera` is the same box as `.hero-stage`, the frame's `50%`
-centring math needs no change at all.
-
-`perspective` goes on `.hero-stage` so `rotateX` on `.hero-camera` reads as
-depth. The frame keeps its own `perspective: 140cqw` for the sprites — nested
-perspectives are correct here: one camera for the scene, one for the object.
-
-`cameraRig.ts` holds the keyframe table as plain arrays consumed by
-`useTransform(progress, inputRange, outputRange)` — `scale`, `x`, `y`,
-`rotateX`, `rotateZ` — with `transform-origin` per station driven from
-`STATION_FOCUS` (S1) converted to stage percentages through
-`HERO_FRAME_WIDTH_PCT`.
-
-**Gate A is implemented here, not in S3.** Under the recommended path, each
-station's camera move *starts* while the previous chapter's parts are still
-settling — the camera input range for chapter N+1 opens before chapter N's range
-closes — so there is no frame in which nothing on screen is moving, while the
-parts themselves keep their sequential, tested beats. If the owner chooses
-v1.0's full cross-fade instead, that is a different step and it rewrites
-`beatFor`; say so in a `BLOCKED:` block rather than doing it quietly.
-
-**⚠️ The geometry does not allow scale 1.35.** The frame is 92% of the stage
-width and square, in a 16/11 stage. At v1.0's 1.35 the frame becomes 124% of the
-stage width — **12% spilling past each edge**, straight over the job card in the
-neighbouring column. Two honest resolutions:
-
-- Cap the push-in at **≤ 1.08** (`0.92 × 1.087 ≈ 1.0`) and buy the sense of
-  proximity from `translate` toward the nose plus the focus dimming in S5,
-  rather than from raw scale; or
-- Set `overflow-x: clip` on `.hero-stage` (with `overflow-y` left visible — the
-  `clip` value permits that combination where `hidden` would not, and the frame
-  is *already* taller than the stage, so vertical spill is load-bearing: it is
-  the room parts undock into). Then callout plates must live in a **sibling
-  overlay** outside the clip, or they get cut off at the stage edge.
-
-Measure the chosen one on the S0 shots; do not ship an uncapped 1.35.
-
-RTL is not a hazard here: the stage is pinned `dir="ltr"` deliberately (the car
-is an object, not text), so a camera `x` in pixels means the same thing in both
-locales. That is why v1.0's "never hard-code signs" warning does not apply — but
-do not remove the `dir="ltr"`, or the whole dock mirrors.
-
-`will-change: transform` on `.hero-camera` **only while pinned** — toggle a
-class on pin/unpin. A permanent compositor layer on a page already 61ms over its
-TBT budget is not free.
-
-**Accept:** S0 shots at p=.16 (nose fills the stage without crossing into the
-copy column), p=.48 (visible tilt), p=.80 (side pan), p=.92 (pulled back). The
-headline column does not shift by a single pixel across the whole scrub —
-compare the H1's bounding box at p=0 and p=.5. CLS on `/` unchanged (≤ 0.05).
-
----
-
-### P13.S3 — `PartCallout`
-
-**Files:** new `components/landing/HeroV2/PartCallout.tsx` (**server
-component**), new client leaf `components/landing/HeroV2/StageNarration.tsx`,
-hero CSS in `globals.css`.
-**Do:** Per §1.3. `PartCallout` renders on the server for every part, at its
-anchor, with `data-part={entry.id}` so it joins the existing highlight
-delegation for free. Visibility, leader-line draw and plate opacity are CSS
-transitions keyed off attributes that `StageNarration` writes — one client leaf,
-one `useMotionValueEvent`, thresholds chosen so `data-active-part` changes **at
-most twelve times across the whole track**.
-
-Leader line: one inline `<svg>` sized to the stage with a single `<line>` per
-callout, `pathLength="1"` and a `stroke-dashoffset` transition. Plate placement
-from `labelSide` plus the per-part offset in the registry.
-
-The plate is an `<a>` wrapping its whole contents; the sprite `<img>` gets the
-same href. Exception: **the windshield's plate is a `<span>`, not a link** — it
-has no category route, and a link to nowhere is worse than a label (§1.2).
-
-Finale mode: at `p ≥ 0.86` all ten collapse to name-only chips, no leader lines.
-
-Reduced motion: plates render at the **docked** anchors and never move. Do not
-hide them.
-
-**Accept:** S0 shots at p=.16, .48, .80 each show exactly the active station's
-callouts, none overlapping the car or each other, all copy real Persian.
-Tab order runs headline → job card → callouts in station order (verify by
-tabbing, not by reading the DOM). `e2e/landing-hero.spec.ts` axe run stays at
-zero violations in both themes, and Lighthouse reports no "links without
-discernible name". **Route JS delta ≤ +2 KB gz** — measured from the build
-output, not estimated.
-
----
-
-### P13.S4 — The job card goes live
-
-**Files:** `PartsManifest.tsx`, `ManifestCheckIn.tsx`, `manifestData.ts`,
-`globals.css`, `messages/fa.json`.
-**Do:** Refine check-in from chapter granularity to **slot** granularity: a row
-lights when *its own part's* beat opens, not when its chapter does.
-`beatFor(chapter, slot)` already returns exactly that number — read it, do not
-re-derive it. Extend the `data-chapter-reached` mechanism to a
-`data-parts-checked` count (or an attribute per row); keep it as attributes on
-one element with the transitions in CSS, because that is what keeps this off the
-main thread.
-
-Ghosted rows: name only at 40% opacity. On check-in the code, the count and
-«مشاهده» fade in and the row goes to 100%. Header counter «{n} از ۹»; at the
-finale it flips to «۹ از ۹ — همه را داریم».
-
-Clicking a ghosted row scrolls to that part's beat peak — the bidirectional half
-of the link. Use the same track geometry as S0's helper.
-
-Mobile: auto-scroll the active chip into view, `behavior: 'auto'` under reduced
-motion.
-
-**Preserve the no-JS contract.** The server renders the list complete
-(`data-chapter-reached="3"`) and the pre-paint script only *removes* rows once
-it knows it can bring them back. A no-JS or reduced-motion visitor must still
-see all nine rows. There is a test for this — `"shows every row with JavaScript
-disabled"` — and a comment explaining why the logic is inverted. Do not
-straighten it out.
-
-**Accept:** Existing manifest tests still green, including `"shows every row with
-JavaScript disabled"`, `"renders every count in Persian digits"` and `"every
-manifest link resolves"`. A new test asserts the checked-in count at four scroll
-positions. Route JS delta ≤ +1 KB gz.
-
----
-
-### P13.S5 — Light, shadow, focus
-
-**Files:** `HeroStage.tsx`, `globals.css`.
+**Files:** `tokens.css`, `tailwind.config` (font tokens + type scale), root layout font loader, every `font-display` usage on the landing.
 **Do:**
-- **(a) Arrival sweep.** A `::after` on the frame: a 30°-rotated linear gradient
-  (transparent → `var(--color-graphite-50)` at ~8% → transparent), masked by the
-  base sprite (`mask-image: url(car-stripped.avif)`) so only the body lights.
-  Position driven by `p ∈ [0, 0.02]`.
-- **(b) Headlight bloom.** Two positioned divs at the lamp anchors,
-  `radial-gradient(var(--color-marigold-300) 0%, transparent 60%)`,
-  `mix-blend-mode: screen`, opacity 0 → 0.6 across the headlight beat, plus one
-  low-opacity SVG wedge for the beam.
-- **(c) Engine rim light.** A duplicate `<img>` per trio part, `filter: blur(6px)`,
-  `mix-blend-mode: screen`, marigold-tinted, opacity tied to the part's lift.
-  **Same `src`** — the browser cache is the point; generate no new image files
-  and add no requests.
-- **(d) Floor shadow.** One blurred ellipse under the car that widens as parts
-  detach, plus `filter: drop-shadow(...)` per detached part scaled with its
-  distance from home.
-- **(e) Focus dimming.** `.hero-stage[data-active-part]` drops the base and every
-  non-active sprite to `opacity: .55; filter: saturate(.6)` over 300ms.
+1. Make the family the owner loves the *only* text family: `--font-display` → alias of `--font-body` (keep the token name so nothing breaks; `displayFont` files can be dropped from the loader — that removes one 900-weight woff2 from the critical path). Headings use the variable body face at **700** (H2/H3) and **800** (H1 only). Never 900.
+2. Type scale (mobile → desktop, `clamp()` in tokens):
+   `display-1` H1: 30px → 48px, **line-height 1.3**, letter-spacing **0**;
+   `h2`: 22px → 32px, lh 1.35; `h3`: 18px → 22px, lh 1.4; `body-lg` 17px → 18px, lh 1.75; `body` 15px → 16px, lh 1.75; `body-sm` 14px, lh 1.6; `caption` 12px → 13px, lh 1.5; `data` (mono) 12px → 13px.
+   Persian needs 1.3+ on display sizes and ≥1.7 on body — the current 1.10/1.35 is the single biggest reason the headings "look wrong".
+3. **Kill all negative tracking** on Persian text (`tracking-tight` etc.). Tracking is allowed only on the Latin/mono spans (codes, SKUs) and only ≥ 0.
+4. Codes: every `SYS-xx`, SKU and Latin brand string sits in `<span dir="ltr" class="font-mono">` with `unicode-bidi: isolate` and `margin-inline: .35em` (rule already in the design system? if not, add `.code` utility to tokens layer).
+5. Digits policy, enforced: Persian digits for quantities, prices, years and counters inside Persian sentences (`Intl.NumberFormat('fa-IR')`); Latin digits only inside codes/SKUs. Add a unit test that scans `messages/fa.json` for `[0-9]` outside code-typed keys.
+6. `text-wrap: balance` on H1/H2; `text-wrap: pretty` on body paragraphs (Chrome ≥117; harmless elsewhere).
+**Accept:** Shots of H1 (both viewports) show no clipped dots/ascenders, no tight tracking; `document.fonts` lists only one text family + mono; visual diff of `/` reviewed by the owner (he is the judge of "the font I love" — post the before/after of «فهرست قطعه‌ها» vs the new H1 side by side).
 
-All colours through tokens — `--color-marigold-300` and `--color-graphite-50`
-both exist. ESLint will catch a raw hex anyway.
+### P14.S2 — Real light mode
 
-`prefers-reduced-motion`: no sweep, no bloom pulse, no dim transition. A static
-shadow is fine and helps depth; motion is what is removed, not contrast.
-
-**Accept:** p=.16 shot shows visible lamp glow in **both** themes. In light theme
-the stage stays dark — that is correct and intentional (`bg-graphite-950` on the
-section) — but check the stage's top and bottom edges read as an intentional
-plate against the light page rather than a broken block. Shadows visible at
-p=.80. **No new network requests** (compare the request count in the S0 run
-before and after). Zero raw hex in the diff.
-
----
-
-### P13.S6 — Real copy for the stage
-
-**Files:** `messages/fa.json` only. (`en.json` parity stays suspended; do not
-add English keys and do not break `/en`, which falls back to `fa`.)
-**Do:** Real Persian, workshop-manual voice, no marketing fluff, ≤ 70 characters
-each.
-
-- **Station captions** under `Landing.manifest.stations` — reuse the existing
-  `Landing.manifest.chapters` wording rather than inventing new names:
-  «ایستگاه ۱ · جلوی خودرو» / «ایستگاه ۲ · موتور و کاپوت» / «ایستگاه ۳ · بدنه» /
-  finale «کاتالوگ کامل · همه را داریم».
-- **`why` lines** under `Landing.manifest.why.<id>` — v1.0's are good copy and
-  are kept, with the ids corrected to the repo's (`airFilter`, `piston`,
-  `alternator`, and `windshield` added):
-  - headlights «نور کم یعنی چراغ کدر یا رفلکتور خراب — نه لامپ.»
-  - grille «جلوپنجره اصلی با پایه‌های سالم، بدون لقی.»
-  - bumper «سپر اصلی، سازگار با سنسور و زه کارخانه.»
-  - hood «درب موتور با لولا و قفل کارخانه، بدون بازسازی.»
-  - airFilter «فیلتر هوا هر ۱۰ هزار کیلومتر؛ موتور راحت‌تر نفس می‌کشد.»
-  - alternator «دینام ضعیف یعنی باتری خالی. اول دینام را چک کنید.»
-  - piston «پیستون و رینگ ست، هم‌سایز با سیلندر شما.»
-  - fender «گلگیر جلو با سوراخ‌های نصب دقیق.»
-  - door «درب خودرو با لولا و قفل، رنگ‌نشده.»
-  - windshield «شیشه جلو — فعلاً در فهرست فروش نیست.» *(name-only plate; §1.2)*
-- **Job card:** header «برگه تعمیر» · counter «{n} از {total}» · finale header
-  «همه را داریم».
-- **Hint:** replace `Landing.beats.hero.scrollHint` — currently «برای جدا شدن
-  قطعات، صفحه را پایین بکشید» — with «برای باز شدن خودرو، پایین بروید», and make
-  it disappear after p=0.06 (S7 removes the permanent `<p>`).
-- **Stage CTAs:** «مشاهده همه دسته‌بندی‌ها» / «خودرویم را انتخاب می‌کنم».
-
-**Accept:** No English, no lorem, no number that is not real. Every key resolves
-— no `Landing.manifest…` literal on screen at any scroll position in the S0
-shots. `pnpm test` (the locale-shape tests) green.
-
----
-
-### P13.S7 — Hero layout restructure, and the manifest rendered once
-
-This is the step that pays for itself twice: it is v1.0's layout fix **and** the
-structural change `docs/performance-landing.md` names as the only remaining fix
-for the 261ms TBT.
-
-**Files:** `HeroV2.tsx`, `HeroStage.tsx`, `PartsManifest.tsx`,
-`app/[locale]/(shop)/page.tsx`, `globals.css`.
+**Files:** `tokens.css` (semantic tokens), header, `#hero`, `#find-my-part`, `#authenticity`, `#interstitial`, `#closing`, theme toggle.
 **Do:**
+1. Audit every `bg-graphite-950/900/…` and `text-graphite-…` literal on the landing and replace with **semantic** tokens (`bg-surface`, `bg-surface-sunken`, `bg-surface-raised`, `text-text`, `text-text-muted`, `border-border`) that flip with `[data-theme]`. Add an ESLint rule (or extend `no-raw-hex`) that forbids `graphite-*` colour utilities outside `tokens.css` and the hero stage.
+2. **The hero stage stays dark in both themes** — it is a lit workshop, and the sprites were rendered for a dark ground. But it becomes a *framed stage* in light mode: the section background follows the theme (light), the stage box keeps `graphite-950` with a 1px `border-border` and radius, and the headline/job card outside the stage use theme text tokens. Verify the marigold/steel-blue accents pass 4.5:1 on the light surface (`--color-marigold-600`/`--color-steel-700` variants exist? if not, add them in tokens).
+3. Header follows the theme (light surface, dark text) with a `backdrop-blur` + 1px bottom border; the dark header on a light page is what makes the site "have no light mode" at a glance.
+4. Theme toggle: fix the icon (`currentColor` / missing sun-moon asset in light); add `meta[name=theme-color]` per theme; respect `prefers-color-scheme` on first visit, persist choice (next-themes already does — confirm `defaultTheme="system"`).
+5. Video/interstitial: the `.mp4` plates are dark; in light mode wrap them in the same framed-stage treatment.
+**Accept:** Light-mode full-page shot has **no** section with a dark background except the framed stage, the interstitial plate and the authenticity video; Lighthouse a11y contrast audit passes in both themes.
 
-*Desktop (`lg+`).* Reorder the sticky copy column to **headline → job card**, and
-move the vehicle selector and the code search out of it into a new section
-`#find-my-part` placed immediately after the hero un-pins, side by side, headed
-«حالا قطعه‌تان را پیدا کنید». Keep `#driver-path` as the anchor id so the closing
-beat's CTA («از خودروت شروع کن») still lands somewhere real — it currently
-targets that id.
+### P14.S3 — Hero framing: kill the gap, car above the fold
 
-The 10-system index (`SystemIndex`, «خرید بر اساس سیستم خودرو») moves under
-`#find-my-part` too, rendered as a 5×2 grid of real cards (code, name, count)
-instead of the current two-column list where the code and the count collide.
+**Files:** `HeroV2` layout, `messages/fa.json`.
+**Do (desktop ≥ lg):** The sticky block becomes `[headline strip] / [stage | job card]` where the headline strip is **one line H1 (≤ 40 chars) + one subline**, max ~120px tall, and the paragraph «این خودرو از همان قطعه‌هایی ساخته شده…» moves *into the stage* as the beat-0 caption (it is stage narration, not page copy). `top-24` sticky offset stays but the stage must start ≤ 35% of viewport height at scrollY=0 on 1440×900.
+**Do (mobile < lg):** Order = H1 (2 lines max at 30px) → stage (sticky, `top-[header height]`) → job-card strip → subline. The subline and the paragraph are *not* above the stage. Stage aspect on mobile: `aspect-[4/3]` (16/11 leaves too little height for the callout + chip). The finale parking layout gets a mobile variant (see S5).
+**Accept:** y=0 shots: desktop shows ≥ 60% of the car; 390×844 shows the full car within the first viewport with the H1 above it. No CLS regression.
 
-*Render the manifest once.* Today `PartsManifest` renders twice —
-`variant="panel"` in the copy column and `variant="rail"` under the stage — and
-one is always `display:none`. That is the whole TBT regression. The blocker was
-that the panel must be sticky beside the drawing while the rail must sit under
-the stage, and one element cannot be in two grid cells. **The restructure
-dissolves it:** with the job card directly under the headline, a single instance
-can live in the sticky column at `lg+` and, below `lg`, be repositioned under
-the stage with `order` inside a single-column flex — one DOM node, two layouts.
-Verify against `e2e/landing-hero.spec.ts:159`, which asserts exactly one visible
-form; that test should be **rewritten to assert one node**, which is strictly
-stronger.
+### P14.S4 — Hero pacing: smooth scrub + soft station snapping + "tour" mode
 
-*Mobile (`< lg`).* Stage sticky at the top, `aspect-[16/11]` kept, camera scale
-factors reduced ×0.8 so the push-in never crops a callout plate off-screen.
-Captions overlay the stage top; **one** callout plate at a time, bottom-start of
-the stage; job card strip directly under it with auto-scroll. Track height
-`calc(100vh + 72rem)`, up from `56rem` — v1.0 is right that four beats do not
-fit in 56rem. Verify on the S0 shots that each station gets ≥ 1.5 viewport
-heights of scroll.
+The owner wants two things that pull in opposite directions: *manual scrolling should feel slow and enjoyable* and *it should also be able to move from one animation to the next by itself*. Do both, without hijacking scroll:
 
-*The hint.* Delete the permanent `<p>` under the stage; the hint is now part of
-beat 0 only.
-
-**Accept:** Desktop shot at p=.48 shows the stage and a job card with rows 4–7
-ticked, side by side, both above the fold at 1440×900. Mobile shots at p=.16/.48/
-.80 show exactly one callout plate and the matching chip centred in the strip.
-Exactly **one** `nav` with the manifest label in the DOM — not one visible, one
-node. CLS on `/` ≤ 0.05. **TBT re-measured**: this step must move it, and the
-number goes in the commit body whether it moved or not.
-
----
-
-### P13.S8 — The finale
-
-**Files:** `HeroStage.tsx`, `heroLayout.ts`, `PartCallout.tsx`, `PartsManifest.tsx`.
-**Do:** A transform composed **on top of** each part's chapter beat, over
-`[0.86, 0.90, 0.96, 1.00] → [home, finale, finale, home]` (the last keyframe is
-Gate B's recommended path; under v1.0's alternative it ends at `finale` and the
-end-state test inverts).
-
-Composition trap: `PartLayer` expresses `x`/`y` as percentages of the part's
-**own box** and returns them as strings (`"12.40%"`). Two string transforms
-cannot be added. Compute both contributions as numbers and join them in a single
-`useTransform([chapterX, finaleX], ([a, b]) => \`${a + b}%\`)`, or with
-`useMotionTemplate`. Do not try to stack two `style.x` values.
-
-Parking positions come from `finale` in the registry (S1) and must not overlap —
-proven by the test written in S1, not by looking at a screenshot. Add a ±3px
-`p`-driven sine drift so the exploded state reads suspended rather than frozen.
-
-Job card header flips to «۹ از ۹ — همه را داریم». Stage CTA appears bottom-centre:
-«مشاهده همه دسته‌بندی‌ها» → `/c` in marigold — **the one marigold button on the
-stage** — with «خودرویم را انتخاب می‌کنم» → `#driver-path` as a secondary.
-
-**Accept:** S0 shots at p=.88, .92 show ten parts parked with clear air around
-every label and nothing overlapping. Under Gate B's recommended path,
-`e2e/landing-hero.spec.ts:459` (`"ends its scroll as a whole car"`) **still
-passes unchanged** — that is the check that the recommendation was actually
-implemented. Under v1.0's path, that test is rewritten in the same commit with
-the reason in the body.
-
----
-
-### P13.S9 — SEO burn-down
-
-**Files:** `app/[locale]/(shop)/page.tsx`, `lib/json-ld.ts`, `i18n/routing.ts`
-or `lib/seo.ts`, `app/[locale]/layout.tsx`, new `public/og/landing.png`.
-**Do:** Only the items §0.2 marked CONFIRMED. Specifically **not**: the
-`localhost` JSON-LD (a env-var setting, not a bug), the alt-text sweep (correct
-as it stands), or the `?v=` rewrite (masterPlan §3.4).
-
-- **OG image.** Render the finale frame on the dark stage with the wordmark,
-  1200×630, to `public/og/landing.png`. Set it in `openGraph.images` and flip
-  `twitter.card` to `summary_large_image`.
-- **hreflang.** Stop emitting the `en` alternate while English is suspended — a
-  crawlable alternate to an untranslated fallback is a soft error. Keep `/en`
-  routing intact. Put the switch in `hreflangAlternates()` so it flips back in
-  one line when the locale returns.
-- **JSON-LD.** Add `ItemList` for the ten systems (name + URL), `BreadcrumbList`
-  on category pages, and `Organization.contactPoint` with the phone and Telegram
-  already on the page.
-- **`theme-color`.** Per theme. Resolve the token conflict (§0.2) — derive from
-  `tokens.css` the way `lib/design-tokens.ts` already parses it, or record the
-  exception explicitly.
-- **Canonical with `?v=` present.** Confirm it still points at `/` with no query.
-  It is built from `localizedPath(locale)` and should — **verify, then move on.**
-
-**Accept:** Lighthouse SEO stays **100** (it already is; this must not regress
-it). Rich-results test passes for `Organization`, `WebSite` and `ItemList`.
-`NEXT_PUBLIC_SITE_URL` set to the served origin for the run, or the result is
-meaningless.
-
----
-
-### P13.S10 — Typography & RTL polish
-
-**Files:** `globals.css`, `SystemIndex` in `HeroV2.tsx`, `ShopByVehicle.tsx`,
-`TrustStrip.tsx`.
+**Files:** `HeroV2` progress hook, station buttons, `cameraRig.ts`.
 **Do:**
+1. **Smoothed progress.** Wrap the raw `scrollYProgress` in motion's `useSpring(progress, { stiffness: 60, damping: 20, mass: 0.6 })` (tune on device) and drive *every* transform from the spring, not the raw value. A fast flick now plays the whole story over ~1.2s instead of teleporting; a slow scroll feels 1:1. Reduced-motion → no spring (raw value) — the current behaviour.
+2. **Longer track, per device.** Desktop `100vh + 160rem`; mobile `100vh + 96rem`. Touch flicks cover 2–3× more distance than a wheel tick, so mobile gets proportionally *more* track, not less. Re-tune station `p` ranges after (they are fractions; only the absolute pixel-per-beat changes).
+3. **Soft station snapping.** When scrolling stops (150ms idle, `scrollend` where supported) and the spring's value is within ±0.04 of a station's *dwell point* (front = 0.24, engine = 0.52, body = 0.76, finale = 0.95), `scrollTo({top: stationTop, behavior:'smooth'})`. Outside those bands do nothing — never fight the user mid-scroll. Disable under reduced-motion and when the user is dragging the scrollbar (mouse down on scrollbar / `pointerdown` outside content).
+4. **Tour mode.** A small «نمایش خودکار ▶» button beside the existing prev/next: runs a scripted scroll through the four dwell points with `easeInOut` (~2.4s per station, 0.8s hold), pauses on any user input (wheel/touchstart/keydown), resumes never (one shot). This *is* the owner's "one-time use, moves from first animation to second". Implementation is `requestAnimationFrame` + `window.scrollTo` — no library. Also auto-start the tour **once per session on mobile** if the user has not scrolled within 2.5s of the hero being on screen (`sessionStorage` flag; skip under reduced-motion and `saveData`).
+5. **Idle life.** When the spring is at rest inside a station for > 1s, add a 6s `p`-independent idle loop: detached parts drift ±3px and the light source breathes (glow opacity 0.5→0.65). Stops on scroll. This is what makes a paused frame feel alive instead of frozen.
+6. Keep prev/next; make them keyboard-focusable and add `aria-live="polite"` on the station caption so screen readers hear «ایستگاه ۲ · قلب موتور».
+**Accept:** Video capture (screen record, 10s) of a trackpad flick: story plays through smoothly, no jump; slow scroll = 1:1; idle in station 2 shows drift. Mobile shots at the four dwell points after a flick + snap land within ±0.02 of each dwell `p`.
 
-- **Bidi isolation, using what exists.** Generalise `.evidence-code`'s
-  `unicode-bidi: isolate` into a `.latin-token` utility (or apply the existing
-  class) for every Latin/mono run inside Persian copy — `SYS-06`, years, SKUs,
-  plate IDs — with `margin-inline: 0.35em`. Tailwind has a utility for `dir` and
-  none for `unicode-bidi`, which is why the CSS class exists. **Do not write a
-  second implementation.**
-- **Digit policy, enforced.** Persian digits for quantities, prices and years
-  inside Persian sentences; Latin digits only inside codes. `toPersianDigits`
-  already exists and is already used by the manifest, the system rail and the
-  admin tables — the gap is `ShopByVehicle`'s raw `yearFrom` and any sibling.
-  Add a test that fails on `[0-9]` appearing inside `messages/fa.json` outside a
-  code-shaped token. **Do not add a `faDigits()` helper.**
-- **Tracking.** Mono captions apply `letter-spacing` across a mixed run and
-  tighten the Persian glyphs. Scope the tracking to the Latin span only.
-- **H1.** Re-measure at 1440×900 before changing anything (P12.S1 already tuned
-  this). The question is whether the subline clears the fold, not the line count.
-- **Trust strip contrast.** Measure the 13px `graphite-400` on `bg-graphite-900`
-  pair. If under 4.5:1, raise to `graphite-300` or 14px — compute the ratio, do
-  not judge it from a screenshot.
-- **Thousands separator.** `Intl.NumberFormat('fa-IR')` already emits U+066C;
-  confirm nothing bypasses `formatToman`.
+### P14.S5 — Hero story v3: anchor the narrator, keep the ending, use the visitor's car
 
-**Accept:** A shot of the system list reads cleanly as «SYS-02 · گیربکس و انتقال
-قدرت» with no Latin code touching a Persian word anywhere on `/`. The fa.json
-digit test is green and fails when a Latin digit is reintroduced (mutation-check
-it).
-
----
-
-### P13.S11 — Accessibility & interaction quality
-
-**Files:** `app/[locale]/layout.tsx`, `Footer.tsx`, `BrandWall.tsx`,
-`HeroStage.tsx`, `globals.css`.
+**Files:** `PartCallout.tsx`, `parts.registry.ts`, `HeroStage.tsx`, `messages/fa.json`.
 **Do:**
+1. **Anchored callouts (fixes V2).** Each plate gets an anchor dot at the part's *detached* centroid (registry `anchor`) and a 1px leader (SVG line, `stroke-dashoffset` draw-on) to the plate. Plate placement: desktop uses `labelSide` from the registry with a tiny collision table; **mobile uses a single fixed bottom strip** (plate docked to the stage's bottom edge, full width, leader still drawn to the anchor above it). Tapping the part sprite and tapping the plate both navigate.
+2. **Job card visibility fix (V3/I2).** Row tick state derives from each part's own `detachAt` vs the spring value, not from a running index; untriggered rows render ghosted (name only, 40%) so the list has a stable height and no blank slots.
+3. **Finale holds (V4/I3).** The exploded state is the *resting* state from p=0.9 through un-pin and remains while the section scrolls away; re-dock only on upward scroll below p=0.86.
+4. **Mobile finale layout (I4).** A `finaleMobile` parking table in the registry: 10 parts in two rows *above* and *below* a scaled-down (0.7) body, chips as a 2-row wrap under the stage instead of on it.
+5. **The visitor's car in the story.** The header already knows the selected vehicle («سایپا شاهین ۲۰۲۰»). When a vehicle is selected, the beat-0 caption and the finale header interpolate it: «این‌ها قطعاتی است که به **شاهین ۲۰۲۰** شما می‌خورد.» / «۹ از ۹ — همه را برای شاهین شما داریم». When none is selected, the finale's secondary CTA «خودرویم را انتخاب می‌کنم» opens the selector *in place* (scroll to `#find-my-part` and focus the first select). This is the cheapest "soul" on the page: it talks about *their* car.
+6. **Station captions with a voice** (real copy, replaces the neutral station labels):
+   - beat 0: «بیایید خودرو را با هم باز کنیم.»
+   - station 1: «اول نور. چراغی که کدر شده، دید شما را کم می‌کند — نه فقط زیبایی را.»
+   - station 2: «حالا قلب کار. زیر کاپوت، سه قطعه‌ای که بیشترین تماس‌ها را می‌گیرند.»
+   - station 3: «و بدنه. گلگیر و درب، همان‌هایی که بعد از یک تصادف کوچک لازم می‌شوند.»
+   - finale: «همه‌اش همین‌جاست. هر کدام را بزنید.»
+7. **Light-sweep at every station start** (not only on load): reuse `hero-sweep`, triggered by the station change event, 900ms, masked to the body.
+**Accept:** Shots at the four dwell points on both viewports show anchor + leader + plate; no blank job-card slot at any p; y=un-pin+300 shows the exploded car scrolling away; with a vehicle selected the finale header names it.
 
-- **Hit areas — measure first.** Manifest rows and chips are already 48px.
-  Enumerate every interactive target under 44px in either dimension from the S0
-  run, then pad only those. ⚠️ The spacing scale is REPLACED: usable steps are
-  `0 1 2 3 4 6 8 12 16 20 24 32`. `p-11` and `min-h-10` compile to nothing.
-- **`suppressHydrationWarning` on `<body>`.** The `cz-shortcut-listen` attribute
-  is a browser extension, not a bug; the warning is noise during every
-  screenshot run.
-- **Hero keyboard scrubbing.** Add subtle «قدم بعدی» / «قدم قبلی» controls at the
-  bottom of the stage that scroll to the next or previous station's `p`. A
-  scroll-driven hero is otherwise unreachable for anyone not using a pointer.
-- **A visually-hidden ordered list** naming the stations and their parts
-  («ایستگاه ۱: چراغ جلو، جلوپنجره، سپر جلو …»). Screen-reader content and
-  crawlable text in one.
-- **Theme toggle.** Reproduce v1.0's "empty circle in light mode" against a
-  production build first (§0.2 — it is probably the pre-hydration
-  `disabled:opacity-0` state). Fix it only if it reproduces.
-- **Reduced motion** per §1.3: no camera, no glow, no scroll subscription —
-  callouts and the full job card still render.
+### P14.S6 — Mobile-first pass on the whole landing [I until S0]
 
-**Accept:** Lighthouse a11y stays **100**. axe reports zero serious violations
-on the hero in both themes and on the mobile rail. Keyboard walk from the
-headline to the stage CTA with a visible focus ring at every stop, recorded in
-the commit body.
-
----
-
-### P13.S12 — Content defects
-
-**Files:** `lib/fetchers/products.ts`, `packages/schemas/src/catalogSystems.ts`,
-`messages/fa.json`, `Footer.tsx`, `TrustStrip.tsx`, `InterstitialPlate.tsx`,
-`Deals.tsx`.
-**Do:** Only the items §0.2 confirmed. **Not** the brand wall (shipped at
-P12.S12, 15 brands, already a marquee) and **not** the authenticity SKU (shipped
-at P12.S10; the ellipsis is CSS and the full code is in the DOM).
-
-- **«پیشنهاد ما» duplicates.** De-duplicate by product template in
-  `fetchFeaturedProducts` — the eight newest in-stock records currently collapse
-  to two distinct names. There is no `?featured=true`; if de-duplication needs
-  API support, that is a `BLOCKED:` block naming the endpoint, not an invented
-  query param.
-- **`SYS-10`'s Persian name.** «فیلتر و روغن» is narrower than its own contents
-  (antifreeze, brake fluid) and than its English «Filters & Fluids». Rename to
-  cover fluids. This is a `packages/schemas` change — check every consumer.
-- **Section numbering.** Render the three missing codes: `TrustStrip` (02),
-  `InterstitialPlate` (07), `Deals` (09). All three already exist in `fa.json`
-  and `SectionShell` already takes a `code` prop. **Keep the other seven.**
-- **«ساعات پاسخگویی به‌زودی اعلام می‌شود».** Real hours, or delete the line.
-- **Footer `پارسیان -- Ash Tech Group`.** Use « · » or an en-dash.
-- **اینماد / نشان ملی.** Owner call (§0.2). If they stay, make "pending
-  registration" legible on screen and not only in an `aria-label`.
-- **The classic-coupé artwork** in the interstitial and the authenticity video:
-  log it in **`tasks.md`**, not a new `docs/deferred.md`.
-
-**Accept:** No repeated product name in «پیشنهاد ما». No visible placeholder box
-anywhere on `/` that is not explicitly labelled as pending. All ten section
-codes render.
-
----
-
-### P13.S13 — Performance gate
-
-**Files:** `docs/performance-landing.md`, `e2e/`.
+**Files:** header, each landing section, footer.
 **Do:**
+1. **Header (mobile):** two rows. Row 1: menu · wordmark · account · cart. Row 2 (always visible, not in the drawer): **search input full-width** + the vehicle chip («شاهین ۲۰۲۰ ▾» or «خودرو را انتخاب کنید») as a compact button at its inline-end. Header height ≤ 104px total; collapses to row 1 only after 80px of downward scroll, re-expands on upward scroll (`scroll-direction` hook — you likely have one; if not, 20 lines). All controls ≥ 44px hit area (product choice).
+2. **Mobile menu drawer:** current content unknown to me (not captured) — S0 screenshot it. Requirements: categories as a 2-col icon grid (the 10 systems), then «برندها», «راهنما», «تماس»; theme toggle inside; close on route change; focus trap; `inert` on the page behind.
+3. **Sticky bottom action bar (mobile only):** appears after the hero un-pins: «جستجوی قطعه» (opens search focused) · «خودروی من» (selector) · phone (tel:) . 56px, `padding-block-end: env(safe-area-inset-bottom)`. Hidden while the hero is pinned so it never covers the callout strip.
+4. **Section rhythm:** on mobile, sections are `padding-block: 3rem`; every section opens with the H2 and a ≤ 90-char lead; no section may exceed ~2.5 viewports without a visual break (best-sellers at 1197px desktop → mobile becomes a horizontal snap row of 6 cards, not a 2×4 grid).
+5. **Find-my-part:** selects and the code input are ≥ 48px tall; the three selects stack; the «جست‌وجوی کد» button is full-width; system grid is 2 columns with icon + name + count.
+6. **Shop-by-vehicle:** two brand cards become an accordion on mobile (Saipa open by default).
+7. **Symptom finder:** chips wrap in 2 columns with 44px height; add a «بیشتر…» expander after 6.
+8. **Footer:** single column accordion groups on mobile (`<details>`), contact block first (phone as `tel:`, Telegram as `https://t.me/boyinshadows`, both ≥ 44px), brand list collapsed by default; remove the empty اینماد/نشان‌ملی boxes until real assets exist; fix «Ash Tech Group -- پارسیان» → «پارسیان · Ash Tech Group».
+**Accept:** 390×844 full-page shot: no horizontal overflow (`document.documentElement.scrollWidth === 390`), search visible in the header at y=0, bottom bar present after hero, footer collapsed; Lighthouse mobile a11y ≥ 95.
 
-- **Preload discipline.** `<link rel="preload" as="image">` for the base and the
-  three station-1 sprites only. The rest stay `loading="eager"` and unpreloaded —
-  they are behind about half a second of scroll.
-- **No new image files.** Glow and rim-light duplicates reuse the same `src`.
-- **No React state on scroll.** The only per-frame values are `MotionValue`s; the
-  only React-visible change is `activePart`, derived in `useMotionValueEvent`
-  with thresholds so it fires **≤ 12 times across the whole track**. Assert it.
-- **Measure, do not estimate.** Route JS from `pnpm --filter web build`'s own
-  route-size output. **There is no `pnpm analyze`.**
+### P14.S7 — Motion system: enter-on-view rule + infinite marquee
 
-**Accept — these are gates, not aspirations:**
-
-| Metric | Gate | At P12 close |
-|---|---|---|
-| Route JS `/` | **≤ 193 KB gz** | 193 KB |
-| `motion` chunk | ≤ 45 KB gz | 39.9 KB |
-| LCP (mobile, throttled) | ≤ 2.0s | 1.65s |
-| CLS | ≤ 0.05 | 0.034 |
-| **TBT** | **≤ 200ms** | **261ms ✗ — S7 must move this** |
-| Lighthouse perf | ≥ 90 | 94 |
-| Lighthouse a11y | 100 | 100 |
-| Lighthouse SEO | 100 | 100 |
-
-Measurement recipe (copy it from `docs/performance-landing.md`, do not improvise):
-production build, `next start` on an explicit port, **`NEXT_PUBLIC_SITE_URL` set
-to that origin**, Lighthouse mobile 360×640 DPR 2 with
-`--throttling-method=devtools`, **five runs, median reported**. Measure `/`,
-never `/fa` — `/fa` 307-redirects and costs about 0.6s of apparent LCP.
-Lighthouse exits `EPERM` cleaning its own temp directory on this machine; the
-report is already written, so check for the output file before calling a run
-failed.
-
-If TBT is still over 200ms after S7, say so plainly with the attribution
-breakdown. A regression that is measured and named is a finding; one that is
-quietly omitted is a defect the next phase inherits.
-
----
-
-### P13.S14 — Close the phase
-
-**Files:** `tasks.md`, `docs/landing-hero-sprite-brief.md`,
-`docs/performance-landing.md`, this file.
+**Files:** new `components/motion/Reveal.tsx` (thin wrapper over motion's `whileInView`), `MotionMarquee`.
 **Do:**
+1. **Rule:** every landing section below the hero wraps its heading block and its primary grid in `<Reveal>`: `initial={{opacity:0, y:16}}` → `{opacity:1, y:0}`, `viewport={{ once:true, amount:0.2, margin:'0px 0px -10% 0px' }}`, duration 0.5, `easeOut`, children staggered 60ms (cards, rows, chips). No scale, no blur, no bounce — this is a workshop manual, not a startup deck. Reduced-motion → render final state immediately. Because it is `whileInView` on components you already ship, JS cost ≈ 0.
+2. **Marquee (V8/V9):** render the item list **twice as identical node lists** (map the same array twice with `aria-hidden` on the second), separators as their own flex items with `margin-inline` so the seam is invisible; animate `translate3d(0,0,0) → translate3d(50%,0,0)` for RTL (or `-50%` with `direction:ltr` on the track — pick one and test the seam at 0.25× speed); `animation-play-state: paused` until the section is in view (IntersectionObserver toggles a class) and paused again when it leaves; pause on hover/focus-within; duration scales with item count (≈ 3.5s per item). Reduced-motion → static 2-row wrap grid.
+3. Trust strip numbers («۰۱ … ۰۴») count in? No — leave; the reveal stagger is enough.
+**Accept:** Scroll video shows sections revealing as they enter; marquee has no visible seam over one full loop at both viewports; `document.getAnimations()` at y=0 shows the marquee **paused**.
 
-- Add a `SHIPPED — Phase 13` section to `tasks.md` in the shape of the Phase 9
-  and Phase 12 sections: what shipped, what was found on the way, what is
-  deferred and why. **That section is what the source comments citing
-  `fableTasks v1.1 §…` will point at once this file is deleted.**
-- Update `docs/landing-hero-sprite-brief.md` with the `anchor` / `labelSide` /
-  `finale` fields, so the brand-free sedan regeneration ships with them rather
-  than needing a second calibration pass.
-- Append the Phase 13 closing measurement to `docs/performance-landing.md`, in
-  the same format as the P12.S13 block.
-- Record the deferrals in `tasks.md` (**not** a new `docs/deferred.md`):
-  engine-bay depth pass (a second stripped base with the bay shadowed for
-  hood-open frames), light-theme stage variant, English locale return, real
-  brand badge assets, product-image pipeline for best-sellers, `?v=`
-  slugification, and Gate C's catalogue sub-category question.
-- Delete this file once every step is shipped, the way `fableTasks.md` and
-  `fableTasks2.md` were, and only after `tasks.md` carries the reasoning.
+### P14.S8 — Copy with a voice («استادکار» — the master mechanic)
 
-**Accept:** `pnpm lint && pnpm test && pnpm build` all green. `tasks.md` reads as
-a record someone can act on in six months without this file.
+**Files:** `messages/fa.json`, `docs/voice.md` (new, short).
+**Voice rules (write them into `docs/voice.md`):** second person, short sentences, one idea per line, verbs first, no adjectives that can't be checked («بهترین»، «بی‌نظیر» banned), name the car when known, admit limits («اگر نداشتیم، می‌گوییم»). It sounds like the person behind the counter who has done this for twenty years.
+**Rewrite (real copy, ready to paste — owner may edit):**
+- H1: «قطعه‌ای که به خودروی شما می‌خورد.» · subline: «نه چیزی شبیه آن. اصل، کدخورده، برای سایپا و ایران‌خودرو.»
+- find-my-part H2: «بگویید چه دارید، بقیه با ما.» · vehicle card: «خودرویم را می‌شناسم» → lead «مدل و سال را بزنید؛ فقط قطعه‌های سازگار را نشان می‌دهیم.» · code card: «کد قطعه را دارم» → lead «کد روی قطعه یا جعبه را وارد کنید. اگر داریم، همین‌جا می‌بینید.»
+- trust strip: «۰۱ می‌گوییم به کدام مدل می‌خورد» / «۰۲ می‌گوییم از کجا آمده» / «۰۳ پول را بعد از تأیید بانک می‌گیریم» / «۰۴ قبل از خرید جواب می‌دهیم — رایگان»
+- best-sellers H2: «آنچه بیشتر می‌برند» · lead «پرفروش‌های این ماه، برای مدل‌هایی که بیشتر می‌بینیم.»
+- authenticity H2: «اصالت را نشان می‌دهیم، نه ادعا.» · lead «هر قطعه یک کد استعلام دارد: برند، کشور ساخت، مسیر تأمین. خودتان چک کنید.»
+- shop-by-vehicle H2: «از خودروی خودتان شروع کنید.» · lead «پراید تا شاهین، سمند تا تارا. مدل را بزنید.»
+- symptom H2: «صدایی می‌شنوید؟» · lead «علامت را انتخاب کنید؛ می‌گوییم معمولاً کدام قطعه است — و کدام نیست.»
+- interstitial: «هر قطعه جای مشخصی دارد. کاتالوگ ما هم همان‌طور چیده شده.»
+- brands H2: «برندهایی که خودمان هم می‌خریم.»
+- closing H2: «چهار قدم، بعد قطعه دست شماست.» · steps: «خودرو را انتخاب کنید» / «قطعه را پیدا کنید» / «اصالت و تطبیق را ببینید» / «تحویل بگیرید» · aside: «مطمئن نیستید؟ زنگ بزنید. بیست سال است همین کار را می‌کنیم.» (**only if true** — otherwise «هر روز همین کار را می‌کنیم.»)
+- footer tagline under the wordmark: «قطعه اصلی، برای خودروی ایرانی.»
+- support hours line: replace «به‌زودی اعلام می‌شود» with the real hours or delete.
+**Accept:** No banned adjectives (grep), no English on `/` except codes/brand names, every string ≤ the widths it must fit at 390px (S0 shots), owner sign-off on voice.md.
+
+### P14.S9 — Polish burn-down
+
+- V13 numbering: restore «05» on shop-by-vehicle or drop numbers below the hero (owner's call; my recommendation stands: keep numbers, they're now consistent).
+- Job-card counter «۰ از ۹» must say ten if the hero has ten parts (brief says ten; the rail shows nine rows — reconcile: either windshield gets a row or the counter is "۹").
+- Hero `overflow` on the stage: during station 1 push-in the rear of the car is hard-clipped at the stage's end edge (visible at y=1100). Either add a soft edge (`mask-image: linear-gradient` 24px on the inline-end) or reduce push-in scale to keep the car inside.
+- Station prev/next buttons: on mobile move them to the stage's bottom corners as 44px round icon buttons.
+- `hero-sweep` on load runs even when the hero is not the first paint (deep link to `#find-my-part`) — gate it on the stage being in view.
+- I6 best-sellers seed data: flag off until real products (product decision — note in `docs/deferred.md`).
+- Placeholder trust badges (اینماد/نشان‌ملی): hide until assets exist.
+- `suppressHydrationWarning` on `<body>` if not already done (extension attribute noise during shots).
 
 ---
 
 ## 3. Order of execution
 
-```
-S0 → S1 → S2 → S3 → S6 → S4 → S8 → S5 → S7 → [hero shipped]
-   → S9 → S10 → S11 → S12 → S13 → S14
-```
+S0 → S1 (type) → S2 (light) → S3 (framing) → S4 (pacing) → S5 (story v3) → **hero PR** → S6 (mobile pass) → S7 (motion rule + marquee) → S8 (copy) → S9 → **landing PR**.
 
-- **S1 before S2:** the camera's focus points and the callouts' anchors are
-  registry data; the registry has to exist first.
-- **S6 before S4 and before S3's Accept:** callouts and rows render copy. Writing
-  the strings first means neither step ships a placeholder that has to be found
-  again later.
-- **S8 before S5:** the finale changes where parts end up, and the shadows and
-  glows are keyed to distance from home. Lighting a layout that is about to move
-  is wasted work.
-- **S5 after S3:** labels are content, glow is garnish. If time runs out, ship
-  without the glow — never without the labels.
-- **S7 late, deliberately:** it touches the grid every earlier step renders into,
-  and it is the TBT fix, so it wants the final component set in place before it
-  measures.
+S1 and S2 first because every later screenshot must be judged in the final type and theme; doing them last would mean re-reviewing everything. S3 before S4 because the snap points depend on the final track geometry.
 
----
+## 4. Definition of done (owner's acceptance frame)
 
-## 4. Definition of done — the owner's acceptance frame
-
-Scroll the page on a laptop trackpad, touching nothing else.
-
-At no point between the headline and the trust strip should you be able to say
-"nothing is happening". At every point where a part is off the car you should be
-able to read its name, know whether it is for sale, and click it. When you reach
-the bottom of the hero, ten parts hang in the air, every one is labelled, the
-job card reads «۹ از ۹ — همه را داریم», and there is exactly one marigold button
-on the stage. Then the car comes back together as the hero lets go — because the
-car you arrived at is the car you leave *(Gate B; if the owner chooses
-otherwise, it stays exploded and the e2e invariant changes with it)*.
-
-Then do it again on a phone.
-
-And per every step's DoD (CLAUDE.md §14): RTL correct · light and dark verified ·
-responsive 360px → 1920px · keyboard reachable with visible focus and axe zero
-violations · `prefers-reduced-motion` honoured · every string in `fa.json` ·
-`pnpm lint && pnpm test && pnpm build` all pass · the performance gates in S13
-respected for `/` · committed with the correct `[P13.Sn]` tag and pushed to
-`development` · the `STEP COMPLETE:` block emitted.
+On a phone, at scroll 0, you see the headline and the whole car, with the search box in the header. One thumb-flick plays the story smoothly to the next station and rests there; the part that came off has a dot, a line and a plate you can tap. Stop scrolling and the scene breathes. At the bottom the car is open, ten parts are parked, the card says «همه را برای شاهین شما داریم». Switch to light mode: the page is light, the stage is a dark window inside it. Every heading is the font you like, with air above and below it. Scroll on: each section arrives as you reach it, the brands run forever without a jump, and the footer folds into four rows. Then check the same on a laptop.
