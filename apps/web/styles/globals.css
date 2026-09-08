@@ -852,6 +852,118 @@
     }
   }
 
+  /* ---- Off-screen landing sections (P15.S2) ---------------------------
+
+     The landing is ~10,100px tall on a phone and every pixel of it was being
+     laid out before first paint. `content-visibility: auto` lets the browser
+     skip layout and paint for a section until it approaches the viewport.
+
+     MEASURED, not adopted on principle. A CDP trace under 4x CPU throttle at
+     360x640, three runs each, median Style + Layout for the whole load:
+
+       baseline                            529ms
+       this rule                           293ms   (-236ms, -45%)
+
+     Dirty layout objects in the largest pass fall from ~1,145 -- essentially
+     the entire document -- to ~222. The trace is in
+     `docs/performance-landing.md` under the P15.S2 heading, along with the
+     hypothesis it disproved: this cost was previously attributed to the hero's
+     container-query sprite layers, and the trace shows it is simply the whole
+     page being laid out at once.
+
+     WHY `#hero` IS EXCLUDED: it is above the fold, so there is nothing to
+     defer, and it is `position: sticky` for the length of the scroll story --
+     containment on a sticky scroll container is not a trade worth making for a
+     section that renders immediately anyway.
+
+     `#find-my-part` IS deferred, deliberately, and it is worth 81ms of the
+     236: it is the tallest non-hero section (1,849px at 360px wide) and sits
+     entirely below the fold at both breakpoints, since the hero alone is
+     2,539px on a phone and 3,773px at 1440.
+
+     WHY `auto` PRECEDES EACH LENGTH: with the `auto` keyword the browser
+     remembers a section's real height once it has rendered, so the number is
+     only the first guess and stops mattering afterwards.
+
+     WHY THE NUMBERS ARE PER-SECTION AND NOT ONE SHARED VALUE. The first
+     version of this rule used `auto 100vh` for all nine, reasoning that nine
+     hand-measured numbers would rot. Measured, that was worse than the thing it
+     avoided: 100vh over-estimates almost every section (the trust strip is
+     461px, the brand wall 278px), so the document loaded 1,258px TALLER than it
+     really is and shrank as the visitor scrolled. The scrollbar lied for the
+     whole first pass down the page. One wrong number for nine sections is not
+     simpler than nine right ones -- it is one bug in nine places.
+
+     The values are the rendered heights at 390px wide, measured 2026-09-08, and
+     the four `md:` overrides are the sections whose height changes by more than
+     40% at 1440px. To re-measure: load the page, scroll it end to end so every
+     section has rendered, then read `getBoundingClientRect().height` for each
+     `main > section`. Being wrong here costs scrollbar accuracy on first scroll,
+     not correctness -- so an estimate that is close is fine and an estimate
+     that is absent is not.
+
+     These are measured layout estimates, not design values, which is why they
+     are px literals here rather than tokens in `tokens.css`: a token is a
+     decision, and these are observations that should be corrected whenever the
+     observation changes. */
+  main > section:not(#hero) {
+    content-visibility: auto;
+  }
+
+  #find-my-part {
+    contain-intrinsic-size: auto 1826px;
+  }
+  #trust-strip {
+    contain-intrinsic-size: auto 461px;
+  }
+  #best-sellers {
+    contain-intrinsic-size: auto 607px;
+  }
+  #authenticity {
+    contain-intrinsic-size: auto 1112px;
+  }
+  #shop-by-vehicle {
+    contain-intrinsic-size: auto 730px;
+  }
+  #symptom-finder {
+    contain-intrinsic-size: auto 537px;
+  }
+  #interstitial {
+    contain-intrinsic-size: auto 292px;
+  }
+  #brand-wall {
+    contain-intrinsic-size: auto 278px;
+  }
+  #closing {
+    contain-intrinsic-size: auto 929px;
+  }
+
+  @media (min-width: 768px) {
+    #find-my-part {
+      contain-intrinsic-size: auto 881px;
+    }
+    #trust-strip {
+      contain-intrinsic-size: auto 124px;
+    }
+    #best-sellers {
+      contain-intrinsic-size: auto 1212px;
+    }
+    #interstitial {
+      contain-intrinsic-size: auto 501px;
+    }
+  }
+
+  /* Print renders the whole document at once with no scrolling, so skipped
+     content would print blank. The same is true of any full-page screenshot --
+     `pnpm og:landing` and the visual-regression harness both force these
+     sections to render before capturing, and the reason is written where they
+     do it. */
+  @media print {
+    main > section:not(#hero) {
+      content-visibility: visible;
+    }
+  }
+
   /* ---- Evidence code (P12.S10) ----------------------------------------
 
      `dir="ltr"` sets the direction INSIDE the run; `unicode-bidi: isolate`

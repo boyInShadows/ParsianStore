@@ -346,6 +346,14 @@ test.describe("best sellers rail (audit item 2)", () => {
     const section = page.locator("#best-sellers");
     test.skip((await section.count()) === 0, "no featured products seeded");
 
+    // The section is deferred by P15.S2's `content-visibility: auto`, so an
+    // unscrolled `boundingBox()` returns its `contain-intrinsic-size`
+    // placeholder rather than its laid-out height -- which would make this
+    // assertion pass or fail on a CSS estimate instead of on the rail. Scroll
+    // it into view first so the number under test is the real one.
+    await section.scrollIntoViewIfNeeded();
+    await expect(section.locator("h2")).toBeVisible();
+
     const height = (await section.boundingBox())!.height;
     // The audit measured 1,848px here, caused by cards stacking at their
     // intrinsic image width rather than sitting in a scrollable rail. It now

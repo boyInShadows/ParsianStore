@@ -994,3 +994,142 @@ P15.S2 captures the Chrome trace the 2026-09-07 pass explicitly deferred, before
 any code is touched. Shaving JavaScript to fix a layout cost would be aiming at
 the wrong target, which is the standing recommendation this document has carried
 since that pass and which still holds.
+
+---
+
+# 2026-09-08 — P15.S2: the trace, and the hypothesis it killed
+
+The 2026-09-07 pass found 692 of ~936 ms of long-task time was Style & Layout
+attributed to the document rather than to any script, named a suspect, and
+labelled it **inferred, not confirmed** — eleven absolutely-positioned sprite
+layers driven by container-query units, forcing the browser to resolve the
+container before any dependent box. Its recommendation 2 was to capture a real
+trace before touching `HeroStage`'s JavaScript.
+
+**The trace says the suspect was innocent.** `scripts/trace-hydration.mjs`
+(CDP, 4× CPU throttle, 360×640 DPR2, `invalidationTracking` categories on)
+attributes every layout invalidation to a node and a reason. The hero's sprite
+layers are not what dirtied layout. Two things are:
+
+| What | Cost |
+|---|---|
+| Laying out the entire ~10,100px document before first paint | the bulk of it |
+| The webfont swap relaying out every text node | ~109 ms |
+
+Nothing in the invalidation table points at container query units. What it does
+point at, by a wide margin, is `#text` — 326 `Added to layout`, 315 `Fonts
+changed` — plus `path`, `LI`, and the marquee spans. This is a whole page being
+laid out, and then laid out again when the font arrives.
+
+## The layout fix, measured before it was written
+
+Median of three runs each, Style + Layout for the whole load:
+
+| Configuration | Layout | Style | Total |
+|---|---|---|---|
+| Baseline | 404 ms | 126 ms | **529 ms** |
+| `content-visibility: auto` below the hero | 210 ms | 82 ms | **293 ms** |
+| …and with webfonts blocked entirely | 162 ms | 83 ms | 246 ms |
+| Baseline with webfonts blocked | 295 ms | 124 ms | 415 ms |
+
+The shipped build measures **292 ms** against the injected rule's 293 — the
+change was measured before it was committed, and again after, and they agree.
+
+Dirty layout objects in the largest pass fall from ~1,145, essentially the whole
+document, to ~222.
+
+## Lighthouse, controlled — both halves built and measured in the same session
+
+The 306 ms TBT recorded on 2026-09-07 was measured on a differently-loaded
+machine, and this document has already been burned once by treating cross-session
+numbers as comparable (474 ms vs 306 ms from a single stray process). So the
+baseline was rebuilt and re-measured immediately before the change, on the same
+box, five runs each:
+
+| | Baseline | With the rule |
+|---|---|---|
+| **TBT** (median of 5) | **221 ms** | **120 ms** |
+| TBT spread | 122–465 ms | 85–146 ms |
+| **LCP** | 1.97 s | **1.74 s** |
+| CLS | 0.032 | 0.032 |
+| Lighthouse performance | 94 | 98 |
+
+**The ≤200 ms TBT gate is met for the first time.** The narrowed spread matters
+as much as the median: the page is not just faster, it is far less sensitive to
+CPU contention, which is the condition a real phone is always in.
+
+## The bug this shipped with, and how it was caught
+
+The first version used one shared `contain-intrinsic-size: auto 100vh`, reasoning
+that nine hand-measured numbers would rot. Measured, that was worse than the
+thing it avoided. 100vh **over**-estimates almost every section — the trust strip
+is 461px, the brand wall 278px — so the document loaded **1,258px taller than it
+really is and shrank as the visitor scrolled**. The scrollbar lied for the whole
+first pass down the page.
+
+One wrong number for nine sections is not simpler than nine right ones; it is one
+bug in nine places. Replaced with measured per-section values plus four `md:`
+overrides where the height changes by more than 40% at 1440px. Residual document
+churn: **−434px, down from −1,258px.**
+
+It surfaced as an e2e failure — `#best-sellers` measuring 940px against a 900px
+assertion — because the test read a `contain-intrinsic-size` placeholder instead
+of a laid-out height. The test now scrolls the section into view first, so it
+asserts against the rail rather than against a CSS estimate.
+
+## What full-page capture does to skipped content
+
+A `fullPage: true` screenshot renders **blank** below the hero: the scroll walk
+in `settleForCapture` renders each section, then scrolling back to the top makes
+them irrelevant again and skipped content paints nothing. This is precisely the
+all-blank baseline P14.S9 built that scroll walk to prevent, arriving through a
+new door.
+
+The harness now lifts `content-visibility` for the capture only, and the proof
+that this is a capture concern rather than a rendering change is that **all nine
+visual baselines pass unmodified** — the page is pixel-identical to what it
+rendered before this step. No baseline was regenerated.
+
+`@media print` carries the same override, for the same reason. `pnpm og:landing`
+needs no change: it clips the hero, which is not deferred.
+
+## The font swap, priced but not spent
+
+Blocking webfonts removes ~109 ms of layout from the baseline — but only ~47 ms
+once containment is in place, because most of what the swap was relaying out is
+now skipped. So the remaining cost of `font-display: swap` on this page is
+**~47 ms**, not 109.
+
+The underlying flaw is real and worth recording even though it is not being
+fixed here. `next/font` emits a metric-adjusted fallback:
+
+    @font-face{font-family:bodyFont Fallback; src:local("Arial");
+               ascent-override:101.52%; size-adjust:101.00%}
+
+**Arial cannot render Persian.** Every Persian glyph falls straight through it to
+whatever system font handles Arabic script, and the `size-adjust: 101%` was
+computed against Arial's metrics, not that font's. The adjustment does not apply
+to the text that fills the entire page. `next/font/local`'s `adjustFontFallback`
+only accepts `Arial` or `Times New Roman`, so this cannot be corrected through
+the loader.
+
+The available fix is `display: "optional"`: no swap, therefore no reflow, at the
+cost of showing a system Persian font for the whole of any visit where the 72KB
+preloaded face misses the ~100 ms block window. **That is a visible design
+tradeoff on a typeface the owner chose deliberately at P14.S1, for 47 ms — an
+owner decision, not an engineering one, and it is left open rather than taken
+quietly.**
+
+## Method note for whoever runs this next
+
+`scripts/trace-hydration.mjs [url] [--block-fonts] [--inject-css <file>] [--cpu N]`.
+
+`--inject-css` rewrites the HTML response to add a stylesheet before first
+paint, so a candidate fix is measured against a real build in ~40 seconds
+instead of a three-minute rebuild per idea. `--block-fonts` is the A/B half:
+the trace shows *that* "Fonts changed" invalidated layout, and only the diff
+shows how much it costs. Both exist because the `cqw` hypothesis could have
+been tested this cheaply a phase ago and was written down as the leading
+explanation instead.
+
+**A trace tells you what invalidated. Only an A/B tells you what it costs.**

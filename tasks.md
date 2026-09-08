@@ -1777,7 +1777,7 @@ A per-route total can never say *who* grew; these three layers can.
       writing the thing that prevents it, and caught only by re-reading the
       measured numbers against the edit. The gate now carries per-route entries
       for PLP and PDP so the looser bucket cannot silently absorb them again.
-- [ ] **P15.S2 — The TBT lever is layout, not bytes.** 692 of ~936 ms across the
+- [x] **P15.S2 — The TBT lever is layout, not bytes.** ✅ 2026-09-08. **TBT 221 → 120 ms median, LCP 1.97 → 1.74 s, the ≤200 ms gate met for the first time.** 692 of ~936 ms across the
       six long tasks is Style & Layout attributed to the *document*, not to any
       script chunk. **Capture the Chrome trace the last pass explicitly deferred
       (its recommendation 2) before touching any code** — element-level
@@ -1791,9 +1791,32 @@ A per-route total can never say *who* grew; these three layers can.
       give the boundaries; (2) `contain: layout paint` on the hero stage so
       sprite recalcs cannot escape into the document; (3) only if the trace
       blames `cqw`, resolve the stage's pixel basis once into a CSS variable.
-      **Accept:** TBT re-measured five runs median with a republished attribution
-      table. If it does not move, report that *with the trace* — an omitted
-      regression is the next phase's inherited defect.
+      **Result: the hypothesis was wrong.** `scripts/trace-hydration.mjs` (CDP,
+      `invalidationTracking` on) attributes every invalidation to a node and a
+      reason, and nothing points at container query units. Two things do: the
+      whole ~10,100px document being laid out before first paint, and the
+      webfont swap relaying out every text node (~109 ms). Fixed with
+      `content-visibility: auto` + measured per-section `contain-intrinsic-size`
+      on every section below the hero — Style + Layout **529 → 292 ms**, dirty
+      objects in the largest pass ~1,145 → ~222. Baseline was rebuilt and
+      re-measured in the same session rather than compared across sessions.
+      **Three things caught by measuring rather than assuming:** one shared
+      `auto 100vh` loaded the document 1,258px too tall and shrank it as the
+      visitor scrolled (per-section values cut that to −434); a `fullPage`
+      capture renders skipped content **blank**, which is P14.S9's all-blank
+      baseline arriving through a new door (harness lifts containment for the
+      capture only — and **all nine baselines then pass unmodified**, proving
+      it changes nothing a visitor sees); and an e2e assertion was reading a
+      `contain-intrinsic-size` placeholder instead of a laid-out height.
+      **Left open for the owner:** `font-display: swap` still costs ~47 ms
+      (down from 109, because containment already skips most of what it
+      relaid out). `next/font`'s metric-adjusted fallback is
+      `local("Arial")`, **which cannot render Persian**, so the adjustment
+      does not apply to this page's text at all, and `adjustFontFallback`
+      accepts only Arial or Times. The fix is `display: "optional"` — no
+      reflow, at the cost of a system Persian font on any visit where the
+      72KB preloaded face misses the ~100 ms block window. That is a visible
+      tradeoff on the typeface chosen at P14.S1, so it is the owner's call.
 - [ ] **P15.S3 — First paint that does not lie.** Server-rendered hero skeleton
       (zero JS, exact box, replaced on sprite decode) + `loading.tsx` and a thin
       route progress bar. Both honour `prefers-reduced-motion`. The HiggsField

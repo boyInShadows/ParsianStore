@@ -86,6 +86,26 @@ async function settleForCapture(page: Page) {
   );
   expect(unrevealed, `these never revealed and would capture blank`).toEqual([]);
 
+  /**
+   * Lift `content-visibility: auto` for the capture, and only for the capture.
+   *
+   * P15.S2 defers every section below the hero so the browser can skip laying
+   * out ~10,000px of off-screen page during hydration. The scroll walk above
+   * has already rendered each one, which is what makes the reveals fire -- but
+   * scrolling back to the top makes them irrelevant again, and skipped content
+   * paints nothing. `fullPage: true` then captures the exact all-blank baseline
+   * the comment above spent P14.S9 learning to detect.
+   *
+   * This is not a blindfold: the sections are captured in the state a visitor
+   * who scrolled to them sees, which is the same state the scroll walk just put
+   * them in. What is suppressed is only the browser's right to stop painting
+   * them once they leave the viewport -- a thing no real viewport ever does to
+   * a whole page at once, because no real viewport is 10,000px tall.
+   */
+  await page.addStyleTag({
+    content: "main > section { content-visibility: visible !important; }",
+  });
+
   await page.evaluate(() => window.scrollTo(0, 0));
   await page.evaluate(() => document.fonts.ready.then(() => undefined));
   // Bounded on purpose. Awaiting each pending image's own load event hung the
