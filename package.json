@@ -22,6 +22,7 @@
     "e2e": "playwright test",
     "optimize:landing": "node scripts/optimize-landing.mjs",
     "prepare": "husky",
+    "check:budget": "node scripts/check-budget.mjs",
     "check:hero": "node scripts/check-hero-registration.mjs",
     "shots:hero": "node scripts/hero-shots.mjs",
     "shots:mobile": "node scripts/mobile-shots.mjs",

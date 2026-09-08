@@ -82,3 +82,12 @@ jobs:
 
       - name: Build
         run: pnpm build
+
+      # Reads the build that just ran. Until P15.S0 the route-JS budget lived
+      # only in `masterPlan.md` §10's table, where nothing could fail on it --
+      # which is exactly how P11.S2's +8 KB survived an entire phase unnoticed
+      # and the landing drifted 189 -> 200 KB across four phases with every step
+      # believing it had held the line. A budget that is not a failing check is
+      # not a budget.
+      - name: Route JS budgets
+        run: pnpm check:budget

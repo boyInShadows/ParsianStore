@@ -1681,6 +1681,170 @@ were verified to fail against the old sort. Reviewed: zero findings.
   `scrollIntoView` is a stub — a test there would assert nothing. Needs jsdom,
   which is a dependency decision, not a step.
 
+## Phase 15 — the honest budget — ACTIVE, opened 2026-09-08
+
+Owner brief: raise the JS budget because the route needs it, **but keep it as
+low as we can** — "don't open it for like 600kb" — and set standing rules so it
+cannot drift again. Plus a loading state, an answer on the Style & Layout time,
+a decision on `cookies()`, and an opinion on `.evidence-code`.
+
+**The finding that shaped the plan: there was no budget gate.** `pnpm build`
+asserted nothing about route size, `scripts/` had no checker, and the ≤180 KB
+figure lived only in `masterPlan.md` §10's table. That is the whole reason
+P11.S2's +8 KB survived a full phase undetected and the landing drifted
+189 → 200 KB across four phases with every step believing it had held the line.
+**Raising the number without making it a check just edits a sentence nobody
+enforces.**
+
+### Owner decisions — settled 2026-09-08, do not re-litigate
+
+- **Loading state: server-rendered hero skeleton + route-transition loader. No
+  full-page curtain.** A splash does not make the page arrive sooner, it makes
+  the visitor wait *behind* something that arrives sooner, and web.dev's own
+  position is that FCP stops describing the visitor's experience once a page
+  shows a splash or a loading indicator. The skeleton *is* the first paint (zero
+  JS, in the HTML, same box as the real stage so no CLS); the `loading.tsx`
+  loader fires where a wait genuinely exists — page-to-page navigation.
+- **The HiggsField-generated branded loader is a launch-prep follow-up, not this
+  phase.** S3 must leave a deliberate seam — one component, one token set — so
+  swapping the simple version for the owner's animation is a one-file change.
+  **Remind the owner before launch.**
+- **اینماد / نشان ملی stay, with «در حال ثبت» as visible on-screen text**, not
+  living only in an `aria-label`. Closes the P13.S12 owner call. It is the only
+  place on `/` claiming something the page cannot prove, which `docs/voice.md`
+  forbids.
+- **Admin staff RBAC runs after this phase, before launch**, as its own phase.
+  It is a privilege-escalation hole, not a missing feature, but the site is not
+  public, so it is not currently reachable by a stranger.
+- **Phase 11's S4–S6 come after Phase 15**, not interleaved: retrofitting 122
+  components would invalidate every number this phase measures.
+
+### The three-layer attribution — measured at S0, and it reorders the work
+
+The landing's 199.7 KB is not one number, it is three, and only the third is
+ours to argue with:
+
+| Layer | Size | Recoverable? |
+|---|---|---|
+| Framework floor (`rootMainFiles`: webpack, react-dom, App Router runtime, main-app) | **102.9 KB** | No — not without leaving Next's App Router |
+| Shop chrome (chunks common to all 23 `(shop)` routes: header, footer, providers) | **17.0 KB** | Yes — and this is the layer P11.S2's regression landed in |
+| The landing's own code | **79.8 KB** | Yes — this is the number the repo controls |
+
+**This corrects the record.** `docs/performance-landing.md` and
+[[reference-landing-js-budget-ledger]] both track a "route chunk" of 16.5 KB —
+that is Next's *Size* column, the page-specific chunk alone, and it is not the
+landing's own cost. The landing's own code is **79.8 KB, four times that**, most
+of it the non-shared dependencies the page pulls in (motion, the hero graph).
+A per-route total can never say *who* grew; these three layers can.
+
+### Steps
+
+- [x] **P15.S0 — Measure, then make the number un-driftable.** ✅ 2026-09-08.
+      Ports cleared first (a live `next dev` on :3000 and an orphan API on :4000,
+      both this project's own, either of which would have poisoned the build —
+      the same trap as [[reference-orphaned-dev-servers]]). Clean
+      `rm -rf apps/web/.next && pnpm build`, then `scripts/check-budget.mjs`:
+      reads `app-build-manifest.json` + `build-manifest.json`, gzips every chunk,
+      reports the three layers above and exits non-zero on a breach. Wired as
+      `pnpm check:budget` and added to CI after the build step.
+      **Verified against Next's own printed table** rather than trusted: cart
+      150.9 vs 151, checkout 164.9 vs 165, styleguide 148.1 vs 148, framework
+      floor 102.9 vs 103. **Mutation-checked** — dropping the landing budget to
+      150 exits 1, dropping the chrome budget to 10 raises the chrome failure,
+      both restore clean. A gate nobody has seen fail is not known to work.
+      Two bugs found writing it, both worth recording because both produced a
+      *plausible wrong number* rather than an error: unioning the layout entry
+      into the page entry double-counted a chunk and put every route ~15 KB over
+      (the page entry already contains the shared root files); and including
+      `/_not-found` in the chrome intersection collapsed it to empty, reporting
+      **0.0 KB for a layer that measures 17.0**.
+- [ ] **P15.S1 — The new budgets, with sub-budgets that name the culprit.**
+      Landing First Load JS **≤200 KB hard-fail, ≤190 KB warn** (199.7 measured,
+      so this is a freeze, not headroom; 200 KB gz is the common industry ceiling
+      for first-load JS). Landing own code ≤82 KB. Other shop routes ≤180 KB
+      total / ≤48 KB own (checkout at 45.0 is the closest). Framework floor
+      ≤105 KB. Shop chrome ≤20 KB.
+      **Write the reason 600 KB is not on the table into the standards doc** —
+      roughly 1 ms of parse+compile per KB on a mid-tier phone, and this shop's
+      customer is on a mid-tier Android over an Iranian mobile network.
+      Note: every non-landing shop route already passes the old 180 KB line. The
+      landing is the only route that ever breached it.
+- [ ] **P15.S2 — The TBT lever is layout, not bytes.** 692 of ~936 ms across the
+      six long tasks is Style & Layout attributed to the *document*, not to any
+      script chunk. **Capture the Chrome trace the last pass explicitly deferred
+      (its recommendation 2) before touching any code** — element-level
+      Recalculate Style / Layout attribution via CDP through Playwright. The
+      standing hypothesis (eleven absolutely-positioned sprite layers on
+      container-query units forcing container resolution during hydration) is
+      *inferred and unconfirmed*: a hypothesis to test, not a cause to fix.
+      Fixes ranked by cheapness, gated on the trace: (1) `content-visibility:
+      auto` + `contain-intrinsic-size` on below-the-fold sections — the browser
+      skips layout *and* paint off-screen, and P14.S7's `Reveal` wrappers already
+      give the boundaries; (2) `contain: layout paint` on the hero stage so
+      sprite recalcs cannot escape into the document; (3) only if the trace
+      blames `cqw`, resolve the stage's pixel basis once into a CSS variable.
+      **Accept:** TBT re-measured five runs median with a republished attribution
+      table. If it does not move, report that *with the trace* — an omitted
+      regression is the next phase's inherited defect.
+- [ ] **P15.S3 — First paint that does not lie.** Server-rendered hero skeleton
+      (zero JS, exact box, replaced on sprite decode) + `loading.tsx` and a thin
+      route progress bar. Both honour `prefers-reduced-motion`. The HiggsField
+      seam per the decision above.
+      **Accept:** no CLS regression; skeleton present in the HTML response body
+      (curl it — do not trust the rendered DOM); FCP no worse than the S0
+      baseline.
+- [ ] **P15.S4 — Name the visitor's car, client-side.** The garage is already a
+      plain non-httpOnly `document.cookie` (`apps/web/lib/cookie.ts`, by design
+      per masterPlan §3.4) and the garage store already ships, so a client read
+      costs ~0 KB. **Do not use `cookies()`**: it turns the landing from static to
+      fully dynamic — every visitor gets a server render, TTFB rises, the CDN can
+      no longer cache the page — a large architectural cost for one sentence of
+      copy. **PPR is not the escape hatch: `experimental.ppr` requires Next's
+      canary channel and this repo is on 15.5.21 stable** (verified, not assumed).
+      Render the generic line server-side and swap only its text, or reserve its
+      box — personalization must not introduce CLS.
+- [ ] **P15.S5 — `.evidence-code` is two contracts; split it.** `EvidenceCode`
+      (the component) is a 36–45 char verification token that must not wrap, must
+      not bidi-reorder, must stay **whole in the DOM** and truncates only
+      visually — 2 call sites. The bare `.evidence-code` class is a short stamped
+      identifier (`SYS-10`, a model year, the hero callout part code), 4–8 chars,
+      never truncates, wants only bidi isolation + tabular digits — 3 call sites.
+      The truncation machinery is inert on three of five sites today, and P14.S9
+      had to push `tabular-nums` down into the shared class to reach them: that is
+      the class reporting it is two things. Proposal: `.bidi-code` as the
+      primitive, `.evidence-code` extends it with the truncation contract.
+      Riding along: `closing.support.hoursPending` renamed for the honest line it
+      now holds · a `Footer` namespace + wordmark so the tagline has somewhere to
+      live · `WishlistButton`'s `aria-pressed`-with-a-flipping-label (ThemeToggle
+      is the fixed precedent) · the two 32-char trust-strip titles that wrap.
+- [ ] **P15.S6 — Phase 13's tail, folded in.** P13.S11's theme toggle — a real
+      bug: page tokens painted inside a header that is `bg-graphite-950` in
+      **both** themes, so light mode shows a 12.25:1 ring around a 3.38:1 glyph —
+      plus its hardcoded **English** accessible name and missing `aria-pressed`.
+      P13.S12's content defects (duplicate «پیشنهاد ما» names from
+      `?sort=newest&limit=8` returning two templates, `SYS-10`'s name narrower
+      than its own contents, the footer `--`, the fake "hours coming soon") and
+      the اینماد decision above. P13.S13's perf gate, which S0–S2 answer.
+      P13.S14 closes both phases.
+- [ ] **P15.S7 — Write the rules down.** `docs/engineering-standards.md` gains a
+      **Performance budgets** section: the numbers, the three layers, the
+      measurement recipe, "measure before *and* after any step that adds a client
+      leaf", and **a budget that is not a failing check is not a budget**.
+
+### Standing rules this phase adds
+
+- **A budget that is not a failing check is not a budget.** The 180 KB line
+  survived three phases of drift because nothing could fail on it.
+- **Measure before and after any step that adds a client leaf.** P11.S2's 8 KB
+  and P12.S4's 2 KB are the same omission twice.
+- **Trace before you optimise.** 692 ms of layout was nearly answered by shaving
+  4 KB of JavaScript.
+- **A tool that reports a plausible wrong number is worse than one that errors.**
+  Both S0 bugs printed confident, wrong totals. Cross-check any new measurement
+  against a source that already knows the answer — here, Next's own table.
+- **Never relay a subagent's finding as confirmed without verifying it.**
+  Phase 14 cost this twice.
+
 ## Phase 13 — the Job Card: narrating the hero — ACTIVE, opened 2026-09-06
 
 Step-level plan of record was **`fableTasks.md` v1.1** (external plan by Fable
