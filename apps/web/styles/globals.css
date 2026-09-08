@@ -247,6 +247,111 @@
     z-index: 0;
   }
 
+  /* ## The soft edge (P14.S9)
+
+     Chapter 1 pushes the camera in to 1.35 aimed at the nose, and the stage
+     then shows canvas columns 0..758 of a car that runs 103..926. Measured, not
+     estimated: `cameraWindow(1)` returns exactly that window, so **167 of the
+     car's 823 columns -- its whole rear fifth -- are outside the stage**, and
+     `overflow-x-clip` ends them in a dead vertical line down the inline-end
+     edge.
+
+     The alternative the plan offered was reducing the push-in, and the
+     arithmetic rules it out: containing 823 columns plus `CAMERA_MARGIN`
+     needs scale <= 1.13, and chapter 2 already frames at 1.1246. A "push-in"
+     one percent tighter than the shot after it is not a push-in, and
+     `CAMERA_MAX_SCALE` is also what `frame()` solves every other station
+     against and what `leaderTarget` clamps into -- retuning it to fix an edge
+     would move three things to fix one.
+
+     So the cut gets a soft edge instead: the drawing dissolves into the stage's
+     own ground over the last 24px rather than being guillotined. Painted as an
+     overlay and NOT as a `mask-image`, deliberately. A mask on `.hero-camera`
+     would be scaled and translated by the camera's own transform, so the fade
+     would drift away from the edge it exists to soften; a mask on `.hero-stage`
+     would eat the frame's border and, because the frame deliberately overflows
+     the stage vertically, would tile the gradient over the undock bands. An
+     opaque strip of `--stage` is exact here because `--stage` is a flat colour.
+
+     `to right` is physical, and here that is correct rather than sloppy: the
+     stage box is `dir="ltr"` at every locale (its coordinates are LTR
+     percentages), so its inline-end IS the right edge. The strip is *placed*
+     logically all the same. */
+  .hero-edge-fade {
+    position: absolute;
+    inset-block: 0;
+    inset-inline-end: 0;
+    width: var(--space-6);
+    z-index: 2;
+    pointer-events: none;
+    background: linear-gradient(to right, transparent 0%, var(--stage) 100%);
+  }
+
+  /* ## The station controls, on the stage (P14.S9)
+
+     Below `lg` the prev/next pair leaves the text row under the drawing and
+     becomes two 44px round buttons in the stage's own bottom corners -- a
+     thumb reaches a corner of the picture it is scrubbing, and does not reach
+     a 12px caption row below it. The text pair is what a desktop pointer gets,
+     and it is unchanged.
+
+     `dir="rtl"`, against the stage's `dir="ltr"`: these are UI chrome, not
+     canvas coordinates, so their inline axis is the page's. «قدم قبلی» is
+     therefore the start (right-hand) corner, matching the arrows the copy
+     already carries.
+
+     z-index 4 puts them above `.hero-callout` (3), so an open plate can never
+     sit on top of a control. */
+  .hero-stage-nav {
+    position: absolute;
+    inset-inline: var(--space-3);
+    bottom: var(--space-3);
+    z-index: 4;
+    display: flex;
+    justify-content: space-between;
+    /* The row itself must not swallow taps aimed at the drawing between the
+       two corners; the buttons put it back for themselves. */
+    pointer-events: none;
+  }
+
+  .hero-stage-nav > button {
+    pointer-events: auto;
+  }
+
+  /* The chevron, DRAWN rather than shipped.
+
+     Two hairlines on a square, turned 45 degrees. An inline SVG would have
+     been the obvious markup and it costs the route's JavaScript budget ~200
+     bytes to say a thing CSS can say for nothing -- and `/[locale]` is already
+     over that budget (docs/performance-landing.md). 1px is also simply what
+     the rest of this design draws with: every rule, divider and container edge
+     in `tokens.css` is a hairline.
+
+     Logical borders read against the row's own `dir="rtl"`, so `inline-start`
+     is the right-hand side: block-start + inline-start makes a corner at the
+     top right, and a clockwise quarter-turn of a half-turn points it at the
+     right -- «→ قدم قبلی». The mirror image points at «قدم بعدی ←».
+
+     `:first-child` / `:last-child` rather than a data attribute: the row is
+     rendered from a two-element array in one place, and its order IS the
+     reading order the labels assume. */
+  .hero-stage-nav > button::before {
+    content: "";
+    width: var(--space-3);
+    height: var(--space-3);
+    border-block-start: 1px solid currentColor;
+  }
+
+  .hero-stage-nav > button:first-child::before {
+    border-inline-start: 1px solid currentColor;
+    transform: rotate(45deg);
+  }
+
+  .hero-stage-nav > button:last-child::before {
+    border-inline-end: 1px solid currentColor;
+    transform: rotate(-45deg);
+  }
+
   /* ## Focus
 
      While one part is out, everything else drops back. This is the cinematic
@@ -349,6 +454,23 @@
        body for the rest of the session -- a permanent haze over the car that
        looked like a rendering fault. A sweep has to leave. */
     opacity: 0;
+  }
+
+  /* The arrival pass, gated on the stage having been SEEN (P14.S9).
+
+     It used to run unconditionally from the base rule above, which is correct
+     for the only case anyone had checked -- the hero is the first paint -- and
+     wrong for every other entry into the page. Deep-link to `#find-my-part`,
+     or reload restored to mid-track, and the browser jumps past the hero
+     before the 300ms delay is up: the light swept across a car nobody was
+     looking at, and the one moment the effect exists for was spent. Worse, it
+     could never happen again, because a CSS animation on load fires once.
+
+     `StageNarration` now sets `data-arrive` from an IntersectionObserver, so
+     the arrival happens the first time the stage is actually on screen --
+     immediately when the hero is the first paint, and on the way back up when
+     it is not. */
+  .hero-sweep[data-arrive] {
     animation: hero-sweep 1600ms var(--ease-out) 300ms 1 forwards;
   }
 
@@ -389,6 +511,7 @@
        early -- but a rule that only covered the bare selector would be one
        `!important`-free override away from letting it through. */
     .hero-sweep,
+    .hero-sweep[data-arrive],
     .hero-sweep[data-sweep] {
       animation: none;
       opacity: 0;
@@ -738,6 +861,16 @@
      code render the same way in Persian copy as it does on its own. */
   .evidence-code {
     unicode-bidi: isolate;
+    /* Tabular digits belong to the CLASS, not to one component (P14.S9).
+       `EvidenceCode` carried `tabular-nums` as a utility and the three other
+       places that stamp a code -- the hero callout plate, the system tiles in
+       `#find-my-part`, the model years in `#shop-by-vehicle` -- did not, so
+       `SYS-02` sitting under `SYS-10` in the same mono face set at two
+       different widths. A stamped identifier is exactly the case
+       `font-variant-numeric` exists for, and there is no call site that wants
+       the other behaviour. Utilities out-rank this, so a future one still
+       can. */
+    font-variant-numeric: tabular-nums;
   }
 
   /* ---- Technical plate (P12.S9) ---------------------------------------

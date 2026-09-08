@@ -802,6 +802,13 @@ export function HeroStage({
                 {leaders}
               </div>
             </HeroCamera>
+            {/* The soft edge (P14.S9). Outside the camera and after it, so it
+                is neither scaled by the push-in nor painted under it: at
+                chapter 1's 1.35 the car's rear fifth is outside the stage and
+                `overflow-x-clip` was cutting it dead. See `.hero-edge-fade`
+                in globals.css for the measurement and for why this is an
+                overlay rather than a mask. */}
+            <div className="hero-edge-fade" aria-hidden="true" />
             {/* Outside the camera, deliberately: a caption in canvas space is
               scaled by the camera and clipped by it, which is exactly what
               chapter 1's push-in did to the first version. See PartCallout. */}

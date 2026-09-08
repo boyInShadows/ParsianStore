@@ -174,6 +174,10 @@ module.exports = {
       // See tokens.css on why this is a named token, not a spacing step.
       width: {
         rail: "var(--rail-card)",
+        // `w-tap` -- the square half of `h-tap`, for a control that is round
+        // (P14.S9's stage nav). Same token, same reason it is not a spacing
+        // step.
+        tap: "var(--tap-target)",
       },
       flexBasis: {
         rail: "var(--rail-card)",

@@ -26,6 +26,12 @@ export function MobileNav() {
   return (
     <nav
       aria-label="پیمایش پایین صفحه"
+      // A stable hook for the one thing that has to measure this bar rather
+      // than guess at it: `e2e/landing-sections.spec.ts`'s "nothing scrollable
+      // past the footer" check, which since P14.S6 has to treat the bar's top
+      // edge as the floor of the page rather than the viewport's bottom. A
+      // class list is not a contract; this is.
+      data-bottom-nav=""
       className="fixed inset-x-0 bottom-0 z-40 flex border-t border-border bg-surface md:hidden"
     >
       {ITEMS.map(({ label, href, icon: Icon }) => (

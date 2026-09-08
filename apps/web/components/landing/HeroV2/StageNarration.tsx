@@ -305,6 +305,49 @@ export function StageNarration({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [reduceMotion]);
 
+  /**
+   * Arm the arrival sweep the first time the stage is actually on screen
+   * (P14.S9).
+   *
+   * The sweep used to be an unconditional CSS animation on load, which is only
+   * right when the hero is the first thing painted. Deep-link to
+   * `#find-my-part`, or reload restored to mid-track, and the browser is a
+   * screen and a half past the stage before the animation's 300ms delay
+   * elapses: the light swept across a car nobody could see, once, and a
+   * one-shot CSS animation does not come back. So the trigger moves from "the
+   * document loaded" to "the drawing is in view", which is what the effect was
+   * always describing.
+   *
+   * An `IntersectionObserver` rather than a scroll read, because the two cases
+   * it has to cover are the frame *before* any scroll event exists (hero at the
+   * top, fires immediately) and a scroll back up from below it. It disconnects
+   * on the first hit -- an arrival happens once.
+   *
+   * Reduced motion never sweeps (globals.css kills the animation either way),
+   * so the observer is not created at all there.
+   */
+  useEffect(() => {
+    if (reduceMotion) return;
+    // The STAGE is what "in view" is measured against -- `.hero-sweep` is
+    // masked to the car and is a sliver of it at some camera positions -- and
+    // the attribute lands on the element that actually animates.
+    const stage = document.querySelector<HTMLElement>("#hero .hero-stage");
+    if (!stage) return;
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (!entry?.isIntersecting) return;
+        stage.querySelector(".hero-sweep")?.setAttribute("data-arrive", "");
+        observer.disconnect();
+      },
+      // A tenth of the stage is enough to be looking at it; requiring more
+      // would delay the arrival until the visitor had already read the car.
+      { threshold: 0.1 },
+    );
+    observer.observe(stage);
+    return () => observer.disconnect();
+  }, [reduceMotion]);
+
   useMotionValueEvent(progress, "change", (value) => {
     if (reduceMotion) return;
     show(subjectAt(value));

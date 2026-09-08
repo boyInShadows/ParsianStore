@@ -78,7 +78,17 @@ export default async function LocaleLayout({ children, params }: Props) {
       // `--font-body`, so every `font-display` utility still resolves.
       className={`${bodyFont.variable} ${monoFont.variable}`}
     >
-      <body className="font-body">
+      {/* `suppressHydrationWarning` here is NOT for anything this app renders
+          -- it is for what browser extensions add. ColorZilla writes
+          `cz-shortcut-listen="true"` on <body> before React hydrates, and
+          several password managers and translators do the same thing, so a
+          machine with one installed logs a hydration mismatch on every page
+          load. It is noise: the attribute is not ours, nothing reads it, and
+          React repairs nothing by warning about it -- but it lands in every
+          console capture and every screenshot run (P14.S9). The suppression is
+          one level deep, so a real mismatch inside <body>'s children is still
+          reported. */}
+      <body className="font-body" suppressHydrationWarning>
         <ThemeProvider attribute="data-theme" defaultTheme="system" enableSystem>
           <NextIntlClientProvider>{children}</NextIntlClientProvider>
         </ThemeProvider>

@@ -47,8 +47,45 @@ async function openLanding(page: Page, theme: (typeof THEMES)[number]) {
  * commit, then both are awaited before anything is compared.
  */
 async function settleForCapture(page: Page) {
+  /**
+   * Walk the page a screen at a time, rather than jumping to the bottom.
+   *
+   * P14.S7 put every section below the hero behind `<Reveal>`, which hides it
+   * until an `IntersectionObserver` sees it. An observer only reports what is
+   * on screen at a frame it gets to run on -- so a single
+   * `scrollTo(0, scrollHeight)` reveals the LAST viewport and nothing in
+   * between, and a full-page capture then bakes eight blank sections into a
+   * baseline. That is not hypothetical: regenerating these on 2026-09-08
+   * produced exactly that, and it is only visible by opening the PNG, because
+   * an all-blank baseline compares clean against an all-blank capture forever
+   * after.
+   *
+   * Stepping is also the honest test of the reveal: the sections are asserted
+   * in the state a visitor who scrolled to them would see.
+   */
+  const height = await page.evaluate(() => window.innerHeight);
+  const total = await page.evaluate(() => document.body.scrollHeight);
+  for (let y = 0; y < total; y += Math.floor(height * 0.8)) {
+    await page.evaluate((top) => window.scrollTo(0, top), y);
+    // One frame for the observer to run plus a beat for the 500ms reveal
+    // transition; `animations: "disabled"` fast-forwards it at capture time,
+    // but only for elements that have been told to reveal at all.
+    await page.waitForTimeout(120);
+  }
   await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
   await page.waitForTimeout(400);
+
+  // The backstop, and it must never be the thing doing the work: if a reveal
+  // was missed, say so loudly rather than silently capturing a hidden section.
+  const unrevealed = await page.evaluate(() =>
+    [...document.querySelectorAll("[data-reveal]:not([data-reveal='in'])")]
+      // An element with no box at this width was never on screen to reveal --
+      // a `lg:`-only block at 360, say -- and cannot capture blank either.
+      .filter((el) => el.getClientRects().length > 0)
+      .map((el) => `${el.tagName}.${String(el.className).slice(0, 40)}`),
+  );
+  expect(unrevealed, `these never revealed and would capture blank`).toEqual([]);
+
   await page.evaluate(() => window.scrollTo(0, 0));
   await page.evaluate(() => document.fonts.ready.then(() => undefined));
   // Bounded on purpose. Awaiting each pending image's own load event hung the

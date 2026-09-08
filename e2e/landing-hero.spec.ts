@@ -1353,3 +1353,46 @@ test.describe("pacing", () => {
     await expect(live).toContainText("۴");
   });
 });
+
+/**
+ * The arrival sweep, and the entry it used to be wasted on (P14.S9).
+ *
+ * "One slow pass of light across the body as the hero comes in" was an
+ * unconditional CSS animation on load. That is right for the only entry anyone
+ * had checked -- the hero is the first paint -- and wrong for a deep link past
+ * it: the browser jumps a screen and a half down before the animation's 300ms
+ * delay is up, the light sweeps a car nobody is looking at, and a one-shot
+ * animation does not come back. `StageNarration` now arms it from an
+ * IntersectionObserver on the stage.
+ */
+test.describe("the arrival sweep", () => {
+  test("is armed when the hero is the first paint", async ({ page }) => {
+    await gotoHero(page);
+    await expect(page.locator(".hero-sweep[data-arrive]")).toHaveCount(1);
+  });
+
+  test("is not spent by a deep link past the hero, and still arrives on the way back", async ({
+    page,
+  }) => {
+    await page.goto("/#find-my-part");
+    await page.locator("#find-my-part").waitFor();
+    // Long enough that the old unconditional animation would have run and
+    // finished; the assertion is about the attribute, not the timing.
+    await page.waitForTimeout(1500);
+
+    const state = await page.evaluate(() => {
+      const stage = document.querySelector("#hero .hero-stage");
+      const box = stage?.getBoundingClientRect();
+      return {
+        armed: document.querySelectorAll(".hero-sweep[data-arrive]").length,
+        // Named so a failure says WHY: if the deep link left the stage on
+        // screen, arming it was correct and the test is wrong, not the code.
+        stageOnScreen: box ? box.bottom > 0 && box.top < window.innerHeight : null,
+      };
+    });
+    expect(state).toEqual({ armed: 0, stageOnScreen: false });
+
+    await page.evaluate(() => window.scrollTo(0, 0));
+    await expect(page.locator(".hero-sweep[data-arrive]")).toHaveCount(1);
+  });
+});
