@@ -343,6 +343,22 @@
      icon button under the 44px touch-target floor. */
   --rail-card: 256px;
 
+  /* ---- Touch target (P14.S6) ---------------------------------------
+     The minimum hit area for a PRIMARY mobile control -- the header's four
+     row-1 buttons, the search field, the vehicle chip, a symptom chip.
+
+     44px, and it is a product choice rather than a compliance claim: WCAG
+     2.2 AA Target Size (Minimum) asks for 24x24 and this page already passes
+     that everywhere (fableTasks §0.5 records the audit that got this wrong in
+     the other direction). 44 is what a thumb actually wants.
+
+     A token rather than a spacing step, for the reason the rail card above
+     gives: the scale is deliberately short and adding an 11th step would
+     silently switch on every dead `p-11`/`h-11` already written against it.
+     Exposed to Tailwind as `h-tap` / `min-h-tap` / `min-w-tap` only, so it
+     can never be reached for as padding. */
+  --tap-target: 44px;
+
   /* ---- Container (§6.6) ---- */
   --container-max: 1440px;
   --container-gutter: 16px; /* mobile; widened to 32px at --breakpoint-lg below */

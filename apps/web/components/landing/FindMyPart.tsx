@@ -51,6 +51,10 @@ export async function FindMyPart() {
           <h2 id="find-my-part-heading" className="font-display text-h2 font-bold text-text">
             {tSection("title")}
           </h2>
+          {/* P14.S6 item 4: every section opens with its H2 and a lead. This
+              was the one primary section on the page with no sentence under
+              its heading -- the two cards below had to explain themselves. */}
+          <p className="max-w-2xl text-body text-text-muted">{tSection("subtitle")}</p>
         </Reveal>
 
         {/* Side by side from `md`, because these are alternatives rather than

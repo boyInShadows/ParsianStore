@@ -863,6 +863,171 @@
     background-color: color-mix(in srgb, var(--stage) 50%, transparent);
   }
 
+  /* ---- Mobile-only disclosure (components/primitives/Disclosure.tsx) ----
+
+     P14.S6. A group that is collapsed on a phone and always open from `sm` up,
+     with no JavaScript at all: the state is a visually-hidden checkbox's
+     `:checked`, and the breakpoint override is one media query.
+
+     `<details>` would be the better element and cannot do this -- its open
+     state is an HTML attribute fixed at prerender time, and a closed
+     `<details>` cannot be force-opened by author CSS on any engine older than
+     `::details-content`. Disclosure.tsx carries the full reasoning.
+
+     The panel is `display: none` when closed rather than clipped, so its links
+     leave the tab order and the accessibility tree with it -- a collapsed
+     footer column of sixteen brand links should not be sixteen tab stops. */
+  .disclosure-panel {
+    display: none;
+  }
+
+  .disclosure-input:checked ~ .disclosure-panel {
+    display: block;
+  }
+
+  /* The chevron lives inside the label, which lives inside the heading, whose
+     tag varies by caller -- hence `~ * >` rather than a tag name. Scoped
+     through `.disclosure-heading` so a nested disclosure inside the panel
+     cannot be flipped by its parent's state. */
+  .disclosure-input:checked ~ * > .disclosure-heading .disclosure-chevron {
+    transform: rotate(180deg);
+  }
+
+  .disclosure-chevron {
+    transition: transform var(--duration-fast) var(--ease-out);
+  }
+
+  @media (min-width: 640px) {
+    /* Above the breakpoint this is not a disclosure at all: the panel is open,
+       and the toggle stops being a target so a desktop pointer cannot collapse
+       a column that has no reason to collapse. The label keeps its text -- it
+       is the column heading. */
+    .disclosure-panel {
+      display: block;
+    }
+
+    .disclosure-heading {
+      pointer-events: none;
+    }
+
+    .disclosure-chevron {
+      display: none;
+    }
+  }
+
+  /* ---- Symptom chips: the «بیشتر» expander (P14.S6) -------------------
+
+     Same `:checked` mechanism, applied to list items rather than a panel: the
+     first six chips always render, the remaining four are revealed by the
+     toggle below the list, and from `sm` up every chip is visible and the
+     toggle is gone. One <ul>, not two -- splitting the ten systems across two
+     lists to make the CSS easier would tell a screen reader there are two
+     unrelated groups of symptoms. */
+  .symptom-list > .symptom-extra {
+    display: none;
+  }
+
+  /* The toggle sits after the list in the DOM because that is where it sits on
+     screen, and focus order has to agree with both (WCAG 2.4.3) -- see
+     SymptomFinder.tsx. That puts the chips out of `~`'s reach, so the list
+     asks about the checkbox rather than the other way round. */
+  .symptom-list:has(~ .symptom-more:checked) > .symptom-extra {
+    display: list-item;
+  }
+
+  /* Without `:has()` the toggle cannot reach the chips at all, and a control
+     that does nothing is worse than a long list. Show all ten and drop the
+     toggle, which is exactly the `sm` layout below. */
+  @supports not selector(:has(*)) {
+    .symptom-list > .symptom-extra {
+      display: list-item;
+    }
+
+    .symptom-more,
+    .symptom-more-label {
+      display: none;
+    }
+  }
+
+  /* The label is never hidden while it is the checkbox's only accessible
+     name -- axe flags exactly that ("Form elements must have labels",
+     critical, measured at 390px with the expander open). Its TEXT swaps
+     instead, which also makes it a real two-way toggle rather than a
+     one-shot: six chips, «۴ علامت دیگر», ten chips, «کمتر». */
+  .symptom-more-close {
+    display: none;
+  }
+
+  .symptom-more:checked ~ .symptom-more-label .symptom-more-open {
+    display: none;
+  }
+
+  .symptom-more:checked ~ .symptom-more-label .symptom-more-close {
+    display: inline;
+  }
+
+  @media (min-width: 640px) {
+    .symptom-list > .symptom-extra {
+      display: list-item;
+    }
+
+    .symptom-more-label {
+      display: none;
+    }
+  }
+
+  /* ---- Header: the second row collapses on the way down (P14.S6) -------
+
+     Row 2 carries the search field and the vehicle chip -- for a parts shop,
+     the two most-used mobile actions, which is why they are in the header at
+     all rather than behind the hamburger. They are also 48px of a 844px
+     screen, so they fold away once the visitor has committed to scrolling and
+     come back the moment they scroll up.
+
+     `grid-template-rows: 1fr -> 0fr` rather than `height`, because the row's
+     height is content-derived and there is no number to animate to. The child
+     needs `min-block-size: 0` for the 0fr track to be able to squeeze it, and
+     `overflow: hidden` so the content clips instead of spilling.
+
+     The attribute is written on <header> imperatively by a passive scroll
+     listener (Header.tsx) -- no React state, so scrolling re-renders nothing.
+
+     Reduced motion keeps the collapse (it is layout, not decoration -- a
+     visitor who asked for less movement still wants the screen space) and
+     drops only the transition. */
+  .header-row-2 {
+    display: grid;
+    grid-template-rows: 1fr;
+    transition: grid-template-rows var(--duration-base) var(--ease-out);
+  }
+
+  .header-row-2 > * {
+    min-block-size: 0;
+    overflow: hidden;
+  }
+
+  header[data-header-collapsed="true"] .header-row-2 {
+    grid-template-rows: 0fr;
+  }
+
+  /* Row 2 does not exist above `md` -- the search field and the vehicle chip
+     are back in row 1 there. Written here rather than as `md:hidden` on the
+     element because this whole block sits after `@tailwind utilities` in the
+     same cascade layer, so `.header-row-2 { display: grid }` would out-order
+     the utility and win. */
+  @media (min-width: 768px) {
+    .header-row-2 {
+      display: none;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .header-row-2,
+    .disclosure-chevron {
+      transition: none;
+    }
+  }
+
   /* ---- Enter-on-view reveals (components/motion/Reveal.tsx, P14.S7) ----
 
      CSS, not motion's `whileInView`, and the reason is the route's measured

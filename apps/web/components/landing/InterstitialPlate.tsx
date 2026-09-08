@@ -36,7 +36,7 @@ export async function InterstitialPlate() {
           {/* Reads from the start side, so the scrim is heaviest there -- the
               plate keeps its own two thirds legible as artwork. */}
           <div className="interstitial-scrim absolute inset-0 -z-10" />
-          <Reveal className="flex flex-col justify-center gap-3 px-4 py-20 lg:px-8 lg:py-32">
+          <Reveal className="flex flex-col justify-center gap-3 px-4 py-12 lg:px-8 lg:py-32">
             {/* One of the three sections that carried a code and never rendered
                 it (P13.S10/S12). */}
             <p className="flex items-center gap-3">

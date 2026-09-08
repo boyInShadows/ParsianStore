@@ -655,7 +655,11 @@ export function HeroStage({
           cells because the card is a horizontal scroller below `lg` and a grid
           item's automatic minimum size is its min-content width -- without it
           the rail refuses to shrink and overflows the phone. */}
-      <div className="hero-pin sticky top-24 grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,20rem)] lg:items-start lg:gap-8">
+      {/* `grid-cols-1`: same latent overflow shape FindMyPart documents at
+          length (P14.S6). An implicit mobile track floors at its content's
+          min-content width -- and this one holds the stage and the job card,
+          either of which can carry a part name with no break opportunity. */}
+      <div className="hero-pin sticky top-24 grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,20rem)] lg:items-start lg:gap-8">
         <div className="flex min-w-0 flex-col gap-4">
           <div
             role="group"

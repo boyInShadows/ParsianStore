@@ -10,6 +10,18 @@ const ITEMS = [
 
 // Fixed bottom bar, mobile only -- the Header's hamburger Drawer covers the
 // full menu, this covers the handful of always-reachable core actions.
+//
+// P14.S6 asked for a "sticky bottom action bar" with search, my-car and a
+// phone link. This IS that bar, and a second one would have been a defect:
+// two fixed bars on an 844px screen. Two of the three actions it named are
+// already here -- «جستجو» is the search entry point and «گاراژ» is "my car" --
+// and the phone stays where a phone number belongs, in the footer's contact
+// block and the closing beat's support panel, both `tel:` links. The plan was
+// written without knowing this component existed.
+//
+// `-outline-offset-2` (inset), not the usual `outline-offset-2`: the bar sits
+// flush against the bottom of the viewport, so an outward focus ring on the
+// last row would be drawn off-screen.
 export function MobileNav() {
   return (
     <nav
@@ -20,7 +32,7 @@ export function MobileNav() {
         <Link
           key={href}
           href={href}
-          className="flex flex-1 flex-col items-center gap-1 py-2 text-caption text-text-muted hover:text-text"
+          className="flex min-h-tap flex-1 flex-col items-center justify-center gap-1 py-2 text-caption text-text-muted hover:text-text focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-focus"
         >
           <Icon />
           {label}

@@ -708,17 +708,19 @@ test.describe("closing ambience (S15)", () => {
 });
 
 test.describe("footer (S15)", () => {
-  test("keeps a slot for each trust seal that is still unregistered", async ({ page }) => {
+  test("shows no placeholder trust seal", async ({ page }) => {
     await page.goto("/");
     await page.locator("footer").waitFor();
 
-    // Both seals are blocked on the business registration (masterPlan §11), so
-    // the footer reserves labelled slots rather than either faking a seal or
-    // silently leaving no room for one.
-    const seals = page.locator("footer [role='img']");
-    await expect(seals).toHaveCount(2);
-    await expect(seals.first()).toHaveAttribute("aria-label", /نماد اعتماد/);
-    await expect(seals.nth(1)).toHaveAttribute("aria-label", /نشان ملی/);
+    // This assertion is REVERSED as of P14.S6, at the owner's call. Both seals
+    // are blocked on the business registration (masterPlan §11), and the
+    // footer used to reserve two dashed slots labelled "pending registration".
+    // An empty box announcing that a trust seal does not exist yet is a worse
+    // trust signal than no box, so the slots are gone. When the assets arrive
+    // this test flips back with them.
+    await expect(page.locator("footer [role='img']")).toHaveCount(0);
+    await expect(page.locator("footer")).not.toContainText("اینماد");
+    await expect(page.locator("footer")).not.toContainText("نشان ملی");
   });
 
   test("shows exactly the channels the closing beat shows", async ({ page }) => {

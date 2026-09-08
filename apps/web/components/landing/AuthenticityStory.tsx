@@ -60,7 +60,7 @@ export async function AuthenticityStory() {
       {/* Same gutter as the plate above it. The card used to run edge to edge
           while the clip did too, so they agreed; now that the clip is framed,
           an unpadded card underneath reads as a second, wider column. */}
-      <Reveal className="mx-auto max-w-container px-4 pb-20 pt-8 lg:px-8">
+      <Reveal className="mx-auto max-w-container px-4 pb-12 pt-8 lg:px-8 lg:pb-20">
         <a
           href={`/p/${product.slug}`}
           className="grid grid-cols-1 border border-border bg-surface transition-colors hover:border-brand motion-reduce:transition-none lg:grid-cols-[0.85fr_1.15fr]"

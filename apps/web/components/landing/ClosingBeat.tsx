@@ -60,7 +60,14 @@ export async function ClosingBeat() {
                 no empty third to protect the way the interstitial plate has. */}
             <div className="closing-scrim absolute inset-0" />
           </VideoStage>
-          <div className="grid gap-12 px-4 py-16 lg:grid-cols-[minmax(0,1fr)_minmax(0,22rem)] lg:gap-16 lg:px-8 lg:py-24">
+          {/* `grid-cols-1` is not decoration (P14.S6). Without it the single
+              mobile column is an IMPLICIT track, sized `auto`, whose floor is
+              the min-content width of whatever lands in it -- the shape that
+              put 5px of horizontal overflow on this page at 390px from
+              `FindMyPart`'s selector box. `repeat(1, minmax(0, 1fr))` has a
+              min sizing function of 0 instead. Nothing here overflows today;
+              this is one long unbreakable string away from doing so. */}
+          <div className="grid grid-cols-1 gap-12 px-4 py-12 lg:grid-cols-[minmax(0,1fr)_minmax(0,22rem)] lg:gap-16 lg:px-8 lg:py-24">
             <div className="flex flex-col gap-8">
               <Reveal className="flex flex-col gap-3">
                 <div className="flex items-center gap-3">

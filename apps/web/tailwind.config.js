@@ -178,6 +178,19 @@ module.exports = {
       flexBasis: {
         rail: "var(--rail-card)",
       },
+      // `h-tap` / `min-h-tap` / `min-w-tap` -- the 44px primary-mobile-control
+      // floor (P14.S6). Deliberately NOT added to `spacing`: see tokens.css's
+      // --tap-target for why a new spacing step would switch on every dead
+      // `p-11`-shaped utility already written in this app.
+      height: {
+        tap: "var(--tap-target)",
+      },
+      minHeight: {
+        tap: "var(--tap-target)",
+      },
+      minWidth: {
+        tap: "var(--tap-target)",
+      },
       // fontFamily/fontSize compose: e.g. `font-display text-display-1` or
       // `font-mono text-data`. `display` resolves to the body face --
       // tokens.css aliases --font-display to --font-body (P14.S1).

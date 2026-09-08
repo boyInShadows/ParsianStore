@@ -23,7 +23,14 @@ export default async function ShopLayout({ children }: { children: ReactNode }) 
   };
 
   return (
-    <div className="flex min-h-screen flex-col">
+    // `pb-16` (64px) clears MobileNav's 59px fixed bottom bar, on the OUTER
+    // wrapper rather than on the content div. It sat on the content div until
+    // P14.S6, which reserved room below the page but none below the FOOTER --
+    // and the footer is outside that div, so its last 64px lived under the
+    // bar. Nobody noticed while the mobile footer was ~1500px of link columns
+    // and the thing being covered was empty space; collapsing it to 537px put
+    // the copyright line there.
+    <div className="flex min-h-screen flex-col pb-16 md:pb-0">
       {/* First, and it has to stay first: it opts the document into the hidden
           pre-reveal state before any `[data-reveal]` element is parsed, so
           those elements' first paint is already the right one. Rendered later
@@ -40,8 +47,7 @@ export default async function ShopLayout({ children }: { children: ReactNode }) 
       <AuthSession />
       <CartSession />
       <Header messages={headerMessages} />
-      {/* pb reserves space for MobileNav's fixed bottom bar on mobile only. */}
-      <div className="flex-1 pb-16 md:pb-0">{children}</div>
+      <div className="flex-1">{children}</div>
       <Footer />
       <MobileNav />
       <Toaster />

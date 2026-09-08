@@ -34,7 +34,7 @@ export async function BestSellers() {
     <section
       id="best-sellers"
       aria-labelledby="best-sellers-heading"
-      className="mx-auto max-w-container px-4 py-20"
+      className="mx-auto max-w-container px-4 py-12 sm:py-20"
     >
       <Reveal className="flex flex-col gap-2">
         <p className="font-mono text-data text-text-muted">{t("code")}</p>
