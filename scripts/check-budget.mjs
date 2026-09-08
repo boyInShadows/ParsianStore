@@ -68,6 +68,33 @@ const BUDGETS = {
     ownChunks: 82,
     why: "P15.S1. Raised from the long-breached 180 with owner sign-off; 199.7 is the measured value, so 200 is a freeze, not headroom.",
   },
+  // PLP and PDP keep the §10 numbers they have always had. Both measure well
+  // under them (155.0 and 161.0 on 2026-09-08), so there is nothing to raise --
+  // and raising a budget a route already meets is precisely the drift this gate
+  // exists to stop. The first draft of this file quietly loosened both to 180 to
+  // match the landing's bucket; that is recorded here because it is the exact
+  // mistake the phase was opened to prevent, made while writing the prevention.
+  "/[locale]/(shop)/c/[slug]": {
+    label: "PLP (category)",
+    firstLoad: 160,
+    warnAt: 157,
+    ownChunks: 38,
+    why: "masterPlan.md §10, unchanged. Measures 155.0 / 35.1.",
+  },
+  "/[locale]/(shop)/brand/[slug]": {
+    label: "PLP (brand)",
+    firstLoad: 160,
+    warnAt: 157,
+    ownChunks: 38,
+    why: "masterPlan.md §10, PLP row. Measures 155.0 / 35.1.",
+  },
+  "/[locale]/(shop)/p/[slug]": {
+    label: "PDP",
+    firstLoad: 170,
+    warnAt: 165,
+    ownChunks: 44,
+    why: "masterPlan.md §10, unchanged. Measures 161.0 / 41.1.",
+  },
   "*": {
     label: "other shop routes",
     firstLoad: 180,

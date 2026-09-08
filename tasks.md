@@ -1758,7 +1758,7 @@ A per-route total can never say *who* grew; these three layers can.
       (the page entry already contains the shared root files); and including
       `/_not-found` in the chrome intersection collapsed it to empty, reporting
       **0.0 KB for a layer that measures 17.0**.
-- [ ] **P15.S1 — The new budgets, with sub-budgets that name the culprit.**
+- [x] **P15.S1 — The new budgets, with sub-budgets that name the culprit.** ✅ 2026-09-08.
       Landing First Load JS **≤200 KB hard-fail, ≤190 KB warn** (199.7 measured,
       so this is a freeze, not headroom; 200 KB gz is the common industry ceiling
       for first-load JS). Landing own code ≤82 KB. Other shop routes ≤180 KB
@@ -1767,8 +1767,16 @@ A per-route total can never say *who* grew; these three layers can.
       **Write the reason 600 KB is not on the table into the standards doc** —
       roughly 1 ms of parse+compile per KB on a mid-tier phone, and this shop's
       customer is on a mid-tier Android over an Iranian mobile network.
-      Note: every non-landing shop route already passes the old 180 KB line. The
-      landing is the only route that ever breached it.
+      Note: every non-landing shop route already passes the number it has always
+      had. The landing is the only route that ever breached §10, and the only one
+      raised here.
+      **A mistake worth keeping:** the first draft of the §10 edit quietly
+      loosened PLP 160→180 and PDP 170→180 to match the landing's bucket. Both
+      already pass their own budgets at 155.0 and 161.0. Raising a budget a route
+      already meets is the exact drift this phase exists to stop — made while
+      writing the thing that prevents it, and caught only by re-reading the
+      measured numbers against the edit. The gate now carries per-route entries
+      for PLP and PDP so the looser bucket cannot silently absorb them again.
 - [ ] **P15.S2 — The TBT lever is layout, not bytes.** 692 of ~936 ms across the
       six long tasks is Style & Layout attributed to the *document*, not to any
       script chunk. **Capture the Chrome trace the last pass explicitly deferred

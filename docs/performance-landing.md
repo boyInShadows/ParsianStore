@@ -878,3 +878,119 @@ The +2 KB is the spring, `heroStations.ts` (four derived dwell points and a
 band test), the snap listeners, the tour's rAF loop and one `useState`.
 Route JS is now **199 KB against the owner-accepted 197 KB** — a 2 KB
 overage that should be spent back before the next client-JS step.
+
+---
+
+# 2026-09-08 — P15.S0/S1: the budget becomes a check, and the number splits in three
+
+**Everything above this line reports a single "route JS" figure. That framing
+is retired here** — not because the numbers were wrong, but because a single
+figure cannot answer the only question that matters when it moves: *who grew?*
+
+## What was actually enforcing the budget: nothing
+
+`pnpm build` asserted nothing about route size. `scripts/` had no checker. The
+≤180 KB figure existed in exactly one place, `masterPlan.md` §10's table, where
+no process could fail on it. That is the complete explanation for a drift this
+document has recorded in pieces across four phases — 189 → 190 → 198 → 200 —
+with each step believing in good faith that it had held the line. The budget did
+not erode because anyone was careless. It eroded because **nothing existed that
+could say no.**
+
+`scripts/check-budget.mjs` (`pnpm check:budget`, and a CI step after the build)
+now reads `app-build-manifest.json` and `build-manifest.json`, gzips every chunk
+a route needs before it is interactive, and exits non-zero on a breach.
+
+## The three layers
+
+Measured on a clean build (`rm -rf apps/web/.next && pnpm build`) 2026-09-08:
+
+| Layer | Size | Recoverable? |
+|---|---|---|
+| Framework floor — `rootMainFiles`: webpack runtime, react-dom, App Router client runtime, main-app | **102.9 KB** | **No.** Not from any route without leaving Next's App Router. A boundary, recorded so nobody spends a step on it. |
+| Shop chrome — chunks common to all 23 `(shop)` route entries: header, footer, providers | **17.0 KB** | Yes. **This is the layer P11.S2's `tailwind-merge` regression actually landed in** — a header component gaining a dependency taxes twenty-three routes at once. |
+| The landing's own code | **79.8 KB** | Yes. The number this repo controls. |
+| **Landing first load** | **199.7 KB** | |
+
+## The correction this forces
+
+**This document has been quoting a "route chunk" of 16.5 KB as though it were
+the landing's own cost. It is not.** 16.5 KB is Next's *Size* column — the
+page-specific chunk in isolation, excluding every non-shared dependency the page
+pulls in behind it. The landing's own code is **79.8 KB, four and a half times
+larger**, and the 2026-09-07 stub ladder's per-leaf numbers should be read
+against that denominator, not against 16.5.
+
+The ladder's conclusions still stand — `HeroStage` really is ~4 KB, the other
+five leaves really are a few hundred bytes each, and `motion` really is 39.8 KB
+against its 45 KB sub-budget. What changes is the inference drawn from them:
+those leaves are small **relative to a route-own total of 79.8 KB**, so "the
+route's weight is concentrated almost entirely elsewhere" is confirmed, and now
+quantified. Roughly 36 KB of the landing's own code is neither `motion` nor any
+of the six named leaves, and has never been attributed. That is the first place
+to look if bytes ever need to come back.
+
+## Budgets set (P15.S1)
+
+| Route | First load | Own code |
+|---|---|---|
+| Landing | **≤ 200 KB** hard, ≤ 190 warn | ≤ 82 KB |
+| PLP (`/c/[slug]`, `/brand/[slug]`) | ≤ 160 KB | ≤ 38 KB |
+| PDP (`/p/[slug]`) | ≤ 170 KB | ≤ 44 KB |
+| Other shop routes | ≤ 180 KB | ≤ 48 KB |
+| Framework floor | ≤ 105 KB | — |
+| Shop chrome | ≤ 20 KB | — |
+
+The landing is the **only** route that moved, and the only one that ever
+breached §10 — every other shop route passes the number it has always had.
+199.7 KB measured means 200 is a freeze, not headroom; the 190 KB warn line
+makes recovery the default direction. 600 KB was explicitly refused: roughly
+1 ms of parse-and-compile per kilobyte on a mid-tier phone, and this shop's
+customer is on a mid-tier Android over an Iranian mobile network.
+
+## How the gate was proven, because a gate is a claim like any other
+
+**Cross-checked against Next's own printed table** — cart 150.9 vs 151, checkout
+164.9 vs 165, styleguide 148.1 vs 148, floor 102.9 vs 103. **Mutation-checked** —
+lowering the landing budget to 150 exits 1, lowering the chrome budget to 10
+raises the chrome failure, and both restore to a clean exit 0.
+
+That cross-check is not ceremony. It caught **two bugs in the gate's first
+version, each of which printed a confident, well-formatted, wrong number instead
+of an error**: unioning the locale layout's manifest entry into each page entry
+double-counted a chunk and put every route ~15 KB over (a page entry already
+contains the shared root files); and including `/_not-found` in the chrome
+intersection collapsed it to empty, reporting **0.0 KB for a layer that measures
+17.0 KB**. Neither threw. A tool that reports a plausible wrong number is worse
+than one that errors, because the wrong number gets believed and quoted — which
+is how 16.5 KB ended up in this document in the first place.
+
+A third mistake belongs here for the same reason: the first draft of the §10
+table update quietly loosened PLP from 160 KB to 180 and PDP from 170 to 180, to
+match the landing's bucket. Both routes already pass their own budgets. Raising a
+budget a route already meets is the exact drift this phase exists to stop, and it
+was made *while writing the thing that prevents it*. Caught by re-reading the
+measured numbers against the edit, which is the only reason it is a footnote and
+not a fourth phase of quiet erosion.
+
+## Environment note, added to the list this document already keeps
+
+**`tail -n` on a build log silently clips the landing row.** Routes sort
+alphabetically, `/[locale]` sorts first, and the table is long enough that a
+`tail -60` drops exactly the route being measured. Read route sizes with
+`pnpm check:budget`, which reads the build from disk and cannot be truncated.
+
+**Both :3000 and :4000 were this project's own orphans** at the start of this
+session — a live `next dev` and a `tsx watch` API. A `next dev` writing
+`apps/web/.next` while a production build reads it is the corruption trap this
+document and `tasks.md` both already record. Clear ports before the first build
+of a session, not after a failure.
+
+## What this does not answer
+
+**TBT.** 692 of ~936 ms across the six long tasks is Style & Layout attributed to
+the document, not to any script chunk, and no budget on bytes addresses that.
+P15.S2 captures the Chrome trace the 2026-09-07 pass explicitly deferred, before
+any code is touched. Shaving JavaScript to fix a layout cost would be aiming at
+the wrong target, which is the standing recommendation this document has carried
+since that pass and which still holds.

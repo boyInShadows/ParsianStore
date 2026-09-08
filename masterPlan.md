@@ -901,8 +901,34 @@ GET    /authenticity/verify/:code
 | LCP (Moto G4, Slow 4G) | ≤ 2.0s | ≤ 2.2s | ≤ 2.2s | ≤ 3.0s |
 | INP | ≤ 200ms | ≤ 200ms | ≤ 200ms | ≤ 300ms |
 | CLS | ≤ 0.05 | ≤ 0.05 | ≤ 0.05 | ≤ 0.1 |
-| Route JS (gz) | ≤ 180KB | ≤ 160KB | ≤ 170KB | ≤ 400KB |
+| Route JS (gz), first load | ≤ **200KB** | ≤ 160KB | ≤ 170KB | no budget |
+| Route JS (gz), route's own code | ≤ 82KB | ≤ 38KB | ≤ 44KB | no budget |
 | Lighthouse perf | ≥ 90 | ≥ 90 | ≥ 90 | ≥ 70 |
+
+**Enforced by `pnpm check:budget` since P15.S0 (2026-09-08), not by this table.**
+Until then this row was the only place the budget existed, nothing could fail on
+it, and the landing drifted 189 → 200KB across four phases with every step
+believing it had held the line. A budget that is not a failing check is not a
+budget.
+
+**Landing raised 180 → 200KB with owner sign-off (2026-09-08).** 199.7KB is the
+measured value, so 200 is a freeze rather than headroom, with a 190KB warn line
+making recovery the default direction. The owner's instruction was explicit —
+raise it, but keep it as low as it can go.
+
+**Only the landing moved. PLP stays at 160KB and PDP at 170KB** — both measure
+comfortably under (155.0 and 161.0 on 2026-09-08), so there is nothing to raise,
+and raising a budget a route already meets is the drift this gate exists to stop.
+
+**Read the second row, not the first, when attributing a regression.** A route's
+first load is three layers: the framework floor (`rootMainFiles` — webpack,
+react-dom, the App Router client runtime) at **102.9KB, unrecoverable without
+leaving Next**; the shop chrome common to all 23 `(shop)` routes at **17.0KB**;
+and the route's own code. Only the last two are ours, so a first-load figure on
+its own can never say who grew. The own-code row is the one to argue with.
+
+Admin has no §10 budget and never has (P8.S1) — it is an internal tool, not a
+customer-facing route. Stated rather than left as a silent absence.
 
 Rules: Server Components by default — `'use client'` requires a one-line comment justifying it. Every image through `next/image` with explicit `width`/`height`. AVIF + WebP. Above-the-fold images `priority`, everything else lazy. Framer Motion, Swiper, and MUI X are dynamically imported. No barrel-file imports from `@mui/*` or `lucide-react`.
 
