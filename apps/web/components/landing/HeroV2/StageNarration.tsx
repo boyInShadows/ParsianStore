@@ -70,7 +70,10 @@ export function StageNarration({
   const reduceMotion = useReducedMotion();
   const shown = useRef<string | null>(null);
   const live = useRef<HTMLParagraphElement>(null);
-  const announced = useRef<HeroStation["id"] | null>(null);
+  // `"0"` as well as the four station ids: beat 0 is not a station, but it IS a
+  // line of narration, and the two have to share this cursor or the beat-0 line
+  // would never be replaced by station 1's.
+  const announced = useRef<string | null>(null);
 
   /**
    * The subject whose part is out at this scroll position, if any.
@@ -112,6 +115,62 @@ export function StageNarration({
   };
 
   /**
+   * Which line of narration belongs at this scroll position, or `null` for
+   * "keep saying what you were saying".
+   *
+   * Null is not "say nothing" here, and the difference matters: between two
+   * chapters `stationPlayingAt` returns null, and a narrator that blanked in
+   * every gap would flicker four times across the track. What it means is that
+   * nothing new has happened, so the previous line stands until the next scene
+   * opens.
+   *
+   * The one place that is overruled is the top of the track, before the first
+   * part has moved: scrolling back up to a docked car has to bring back «بیایید
+   * خودرو را با هم باز کنیم» rather than leave chapter 1's line under a car
+   * that is whole again. It reads the same `CHAPTER_RANGE[1][0]` boundary
+   * `subjectAt` uses for the hint, so the two can never disagree about when the
+   * story has started.
+   */
+  const lineAt = (value: number): string | null =>
+    value < CHAPTER_RANGE[1][0] ? "0" : (stationPlayingAt(value)?.id ?? null);
+
+  /** Show one station line and hide the other four. */
+  const showLine = (id: string) => {
+    const root = document.getElementById("hero");
+    if (!root) return;
+    for (const element of root.querySelectorAll("[data-station][data-shown]")) {
+      element.removeAttribute("data-shown");
+    }
+    const next = root.querySelector(`[data-station="${CSS.escape(id)}"]`);
+    if (next) next.setAttribute("data-shown", "");
+  };
+
+  /**
+   * One pass of light across the body as a station opens (P14.S5 item 7).
+   *
+   * The sweep already existed and ran exactly once, on load -- "the car
+   * arriving on the lift". Running it again as each scene opens is the cheapest
+   * possible punctuation for a chapter change: no new element, no new motion
+   * value, one CSS animation over a gradient that is already masked to the
+   * car's own alpha.
+   *
+   * A CSS animation does not restart when an attribute changes, so this does
+   * the standard remove / reflow / re-add. That is a forced synchronous layout,
+   * which everything else in this file is careful to avoid -- it is affordable
+   * here because it happens at most four times across the whole track, on the
+   * frame a chapter opens, and never during a beat. Reading `offsetWidth` of
+   * one absolutely-positioned div is also about as cheap as a forced reflow
+   * gets: it is out of flow, so nothing else depends on its box.
+   */
+  const sweep = () => {
+    const element = document.querySelector<HTMLElement>("#hero .hero-sweep");
+    if (!element) return;
+    element.removeAttribute("data-sweep");
+    void element.offsetWidth;
+    element.setAttribute("data-sweep", "");
+  };
+
+  /**
    * Say which station the scene has reached -- **only when it changes**.
    *
    * An `aria-live` region on a scroll-linked animation is an accessibility
@@ -130,11 +189,19 @@ export function StageNarration({
    * plates toggling `data-shown` is a hope.
    */
   const announce = (value: number) => {
-    const station = stationPlayingAt(value);
-    if (!station || station.id === announced.current) return;
-    announced.current = station.id;
+    const id = lineAt(value);
+    if (id === null || id === announced.current) return;
+    announced.current = id;
+
+    showLine(id);
+    sweep();
+
+    // Beat 0 is not a station, so it gets the visible line and no announcement:
+    // there is nothing to tell a screen reader about a scene that has not
+    // started, and the hero's own heading and the job card have already been
+    // read by the time this could fire.
     const node = live.current;
-    if (node) node.textContent = stations[station.id];
+    if (node && id !== "0") node.textContent = stations[id as HeroStation["id"]];
   };
 
   const show = (id: string | null) => {
@@ -219,7 +286,16 @@ export function StageNarration({
       // thing the visitor would hear is a caption for a scene they did not ask
       // to be told about. Recording it without saying it means the next real
       // change is the first thing spoken.
-      announced.current = stationPlayingAt(progress.get())?.id ?? null;
+      //
+      // The VISIBLE line is still placed, for the same reason the beat-0
+      // caption is (P14.S3): a reload restores the scroll position before this
+      // mounts, so a visitor returning to mid-track must read the line for the
+      // scene they are actually looking at rather than beat 0's. It does not
+      // sweep -- the sweep is the CSS one-shot on load, and firing a second
+      // pass on top of it would read as a stutter rather than as an arrival.
+      const line = lineAt(progress.get()) ?? "0";
+      announced.current = line;
+      showLine(line);
     }
     return () => show(null);
     // `show` and `subjectAt` are re-created every render and close over

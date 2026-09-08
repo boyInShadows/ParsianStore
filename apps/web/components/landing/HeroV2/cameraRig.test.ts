@@ -51,10 +51,24 @@ describe("the camera track", () => {
     }
   });
 
-  it("starts and ends at the neutral framing", () => {
+  it("starts neutral and ends pulled back, square on, for the held finale", () => {
+    // The ending changed at P14.S5. It used to return to neutral at p=1,
+    // because Gate B had every part re-docked by then and neutral is a whole
+    // car's framing. The owner reversed Gate B on 2026-09-07: the scene is
+    // still exploded at the end of the track, so the camera has to keep the
+    // two parking bands on screen instead of pushing back into them.
     const stops = cameraStops();
-    for (const stop of [stops[0]!, stops[stops.length - 1]!]) {
-      expect(stop.scale).toBe(1);
+    const first = stops[0]!;
+    const last = stops[stops.length - 1]!;
+
+    expect(first.scale).toBe(1);
+
+    expect(last.at, "the camera track no longer reaches the end of the scroll").toBe(1);
+    expect(last.scale, "the camera pushes back in over a still-exploded car").toBeLessThan(1);
+
+    // Square on at both ends either way: a tilt or a roll left running at p=1
+    // would carry into the section the visitor scrolls into next.
+    for (const stop of [first, last]) {
       expect(stop.x).toBe(0);
       expect(stop.y).toBe(0);
       expect(stop.rotateX).toBe(0);

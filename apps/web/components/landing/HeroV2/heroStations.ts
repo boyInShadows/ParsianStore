@@ -65,9 +65,16 @@ export function heroStations(): readonly HeroStation[] {
 
   return [
     ...chapters,
-    // The finale's own hold: `FINALE_BEAT` is [rise, held, held, fall] and the
-    // mix is 1 across the middle pair, so its centre is the one position where
-    // every part is parked and nothing is moving.
+    // The finale's own hold: `FINALE_BEAT` is [re-dock threshold, fully
+    // exploded, end of track] and the mix is 1 from the second value onward, so
+    // the centre of that stretch is a position where every part is parked and
+    // nothing is moving.
+    //
+    // It moved from 0.93 to 0.95 at P14.S5, and only because the hold got
+    // longer: the finale used to fall back to a docked car by p=1, so the hold
+    // ran 0.90..0.96; the owner's Gate B reversal makes the exploded state the
+    // resting state, so it now runs 0.90..1.00. Same rule, same expression, a
+    // hold with a different far end.
     { id: "finale", chapter: null, p: (FINALE_BEAT[1] + FINALE_BEAT[2]) / 2 },
   ];
 }
@@ -111,6 +118,12 @@ export function stationPlayingAt(p: number): HeroStation | null {
   // The finale outranks the tail of chapter 3 it overlaps, exactly as it does
   // for the captions in `StageNarration`: once every part is in the air, the
   // scene is the catalogue rather than the windshield.
+  //
+  // And it outranks it all the way to the end of the track now, because
+  // `FINALE_BEAT[2]` is 1.0 since the Gate B reversal. Under the old four-value
+  // beat this window closed at 0.96 and chapter 3's range ran to 0.98, so the
+  // last 2% of the scroll announced "station 3" again over a stage that was
+  // finishing its finale -- a caption for the scene the visitor had just left.
   if (p >= FINALE_BEAT[1] && p <= FINALE_BEAT[2]) {
     return stations.find((station) => station.id === "finale") ?? null;
   }

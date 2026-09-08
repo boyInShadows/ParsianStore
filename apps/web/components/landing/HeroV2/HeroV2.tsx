@@ -2,7 +2,13 @@ import { getTranslations } from "next-intl/server";
 import { toPersianDigits } from "schemas";
 import { HeroScrollProvider } from "./HeroScrollProvider";
 import { HeroStage } from "./HeroStage";
-import { HeadlightBloom, PartCallouts, StageFinale } from "./PartCallout";
+import {
+  HeadlightBloom,
+  PartCallouts,
+  PartLeaders,
+  StageFinale,
+  StationLines,
+} from "./PartCallout";
 import { PartsManifest } from "./PartsManifest";
 import { StageNarration } from "./StageNarration";
 import { StageSteps } from "./StageSteps";
@@ -159,8 +165,10 @@ export async function HeroV2() {
             lead={t("diagramLead")}
             callouts={<PartCallouts />}
             bloom={<HeadlightBloom />}
+            leaders={<PartLeaders />}
             finale={<StageFinale />}
             manifest={<PartsManifest />}
+            stationLines={<StationLines />}
             steps={
               <StageSteps
                 next={tManifest("stepNext")}

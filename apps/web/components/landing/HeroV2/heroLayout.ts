@@ -634,15 +634,46 @@ export const FINALE_CLEARANCE = 28;
 export const FINALE_MARGIN = 32;
 
 /**
- * Where the finale plays, as a fraction of the hero's scroll.
+ * Where the finale plays, as a fraction of the hero's scroll:
+ * `[re-dock threshold, fully exploded, end of the track]`.
  *
  * It overlaps the tail of chapter 3, which is the one place the sequential
  * rule bends: the finale is *about* everything being in the air at once, so
- * "one slot at a time" cannot describe it. Everything re-docks by 1.0 --
- * `e2e/landing-hero.spec.ts` asserts the hero ends as a whole car, and Gate B
- * settled that the finale is the climax rather than the resting state.
+ * "one slot at a time" cannot describe it.
+ *
+ * ## Gate B is REVERSED, on the owner's instruction
+ *
+ * This used to be a four-value beat, `[0.86, 0.9, 0.96, 1.0]`, whose mix ran
+ * `[0, 1, 1, 0]`: the exploded catalogue rose, held for 6% of the track, and
+ * every part re-docked by p=1 so the car the visitor scrolled away from was
+ * whole again. That was **Gate B**, and the comment that used to stand here
+ * said so.
+ *
+ * **The owner (Kasra) reversed it on 2026-09-07** — recorded in `fableTasks.md`
+ * §0.5 "Owner decisions": *"Finale holds exploded (S5.3): APPROVED. This
+ * reverses Gate B."* The exploded state is now the **resting** state: it forms
+ * between 0.86 and 0.90 and stays formed through un-pin and while the section
+ * scrolls away. It re-docks only when the visitor scrolls back **up** through
+ * 0.86, which falls out of the mix being monotonic in progress rather than
+ * needing a direction test.
+ *
+ * The reason is the page's job rather than the drawing's: the last frame of the
+ * hero is the one a visitor carries into the rest of the landing, and a whole
+ * car says "nice animation" while ten parked, named, clickable parts say "this
+ * is a parts catalogue". Three e2e assertions pinned the old ending and have
+ * been **rewritten to assert the new one** (`e2e/landing-hero.spec.ts`) rather
+ * than deleted — an ending nothing tests is an ending that regresses.
+ *
+ * Two consequences that are easy to miss:
+ *
+ * - **The camera must stay pulled back** (`cameraRig.ts`). It used to return to
+ *   neutral at p=1; against a scene that is still exploded that would crop the
+ *   parked parts out of the two bands at the very moment they are the subject.
+ * - **The finale outranks chapter 3's tail all the way to 1.0**, so the
+ *   windshield's plate no longer reappears at p≈0.97 over a stage where every
+ *   part is parked (`StageNarration`, `heroStations.stationPlayingAt`).
  */
-export const FINALE_BEAT: readonly [number, number, number, number] = [0.86, 0.9, 0.96, 1.0];
+export const FINALE_BEAT: readonly [number, number, number] = [0.86, 0.9, 1.0];
 
 /**
  * The suspended drift of a parked part, in canvas pixels and cycles per track.
@@ -650,7 +681,47 @@ export const FINALE_BEAT: readonly [number, number, number, number] = [0.86, 0.9
  * Small on purpose -- 3 pixels is under half a CSS pixel at the desktop stage,
  * so it reads as "these are hanging" rather than as a second animation
  * competing with the one that just finished. It is what stops the finale's
- * 6%-of-track hold from being the one genuinely frozen stretch of the scroll,
+ * hold -- now the last 10% of the track, since the exploded state is the
+ * resting state -- from being the one genuinely frozen stretch of the scroll,
  * on the beat the visitor is meant to stop and read.
  */
 export const FINALE_DRIFT = { amplitude: 3, cycles: 220 } as const;
+
+/**
+ * Where the caption plate sits in STAGE space, as fractions of the stage box.
+ *
+ * A mirror of `.hero-callout` in `globals.css`, and it exists so the leader
+ * line (P14.S5) can be drawn to a real coordinate rather than to a guess. The
+ * plate itself stays exactly where it is -- P13.S5 tried moving it beside its
+ * part and reverted, because a plate measured in canvas pixels is magnified 35%
+ * by chapter 1's push-in at the moment the visible canvas is smallest, and the
+ * headlights' caption rendered cut in half (`PartCallout.tsx`). What the plan
+ * actually wants from "anchor the narrator" is the *connection*, and a dot plus
+ * a line gives that without putting the text back inside the camera.
+ *
+ * `x` is deliberately NOT the plate's inner edge. The plate is
+ * `min(22rem, 44%)` wide, so its inner edge is a different fraction at every
+ * stage width and cannot be written as one number. `x` is instead a point the
+ * plate is *guaranteed to cover*: the stage is at most 1024px wide here (a
+ * 1440px container, less a 20rem job-card column and its gap), where 22rem is
+ * 34% of it -- so anything under 3% + 34% is inside the plate at every width,
+ * and 17% is comfortably under. The line therefore always terminates behind the
+ * plate rather than short of it or past it.
+ *
+ * `band` is the same idea on the other axis: the plate is pinned 3% from its
+ * band's edge and is far taller than 5%, so a point 8% in from that edge is
+ * inside it whatever the copy wraps to.
+ */
+export const CALLOUT_SLOT = { x: 0.17, band: 0.08 } as const;
+
+/**
+ * The anchor dot's radius in canvas pixels.
+ *
+ * Sized against the smallest thing it ever marks rather than against the stage.
+ * The dot only appears on a part that has already left the car, so the
+ * measurement is the part at its undock scale: the piston is 13 canvas pixels
+ * wide docked and 31 out of the bay, and it is the smallest subject either way.
+ * `heroScene.test.ts` re-derives that floor, so a re-cut sprite fails the test
+ * rather than quietly getting a dot bigger than itself.
+ */
+export const CALLOUT_DOT = 7;

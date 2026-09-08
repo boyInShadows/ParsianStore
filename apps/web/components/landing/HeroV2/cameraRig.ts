@@ -1,4 +1,5 @@
 import {
+  CALLOUT_SLOT,
   CHAPTER_RANGE,
   FINALE_BEAT,
   HERO_CANVAS,
@@ -9,7 +10,7 @@ import {
   coverOf,
   type HeroLayer,
 } from "./heroLayout";
-import { sceneParts } from "./heroScene";
+import { sceneParts, stageToCanvas } from "./heroScene";
 
 /**
  * The stage's camera (fableTasks v1.1 P13.S2).
@@ -182,6 +183,18 @@ function frame(
 }
 
 /**
+ * The canvas rectangle the stage shows once the camera has arrived at a
+ * chapter's framing.
+ *
+ * Exported for the two things that need to know what is on screen rather than
+ * where the camera is: `leaderTarget` below, which clamps into it, and
+ * `cameraRig.test.ts`, which asserts that it does.
+ */
+export function cameraWindow(chapter: HeroLayer["chapter"]): CameraWindow {
+  return frame(chapter).window;
+}
+
+/**
  * The tilt and roll per station. Small numbers on purpose.
  *
  * Chapter 1 gets a slight roll, which is what a photograph taken by a person
@@ -239,8 +252,15 @@ export function cameraStops(): readonly CameraStop[] {
     // than stopping dead -- the parts are parked and still there, so without
     // this the longest beat in the hero would be its only frozen one.
     { at: FINALE_BEAT[1], ...NEUTRAL, scale: CAMERA_MIN_SCALE },
+    // **And it stays pulled back to the end of the track** (P14.S5). There used
+    // to be a fourth stop here returning the camera to neutral at p=1, which was
+    // correct while Gate B held: everything re-docked by then, so the last frame
+    // was a whole car and neutral was its framing. The owner reversed that on
+    // 2026-09-07 (`heroLayout.FINALE_BEAT`) and the scene is now still exploded
+    // at p=1 -- so pushing back in to 1.0 would crop the parked parts out of the
+    // two clear bands at exactly the moment they are the subject. The drift
+    // keeps running instead, so the last stretch is still never frozen.
     { at: FINALE_BEAT[2], ...NEUTRAL, scale: CAMERA_MIN_SCALE * DRIFT },
-    { at: FINALE_BEAT[3], ...NEUTRAL },
   ];
 }
 
@@ -254,5 +274,61 @@ export function cameraTrack() {
     y: stops.map((stop) => `${(stop.y * 100).toFixed(3)}%`),
     rotateX: stops.map((stop) => stop.rotateX),
     rotateZ: stops.map((stop) => stop.rotateZ),
+  };
+}
+
+/**
+ * Where a plate's leader line ends, in canvas pixels (P14.S5).
+ *
+ * ## Why this lives with the camera and not with the scene
+ *
+ * The first cut of it did live in `heroScene`, as a pure conversion from the
+ * plate's stage-space slot (`CALLOUT_SLOT`) into canvas coordinates, and it was
+ * wrong in exactly one chapter -- which is the same sentence `PartCallout`'s
+ * docstring has to write about the plate itself.
+ *
+ * Measured at 1440x900: at chapter 1's dwell point the line's far end rendered
+ * at viewport y=58 against a stage that starts at y=96. Thirty-eight pixels of
+ * blue hairline stuck out above the drawing, over the headline. The cause is
+ * the push-in: the leader is drawn inside the camera so its dot can stay glued
+ * to its part, and chapter 1 scales the camera to 1.35 about a focus point near
+ * the nose, which throws the top of the canvas out of the stage. Chapters 2 and
+ * 3 push in far less and were already inside (y=123 and y=150).
+ *
+ * So the target is **clamped into the rectangle the stage is actually showing
+ * at that chapter**, which is a number the camera already solves for its own
+ * framing (`frame(chapter).window`). The line then ends just inside the stage
+ * edge -- where the plate is pinned anyway -- instead of leaving it.
+ *
+ * The inset is `CALLOUT_SLOT`'s own fractions applied to that window rather
+ * than to the stage, so the clamped end sits the same 8% in from the edge the
+ * unclamped one would have. And it is a clamp, not a replacement: chapters 2
+ * and 3 are unaffected, because their windows already contain the ideal point.
+ *
+ * `frame(chapter)` rather than `frame(chapter, DRIFT)`: the drift only ever
+ * makes the window *wider*, so the tight framing is the conservative one, and
+ * it is also the one the camera holds while a plate is being read.
+ */
+export function leaderTarget(
+  band: "above" | "below",
+  chapter: HeroLayer["chapter"],
+): { readonly x: number; readonly y: number } {
+  const ideal = stageToCanvas(
+    CALLOUT_SLOT.x,
+    band === "above" ? 1 - CALLOUT_SLOT.band : CALLOUT_SLOT.band,
+  );
+  const window = frame(chapter).window;
+  const insetX = (window.right - window.left) * CALLOUT_SLOT.x;
+  const insetY = (window.bottom - window.top) * CALLOUT_SLOT.band;
+
+  return {
+    // The plate is pinned to the stage's inline-start edge, and the stage is
+    // `dir="ltr"`, so "toward the plate" is always toward smaller x. Only the
+    // near edge needs a clamp.
+    x: Math.max(ideal.x, window.left + insetX),
+    y:
+      band === "above"
+        ? Math.min(ideal.y, window.bottom - insetY)
+        : Math.max(ideal.y, window.top + insetY),
   };
 }

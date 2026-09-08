@@ -16,6 +16,13 @@ import {
  * finale is the beat where the whole catalogue is on screen. Chapter 3's last
  * slot runs to 0.980 and the finale opens at 0.860, so several of the derived
  * sample points land inside it.
+ *
+ * **The hold now runs to the end of the track** (P14.S5). `FINALE_BEAT[2]` was
+ * 0.96, with a fourth value at 1.0 that brought every part home again; the
+ * owner reversed that on 2026-09-07, so p=1 is inside the finale and the last
+ * frame of the hero is the exploded catalogue. Because this predicate is
+ * derived from the constant rather than written down, the end-of-track sample
+ * in `holdSamples()` re-classifies itself.
  */
 const inFinale = (at: number) => at >= FINALE_BEAT[1] && at <= FINALE_BEAT[2];
 
@@ -560,7 +567,15 @@ function holdSamples(): Sample[] {
     samples.push({
       at: next ? (to + next[0]) / 2 : 1,
       away: [],
-      what: next ? `the rest beat after chapter ${chapter}` : "the end of the track",
+      // `away: []` is what a rest beat between two chapters means, and it is
+      // still what the last sample MEANS -- but the last sample sits at p=1,
+      // which is now inside the finale, and the caller reads `inFinale` first.
+      // So the end of the track asserts the opposite: every part away, none
+      // left on the car. Kept as one list rather than split into two because
+      // the classification belongs to the beat, not to the sample.
+      what: next
+        ? `the rest beat after chapter ${chapter}`
+        : "the end of the track (held exploded)",
     });
   }
   return samples;
@@ -585,7 +600,19 @@ test("plays one part at a time, and is a whole car between chapters", async ({ p
   }
 });
 
-test("the hero ends its scroll as a whole car, not a pile of panels", async ({ page }) => {
+/**
+ * The ending, rewritten rather than deleted (P14.S5).
+ *
+ * This test used to be "the hero ends its scroll as a whole car, not a pile of
+ * panels", and it asserted every layer within `DOCKED_TOLERANCE` of its resting
+ * place at p=1. That was Gate B. The owner reversed Gate B on 2026-09-07
+ * (`fableTasks.md` §0.5, and `heroLayout.FINALE_BEAT` records it in the source),
+ * so the promise this pins is now the opposite one -- and it is still a promise
+ * worth pinning, because "the finale holds" is exactly the kind of ending that
+ * regresses silently the next time the transform graph is retuned. An ending
+ * nothing tests is an ending that drifts back.
+ */
+test("the hero ends its scroll exploded, and holds there", async ({ page }) => {
   await gotoHero(page);
   await scrollHeroTo(page, 0);
   const docked = await layerOffsets(page);
@@ -593,9 +620,45 @@ test("the hero ends its scroll as a whole car, not a pile of panels", async ({ p
   for (const [i, box] of (await layerOffsets(page)).entries()) {
     expect(
       Math.hypot(box.x - docked[i].x, box.y - docked[i].y),
-      `layer ${i} is still in the air at the end of the track`,
-    ).toBeLessThan(DOCKED_TOLERANCE);
+      `layer ${i} re-docked at the end of the track -- the finale is supposed to hold`,
+    ).toBeGreaterThan(DOCKED_TOLERANCE);
   }
+});
+
+/**
+ * The other half of "holds": it un-blends on the way back up.
+ *
+ * Without this, "the finale holds" and "the finale is stuck" look identical to
+ * every other assertion in this file. The re-dock threshold is `FINALE_BEAT[0]`
+ * and it is deliberately NOT a direction test in the source -- the mix is a
+ * plain monotonic function of progress -- so the property to assert is that the
+ * scene has no memory: the same scroll position must render the same picture
+ * whether the visitor arrived from above or below.
+ */
+test("the finale un-blends on the way back up, instead of latching", async ({ page }) => {
+  await gotoHero(page);
+  // Below the threshold, so the finale contributes nothing here in either
+  // direction -- while chapter 3 is still mid-beat, which is what makes this a
+  // real reading rather than a comparison of two empty lists.
+  const at = FINALE_BEAT[0] - 0.02;
+
+  await scrollHeroTo(page, 0);
+  const docked = await partOffsets(page);
+
+  await scrollHeroTo(page, at);
+  const downward = awayFrom(docked, await partOffsets(page));
+
+  await scrollHeroTo(page, 1);
+  await scrollHeroTo(page, at);
+  const upward = awayFrom(docked, await partOffsets(page));
+
+  expect(upward, `the scene at p=${at.toFixed(2)} depends on which way you got there`).toEqual(
+    downward,
+  );
+  expect(
+    upward.length,
+    "every part is still in the air below the finale's re-dock threshold",
+  ).toBeLessThan(Object.keys(docked).length);
 });
 
 /**
@@ -818,11 +881,16 @@ test.describe("the job card", () => {
 });
 
 /**
- * The finale (P13.S8) — Gate B's shape: the exploded catalogue is the climax,
- * not the resting state.
+ * The finale (P13.S8, reversed at P14.S5) — the exploded catalogue is the
+ * RESTING state, not a climax the car recovers from.
+ *
+ * Gate B said the opposite and this block asserted it. The owner reversed the
+ * decision on 2026-09-07 (`fableTasks.md` §0.5); `heroLayout.FINALE_BEAT`
+ * carries the reversal in the source so a future reader does not read it as
+ * drift.
  */
 test.describe("the finale", () => {
-  test("puts every part in the air at once, then docks them again", async ({ page }) => {
+  test("puts every part in the air at once, and leaves them there", async ({ page }) => {
     await gotoHero(page);
     await scrollHeroTo(page, 0);
     const docked = await partOffsets(page);
@@ -833,11 +901,18 @@ test.describe("the finale", () => {
       Object.keys(docked).sort(),
     );
 
-    // Gate B: the car the visitor scrolls away from is whole. This is also
-    // covered by "ends its scroll as a whole car"; asserted here too because it
-    // is the half of the finale that is easiest to lose while tuning the other.
+    // What Gate B's assertion has become. It used to read "the hero ends
+    // exploded" as the FAILURE message on an expectation of `[]`; the same
+    // position now has to hold the whole catalogue, because the last frame the
+    // visitor carries into the rest of the landing is the one that has to say
+    // "this is a parts shop". Asserted here as well as in "ends its scroll
+    // exploded" for the same reason it was before: it is the half of the finale
+    // that is easiest to lose while tuning the other.
     await scrollHeroTo(page, 1);
-    expect(awayFrom(docked, await partOffsets(page)), "the hero ends exploded").toEqual([]);
+    expect(
+      awayFrom(docked, await partOffsets(page)).sort(),
+      "the hero re-docked before un-pinning -- the finale is supposed to hold to the end",
+    ).toEqual(Object.keys(docked).sort());
   });
 
   test("shows one call to action, and only at the finale", async ({ page }) => {
@@ -939,17 +1014,43 @@ test.describe("pacing", () => {
     expect(awayFrom(docked, settled).sort()).toEqual(["hood", "piston"].sort());
   });
 
-  test("the story still ends as a whole car once the spring has settled", async ({ page }) => {
-    // The Gate B promise, re-asserted through the new hop. `restDelta` is the
+  test("the story still ends fully parked once the spring has settled", async ({ page }) => {
+    // The ending, re-asserted through the spring's hop. `restDelta` is the
     // reason this is not vacuous: motion's default would let the spring call
     // itself finished 0.005 of a track short, which at 160rem is 12.8px of
     // scroll -- and "the car finished ~10px of scroll short of docked" is
     // verbatim the symptom the last transform-graph bug produced.
+    //
+    // The end state it checks flipped at P14.S5 (the owner's Gate B reversal),
+    // and the flip makes this reading *stricter* rather than weaker: the
+    // finale's mix is flat at 1 across the last tenth of the track, so a spring
+    // that stopped short would land on an identical picture and hide itself.
+    // What catches it now is `parkedAt`, which reads where the parts ARE rather
+    // than only whether they moved -- the brief's §3.7 rule, applied to the new
+    // ending.
     await gotoHero(page);
     await scrollHeroTo(page, 0);
     const docked = await partOffsets(page);
-    await scrollHeroTo(page, 1);
-    expect(awayFrom(docked, await partOffsets(page))).toEqual([]);
+
+    const parkedAt = async (p: number) => {
+      await scrollHeroTo(page, p);
+      return partOffsets(page);
+    };
+
+    const held = await parkedAt(FINALE_BEAT[1]);
+    const settled = await parkedAt(1);
+
+    expect(awayFrom(docked, settled).sort()).toEqual(Object.keys(docked).sort());
+    // And parked in the SAME place: the hold is flat, so any drift between the
+    // start of the hold and the end of the track past the suspended bob is the
+    // spring (or a stale transform input) leaking into a beat that is meant to
+    // be still.
+    for (const id of Object.keys(settled)) {
+      expect(
+        Math.hypot(settled[id]!.x - held[id]!.x, settled[id]!.y - held[id]!.y),
+        `${id} drifted across the finale's flat hold`,
+      ).toBeLessThan(DOCKED_TOLERANCE);
+    }
   });
 
   test("a gesture that stops near a station settles onto it", async ({ page }) => {

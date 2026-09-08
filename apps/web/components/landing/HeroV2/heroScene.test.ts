@@ -13,7 +13,9 @@ import {
   HERO_VISIBLE_ROWS,
   STATION_FOCUS,
 } from "./heroLayout";
-import { finaleBands, sceneParts, scenePartById, type CanvasBox } from "./heroScene";
+import { CALLOUT_DOT, CALLOUT_SLOT } from "./heroLayout";
+import { finaleBands, sceneParts, scenePartById, stageToCanvas, type CanvasBox } from "./heroScene";
+import { cameraWindow, leaderTarget } from "./cameraRig";
 
 /** The stripped body's own box, from the same source heroScene reads. */
 
@@ -170,6 +172,66 @@ describe("the finale packing", () => {
     }
   });
 
+  /**
+   * P14.S5 asked for a `finaleMobile` parking table, on a measurement from the
+   * audit: "at 390 the bumper overlaps headlight-left by ~11px and
+   * headlight-right by ~5px". Re-derived here rather than acted on, because the
+   * measurement is real and its conclusion is not.
+   *
+   * Two things it gets wrong. First, the finale has **no width dependence at
+   * all**: every parked position is a percentage of the 1024² canvas, so the
+   * layout at 390 and at 1440 is the same layout, and a mobile table would have
+   * nothing different to say. Second, what overlaps is the headlights' ELEMENT
+   * box, not their pixels -- they are one 231-wide render drawn twice and
+   * clipped to a 28px lens and a 34px lens, and `getBoundingClientRect` returns
+   * the box, not the clip. The overlap the audit measured is transparent space.
+   *
+   * The arithmetic: at 390 the frame is 329 CSS px wide, so one canvas pixel is
+   * 0.3217 CSS px. lamp-far's box overlaps the bumper's by 39.7 canvas px
+   * (12.8 CSS px) and lamp-near's by 18.8 (6.0 CSS px) -- which is the audit's
+   * ~11px and ~5px, reproduced. The VISIBLE rectangles clear each other by more
+   * than `FINALE_CLEARANCE` in every pair, which is what the first test in this
+   * block already asserts.
+   */
+  it("overlaps only where a clipped sprite's box is bigger than its pixels", () => {
+    const boxOf = (id: string, which: "box" | "visual") => {
+      const part = scenePartById().get(id)!;
+      const centre = {
+        x: part.box.left + part.box.width / 2,
+        y: part.box.top + part.box.height / 2,
+      };
+      const rect = part[which];
+      return {
+        left: centre.x + (rect.left - centre.x) * part.finale.scale + part.finale.dx,
+        top: centre.y + (rect.top - centre.y) * part.finale.scale + part.finale.dy,
+        width: rect.width * part.finale.scale,
+        height: rect.height * part.finale.scale,
+      };
+    };
+
+    const overlapX = (a: CanvasBox, b: CanvasBox) =>
+      Math.min(a.left + a.width, b.left + b.width) - Math.max(a.left, b.left);
+
+    // The audit's own two pairs, as element boxes: the overlap is there.
+    expect(overlapX(boxOf("lamp-far", "box"), boxOf("bumper", "box"))).toBeGreaterThan(30);
+    expect(overlapX(boxOf("lamp-near", "box"), boxOf("bumper", "box"))).toBeGreaterThan(10);
+
+    // And as pixels: it is not, in either direction, by more than the
+    // clearance a name chip would need.
+    expect(overlapX(boxOf("lamp-far", "visual"), boxOf("bumper", "visual"))).toBeLessThan(
+      -FINALE_CLEARANCE,
+    );
+    expect(overlapX(boxOf("lamp-near", "visual"), boxOf("bumper", "visual"))).toBeLessThan(
+      -FINALE_CLEARANCE,
+    );
+
+    // The whole reason the two readings differ: the lamps' boxes are an order
+    // of magnitude wider than the lenses inside them.
+    for (const id of ["lamp-far", "lamp-near"]) {
+      expect(boxOf(id, "box").width / boxOf(id, "visual").width).toBeGreaterThan(5);
+    }
+  });
+
   it("parks every part in the scene -- none is left on the car", () => {
     const parked = new Set([...FINALE_BAND.above, ...FINALE_BAND.below]);
     for (const part of sceneParts()) {
@@ -214,5 +276,93 @@ describe("HERO_STAGE_ASPECT", () => {
     expect(HERO_VISIBLE_ROWS.top).toBeLessThan(135);
     expect(HERO_VISIBLE_ROWS.bottom).toBeGreaterThan(889);
     expect(HERO_VISIBLE_ROWS.bottom).toBeLessThan(899);
+  });
+});
+
+/**
+ * The leader line's geometry (P14.S5).
+ *
+ * The dot is in canvas space and the plate is in stage space, so the line
+ * between them is one coordinate conversion away from pointing at nothing. That
+ * conversion is the only piece of this step that cannot be judged from a
+ * screenshot: a leader that ends 40px short of the plate looks almost right,
+ * which is the exact failure mode P13.S3's callout layer already shipped once.
+ */
+describe("the callout leader", () => {
+  it("inverts the camera's own canvas-to-stage mapping", () => {
+    // The two sanity checks cameraRig states for the forward direction, read
+    // backwards. If these drift, the leader points at where the plate was
+    // before someone retuned the frame width.
+    const centre = stageToCanvas(0.5, 0.5);
+    expect(centre.x).toBeCloseTo(HERO_CANVAS / 2, 6);
+    expect(centre.y).toBeCloseTo(HERO_CANVAS / 2, 6);
+
+    expect(stageToCanvas(0, 0).y).toBeCloseTo(HERO_VISIBLE_ROWS.top, 6);
+    expect(stageToCanvas(0, 1).y).toBeCloseTo(HERO_VISIBLE_ROWS.bottom, 6);
+  });
+
+  it("ends inside the window the camera is actually showing", () => {
+    // The check that matters, and the one the first cut of this failed. A
+    // target inside `HERO_VISIBLE_ROWS` is only inside the STAGE while the
+    // camera is neutral; chapter 1 pushes in to 1.35 and shows a window barely
+    // more than half that tall, so an unclamped target rendered 38px above the
+    // stage at 1440x900 -- a blue hairline over the headline.
+    for (const band of ["above", "below"] as const) {
+      for (const chapter of [1, 2, 3] as const) {
+        const target = leaderTarget(band, chapter);
+        const window = cameraWindow(chapter);
+        const where = `${band} leader in chapter ${chapter}`;
+
+        expect(target.y, `${where} is above the camera window`).toBeGreaterThanOrEqual(window.top);
+        expect(target.y, `${where} is below the camera window`).toBeLessThanOrEqual(window.bottom);
+        expect(target.x, `${where} is off the window's start edge`).toBeGreaterThanOrEqual(
+          window.left,
+        );
+        expect(target.x, `${where} is off the window's end edge`).toBeLessThanOrEqual(window.right);
+
+        // And inside the rows the stage shows at rest too, which is the weaker
+        // condition the window implies -- asserted because the camera could in
+        // principle be retuned to frame something outside the canvas.
+        expect(target.y, `${where} is outside the visible rows`).toBeGreaterThan(
+          HERO_VISIBLE_ROWS.top,
+        );
+        expect(target.y, `${where} is outside the visible rows`).toBeLessThan(
+          HERO_VISIBLE_ROWS.bottom,
+        );
+      }
+    }
+
+    // The plate for a part that went UP is pinned to the bottom of the stage,
+    // and vice versa -- that is the whole point of `data-band`. So the two
+    // targets must sit on opposite sides of the canvas centre, or a caption and
+    // the part it names would share a half of the stage.
+    for (const chapter of [1, 2, 3] as const) {
+      expect(leaderTarget("above", chapter).y).toBeGreaterThan(HERO_CANVAS / 2);
+      expect(leaderTarget("below", chapter).y).toBeLessThan(HERO_CANVAS / 2);
+    }
+  });
+
+  it("aims at a column the plate covers at every stage width", () => {
+    // `.hero-callout` is `min(22rem, 44%)` wide from a 3% inline-start inset,
+    // so its inner edge is a different fraction of the stage at every width and
+    // cannot be one number. `CALLOUT_SLOT.x` has to be under the NARROWEST that
+    // plate ever is as a fraction: 22rem (352px) over the widest stage the
+    // container allows -- 1440px less a 20rem job-card column, its 2rem gap and
+    // the 2rem gutters, so 1024px.
+    const widestStage = 1440 - 2 * 32 - 320 - 32;
+    const narrowestPlate = Math.min(352 / widestStage, 0.44);
+    expect(CALLOUT_SLOT.x).toBeGreaterThan(0.03);
+    expect(CALLOUT_SLOT.x).toBeLessThan(0.03 + narrowestPlate);
+  });
+
+  it("keeps the dot smaller than the smallest part it marks", () => {
+    // Measured against `peak`, not `visual`: the dot only ever appears on a
+    // part that has left the car, and a part in the air is at its undock scale
+    // -- 2.4 for the engine trio, which is the whole reason they are readable
+    // at all. The piston is 13 canvas pixels wide at rest and 31 out of the
+    // bay, and it is the smallest thing here either way. A dot that covered its
+    // own subject would be a blob where a part used to be.
+    const smallest = Math.min(...sceneParts().map((part) => part.peak.width));
+    expect(CALLOUT_DOT * 2).toBeLessThan(smallest);
   });
 });

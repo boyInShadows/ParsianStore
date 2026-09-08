@@ -76,6 +76,12 @@ type Props = {
    */
   bloom?: ReactNode;
   /**
+   * The anchor dots and leader lines (P14.S5), also canvas space and for the
+   * same reason: a dot that marks a part has to travel with the part, so it
+   * goes inside the camera even though the plate it points at does not.
+   */
+  leaders?: ReactNode;
+  /**
    * The finale's CTA (P13.S8) -- pinned with the stage, but outside its box.
    *
    * Separate from `callouts` because it is not part of the diagram: it must not
@@ -98,6 +104,17 @@ type Props = {
    * sitting below the fold until the animation has finished.
    */
   manifest?: ReactNode;
+  /**
+   * The narrator's line for each station (P14.S5), server-rendered as five
+   * stacked paragraphs with one shown.
+   *
+   * Under the stage rather than inside it, and that is the only place it can
+   * go: the two clear canvas bands are where the parts undock into and where
+   * the plates are pinned, so a caption inside the frame would collide with one
+   * or the other at every beat. Out here it also takes page ink rather than
+   * stage ink, like the hint and the CTA below it.
+   */
+  stationLines?: ReactNode;
   /**
    * Station-to-station controls (P13.S11): the keyboard's equivalent of a
    * scroll gesture, for an animation that is otherwise pointer-only.
@@ -458,12 +475,18 @@ const SCENE_BY_ID = scenePartById();
  * of either would have caught, because each is correct on its own.
  *
  * So the finale crossfades over the chapter: as the mix rises the chapter's
- * contribution falls away and the parking position takes over. It returns to
- * zero by p=1, which is Gate B -- the exploded catalogue is the climax, and
- * the car the visitor scrolls away from is whole again.
+ * contribution falls away and the parking position takes over.
+ *
+ * **And then it stays at 1** (P14.S5). It used to fall back to zero by p=1 --
+ * Gate B, "the exploded catalogue is the climax, not the resting state". The
+ * owner reversed that on 2026-09-07; see `heroLayout.FINALE_BEAT` for the
+ * decision and its consequences. Nothing here needs a direction test to honour
+ * "re-dock only on upward scroll below 0.86": the mix is a plain monotonic
+ * function of progress, so scrolling back up through the 0.86..0.90 ramp
+ * un-blends it by the same arithmetic that blended it in.
  */
 function useFinaleMix(progress: MotionValue<number>) {
-  return useTransform(progress, [...FINALE_BEAT], [0, 1, 1, 0]);
+  return useTransform(progress, [...FINALE_BEAT], [0, 1, 1]);
 }
 
 /**
@@ -568,8 +591,10 @@ export function HeroStage({
   lead,
   callouts,
   bloom,
+  leaders,
   finale,
   manifest,
+  stationLines,
   steps,
 }: Props) {
   const reduceMotion = useReducedMotion();
@@ -766,6 +791,11 @@ export function HeroStage({
                   square -- up to 40px off, and close enough to look right in a
                   screenshot. */}
                 {bloom}
+                {/* Above every sprite rather than behind them: a leader that
+                    passes under the car it points at is a leader with a gap in
+                    it. The dot is small enough (CALLOUT_DOT) that sitting on
+                    top of its own part reads as marking it. */}
+                {leaders}
               </div>
             </HeroCamera>
             {/* Outside the camera, deliberately: a caption in canvas space is
@@ -788,6 +818,7 @@ export function HeroStage({
               the parts" after the last chapter had played and the car had
               re-docked -- the audit's first finding names it. It is beat 0 now:
               shown until the first part moves, then never again. */}
+          {stationLines}
           <p
             // Outside the stage box, so it takes page-theme ink rather than
             // stage ink -- same for the finale CTA and the station buttons

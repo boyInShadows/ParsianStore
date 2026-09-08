@@ -125,13 +125,25 @@ function ManifestRow({
           // h-12 w-12, not h-10: `h-10` is off the replaced spacing scale and
           // generates no CSS at all, so the image falls back to `height:auto`
           // and the piston rendered 118px tall inside a 48px row.
-          className="h-12 w-12 flex-none object-contain"
+          //
+          // `manifest-thumb` is the ghosting hook (P14.S5): before the part has
+          // checked in the row shows its NAME and not its picture, and the
+          // thumbnail is what fades up when the part arrives. It keeps its box
+          // the whole time, so the row's height never changes.
+          className="manifest-thumb h-12 w-12 flex-none object-contain"
         />
-        <span className="text-body-sm lg:flex-1">{name}</span>
+        <span className="manifest-name text-body-sm lg:flex-1">{name}</span>
         {/* The half that arrives when the part does. A ghosted row is a line on
             a blank job card -- the part's name, nothing filled in yet -- and
             checking in fills the rest. Grouped in one element so the fade is
-            one transition rather than several that can drift apart. */}
+            one transition rather than several that can drift apart.
+
+            That description was written at P13.S4 and was not true until
+            P14.S5: the ROW itself was `opacity: 0` until its part checked in,
+            so an un-checked row was not a ghosted line, it was a blank slot,
+            and the card read as empty for the whole first screen. See
+            globals.css for what a ghosted row is now, and for why "40%" from
+            the plan is a token rather than an opacity. */}
         <span className="manifest-detail flex items-center gap-3">
           <span className="hidden font-mono text-caption text-text-muted lg:inline">
             {entry.system}

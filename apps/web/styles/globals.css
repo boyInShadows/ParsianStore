@@ -89,15 +89,37 @@
      with reduced motion, never gets that attribute and reads the finished list
      (fableTasks2 §2.3). Written the other way round -- hidden by default,
      revealed by JS -- the same markup would be an empty panel for both. */
-  .manifest-list[data-choreographed] .manifest-row {
-    opacity: 0;
-    /* Transform and opacity only, and 16px is `REVEAL_TRAVEL_PX` from
-       lib/motion-tokens.ts -- the same distance every other reveal on this
-       page travels, against a 24px budget. */
-    transform: translateY(16px);
-    transition:
-      opacity var(--duration-base) var(--ease-out),
-      transform var(--duration-base) var(--ease-out);
+  /* ## A ghosted row, not a blank slot (P14.S5)
+
+     This rule used to be `opacity: 0` on the whole row, and P13.S4's own
+     comment beside it described a "ghosted row" that did not exist: at rest the
+     card rendered *empty*, nine invisible rows holding their height under a
+     heading and a counter. P14.S3 had just spent the first screen's budget
+     getting that card above the fold, so half of that step's win was being
+     thrown away on the frame everybody sees.
+
+     An un-checked row now renders its NAME and nothing else. The list reads as
+     a list from the first paint, its height is unchanged, and check-in still
+     has something to do -- the picture, the system code and the count arrive
+     with the part, which is what makes the card read as being written rather
+     than revealed.
+
+     ## Why the ghost is a token and not "40%"
+
+     The plan asked for 40% opacity. Measured rather than assumed: --text at
+     0.4 over --bg composites to 2.47:1 in the light theme and 3.35:1 in the
+     dark one, both under 1.4.3's 4.5:1 -- and this text is inside a link, so
+     none of the incidental-text exemptions apply. A ghost that fails AA is not
+     a ghost, it is a defect with a design rationale.
+
+     --text-muted is the same intent expressed in a colour the token suite
+     already proves (lib/design-tokens.ts asserts it against --bg and
+     --surface), and the rest of the "40%" reading is bought where contrast has
+     nothing to say: the thumbnail is a decorative image with an empty `alt`, so
+     it can be as faint as it likes. */
+  .manifest-list[data-choreographed] .manifest-name {
+    color: var(--text-muted);
+    transition: color var(--duration-base) var(--ease-out);
   }
 
   /* Rows accumulate: a row that has checked in stays checked in, because the
@@ -106,24 +128,39 @@
      Per row as of P13.S4, keyed off `data-checked` rather than the nine
      chapter-pair selectors this replaced. Those grouped three rows onto one
      beat, so chapter 1's whole block arrived while only the headlights were
-     moving -- the list said three parts had come off while one had. */
-  .manifest-list[data-choreographed] .manifest-row[data-checked] {
-    opacity: 1;
-    transform: none;
+     moving -- the list said three parts had come off while one had.
+
+     `inherit`, not `--text`: the name takes the anchor's colour, so the hover,
+     focus and highlight states below keep working through it instead of being
+     overridden by a rule that is more specific than any of them. */
+  .manifest-list[data-choreographed] .manifest-row[data-checked] .manifest-name,
+  .manifest-list[data-choreographed] .manifest-row:hover .manifest-name,
+  .manifest-list[data-choreographed] .manifest-row:focus-within .manifest-name,
+  .manifest-list[data-choreographed] .manifest-row[data-highlight] .manifest-name {
+    color: inherit;
   }
 
-  /* A ghosted row is a line on a blank job card: the part's name, and nothing
-     filled in beside it. The code, the count and the action arrive with the
-     part, which is what makes the list read as being written rather than
-     revealed. Never `display: none` -- the row has to hold its height or every
-     check-in would shift the nine below it. */
+  /* The two halves that actually arrive with the part. The travel is
+     `--reveal-travel`, the same distance every other reveal on this page moves,
+     and it is on these rather than on the row: a ghosted row is already in its
+     final position, so sliding it would move a line of text the visitor is
+     reading.
+
+     Never `display: none` on either -- the row has to hold its height or every
+     check-in would shift the eight below it. */
+  .manifest-list[data-choreographed] .manifest-thumb,
   .manifest-list[data-choreographed] .manifest-detail {
     opacity: 0;
-    transition: opacity var(--duration-base) var(--ease-out);
+    transform: translateY(var(--reveal-travel));
+    transition:
+      opacity var(--duration-base) var(--ease-out),
+      transform var(--duration-base) var(--ease-out);
   }
 
+  .manifest-list[data-choreographed] .manifest-row[data-checked] .manifest-thumb,
   .manifest-list[data-choreographed] .manifest-row[data-checked] .manifest-detail {
     opacity: 1;
+    transform: none;
   }
 
   /* The counter shows one of its pre-rendered values.
@@ -147,6 +184,8 @@
   }
 
   @media (prefers-reduced-motion: reduce) {
+    .manifest-list .manifest-name,
+    .manifest-list .manifest-thumb,
     .manifest-list .manifest-detail {
       transition: none !important;
     }
@@ -313,6 +352,20 @@
     animation: hero-sweep 1600ms var(--ease-out) 300ms 1 forwards;
   }
 
+  /* And once more as each station opens (P14.S5 item 7).
+
+     Same gradient, same mask, shorter: the arrival is an event and a chapter
+     change is punctuation, so 900ms rather than 1600 and no delay. Setting the
+     attribute replaces the load animation rather than stacking on it, which is
+     why this is one `animation` shorthand and not a second layer.
+
+     `StageNarration` re-triggers it by removing the attribute, forcing a
+     reflow and re-adding -- a CSS animation does not restart on an attribute
+     change alone. Four times per track, on the frame a chapter opens. */
+  .hero-sweep[data-sweep] {
+    animation: hero-sweep 900ms var(--ease-out) 1 forwards;
+  }
+
   @keyframes hero-sweep {
     0% {
       background-position: 100% 0;
@@ -331,7 +384,12 @@
   }
 
   @media (prefers-reduced-motion: reduce) {
-    .hero-sweep {
+    /* Both the load pass and the per-station one (P14.S5): the attribute is
+       never written under reduced motion anyway -- `StageNarration` returns
+       early -- but a rule that only covered the bare selector would be one
+       `!important`-free override away from letting it through. */
+    .hero-sweep,
+    .hero-sweep[data-sweep] {
       animation: none;
       opacity: 0;
     }
@@ -410,6 +468,92 @@
     display: block;
   }
 
+  /* ## The anchor dot and its leader (P14.S5)
+
+     The half of "anchor the narrator" the geometry allows: the plate above
+     stays in its fixed stage-space slot, and the *connection* is drawn in
+     canvas space instead -- a dot on the detached part and a hairline from it
+     to the plate. See `PartCallout.PartLeaders` for why the text cannot follow
+     the dot into the camera, and `heroScene.leaderTarget` for where the far end
+     of the line is.
+
+     The SVG covers the whole square frame, so its viewBox units ARE canvas
+     pixels and the anchors go in unconverted. `display` rather than opacity for
+     the same reason the plates use it: an SVG left in the layer at zero opacity
+     is ten more elements the compositor keeps alive on a route already over its
+     TBT budget. */
+  .hero-leader {
+    position: absolute;
+    inset: 0;
+    display: none;
+    width: 100%;
+    height: 100%;
+    overflow: visible;
+    pointer-events: none;
+    /* Above every sprite. Sprites take z-index 2..10 (ENGINE_PART_Z upward),
+       and a leader that runs under the car it points at reads as broken. */
+    z-index: 20;
+  }
+
+  .hero-leader[data-shown] {
+    display: block;
+  }
+
+  /* --stage-link, not --brand, and for the reason recorded on the plate below:
+     the stage keeps its dark ground in both themes, and --brand flips. This is
+     the same blue the plate's own link takes, so the dot, the line and the
+     «مشاهده ←» read as one thing. */
+  .hero-leader-line {
+    fill: none;
+    stroke: var(--stage-link);
+    /* `vector-effect: non-scaling-stroke` is on the element, so this is a real
+       CSS pixel at every camera scale. A leader that thickened by 35% during
+       chapter 1's push-in would read as a highlight, not as a pointer. */
+    stroke-width: 1;
+    /* `pathLength="1"` on the element normalises the dash to the line's own
+       length, so every leader draws in the same time however far its part sits
+       from its plate. */
+    stroke-dasharray: 1;
+    stroke-dashoffset: 1;
+  }
+
+  .hero-leader[data-shown] .hero-leader-line {
+    animation: hero-leader-draw var(--duration-slow) var(--ease-out) forwards;
+  }
+
+  @keyframes hero-leader-draw {
+    to {
+      stroke-dashoffset: 0;
+    }
+  }
+
+  .hero-leader-dot {
+    fill: none;
+    stroke: var(--stage-link);
+    stroke-width: 1;
+  }
+
+  .hero-leader[data-shown] .hero-leader-dot {
+    animation: hero-leader-dot var(--duration-base) var(--ease-out) backwards;
+  }
+
+  @keyframes hero-leader-dot {
+    from {
+      opacity: 0;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    /* No draw-on, and no leader at all: reduced motion renders the docked
+       composite (HeroStage's DockedLayer) and StageNarration shows no caption,
+       so there is neither a detached part to mark nor a plate to point at. The
+       job card beside the stage is the accessible copy of this content, forced
+       fully visible for exactly these visitors. */
+    .hero-leader {
+      display: none !important;
+    }
+  }
+
   /* Beat 0's narration, in the stage rather than above it (P14.S3).
 
      It was a page paragraph between the subline and the stage, and at 1440x900
@@ -461,6 +605,32 @@
   }
 
   .hero-hint[data-shown] {
+    visibility: visible;
+  }
+
+  /* The narrator's line, one per station (P14.S5). See `PartCallout`'s
+     `StationLines` for why all five are in the DOM and only one is visible.
+
+     A single grid cell holding all of them: the container is as tall as the
+     LONGEST line at whatever width it is being read, so changing which line
+     shows never moves the hint, the finale CTA or the station buttons below it.
+     No measurement, no reserved line count, and it stays correct when the copy
+     is rewritten. */
+  .hero-stations {
+    display: grid;
+    text-wrap: pretty;
+  }
+
+  .hero-station {
+    grid-area: 1 / 1;
+    /* `visibility`, not `display`: a hidden line still has to contribute its
+       height to the grid, which is the whole mechanism. It also drops out of
+       the accessibility tree, so a screen reader reads the one showing rather
+       than all five. */
+    visibility: hidden;
+  }
+
+  .hero-station[data-shown] {
     visibility: visible;
   }
 

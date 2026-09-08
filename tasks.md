@@ -1484,7 +1484,14 @@ All ten tags were renumbered before any work began.
 - **The finale holds exploded.** Reverses "Gate B" (`heroLayout.ts:632`), which
   three assertions pin — `e2e/landing-hero.spec.ts:515`, `:534`, `:786`. Those
   get **rewritten to assert the new ending, never deleted.** Settled 2026-09-07;
-  do not re-litigate.
+  do not re-litigate. **Shipped at S5.** `FINALE_BEAT` is now a three-value beat
+  `[re-dock threshold, fully exploded, end of track]` and its docstring carries
+  the reversal, by whom and when, so a future reader cannot read it as drift.
+  There were **four** pinned assertions, not three: P14.S4 added a fifth-hop
+  spring check ("the story still ends as a whole car once the spring has
+  settled") that pinned the same promise. All four were rewritten, plus one
+  added — the finale has to *un-blend* on the way back up, and "holds" and
+  "is stuck" are indistinguishable to every other assertion in the file.
 - **Shared type scale vs. a landing-only fork — OPEN.** `display-1`/`h1`/`h2`
   are shared with cart, checkout and `PageHeader`. S1 does not start until this
   is answered.
@@ -1547,9 +1554,19 @@ were verified to fail against the old sort. Reviewed: zero findings.
 - **`/` overflows 5px at 390** — `scrollWidth` 395 vs 390, from the vehicle
   selector `#driver-path` (`FindMyPart.tsx:60`) rendering 378px wide at
   `left:-5`. Clean at 412 and 1440, which is why it survived. → **S6**
-- **The finale collides on mobile.** At 390 the bumper overlaps headlight-left
-  by ~11px and headlight-right by ~5px. No `finaleMobile` parking table exists.
-  → **S5.4**
+- ~~**The finale collides on mobile.**~~ **Closed at S5 as not-a-bug**, with
+  the arithmetic in `heroScene.test.ts` ("overlaps only where a clipped
+  sprite's box is bigger than its pixels"). Two problems with the finding: the
+  finale has *no width dependence* — every parked position is a percentage of
+  the 1024² canvas, so 390 and 1440 render the same layout and a `finaleMobile`
+  table would have nothing different to say — and what overlaps is the
+  headlights' **element box**, not their pixels. They are one 231-wide render
+  drawn twice and clipped to a 28px and a 34px lens, and
+  `getBoundingClientRect` returns the box. Reproduced exactly: 39.7 and 18.8
+  canvas pixels of box overlap, which at 390 (0.3217 CSS px per canvas px) is
+  **12.8px and 6.0px** — the audit's ~11 and ~5. The visible rectangles clear
+  each other by more than `FINALE_CLEARANCE` in every pair, which
+  `heroScene.test.ts` has asserted since P13.S1.
 - **The desktop fold was never re-measured.** The mobile claim was refuted; the
   1440 one is still untested. Measure before S3 rather than building to it.
 - **A cosmetic highlight-bar defect at mobile widths**, deliberately not fixed:

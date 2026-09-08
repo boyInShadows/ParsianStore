@@ -7,7 +7,9 @@ import {
   HERO_CANVAS,
   HERO_ENGINE_CHAPTER,
   HERO_ENGINE_PARTS,
+  HERO_FRAME_WIDTH_PCT,
   HERO_LAYERS,
+  HERO_STAGE_ASPECT,
   HERO_VISIBLE_ROWS,
   type HeroClip,
   type HeroLayer,
@@ -331,4 +333,32 @@ export function sceneParts(): readonly ScenePart[] {
 /** The scene keyed by id, for the components that look a single part up. */
 export function scenePartById(): ReadonlyMap<string, ScenePart> {
   return new Map(sceneParts().map((part) => [part.id, part]));
+}
+
+/**
+ * A point in STAGE space, in canvas coordinates.
+ *
+ * The inverse of `cameraRig.toStageX` / `toStageY`, and it exists for the
+ * leader line (P14.S5). The caption plate lives in stage space and the anchor
+ * dot lives in canvas space, so a line joining them has to be expressed in one
+ * of the two -- and it has to be canvas, because the dot is the end that must
+ * stay glued to its part while the camera moves.
+ *
+ * Both mappings run through the same two constants the frame is drawn from, so
+ * a retuned `HERO_FRAME_WIDTH_PCT` moves the plate's target with the frame
+ * instead of leaving the line pointing at where the plate used to be. Sanity
+ * checks, asserted in `heroScene.test.ts`: (0.5, 0.5) is the canvas centre, and
+ * stage y 0 and 1 are exactly `HERO_VISIBLE_ROWS`.
+ */
+export function stageToCanvas(x: number, y: number): { readonly x: number; readonly y: number } {
+  const frameW = HERO_FRAME_WIDTH_PCT / 100;
+  // The frame is square, so its height as a fraction of the STAGE is its width
+  // fraction times the stage's aspect. Conflating the two axes here is the same
+  // mistake `cameraRig` calls out on the way in: one canvas pixel is a
+  // different fraction of the stage horizontally and vertically.
+  const frameH = frameW * HERO_STAGE_ASPECT;
+  return {
+    x: ((x - (1 - frameW) / 2) / frameW) * HERO_CANVAS,
+    y: ((y - (1 - frameH) / 2) / frameH) * HERO_CANVAS,
+  };
 }
