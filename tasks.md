@@ -1467,7 +1467,7 @@ than suspected. Ordered by how much it would cost to discover later.
 - **Measure `/`, never `/fa`.** `fa` is the default locale with `as-needed`
   prefixing, so `/fa` 307-redirects — worth ~0.6s of apparent LCP.
 
-## Phase 14 — mobile-first landing, typography, real light mode, hero pacing — ACTIVE, opened 2026-09-07
+## SHIPPED — Phase 14: mobile-first landing, typography, real light mode, hero pacing — closed 2026-09-08
 
 Step-level plan of record: **`fableTasks.md`** at the root (Fable, round 3),
 **tracked this time** rather than deleted at close. Read its **§0.5 CTO
@@ -1478,6 +1478,110 @@ Ten steps, S0–S9, landing route only (owner's scope call). Numbered 14 because
 **Phase 12 closed 2026-09-05 and Phase 13 is still open** — the plan arrived
 tagged `[P12.Sn]`, which would have collided silently with shipped commits.
 All ten tags were renumbered before any work began.
+
+### Shipped, in order
+
+| Step | Commit | What |
+|---|---|---|
+| S0 | `7de56a6` `30d0b0e` | evidence harness, the TBT ledger, the outsider's brief |
+| S1 | `6088380` | one family, Persian metrics — `display-1` lh 1.10→1.30, tracking −1.12px→0 |
+| S6a | `1012fcb` | the 5px/35px horizontal overflow at phone widths |
+| S2 | `f4f0fd5` | a light mode that is actually light; the stage a dark plate on purpose |
+| S7 | `66cf434` | enter-on-view reveals that fail **open**; the marquee seam |
+| S3 | `24f5a5f` | the job card reaches the first screen at every width |
+| S4 | `c3ff146` | smoothed scrub, station snapping, an explicit tour |
+| S5 | `d8b4ecf` | ghosted rows; the finale holds exploded (Gate B reversed) |
+| S6 | `43156c0` | the phone pass — two-row header, drawer, disclosures, footer |
+| S8 | `dfe24bf` | the «استادکار» voice, and `docs/voice.md` |
+| S9 | `0ee3a0a` | polish, and nine baselines that were about to lie |
+
+Final gate: **lint · typecheck · 755 unit tests · 151/151 e2e · clean build** — all
+green. Route JS **200 kB** (see the open item below).
+
+### Eight of the plan's premises did not survive verification
+
+Recorded because the pattern repeated at *every* step, and the next external
+plan should be read the same way:
+
+1. **The car is below the fold on mobile.** It is not — the car sits y546–663 at
+   390×844. The **job card** is what falls off, at y888.
+2. **…and on desktop.** Also no: 75.6% visible at 1440, past the plan's own ≥60%
+   bar. The lever was `max-w-4xl` forcing the H1 to two lines.
+3. **`#authenticity` is dark in light mode.** It was already light. "Fixing" it
+   would have broken it. `#trust-strip` *was* dark and the plan omitted it.
+4. **Section 05 is missing.** Numbering is contiguous 01–09; not reproducible.
+5. **Nothing below the hero animates in.** `Reveal` shipped in P1.S8 and every
+   section already used it — a DOM query returns zero because the reveals are
+   `once:true` and had already fired. The **grids** were what lacked it.
+6. **Three of the four dwell points.** Spec 0.24/0.52/0.76/0.95 vs derived
+   0.18/0.51/0.83/0.93. Snapping to the spec's numbers parks the visitor on a
+   part **in flight** — the one thing a dwell point prevents.
+7. **The finale collides on mobile.** The finale has no width dependence at all
+   (percentages of a 1024² canvas), and what "overlaps" is the headlights'
+   **element box**: one render drawn twice and clipped to a 28px and a 34px lens,
+   so `getBoundingClientRect` returns the uncropped box. The audit's ~11px and
+   ~5px reproduce exactly from the boxes; the visible rectangles clear.
+8. **The job-card counter should say ten.** Nine is correct and test-pinned — the
+   windshield has a callout and no row because there is no glass route.
+
+Also invented and not built: a mobile parking table, `docs/deferred.md`,
+`?featured=true`, and a «برندها» nav item pointing at a `/brand` index route that
+does not exist.
+
+### Bugs found that were in no plan
+
+- **`.hero-callout-go` at 2.51:1** — the "see the part" link has been unreadable
+  in light mode since the callouts shipped. Invisible because only dark-theme
+  screenshots were ever taken.
+- **The callout plate's focus border at 2.86:1** — a live WCAG 2.2 SC 1.4.11
+  failure, reported to the CTO as a passing 3.65:1. The guard test written to
+  protect that margin is what proved the number wrong.
+- **A scrim that never existed** — `via-graphite-950/70` emits **no CSS**; a
+  Tailwind opacity modifier on an opaque `var()` colour produces nothing.
+- **The beat-0 caption never rendered at rest.** `useMotionValueEvent` fires only
+  on change, so the one frame every visitor sees was blank.
+- **…and fixing that dimmed the whole car**, because `__hint` is a beat with no
+  sprite, so the focus rule engaged with nothing exempt.
+- **The camera cropped the held finale** — an undocumented dependency of the Gate
+  B reversal.
+- **`restDelta` would have skipped the last 12.8px of the story** — motion's
+  default on a 160rem track.
+- **The tour leaked listeners and suppressed snapping for ~15s** after the Stop
+  button, and **Next/Previous lost a scroll fight** with it.
+- **The drawer reopened itself on forward navigation.**
+- **The mobile job card never auto-scrolled** — guarded on a class no element
+  carries, dead since the P13.S7 merge.
+- **`Select`'s `pe-9` emitted no CSS**, so the chevron sat on the option text.
+- **The footer's last 64px lived under the fixed bottom nav** — `pb-16` was on
+  the content div and the footer is its sibling.
+- **The reveals fail-closed**, caught in review: sections server-rendered at
+  `opacity: 0` with no recovery if hydration died. Now inverted — a pre-paint
+  script opts *into* hiding and a watchdog inside it disarms at 2s.
+- **Nine baselines nearly regenerated blank** — eight sections at `opacity: 0`,
+  caught only by opening the PNGs. A blank baseline compares clean forever.
+
+### Open, for the owner
+
+- **Route JS is 200 kB against a 193 kB gate** (197 was the accepted line). The
+  true cost of S9's controls is 266 bytes gzipped; the rest accumulated across
+  the phase. Needs a decision or a recovery step — not a rebaseline.
+- **TBT ~306 ms against 200 ms.** The attribution found **692 of ~936 ms is Style
+  & Layout recalculation, not script** — this is hydration layout cost, so
+  shaving bundles aims at the wrong target.
+- **Naming the visitor's car** is free in JS (the garage is already a cookie) but
+  `cookies()` turns the SSG landing route fully dynamic and PPR is not enabled.
+  An architecture call.
+- `.evidence-code` has become two contracts — a 45-char verification code and a
+  short stamped identifier; three of four call sites are the second. Wants a
+  split.
+- `Landing.beats.closing.support.hoursPending` is now misnamed for the honest
+  line it holds.
+- The footer tagline has nowhere to live — there is no `Footer` namespace and no
+  wordmark element.
+- `WishlistButton` still pairs `aria-pressed` with a label that flips; the
+  ThemeToggle precedent is fixed, that one is not.
+- Two trust-strip titles at 32 chars will likely wrap on the desktop four-column
+  row. Cosmetic.
 
 ### Owner decisions
 
