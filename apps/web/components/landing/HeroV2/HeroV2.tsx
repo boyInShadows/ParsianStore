@@ -173,6 +173,8 @@ export async function HeroV2() {
               <StageSteps
                 next={tManifest("stepNext")}
                 previous={tManifest("stepPrevious")}
+                nextAria={tManifest("stepNextAria")}
+                previousAria={tManifest("stepPreviousAria")}
                 tour={tManifest("tour")}
                 tourStop={tManifest("tourStop")}
               />

@@ -1,6 +1,7 @@
 "use client"; // moves the scroll position, which only exists in the browser
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { createPortal } from "react-dom";
 import { useReducedMotion } from "motion/react";
 import { CHAPTER_RANGE, CHAPTER_SEQUENCE, beatFor } from "./heroLayout";
 import { heroStations, stationScrollTop } from "./heroStations";
@@ -51,14 +52,50 @@ function easeInOut(t: number): number {
   return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
 }
 
+/**
+ * What every control in here shares: the hover ink and the focus ring.
+ *
+ * Factored out because the row below the stage and the pair on it differ only
+ * in shape and ground -- and because a route already over its JS budget should
+ * not ship the same 120-character class list twice (P14.S9).
+ */
+const INTERACTIVE =
+  "transition-colors hover:border-brand hover:text-brand focus-visible:outline focus-visible:outline-2 focus-visible:outline-focus motion-reduce:transition-none";
+
+/**
+ * The stage box, for `useSyncExternalStore` below.
+ *
+ * The store never changes: the stage is server-rendered and lives as long as
+ * the hero does, so there is nothing to subscribe to and the "external system"
+ * being read is simply the document. Module scope so the three functions keep
+ * one identity for the component's lifetime.
+ */
+const SUBSCRIBE_NEVER = () => () => {};
+const readStage = () => document.querySelector<HTMLElement>("#hero .hero-stage");
+const readStageOnServer = () => null;
+
 export function StageSteps({
   next,
   previous,
+  nextAria,
+  previousAria,
   tour,
   tourStop,
 }: {
+  /** Visible text of the desktop pair; carries the arrow glyph. */
   next: string;
   previous: string;
+  /**
+   * The same two actions without the arrow, as a NAME rather than as copy.
+   *
+   * The arrow is a picture of the direction, and a name is not the place for a
+   * picture: a screen reader reads «←» aloud -- "leftwards arrow", or nothing,
+   * depending on which one and at what verbosity -- so baking it into the
+   * string made the round buttons below announce as "قدم بعدی, leftwards
+   * arrow". These strings are what both shapes are NAMED; the arrow stays
+   * visible, and stays visible only. */
+  nextAria: string;
+  previousAria: string;
   /** Accessible name for the auto-play control. */
   tour: string;
   /** ...and for the same control while it is playing, which stops it. */
@@ -69,6 +106,28 @@ export function StageSteps({
   const [touring, setTouring] = useState(false);
   const frame = useRef(0);
   const tourButtonRef = useRef<HTMLButtonElement>(null);
+
+  /**
+   * The stage box, so the mobile pair can be rendered INTO it (P14.S9).
+   *
+   * A portal rather than a second `StageSteps` instance, and the reason is the
+   * tour: `go` has to stop a tour that the button below the stage started, and
+   * two instances would have two `touring` states and two `tourCleanup` refs.
+   * One component, one teardown -- the invariant the ref above exists to
+   * protect -- rendered in two places.
+   *
+   * `document.querySelector` rather than a ref threaded down from `HeroStage`:
+   * the stage is rendered by a Server Component's client child and this is a
+   * sibling slot, so there is no shared ref to thread.
+   *
+   * `useSyncExternalStore` rather than an effect that calls `setState`: the DOM
+   * is exactly the "external system" it is for, the server snapshot is `null`
+   * so the portal simply does not exist in the server render, and it avoids the
+   * cascading render an effect-then-setState costs on a route this size. The
+   * snapshot is stable by construction -- `querySelector` hands back the same
+   * node object every call -- which is the one thing this hook requires.
+   */
+  const stage = useSyncExternalStore(SUBSCRIBE_NEVER, readStage, readStageOnServer);
 
   /**
    * Everything a running tour has to give back, held outside the closure that
@@ -283,17 +342,80 @@ export function StageSteps({
 
   if (reduceMotion) return null;
 
-  const control =
-    "inline-flex min-h-12 items-center border border-border px-4 font-mono text-caption text-text-muted transition-colors hover:border-brand hover:text-brand focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus motion-reduce:transition-none";
+  const control = `inline-flex min-h-12 items-center border border-border px-4 font-mono text-caption text-text-muted ${INTERACTIVE} focus-visible:outline-offset-2`;
+
+  /**
+   * The mobile control: 44px, round, on the stage's own ground.
+   *
+   * `-outline-offset-2` (INSET), like `MobileNav`'s last row and for the same
+   * reason: these sit inside a box that is `overflow-x-clip`, so an outward
+   * ring on the corner buttons would be drawn into the clipped region and a
+   * keyboard visitor would lose the half of it that matters. Inset also keeps
+   * the ring inside the circle rather than boxing it.
+   *
+   * Stage colours, not page colours: unlike the text row below the drawing,
+   * these are ON the dark plate at every theme (P14.S2), so `--border` and
+   * `--text-muted` would be a light-mode control painted on a dark ground.
+   */
+  const stageControl = `inline-flex h-tap w-tap items-center justify-center rounded-full border border-stage-border bg-stage text-stage-text-muted ${INTERACTIVE} focus-visible:-outline-offset-2`;
+
+  /**
+   * «قدم قبلی» then «قدم بعدی», in the page's reading order.
+   *
+   * `label` is what is drawn, `name` is what is announced. They differ by the
+   * arrow glyph and by nothing else -- which is the one case where overriding
+   * a button's visible text with `aria-label` is right rather than a smell:
+   * every word a sighted visitor reads is still in the name, so a voice-control
+   * visitor saying what they see still hits the button (WCAG 2.5.3). The arrows
+   * stay in the copy because they are doing sighted work -- two adjacent
+   * text-only buttons in an RTL row, where the arrow says which way the page
+   * will move before the words are read, and where the CSS chevrons on the
+   * mobile pair were drawn to mirror them (`globals.css`, `.hero-stage-nav`).
+   */
+  const pair = [
+    { direction: -1, label: previous, name: previousAria },
+    { direction: 1, label: next, name: nextAria },
+  ] as const;
 
   return (
     <div className="flex flex-wrap items-center gap-2 motion-reduce:hidden">
-      <button type="button" onClick={() => go(-1)} className={control}>
-        {previous}
-      </button>
-      <button type="button" onClick={() => go(1)} className={control}>
-        {next}
-      </button>
+      {/* The pair the desktop keeps. Hidden below `lg`, where the portal below
+          renders the same two actions in the stage's bottom corners -- only one
+          of the two is ever in the document's layout or its accessibility tree,
+          so the duplicate names cannot collide. */}
+      {pair.map(({ direction, label, name }) => (
+        <button
+          key={direction}
+          type="button"
+          onClick={() => go(direction)}
+          aria-label={name}
+          className={`${control} hidden lg:inline-flex`}
+        >
+          {label}
+        </button>
+      ))}
+      {stage
+        ? createPortal(
+            // `dir="rtl"` inside a `dir="ltr"` stage: the buttons are chrome,
+            // not canvas coordinates, so «قدم قبلی» takes the start corner the
+            // page's own direction gives it -- the right-hand one -- and the
+            // drawn chevrons, whose borders are logical, point the way the row
+            // already reads. They are the only arrows here: these buttons are
+            // named, not labelled, and a name has no room for a picture.
+            <div className="hero-stage-nav lg:hidden" dir="rtl">
+              {pair.map(({ direction, name }) => (
+                <button
+                  key={direction}
+                  type="button"
+                  onClick={() => go(direction)}
+                  className={stageControl}
+                  aria-label={name}
+                />
+              ))}
+            </div>,
+            stage,
+          )
+        : null}
       {/* One button, two states, rather than a play button that becomes inert
           while it plays. A control that starts something it cannot stop is a
           trap for a keyboard visitor, and `disabled` would move focus off it
