@@ -3,6 +3,7 @@
 import { useEffect, useRef } from "react";
 import { useMotionValueEvent, useReducedMotion } from "motion/react";
 import { CHAPTER_RANGE, CHAPTER_SEQUENCE, FINALE_BEAT, beatFor, coverOf } from "./heroLayout";
+import { stationPlayingAt, type HeroStation } from "./heroStations";
 
 import { calloutSubjectByLayerId } from "./manifestData";
 import { useHeroScroll } from "./HeroScrollProvider";
@@ -51,10 +52,25 @@ const HINT_ID = "__hint";
  * the ≤12-changes-per-value budget S13 sets, since each individual element is
  * touched twice. No layout is read, so nothing here can force a reflow.
  */
-export function StageNarration() {
+export function StageNarration({
+  stations,
+}: {
+  /**
+   * What to say when the scene reaches each station, already composed and
+   * already in Persian digits -- «ایستگاه ۲ · موتور و کاپوت» (P14.S4).
+   *
+   * Composed on the server and passed in, like `StageSteps`'s button labels:
+   * this is a Client Component, and a client-side `useTranslations` would ship
+   * the message bundle to a route that is over its JS budget to render four
+   * strings that never change.
+   */
+  readonly stations: Readonly<Record<HeroStation["id"], string>>;
+}) {
   const { progress } = useHeroScroll();
   const reduceMotion = useReducedMotion();
   const shown = useRef<string | null>(null);
+  const live = useRef<HTMLParagraphElement>(null);
+  const announced = useRef<HeroStation["id"] | null>(null);
 
   /**
    * The subject whose part is out at this scroll position, if any.
@@ -93,6 +109,32 @@ export function StageNarration() {
       return cover ? (byLayer.get(cover)?.id ?? null) : null;
     }
     return null;
+  };
+
+  /**
+   * Say which station the scene has reached -- **only when it changes**.
+   *
+   * An `aria-live` region on a scroll-linked animation is an accessibility
+   * *defect* if it is written on every frame: a screen reader would restart the
+   * announcement sixty times a second and say nothing intelligible, and it
+   * would do so while the visitor was trying to read something else. So the
+   * unit is the station, not the beat and not the part -- four announcements
+   * for the whole track, one as each scene opens, and none at all in the gaps
+   * between chapters (`stationPlayingAt` returns null there, and null means
+   * "say nothing", never "say something else").
+   *
+   * That is also why the region is not the caption element itself. The plates
+   * are shown and hidden by an attribute, ten of them, and browsers disagree
+   * about whether a visibility change inside a live region is an update worth
+   * announcing. One region whose text is written deliberately is a promise; ten
+   * plates toggling `data-shown` is a hope.
+   */
+  const announce = (value: number) => {
+    const station = stationPlayingAt(value);
+    if (!station || station.id === announced.current) return;
+    announced.current = station.id;
+    const node = live.current;
+    if (node) node.textContent = stations[station.id];
   };
 
   const show = (id: string | null) => {
@@ -170,7 +212,15 @@ export function StageNarration() {
     // `progress.get()` rather than 0: a reload restores the scroll position
     // before this mounts, so a visitor returning to mid-track must get the
     // caption for where they actually are.
-    else show(subjectAt(progress.get()));
+    else {
+      show(subjectAt(progress.get()));
+      // Seeded, deliberately SILENT. Writing the current station here would
+      // announce it on load -- and on a reload restored to mid-track, the first
+      // thing the visitor would hear is a caption for a scene they did not ask
+      // to be told about. Recording it without saying it means the next real
+      // change is the first thing spoken.
+      announced.current = stationPlayingAt(progress.get())?.id ?? null;
+    }
     return () => show(null);
     // `show` and `subjectAt` are re-created every render and close over
     // nothing that changes; `progress` is the provider's motion value, stable
@@ -182,7 +232,11 @@ export function StageNarration() {
   useMotionValueEvent(progress, "change", (value) => {
     if (reduceMotion) return;
     show(subjectAt(value));
+    announce(value);
   });
 
-  return null;
+  // `sr-only` is out of flow (`position: absolute`), so this renders no box and
+  // the hero column's `order-*` utilities are unaffected -- the same reason
+  // `StationOutline` needs no order of its own.
+  return <p ref={live} className="sr-only" role="status" aria-live="polite" aria-atomic="true" />;
 }

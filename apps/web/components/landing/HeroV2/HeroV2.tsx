@@ -1,4 +1,5 @@
 import { getTranslations } from "next-intl/server";
+import { toPersianDigits } from "schemas";
 import { HeroScrollProvider } from "./HeroScrollProvider";
 import { HeroStage } from "./HeroStage";
 import { HeadlightBloom, PartCallouts, StageFinale } from "./PartCallout";
@@ -44,6 +45,25 @@ import { StationOutline } from "./StationOutline";
 export async function HeroV2() {
   const t = await getTranslations("Landing.beats.hero");
   const tManifest = await getTranslations("Landing.manifest");
+
+  /**
+   * What the live region says at each station (P14.S4).
+   *
+   * Composed here rather than in the client leaf that speaks it: the numbers go
+   * through `toPersianDigits` (a station number is read as a number, so the
+   * digit policy puts it in Persian), and the names are the same
+   * `chapters.*` strings the sr-only outline already prints, so the outline and
+   * the announcement can never name the scene differently.
+   */
+  const stations = {
+    "1": tManifest("stationLive", { n: toPersianDigits(1), name: tManifest("chapters.1") }),
+    "2": tManifest("stationLive", { n: toPersianDigits(2), name: tManifest("chapters.2") }),
+    "3": tManifest("stationLive", { n: toPersianDigits(3), name: tManifest("chapters.3") }),
+    finale: tManifest("stationLive", {
+      n: toPersianDigits(4),
+      name: tManifest("finale.station"),
+    }),
+  } as const;
 
   return (
     <section id="hero" className="overflow-x-clip bg-bg text-text">
@@ -118,7 +138,7 @@ export async function HeroV2() {
               ordered independently, and DELIBERATELY still above the stage in
               source: this is the desktop order, where it belongs to the
               headline strip. Only the mobile `order-3` moves it, and it must
-              move rather than the stage: the track is `100vh + 72rem` tall, so
+              move rather than the stage: the track is `100vh + 96rem` tall, so
               anything ordered after it lands a whole screen and a half further
               down the page.
 
@@ -141,7 +161,14 @@ export async function HeroV2() {
             bloom={<HeadlightBloom />}
             finale={<StageFinale />}
             manifest={<PartsManifest />}
-            steps={<StageSteps next={tManifest("stepNext")} previous={tManifest("stepPrevious")} />}
+            steps={
+              <StageSteps
+                next={tManifest("stepNext")}
+                previous={tManifest("stepPrevious")}
+                tour={tManifest("tour")}
+                tourStop={tManifest("tourStop")}
+              />
+            }
           />
 
           {/* What the animation says, for anyone who cannot watch it (P13.S11).
@@ -149,12 +176,15 @@ export async function HeroV2() {
               place the page states the order the parts come off in. */}
           <StationOutline />
 
-          {/* Decides which caption is showing and which sprite is lit. Renders
-              no markup of its own, and sits outside the stage so the
-              server-rendered plates stay server-rendered: a Client Component
-              cannot render an async Server Component, but it can receive one as
-              a prop, which is what the slots above are. */}
-          <StageNarration />
+          {/* Decides which caption is showing and which sprite is lit, and
+              (P14.S4) speaks the station into an `aria-live` region as the
+              scene reaches it. Its only markup is that region, which is
+              `sr-only` and therefore out of flow, so it still needs no `order`.
+              It sits outside the stage so the server-rendered plates stay
+              server-rendered: a Client Component cannot render an async Server
+              Component, but it can receive one as a prop, which is what the
+              slots above are. */}
+          <StageNarration stations={stations} />
 
           {/* `order-4` for the same reason the subline carries one: an
               unordered flex item sorts ahead of every ordered one, which would

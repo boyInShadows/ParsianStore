@@ -176,10 +176,14 @@
       "counter": "{n} از {total}",
       "complete": "همه را داریم",
       "finale": {
+        "station": "همه قطعه‌ها، کنار هم",
         "cta": "مشاهده همه قطعه‌ها",
         "secondary": "خودرویم را انتخاب می‌کنم"
       },
       "stepNext": "قدم بعدی ←",
+      "tour": "نمایش خودکار ▶",
+      "tourStop": "توقف نمایش",
+      "stationLive": "ایستگاه {n} · {name}",
       "stepPrevious": "→ قدم قبلی",
       "stations": "ترتیب جدا شدن قطعه‌ها"
     },

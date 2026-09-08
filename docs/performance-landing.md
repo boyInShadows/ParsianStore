@@ -823,3 +823,58 @@ pass needed and is recording so the next one does not rediscover them:
 No dependency was added. No source file's behaviour changed — the six stub
 edits were written, measured, and reverted with `git checkout --` before
 the next one began; `git diff` on all six is confirmed empty.
+
+---
+
+# 2026-09-08 — P14.S4 (hero pacing) measured before and after
+
+Same recipe as every pass above: `rm -rf apps/web/.next` →
+`NEXT_PUBLIC_SITE_URL=http://localhost:3200 pnpm --filter web exec next build`
+→ `next start -p 3200` → Lighthouse mobile 360×640 DPR 2,
+`--throttling-method=devtools`, five runs, median. Measured on `/`, never
+`/fa` (which 307-redirects). API on :4000 with `RATE_LIMIT_DISABLED=true`,
+Postgres healthy — both confirmed before the first build.
+
+**Before** is HEAD (`24f5a5f`, P14.S3), not the 2026-09-07 attribution pass:
+S1, S2, S3 and S7 have all landed since that pass, so its 197 KB / 306 ms
+were no longer the baseline this step is answerable for. The seven touched
+files were restored to their HEAD contents for the baseline build and put
+back afterwards; `heroStations.ts` stayed on disk unimported, which puts it
+outside the bundle.
+
+| | Before (P14.S3) | After (P14.S4) | Δ |
+|---|---|---|---|
+| `/[locale]` route chunk | 58.8 kB | 61.5 kB | +2.7 kB |
+| `/[locale]` First Load JS | **197 kB** | **199 kB** | **+2 KB** |
+| TBT median of 5 | **284 ms** | **210 ms** | −74 ms |
+| TBT range | 145 – 394 ms | 149 – 408 ms | — |
+| LCP median | 1.95 s | 1.95 s | — |
+| CLS median | 0.034 | 0.034 | — |
+| Performance median | 0.92 | 0.95 | +0.03 |
+
+**Read the TBT honestly: the medians moved but the distributions did not.**
+Both sets span roughly 150–400 ms on this box, so a 74 ms median difference
+is inside the run-to-run noise the 2026-09-07 pass already documented
+(it measured the *same* `.next` at 678 ms and 306 ms depending only on CPU
+contention). The defensible claim is the negative one, and it is the one
+that matters: **adding the spring, the snap listener and the tour loop did
+not produce a measurable TBT regression.** The route is still over the
+200 ms gate on the median, as it was before.
+
+Two decisions are why the cost stayed at +2 KB and did not land on the
+main thread from first paint:
+
+- **Idle-drift was cut**, per the CTO amendment and this document's own
+  recommendation. It was the only one of S4's three pieces that animates
+  with no interaction, so it was the only one that would have taxed every
+  page load.
+- **The tour has no auto-start.** The plan's mobile auto-start would have
+  run a `requestAnimationFrame` scroll loop 2.5 s into every mobile visit,
+  which is the idle-drift cost in a different shape (and a WCAG 2.2.2
+  hazard besides). The button is user-initiated, so its loop only ever runs
+  for a visitor who asked for it.
+
+The +2 KB is the spring, `heroStations.ts` (four derived dwell points and a
+band test), the snap listeners, the tour's rAF loop and one `useState`.
+Route JS is now **199 KB against the owner-accepted 197 KB** — a 2 KB
+overage that should be spent back before the next client-JS step.

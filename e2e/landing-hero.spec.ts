@@ -368,7 +368,61 @@ async function scrollHeroTo(page: Page, fraction: number) {
     const travel = track.getBoundingClientRect().height - window.innerHeight;
     window.scrollTo(0, top + travel * f);
   }, fraction);
-  await page.waitForTimeout(300);
+  await settleHero(page);
+}
+
+/**
+ * Wait until the scene has stopped moving.
+ *
+ * It used to be `waitForTimeout(300)`, which was true while progress was the
+ * scrollbar itself: the transforms resolved in the same frame as the scroll and
+ * 300ms was pure superstition margin. P14.S4 puts a spring between the two, so
+ * a jump of the whole track now takes over a second to arrive and a fixed sleep
+ * is a coin toss -- one that lands as "the hero ends its scroll as a pile of
+ * panels", which is the exact wording of a real bug this suite exists to catch.
+ *
+ * So it waits for the thing it actually cares about: the sprites' boxes not
+ * moving. Nothing else in the stage animates on its own -- the finale's drift
+ * is driven by scroll position, not by time -- so four still frames means
+ * settled, and the deadline means a genuinely stuck scene fails as an assertion
+ * about position rather than as a hang.
+ *
+ * It returns how many sprites it was watching, and the caller asserts that it
+ * was watching some. "Every frame read the same thing" is trivially true of a
+ * selector that matches nothing: a markup refactor that renamed `.hero-stage`,
+ * or a hydration race that ran this before the sprites existed, would settle in
+ * four frames and make every assertion downstream of it vacuous.
+ */
+async function settleHero(page: Page) {
+  const sprites = await page.evaluate(async () => {
+    const read = () =>
+      [...document.querySelectorAll(".hero-stage img")]
+        .map((node) => {
+          const box = node.getBoundingClientRect();
+          return `${box.left.toFixed(2)},${box.top.toFixed(2)},${box.width.toFixed(2)}`;
+        })
+        .join("|");
+    const nextFrame = () => new Promise((resolve) => requestAnimationFrame(resolve));
+
+    let previous = read();
+    let still = 0;
+    const deadline = performance.now() + 4000;
+    while (performance.now() < deadline) {
+      await nextFrame();
+      const now = read();
+      still = now === previous ? still + 1 : 0;
+      previous = now;
+      if (still >= 4) break;
+    }
+    return document.querySelectorAll(".hero-stage img").length;
+  });
+  expect(
+    sprites,
+    "settleHero watched nothing — `.hero-stage img` matched no nodes",
+  ).toBeGreaterThan(0);
+  // The captions and the job card are CSS transitions on a data attribute, not
+  // transforms on the sprites, so they finish just after the geometry does.
+  await page.waitForTimeout(200);
 }
 
 /**
@@ -812,5 +866,389 @@ test.describe("the finale", () => {
       ).length;
     });
     expect(sharing, "the hero spends its one accent colour more than once").toBe(1);
+  });
+});
+
+/**
+ * Hero pacing (P14.S4): the spring, the soft snap and the tour.
+ *
+ * These are the tests the brief's §3.7 asks for by name -- "scroll-linked work
+ * needs at least one test that scrolls to a position and asserts where things
+ * ARE". A spring adds a hop to the transform graph, and both of the failure
+ * modes recorded there produce a *plausible* picture that is one frame stale.
+ * Nothing that checks "it moved" can see that. Only a reading taken at a known
+ * position, after the motion has stopped, can.
+ */
+test.describe("pacing", () => {
+  /** Where the hero is now, as a fraction of its own track. */
+  const progressOf = (page: Page) =>
+    page.evaluate(() => {
+      const track = document.querySelector(".hero-track")!;
+      const box = track.getBoundingClientRect();
+      const top = box.top + window.scrollY;
+      return (window.scrollY - top) / (box.height - window.innerHeight);
+    });
+
+  test("the track is longer than the viewport it pins, at both widths", async ({ page }) => {
+    // 100vh + 96rem on mobile, 100vh + 160rem from `lg` (P14.S4). Asserted as
+    // the *travel* rather than as a class string, because the travel is what
+    // every fraction in the scene is measured against -- and it is the number
+    // the owner feels as "slow and enjoyable".
+    for (const [width, height, rem] of [
+      [390, 844, 96],
+      [1440, 900, 160],
+    ] as const) {
+      await page.setViewportSize({ width, height });
+      await gotoHero(page);
+      const travel = await page.evaluate(() => {
+        const track = document.querySelector(".hero-track")!;
+        return track.getBoundingClientRect().height - window.innerHeight;
+      });
+      const root = await page.evaluate(() =>
+        parseFloat(getComputedStyle(document.documentElement).fontSize),
+      );
+      expect(travel, `${width}px track travel`).toBeGreaterThan(rem * root - 4);
+      expect(travel, `${width}px track travel`).toBeLessThan(rem * root + 4);
+    }
+  });
+
+  test("a flick plays the story through instead of teleporting", async ({ page }) => {
+    await gotoHero(page);
+    await scrollHeroTo(page, 0);
+    const docked = await partOffsets(page);
+
+    // Jump the whole track in one go, then read TWICE: once immediately, once
+    // after the scene has stopped. Without a spring both reads are identical.
+    await page.evaluate(() => {
+      const track = document.querySelector(".hero-track")!;
+      const box = track.getBoundingClientRect();
+      window.scrollTo(0, box.top + window.scrollY + (box.height - window.innerHeight) * 0.51);
+    });
+    const immediately = await partOffsets(page);
+    await settleHero(page);
+    const settled = await partOffsets(page);
+
+    // Mid-flight the engine chapter has not arrived...
+    expect(awayFrom(docked, immediately), "the scene teleported -- no smoothing").not.toEqual(
+      awayFrom(docked, settled),
+    );
+    // ...and when it lands, it lands exactly where a scrubbed scroll would put
+    // it: chapter 2's middle slot out, under an open hood, everything else on
+    // the car. This is the end-state assertion. If the spring had put any input
+    // of the finale blend a frame behind, this is where it would show.
+    expect(awayFrom(docked, settled).sort()).toEqual(["hood", "piston"].sort());
+  });
+
+  test("the story still ends as a whole car once the spring has settled", async ({ page }) => {
+    // The Gate B promise, re-asserted through the new hop. `restDelta` is the
+    // reason this is not vacuous: motion's default would let the spring call
+    // itself finished 0.005 of a track short, which at 160rem is 12.8px of
+    // scroll -- and "the car finished ~10px of scroll short of docked" is
+    // verbatim the symptom the last transform-graph bug produced.
+    await gotoHero(page);
+    await scrollHeroTo(page, 0);
+    const docked = await partOffsets(page);
+    await scrollHeroTo(page, 1);
+    expect(awayFrom(docked, await partOffsets(page))).toEqual([]);
+  });
+
+  test("a gesture that stops near a station settles onto it", async ({ page }) => {
+    await gotoHero(page);
+    // Park just inside the engine station's band, then hand the last few pixels
+    // to a real wheel gesture: the snap is armed by input, never by a scripted
+    // scroll, so a `scrollTo` alone must NOT move the page.
+    await scrollHeroTo(page, 0.51 - 0.03);
+    const before = await progressOf(page);
+    await page.waitForTimeout(600);
+    expect(await progressOf(page), "a scripted scroll armed the snap").toBeCloseTo(before, 3);
+
+    await page.mouse.move(200, 300);
+    await page.mouse.wheel(0, 40);
+    await page.waitForTimeout(1500);
+    expect(await progressOf(page), "the scroll did not settle onto the station").toBeCloseTo(
+      0.51,
+      2,
+    );
+  });
+
+  test("a gesture that stops between stations is left alone", async ({ page }) => {
+    await gotoHero(page);
+    // The rest beat between chapters 1 and 2 -- 0.35, which is 0.17 from the
+    // nearest dwell point and therefore far outside the band. Stopping here is
+    // a decision, and the page must not overrule it.
+    await scrollHeroTo(page, 0.35);
+    await page.mouse.move(200, 300);
+    await page.mouse.wheel(0, 30);
+    await page.waitForTimeout(1500);
+    const now = await progressOf(page);
+    expect(now, "the page pulled the visitor out of a rest beat").toBeGreaterThan(0.3);
+    expect(now).toBeLessThan(0.45);
+  });
+
+  test("the tour plays itself and yields to the first real input", async ({ page }) => {
+    await gotoHero(page);
+    await scrollHeroTo(page, 0);
+    const tour = page.locator("#hero button", { hasText: "نمایش خودکار" });
+    await expect(tour).toHaveCount(1);
+
+    await tour.click();
+    // A leg is 2.4s plus a 0.8s hold, so by 3s the first station has arrived
+    // and the second leg has not gone far.
+    await page.waitForTimeout(3000);
+    const arrived = await progressOf(page);
+    expect(arrived, "the tour did not reach the first station").toBeGreaterThan(0.15);
+
+    // Any real input stops it, and it does not resume.
+    await page.mouse.move(200, 300);
+    await page.mouse.wheel(0, 10);
+    await page.waitForTimeout(400);
+    const stopped = await progressOf(page);
+    await page.waitForTimeout(1500);
+    expect(await progressOf(page), "the tour resumed after being interrupted").toBeCloseTo(
+      stopped,
+      2,
+    );
+    await expect(tour, "the control did not return to its start state").toHaveCount(1);
+  });
+
+  /** The tour's own controls, by the copy `fa.json` gives them. */
+  const tourButton = (page: Page) => page.locator("#hero button", { hasText: "نمایش خودکار" });
+  const stopButton = (page: Page) => page.locator("#hero button", { hasText: "توقف نمایش" });
+
+  /**
+   * The three window listeners a running tour owns, counted from outside it.
+   *
+   * There is no way to enumerate listeners from a page, so this wraps
+   * `window.addEventListener` / `removeEventListener` before the app loads and
+   * keeps a running net per event type. Every assertion below is a *delta*
+   * against a baseline taken immediately before the tour starts, so anything
+   * the page attached at mount cancels out.
+   */
+  async function countWindowListeners(page: Page) {
+    return page.evaluate(() => ({
+      ...((window as Window & { __listenerNet?: Record<string, number> }).__listenerNet ?? {}),
+    }));
+  }
+
+  async function instrumentWindowListeners(page: Page) {
+    await page.addInitScript(() => {
+      const net: Record<string, number> = {};
+      (window as Window & { __listenerNet?: Record<string, number> }).__listenerNet = net;
+      type Listener = (
+        type: string,
+        listener: EventListenerOrEventListenerObject,
+        options?: boolean | AddEventListenerOptions | EventListenerOptions,
+      ) => void;
+      const add = window.addEventListener.bind(window) as Listener;
+      const remove = window.removeEventListener.bind(window) as Listener;
+      const wrap =
+        (inner: Listener, delta: number): Listener =>
+        (type, listener, options) => {
+          net[type] = (net[type] ?? 0) + delta;
+          inner(type, listener, options);
+        };
+      window.addEventListener = wrap(add, 1) as unknown as typeof window.addEventListener;
+      window.removeEventListener = wrap(remove, -1) as unknown as typeof window.removeEventListener;
+    });
+  }
+
+  test("stopping the tour with the button takes its listeners back", async ({ page }) => {
+    // The leak this pins was invisible from the page: the stop button cancelled
+    // the animation frame and flipped the label, but the teardown lived inside
+    // the gesture handler, so the three window listeners stayed attached until
+    // some later stray wheel, touch or keypress happened to run them. Nothing
+    // on screen showed it, and a second tour then attached three more.
+    await instrumentWindowListeners(page);
+    await gotoHero(page);
+    await scrollHeroTo(page, 0);
+
+    const types = ["wheel", "touchstart", "keydown"] as const;
+    const before = await countWindowListeners(page);
+
+    await tourButton(page).click();
+    // They go on inside the first animation frame, deliberately -- see the
+    // comment on `startTour`.
+    await page.waitForTimeout(300);
+    const during = await countWindowListeners(page);
+    for (const type of types) {
+      expect((during[type] ?? 0) - (before[type] ?? 0), `${type} while touring`).toBe(1);
+    }
+
+    await stopButton(page).click({ force: true });
+    await page.waitForTimeout(300);
+    const after = await countWindowListeners(page);
+    for (const type of types) {
+      expect((after[type] ?? 0) - (before[type] ?? 0), `${type} after the stop button`).toBe(0);
+    }
+    await expect(tourButton(page), "the control did not return to its start state").toHaveCount(1);
+  });
+
+  test("stopping the tour with the button hands soft snapping back", async ({ page }) => {
+    await gotoHero(page);
+    await scrollHeroTo(page, 0);
+    await tourButton(page).click();
+    await page.waitForTimeout(1200);
+    // `dispatchEvent` for the same reason as the station buttons below: the
+    // press has to land mid-leg, and a real click cannot.
+    await stopButton(page).dispatchEvent("click");
+    await expect(tourButton(page)).toHaveCount(1);
+
+    // A tour suppresses snapping for its whole length -- four legs plus the
+    // spring's settle, 14.8s. Stopping it early has to give that back, or the
+    // hero ignores the snapper for a quarter of a minute after the visitor
+    // asked the tour to stop.
+    //
+    // The gesture that arms the snapper below is a bare `touchmove`, not a
+    // wheel, and that choice is the test. `wheel` is one of the three events a
+    // running tour listens for, so a real wheel here would have *repaired* the
+    // leak it is meant to expose -- the stale listener would fire, release the
+    // hold, and the snap would go through against the bug. `touchmove` is what
+    // arms the provider's snapper and is not an event the tour ever listened
+    // for, so the only thing that can have released the hold is the button.
+    await page.evaluate(() => {
+      const track = document.querySelector(".hero-track")!;
+      const box = track.getBoundingClientRect();
+      const top = box.top + window.scrollY;
+      const travel = box.height - window.innerHeight;
+      window.dispatchEvent(new Event("touchmove"));
+      // Just inside the engine station's band. A scripted scroll never arms the
+      // snapper by itself, which is why the gesture above is needed at all.
+      window.scrollTo(0, top + travel * (0.51 - 0.03));
+    });
+    await page.waitForTimeout(2500);
+    expect(
+      await progressOf(page),
+      "the stopped tour left snapping suppressed behind it",
+    ).toBeCloseTo(0.51, 2);
+  });
+
+  /**
+   * The nine slot peaks the station buttons walk, derived exactly as
+   * `StageSteps` derives them.
+   */
+  const slotStops = ([1, 2, 3] as const).flatMap((chapter) =>
+    CHAPTER_SEQUENCE[chapter].map((_, slot) => {
+      const beat = beatFor(chapter, slot);
+      return (beat[1]! + beat[2]!) / 2;
+    }),
+  );
+
+  // The slot peaks either side of the first station (0.18), and a ceiling that
+  // only a tour still marching towards the second one (0.51) could cross.
+  for (const [label, button, expected, ceiling] of [
+    ["next", "قدم بعدی", 0.2728, 0.4],
+    ["previous", "قدم قبلی", 0.0872, 0.15],
+  ] as const) {
+    test(`${label} during a tour wins, instead of being overwritten`, async ({ page }) => {
+      await gotoHero(page);
+      await scrollHeroTo(page, 0);
+      await tourButton(page).click();
+
+      // A leg is 2.4s plus a 0.8s hold, so by 3.3s the tour is parked on the
+      // first station (0.18) and has just set off for the second (0.51).
+      await page.waitForTimeout(3300);
+      expect(await progressOf(page), "the tour did not reach the first station").toBeGreaterThan(
+        0.15,
+      );
+
+      // A mouse click is not one of the events the tour listens for, so before
+      // the fix this scroll was simply overwritten by the tour's own frame loop
+      // and the press vanished. Sitting on 0.18, the adjacent slot peaks are
+      // 0.2728 forwards and 0.0872 back -- both a long way from the 0.51 the
+      // tour was heading for, which is what makes the ceiling below decisive.
+      //
+      // Dispatched rather than clicked, because a real click cannot land while
+      // the page is scrolling under it. Playwright first waits for the element
+      // to be *stable* -- and the captions above these buttons change height as
+      // parts undock, so the row only holds still during a station's 800ms
+      // pause; left to itself the click waited six seconds for the third hold
+      // and then tested nothing, because a parked tour cannot overwrite
+      // anything. `force` does not help either: it still scrolls the element
+      // into view, the tour scrolls the page back on the next frame, and the
+      // click point lands outside the viewport. The press this test is about is
+      // the one that arrives mid-leg, so it is delivered directly.
+      await page.locator("#hero button", { hasText: button }).dispatchEvent("click");
+      await page.waitForTimeout(2200);
+      const landed = await progressOf(page);
+      expect(landed, `${label} did not reach its slot peak`).toBeCloseTo(expected, 2);
+      expect(landed, `the tour carried on past ${label}`).toBeLessThan(ceiling);
+      expect(
+        slotStops.some((stop) => Math.abs(stop - landed) < 0.01),
+        `${label} did not land on a slot peak the layout declares`,
+      ).toBe(true);
+
+      // ...and it stays there: the tour is over, not merely one frame behind.
+      await page.waitForTimeout(1500);
+      expect(await progressOf(page), "the tour resumed after a station button").toBeCloseTo(
+        landed,
+        2,
+      );
+    });
+  }
+
+  test("activating the tour control stops it instead of restarting it", async ({ page }) => {
+    // The guard here is subtle and load-bearing. A tour cancels on any real
+    // input, and the events that *activate a button* are real input: Space
+    // fires `keydown` before the click it produces, and a tap fires
+    // `touchstart` before it. Without the tour button's exemption from its own
+    // interrupt, the first event stops the tour and the click that follows
+    // finds it stopped and starts a second one -- the visitor presses "stop"
+    // and it plays again.
+    //
+    // Both orderings are exercised, because they are two different events with
+    // one shared failure. The keyboard one is entirely real input; the touch
+    // one is dispatched in the browser's own order, since Playwright's `tap`
+    // sends no click after the touch and so cannot reach the bug at all.
+    await gotoHero(page);
+    await scrollHeroTo(page, 0);
+
+    await tourButton(page).focus();
+    await page.keyboard.press("Space");
+    await expect(stopButton(page), "Space did not start the tour").toHaveCount(1);
+    await page.waitForTimeout(1200);
+    await page.keyboard.press("Space");
+    // The restart, if it happened, would be synchronous with the click -- and a
+    // tour runs 12.8s, so the control would read "stop" for the next twelve
+    // seconds. The *label* is what discriminates here, not the scroll position:
+    // a second tour's first leg heads for station 1, which is where a tour
+    // stopped 1.2s in is already sitting, so the two are indistinguishable by
+    // position for seconds. (The small drift that does follow is the soft snap
+    // being handed back, which is the other half of this step working.)
+    await expect(tourButton(page), "Space did not stop the tour").toHaveCount(1);
+    await page.waitForTimeout(2000);
+    await expect(
+      stopButton(page),
+      "Space cancelled the tour and immediately started another",
+    ).toHaveCount(0);
+
+    await tourButton(page).click();
+    await page.waitForTimeout(1200);
+    // `touchstart` on the button, then the click it would produce: the real
+    // sequence, in the real order, one task apart.
+    await stopButton(page).dispatchEvent("touchstart");
+    await page.waitForTimeout(50);
+    await stopButton(page).dispatchEvent("click");
+    await expect(tourButton(page), "the tap did not stop the tour").toHaveCount(1);
+    await page.waitForTimeout(2000);
+    await expect(
+      stopButton(page),
+      "the tap cancelled the tour and immediately started another",
+    ).toHaveCount(0);
+  });
+
+  test("the station is announced once per scene, not once per frame", async ({ page }) => {
+    await gotoHero(page);
+    const live = page.locator("#hero [aria-live='polite']");
+    await expect(live).toHaveCount(1);
+    // Empty on load: a live region populated at mount announces itself, and a
+    // visitor who has not scrolled has not asked to be told anything.
+    await expect(live).toHaveText("");
+
+    await scrollHeroTo(page, 0.18);
+    await expect(live).toContainText("۱");
+    await scrollHeroTo(page, 0.51);
+    await expect(live).toContainText("۲");
+    await scrollHeroTo(page, 0.93);
+    await expect(live).toContainText("۴");
   });
 });

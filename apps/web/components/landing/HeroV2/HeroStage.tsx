@@ -575,12 +575,20 @@ export function HeroStage({
   const reduceMotion = useReducedMotion();
   // The measurement itself lives in HeroScrollProvider so the parts manifest,
   // which renders in the other grid column, reads the same value (P12.S4).
-  const { trackRef, progress: scrollYProgress } = useHeroScroll();
+  // `progress` is the SMOOTHED value as of P14.S4 -- the provider wraps the raw
+  // scrollbar in a spring and hands out the spring, so every transform below is
+  // driven from the same one hop. That uniformity is the whole safety argument
+  // against the trap in the brief's §3.7: the spring adds one hop *upstream of
+  // everything*, so every relative hop count in this file is unchanged. Nothing
+  // here may read `scrollProgress` -- a transform that mixed the two would sit
+  // one hop from the scrollbar and two from the spring, and would render last
+  // frame's value for the half of its inputs that came the long way round.
+  const { trackRef, progress } = useHeroScroll();
   const base = place(HERO_BASE_ASSET, { dx: 0, dy: 0, scale: 1 });
   // One mix for the whole scene: eleven copies of the same interpolation would
   // be eleven subscriptions to one number.
-  const finaleMix = useFinaleMix(scrollYProgress);
-  const driftAngle = useDriftAngle(scrollYProgress);
+  const finaleMix = useFinaleMix(progress);
+  const driftAngle = useDriftAngle(progress);
 
   return (
     // The track only exists to buy scroll distance: `100vh` keeps the pinned
@@ -590,21 +598,31 @@ export function HeroStage({
     // would be pure dead scroll for a visitor who never sees the motion.
     <div
       ref={trackRef}
-      // 56rem / 120rem, up from 14 / 34 (P12.S6). Staggering the slots is only
-      // half of "the separation is not legible": the other half was that the
-      // whole three-chapter sequence played out over 544px of scroll on a
-      // desktop, so nine parts got about 60px each and one trackpad flick ran
-      // the entire hero. A slot's beat is 13.4% of the track (BEAT_SPAN x the
-      // chapter span), which is 257px here -- about 0.9s at an unhurried
-      // ~300px/s scroll, the "one second per frame" this always wanted to be.
-      // 72rem on mobile, up from 56rem (P13.S7). Four beats now play here
-      // rather than three, and 56rem gave each station well under the 1.5
-      // viewport-heights the plan asks for -- on a 844px-tall phone the whole
-      // sequence ran in about two flicks.
+      // 96rem / 160rem, up from 72 / 120 (P14.S4), which was up from 56 / 120
+      // (P13.S7) and 14 / 34 before that (P12.S6). Staggering the slots was
+      // only half of "the separation is not legible": the other half is how
+      // many pixels of scroll a beat is worth. A slot's beat is 13.4% of the
+      // track (BEAT_SPAN x the chapter span), so at 160rem that is 343px on a
+      // desktop -- about 1.1s at an unhurried ~300px/s wheel scroll, against
+      // 257px before. This is the owner's "slow and enjoyable", and it is the
+      // half of it that the spring cannot buy: smoothing changes how the story
+      // *arrives*, distance is what decides how long it lasts.
+      //
+      // **Mobile grows proportionally more, not less** (96rem is +33% against
+      // the desktop's +33%, from a base a third shorter). A touch flick covers
+      // far more distance per gesture than a wheel tick, so the phone was the
+      // viewport where the whole sequence ran in two flicks.
+      //
+      // Nothing about the beats is retuned for this: every station range in
+      // `heroLayout` is a *fraction* of the track, and `useScroll`'s
+      // `["start start", "end end"]` normalises the track's travel to 0..1. The
+      // track's height is the only absolute number in the system, which is why
+      // it is the only one that changes here.
+      //
       // `order-2 lg:order-none` is the hero column's mobile ordering (P14.S3),
       // declared here because this element is the stage's cell in it. See
       // HeroV2 for why every sibling carries one.
-      className="hero-track relative order-2 min-h-[calc(100vh+72rem)] lg:order-none lg:min-h-[calc(100vh+120rem)]"
+      className="hero-track relative order-2 min-h-[calc(100vh+96rem)] lg:order-none lg:min-h-[calc(100vh+160rem)]"
     >
       {/* Stage and job card share the pinned block: side by side from `lg`,
           stacked below it. One grid, so the card is pinned with the drawing at
@@ -652,7 +670,7 @@ export function HeroStage({
             {/* `useReducedMotion` is `boolean | null` -- null until it has read the
               media query. Null means "not yet known to prefer reduced", which is
               the same branch as false everywhere else in this file. */}
-            <HeroCamera progress={scrollYProgress} still={Boolean(reduceMotion)}>
+            <HeroCamera progress={progress} still={Boolean(reduceMotion)}>
               {/* The 1024² master frame, centred in the camera -- which is the
                 same box as the stage, so every percentage below is unchanged
                 from before the camera existed. Every layer inside is positioned
@@ -721,7 +739,7 @@ export function HeroStage({
                     <EnginePartLayer
                       key={part.id}
                       part={part}
-                      progress={scrollYProgress}
+                      progress={progress}
                       finaleMix={finaleMix}
                       driftAngle={driftAngle}
                     />
@@ -735,7 +753,7 @@ export function HeroStage({
                       key={layer.id}
                       layer={layer}
                       index={index}
-                      progress={scrollYProgress}
+                      progress={progress}
                       finaleMix={finaleMix}
                       driftAngle={driftAngle}
                     />
