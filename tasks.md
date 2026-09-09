@@ -1817,13 +1817,64 @@ A per-route total can never say *who* grew; these three layers can.
       reflow, at the cost of a system Persian font on any visit where the
       72KB preloaded face misses the ~100 ms block window. That is a visible
       tradeoff on the typeface chosen at P14.S1, so it is the owner's call.
-- [ ] **P15.S3 — First paint that does not lie.** Server-rendered hero skeleton
-      (zero JS, exact box, replaced on sprite decode) + `loading.tsx` and a thin
-      route progress bar. Both honour `prefers-reduced-motion`. The HiggsField
-      seam per the decision above.
-      **Accept:** no CLS regression; skeleton present in the HTML response body
-      (curl it — do not trust the rendered DOM); FCP no worse than the S0
-      baseline.
+- [x] **P15.S3 — First paint that does not lie.** ✅ 2026-09-09, `88ec66b` —
+      **the skeleton and the seam shipped; the loading boundary did not, and
+      that is a finding rather than a shortfall.**
+      The stage was an empty dark plate until `car-stripped` arrived — 20 KB of
+      AVIF, and this page LCP element. It now paints a **410-byte 32×14 WebP of
+      the same render**, inline as a data URI, at the base image exact
+      registration, one stacking level beneath it.
+      **The brief mechanism was wrong and measuring caught it.** "A shimmer
+      plate underneath, retired by the real image painting on top" cannot work
+      on this stage: every hero sprite is a masked cut with a transparent
+      surround, so a *rectangle* under the car is never covered by the car — it
+      stays visible around it, permanently. A low-resolution copy of the same
+      render has no such problem, because its alpha **is** the car alpha. Still
+      zero-JS: no `onLoad`, no mount gate, no timer — the placeholder is retired
+      by being underneath its own replacement. **Nine visual baselines pass
+      unmodified**, which is the proof it leaves no trace.
+      Budget, clean build both sides: floor 102.9 (=), chrome 17.0 (=), landing
+      own 79.8 → **79.9**, first load 199.7 → **199.8** against a 200 hard fail.
+      Zero bytes of client JS. CLS 0.0322 → 0.0322; FCP 816 → 804 ms.
+      **BLOCKED, and left deliberately unwired: `loading.tsx` + the progress
+      bar.** Both are written and tested in `components/loading/`, rendered by
+      no route. A loading boundary is not free in this app, and both costs were
+      measured — then **reproduced independently before the step was accepted**:
+      **(1) On a prerendered route it is a curtain.** With `loading.tsx` at
+      `(shop)/`, Next builds the landing as a streaming shell — `<!--$?-->`, the
+      loader painted, the whole real page inside `<div hidden id="S:0">` revealed
+      by one `$RC()`. **FCP *improves*** (a loader is trivial to paint) **while
+      LCP goes 872 → 1080 ms** — precisely the full-page curtain the owner
+      decision above refuses, and precisely why FCP alone would not catch it.
+      **(2) On a dynamic route it commits the response before the page decides
+      it.** A/B on one build, one session, verified twice:
+      `/vehicle/{bad}` 404→200 · `/c/{bad}` 404→200 · `/p/{bad}` 404→200 ·
+      `/brand/{bad}` 404→200 · `/orders/ABC123` signed out **307 → 200 with a
+      `<meta http-equiv="refresh">`**. Four soft 404s on the routes the
+      catalogue SEO depends on, plus an auth redirect degraded into a timed
+      meta refresh — a live **WCAG 2.2.1** violation that fails this step own
+      axe gate. `e2e/vehicle-make.spec.ts:41` catches the first half.
+      Every dynamic shop route calls `notFound()`/`redirect()` after its await;
+      every static one pays cost 1. **No placement in the shop group is free
+      today**, so none ships. `loading-boundaries.test.ts` fails the moment one
+      is added to a route that has not been fixed first.
+      **A premise that did not survive:** the bar was assumed to need client JS.
+      It does not — the App Router mounts a loading subtree for exactly the
+      interval a navigation is pending, so a CSS animation is the whole
+      mechanism. That mattered: **the chrome layer real headroom was 0.2 KB,
+      not the 3 KB its own budget suggests**, because the landing pays for the
+      chrome too and sits at 199.8 against 200.
+      The HiggsField seam is `WorkshopLoader.tsx` + the `--loader-*` token
+      block: one component, one token set, as the decision asks.
+
+- [ ] **P15.S3b — Unblock the loading boundary.** OWNER CALL, two routes open:
+      **(1)** move the not-found/redirect decision ahead of the flush
+      (`generateMetadata` resolves before Next streams) — five pages plus the
+      auth redirect, its own step, and it fixes the soft-404 class permanently.
+      **(2)** give the bar a client leaf in the chrome instead — needs bytes the
+      landing does not have; recover ≥1 KB first (S0 recorded ~36 KB of
+      unattributed landing code).
+
 - [ ] **P15.S4 — Name the visitor's car, client-side.** The garage is already a
       plain non-httpOnly `document.cookie` (`apps/web/lib/cookie.ts`, by design
       per masterPlan §3.4) and the garage store already ships, so a client read
@@ -1857,6 +1908,36 @@ A per-route total can never say *who* grew; these three layers can.
       than its own contents, the footer `--`, the fake "hours coming soon") and
       the اینماد decision above. P13.S13's perf gate, which S0–S2 answer.
       P13.S14 closes both phases.
+      **RECON 2026-09-09 — this bullet is STALE, verified against the tree at
+      `83d0f98`. Do not rebuild what is already fixed.**
+      **The theme toggle is DONE.** All three claimed defects were fixed by
+      P14.S2: the header follows the theme now (so page tokens describe the
+      ground they sit on, and the glyph takes `text-text`), the accessible name
+      is a Persian `label` prop rather than a hardcoded English string, and
+      `aria-pressed` is present with the stable-name rationale written out in
+      the file. Verify with axe and a screenshot; do not re-implement.
+      **The footer `--` is DONE** — already `·` with the Latin half bidi-isolated
+      (P14.S6 item 8). **The "fake hours" copy is DONE** — `hoursPending` now
+      reads «اگر قطعه‌ای را نداشته باشیم، همان تماس اول می‌گوییم». Only the KEY
+      NAME is still wrong, and that rename belongs to S5.
+      **⚠ TWO OWNER DECISIONS CONFLICT on اینماد / نشان ملی, and this one is
+      NOT being decided without the owner.**
+      *P14.S6 item 8* (owner call, shipped): **remove** the placeholder boxes —
+      "an empty box announcing that a trust seal does not exist yet is a worse
+      trust signal than no box." See the comment in `components/layout/Footer.tsx`.
+      *P15, 2026-09-08* (owner call): **keep** them with «در حال ثبت» as visible
+      text, because it is the only place on `/` claiming something the page
+      cannot prove.
+      The P15 decision was near-certainly made without knowing P14.S6 had
+      already removed them — **there is no اینماد anywhere on `/` now** (Footer,
+      TrustStrip and `fa.json` all checked). Its stated *goal* is therefore
+      already met, and met more completely by removal than by a pending label.
+      **Standing call until the owner says otherwise: do not re-add the boxes.**
+      Re-introducing a dashed "pending registration" placeholder on a trust
+      signal, unasked, is the wrong direction to be wrong in.
+      **Still unverified, check when the tree is free:** the duplicate «پیشنهاد
+      ما» names from `?sort=newest&limit=8` returning two templates, and the
+      `SYS-10` tile name being narrower than its own contents.
 - [ ] **P15.S7 — Write the rules down.** `docs/engineering-standards.md` gains a
       **Performance budgets** section: the numbers, the three layers, the
       measurement recipe, "measure before *and* after any step that adds a client
