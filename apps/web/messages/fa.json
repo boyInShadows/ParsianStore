@@ -652,6 +652,10 @@
     "yearLabel": "سال تولید",
     "selectPlaceholder": "انتخاب کنید"
   },
+  "Loading": {
+    "title": "رفتیم سراغش.",
+    "detail": "چند لحظه صبر کنید."
+  },
   "Info": {
     "about": {
       "title": "درباره پارسیان",

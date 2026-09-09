@@ -223,6 +223,46 @@
      (see --brand-subtle above for the same trap). */
   --surface-translucent: #ffffffe0;
 
+  /* ---- Loading tokens (P15.S3) — THE HIGGSFIELD SEAM ------------------
+     One token set for every "this is arriving" surface on the site, and it
+     exists to be swapped. The owner's branded loader will be generated with
+     HiggsField as launch prep; the deliberate seam that decision asks for is
+     `components/loading/WorkshopLoader.tsx` (the mark) plus this block (its
+     palette, its rhythm and its timing). Swapping the simple version for the real
+     animation should touch that one component and, at most, this block.
+
+     --loader-ink and --loader-track are ALIASES, not new colours: a loading
+     signal is the same blue the rest of the chrome uses, and it should follow
+     the theme when the brand does. Written as var() rather than as a copied
+     hex so a retune of --brand-solid reaches them, which is the opposite of
+     the --cta-ink / --price case above (that one must NOT follow).
+
+     ** Both of them flip with the theme, so neither may ever be painted on
+     the stage. ** The stage does not flip (see the stage block above), and
+     `design-tokens.test.ts` enforces that for every `.hero-*` rule it scans --
+     but it compares the two blocks' literal values, so an alias that resolves
+     differently per theme reads to it as "shared". The hero skeleton
+     therefore takes only the three non-colour values below; its colour is the
+     placeholder image itself.
+
+     --loader-rest / --loader-peak are the hero skeleton's opacity pair. It
+     paints UNDER the real car at the same registration, so it is dim on
+     purpose: the placeholder should read as "not yet", and a low alpha is
+     also what keeps the upscaled placeholder's soft edge from showing around
+     the sharp render once that arrives. */
+  --loader-ink: var(--brand-solid);
+  /* --border, not --rule, and that was a screenshot rather than a preference:
+     --rule is a divider *inside a surface* and measures 1.1:1 on --bg, so the
+     loader's three docket lines were invisible in light mode against the page
+     ground they actually sit on. --border is the token for a hairline that has
+     to read on --bg. */
+  --loader-track: var(--border);
+  --loader-bar: 3px;
+  --loader-duration: 1200ms;
+  --loader-stagger: 160ms;
+  --loader-rest: 0.55;
+  --loader-peak: 0.85;
+
   /* ---- Type scale (§6.5, P14.S1) --------------------------------------
      The scale used to live only in tailwind.config.js, because a fontSize
      step is a (size, leading, tracking) triple rather than a single value.

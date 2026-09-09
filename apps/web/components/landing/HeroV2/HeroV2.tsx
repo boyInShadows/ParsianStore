@@ -11,6 +11,7 @@ import {
 } from "./PartCallout";
 import { PartsManifest } from "./PartsManifest";
 import { StageNarration } from "./StageNarration";
+import { StageSkeleton } from "./StageSkeleton";
 import { StageSteps } from "./StageSteps";
 import { StationOutline } from "./StationOutline";
 
@@ -163,6 +164,7 @@ export async function HeroV2() {
             carAlt={t("staticStateAlt")}
             hint={t("scrollHint")}
             lead={t("diagramLead")}
+            skeleton={<StageSkeleton />}
             callouts={<PartCallouts />}
             bloom={<HeadlightBloom />}
             leaders={<PartLeaders />}

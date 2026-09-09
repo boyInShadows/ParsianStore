@@ -1476,4 +1476,213 @@
       display: none;
     }
   }
+
+  /* ---- The hero stage's first paint (P15.S3) --------------------------
+
+     A 410-byte copy of the base render, inline in the HTML, painted at the
+     same registration as the real one and one stacking level below it. The
+     full argument for why this is a low-resolution render rather than a
+     shimmer plate is in `HeroV2/stageSkeleton.ts`; the short version is that
+     every sprite here is a masked cut, so a RECTANGLE under the car is never
+     covered by the car -- it stays visible around it permanently. A copy of
+     the car is, because its alpha is the car's alpha.
+
+     `z-index: 0` puts it under the base image (1) and under every sprite
+     (ENGINE_PART_Z upward). `.hero-floor`'s shadow shares level 0 and is
+     written after this rule's element in the DOM, so the floor paints over
+     the placeholder exactly as it paints over nothing today.
+
+     ** Only non-colour tokens here, and that is a rule rather than a
+     coincidence. ** The stage does not follow the theme (see `--stage` in
+     tokens.css), so anything painted on it that DID flip would land on a
+     ground it was never contrast-checked against. This element's colour is
+     the placeholder image; `--loader-rest` / `--loader-peak` are opacities
+     and `--loader-duration` is a time, none of which have a theme.
+     `design-tokens.test.ts` scans this selector for exactly that. */
+  .hero-skeleton {
+    position: absolute;
+    z-index: 0;
+    pointer-events: none;
+    background-image: var(--hero-skeleton-image);
+    /* `100% 100%`, not `contain`: the box is already the render's exact
+       registered box, and rounding 823x367 to 32x14 costs 2% of aspect --
+       stretching to the box is what puts the placeholder's wheels under the
+       real wheels rather than 7px above them. */
+    background-size: 100% 100%;
+    background-repeat: no-repeat;
+    opacity: var(--loader-rest);
+    /* Three passes and then done, `forwards` to the resting opacity. Bounded
+       rather than infinite because the placeholder is never removed from the
+       DOM -- it is covered -- and an infinite animation on a covered element
+       is compositor work nobody will ever see. Three passes is about 3.6s,
+       which is the window this is for; past that the wait is not a wait any
+       more, it is a failure, and a pulse does not help.
+
+       Safe to animate at all only because the alpha channels match: every
+       pixel this element paints is under the sharp render once that arrives,
+       so nothing about the pulse is visible after the car lands. */
+    animation: hero-skeleton-wait var(--loader-duration) var(--ease-in-out) 3 forwards;
+  }
+
+  @keyframes hero-skeleton-wait {
+    0%,
+    100% {
+      opacity: var(--loader-rest);
+    }
+    50% {
+      opacity: var(--loader-peak);
+    }
+  }
+
+  /* ---- The route loader and its progress bar (P15.S3) -----------------
+
+     Both belong to `components/loading/ShopRouteLoader.tsx`, a Server
+     Component meant to be a `loading.tsx` default export, so **neither costs a
+     byte of JavaScript**. The step's brief expected the progress bar to need a
+     client leaf listening for navigation; it does not, because the App Router
+     mounts a loading subtree for exactly the interval a navigation is pending
+     and unmounts it when the page arrives. A CSS animation on a mounted
+     element is the whole mechanism -- and it was the only option that fit the
+     budget: the landing measures 199.8 kB against a 200 kB hard fail, so
+     anything reaching the shop chrome had 0.2 kB to spend.
+
+     ** No route renders it today. ** A loading boundary in this app commits
+     the response before the page decides its status, which turns four real
+     404s into soft ones and the auth redirect into a meta refresh.
+     `ShopRouteLoader`'s own comment carries the A/B, and
+     `loading-boundaries.test.ts` is the guard. These rules stay because
+     wiring it back up is one file once a route qualifies. */
+  .route-progress {
+    position: fixed;
+    inset-block-start: 0;
+    inset-inline: 0;
+    block-size: var(--loader-bar);
+    /* Above the header (z-40), below nothing that matters -- the toast rail
+       is z-50 but sits in the opposite corner. A progress bar under the
+       sticky header is a progress bar nobody sees. */
+    z-index: 50;
+    overflow: hidden;
+    pointer-events: none;
+    background-color: var(--loader-track);
+    /* Transforms are physical by definition -- there is no logical translate --
+       so the sweep's sign is flipped for RTL instead, from the `[dir]` rule
+       below. next-intl already sets `dir` on the document element, so this is
+       correct on the first frame and needs no JavaScript. A bar that sweeps
+       the wrong way is not something a test would catch and is immediately
+       obvious to the only people who will use this site. */
+    --route-progress-dir: 1;
+  }
+
+  .route-progress::after {
+    content: "";
+    position: absolute;
+    inset-block: 0;
+    inset-inline-start: 0;
+    inline-size: 40%;
+    background-color: var(--loader-ink);
+    /* Indeterminate on purpose. Nothing here knows how far along the
+       navigation is, and a bar that eases toward 90% and waits is telling the
+       visitor a number it made up. A segment that keeps moving says "still
+       working" and claims nothing.
+
+       `translate` (the standalone property) rather than a transform, so the
+       direction can be flipped by a custom property below without rewriting
+       the keyframes. Compositor-only: no layout, no paint. */
+    animation: route-progress-sweep var(--loader-duration) var(--ease-in-out) infinite;
+  }
+
+  [dir="rtl"] .route-progress {
+    --route-progress-dir: -1;
+  }
+
+  @keyframes route-progress-sweep {
+    from {
+      translate: calc(var(--route-progress-dir) * -100%);
+    }
+    to {
+      translate: calc(var(--route-progress-dir) * 250%);
+    }
+  }
+
+  /* ## The mark -- THE HIGGSFIELD SEAM
+
+     Three rules of a job card being written in, staggered. Deliberately not a
+     spinner: a spinner says "a computer is busy", and every surface on this
+     site says "someone at a counter is doing something for you". The widths
+     are 100 / 72 / 44 rather than three equal bars for the same reason the
+     rest of the page avoids uniform rhythm -- a docket has a long line, a
+     shorter one and a stub.
+
+     Everything visual about the loader is in this block and in
+     `WorkshopLoader.tsx`. Replacing the pair with the owner's generated
+     animation is the one-file change the P15 decision asks for. */
+  .workshop-loader {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+    inline-size: 100%;
+    max-inline-size: 18rem;
+  }
+
+  .workshop-loader-rule {
+    block-size: var(--loader-bar);
+    border-radius: var(--radius-full);
+    background-color: var(--loader-track);
+    position: relative;
+    overflow: hidden;
+  }
+
+  .workshop-loader-rule:nth-child(2) {
+    inline-size: 72%;
+  }
+
+  .workshop-loader-rule:nth-child(3) {
+    inline-size: 44%;
+  }
+
+  .workshop-loader-rule::after {
+    content: "";
+    position: absolute;
+    inset-block: 0;
+    inset-inline-start: 0;
+    inline-size: 45%;
+    background-color: var(--loader-ink);
+    animation: route-progress-sweep calc(var(--loader-duration) * 1.5) var(--ease-in-out) infinite;
+    --route-progress-dir: 1;
+  }
+
+  [dir="rtl"] .workshop-loader-rule::after {
+    --route-progress-dir: -1;
+  }
+
+  .workshop-loader-rule:nth-child(2)::after {
+    animation-delay: var(--loader-stagger);
+  }
+
+  .workshop-loader-rule:nth-child(3)::after {
+    animation-delay: calc(var(--loader-stagger) * 2);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    /* Every one of these becomes a static tint, in CSS rather than by
+       branching in a component: all three are Server Components with no
+       client JavaScript at all, so there is no `useReducedMotion()` here to
+       branch on and the first paint has to be right already.
+
+       The placeholder rests at --loader-peak rather than --loader-rest under
+       reduced motion: with no pulse to carry it, the one frame it gets should
+       be the legible one. */
+    .hero-skeleton {
+      animation: none;
+      opacity: var(--loader-peak);
+    }
+
+    .route-progress::after,
+    .workshop-loader-rule::after {
+      animation: none;
+      /* Still says "in progress" without moving: a filled stub against the
+         track, at the start of the rule, in the loader's own ink. */
+      inline-size: 30%;
+    }
+  }
 }

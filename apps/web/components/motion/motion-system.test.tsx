@@ -124,7 +124,18 @@ describe("Marquee — the seam", () => {
   });
 
   it("becomes a wrapping grid under reduced motion, with the clone removed", () => {
-    const reduced = globalsCss.slice(globalsCss.lastIndexOf("@media (prefers-reduced-motion"));
+    // Anchored on the marquee's OWN reduced-motion block, not on the last one
+    // in the file. It used to be `lastIndexOf("@media (prefers-reduced-motion")`
+    // and passed only because the marquee happened to be the final section of
+    // globals.css; P15.S3 appended one after it and this went red for a reason
+    // that had nothing to do with the marquee. A test whose subject is "whatever
+    // is last" changes subject every time someone appends to the file.
+    const clone = globalsCss.indexOf(".motion-marquee-run[data-clone]");
+    expect(clone).toBeGreaterThan(-1);
+    const reduced = globalsCss.slice(
+      globalsCss.lastIndexOf("@media (prefers-reduced-motion", clone),
+      clone + 200,
+    );
     expect(reduced).toContain("flex-wrap: wrap");
     expect(reduced).toContain(".motion-marquee-run[data-clone]");
     expect(reduced).toContain("display: none");

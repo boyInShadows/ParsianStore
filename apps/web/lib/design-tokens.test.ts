@@ -113,6 +113,14 @@ function varsUsedIn(body: string): string[] {
  * border above -- but a decorative highlight around a sprite is not a
  * contrast-governed indicator, and re-colouring it is a visual decision
  * nobody has taken. Widen this pattern on the day that decision is made.
+ *
+ * `.hero-skeleton` joined at P15.S3. It paints a placeholder image on the
+ * stage and reads three `--loader-*` values; two of that block's tokens
+ * (--loader-ink, --loader-track) are theme-following aliases, so this scan is
+ * what keeps one of them from being reached for here later. Note the one thing
+ * it cannot see: the comparison below is on the two blocks' literal values, so
+ * a token written as `var(--brand-solid)` -- which resolves differently per
+ * theme -- reads to it as "shared". tokens.css says so beside those two.
  */
 function stageRules(source: string): { selector: string; body: string }[] {
   // Comments first, or a rule's selector reads as its entire preceding
@@ -123,7 +131,8 @@ function stageRules(source: string): { selector: string; body: string }[] {
   for (const match of css.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
     const selector = (match[1] ?? "").replace(/\s+/g, " ").trim();
     const body = match[2] ?? "";
-    if (/\.hero-callout|\.hero-finale/.test(selector)) rules.push({ selector, body });
+    if (/\.hero-callout|\.hero-finale|\.hero-skeleton/.test(selector))
+      rules.push({ selector, body });
   }
   return rules;
 }

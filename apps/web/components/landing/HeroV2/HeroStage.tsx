@@ -120,6 +120,17 @@ type Props = {
    * scroll gesture, for an animation that is otherwise pointer-only.
    */
   steps?: ReactNode;
+  /**
+   * The stage's first paint (P15.S3) — a 410-byte copy of the base render,
+   * inline in the HTML, painted under the real one at the same registration.
+   *
+   * A slot for the same reason every other server-rendered piece of the stage
+   * is one: this is a Client Component and cannot render a Server Component
+   * itself, but it can take one as a prop. It goes INSIDE the frame, because
+   * the frame is the only coordinate space the base image's registration means
+   * anything in. See `StageSkeleton.tsx`.
+   */
+  skeleton?: ReactNode;
 };
 
 /** Roughly how wide the stage itself is, for `sizes`. */
@@ -596,6 +607,7 @@ export function HeroStage({
   manifest,
   stationLines,
   steps,
+  skeleton,
 }: Props) {
   const reduceMotion = useReducedMotion();
   // The measurement itself lives in HeroScrollProvider so the parts manifest,
@@ -720,6 +732,13 @@ export function HeroStage({
                   transformStyle: "preserve-3d",
                 }}
               >
+                {/* First in the frame, and first in paint order: the stage's
+                  own first paint (P15.S3). A 410-byte copy of the base render
+                  at the same registration, one stacking level below it, so the
+                  visitor has the car — badly — before the 20 KB AVIF that is
+                  this page's LCP element has finished travelling. It is never
+                  removed; it is covered. See StageSkeleton.tsx. */}
+                {skeleton}
                 {/* The floor the car stands on, and the light that arrives with
                   it (P13.S5). Both sit inside the frame, so they share the
                   sprites' coordinates and move with the camera; both are
