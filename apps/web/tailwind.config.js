@@ -198,9 +198,44 @@ module.exports = {
       // fontFamily/fontSize compose: e.g. `font-display text-display-1` or
       // `font-mono text-data`. `display` resolves to the body face --
       // tokens.css aliases --font-display to --font-body (P14.S1).
+      //
+      // The three names after next/font's own pair (P15.S3c) are named
+      // system Persian-capable faces, not decoration. `display: "optional"`
+      // on `bodyFont` (lib/fonts.ts) means a visit that misses the load
+      // window keeps whatever this list resolves to for the WHOLE page, so
+      // "falls through to a Latin-only face" stopped being a theoretical
+      // ~100ms flash and became a real per-visit outcome. Verified on this
+      // machine (Windows/Chromium): next/font's generated fallback --
+      // `local("Arial")` with an auto-computed size-adjust -- already
+      // renders Persian correctly here, because Windows' own Arial carries
+      // Arabic-script coverage; `Tahoma` was already next and is Windows'
+      // purpose-built Arabic-UI face. Neither of those is installed by
+      // default on macOS/iOS or Android, so this adds their platform
+      // equivalents explicitly rather than trusting each engine's own
+      // last-resort script fallback to pick one silently: `Segoe UI`
+      // (Windows 10+, broader Arabic coverage than Tahoma), `Noto Naskh
+      // Arabic` / `Noto Sans Arabic` (Android system default), `Geeza Pro`
+      // (iOS/macOS). Costs zero bytes -- these are system font names, no
+      // file is fetched for a name the OS does not have installed.
       fontFamily: {
-        display: ["var(--font-display)", "Tahoma", "sans-serif"],
-        body: ["var(--font-body)", "Tahoma", "sans-serif"],
+        display: [
+          "var(--font-display)",
+          "Tahoma",
+          "Segoe UI",
+          "Noto Naskh Arabic",
+          "Noto Sans Arabic",
+          "Geeza Pro",
+          "sans-serif",
+        ],
+        body: [
+          "var(--font-body)",
+          "Tahoma",
+          "Segoe UI",
+          "Noto Naskh Arabic",
+          "Noto Sans Arabic",
+          "Geeza Pro",
+          "sans-serif",
+        ],
         mono: ["var(--font-mono)", "ui-monospace", "monospace"],
       },
       // Type scale -- tokens.css owns every value (CLAUDE.md rule 5); this
