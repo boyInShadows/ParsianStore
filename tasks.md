@@ -1875,6 +1875,53 @@ A per-route total can never say *who* grew; these three layers can.
       landing does not have; recover ≥1 KB first (S0 recorded ~36 KB of
       unattributed landing code).
 
+
+- [x] **P15.S3c — `display: "optional"`: measured, and HELD.** ✅ 2026-09-09,
+      `e8a0baf`. Owner approved `optional` to remove S2's ~47ms swap relayout.
+      **It is not shipped**, and chasing why 4 of 6 landing baselines failed
+      under it found two defects behind it.
+      **(1) next@15.5.21 emits no font preload on Windows — patched.**
+      `next-font-manifest-plugin.js` tests module requests against a hardcoded
+      `'/next-font-loader/index.js?'`; on Windows `mod.request` is
+      backslash-delimited, so it never matches and `nextFontManifest.app` stays
+      `{}` for every route. Three observables agreed: empty manifest with
+      `appUsingSizeAdjust: false`, zero `as="font"` on every route, and the
+      `-s.p.woff2` on disk proving the loader ran and only attribution failed.
+      `patches/next.patch` normalises separators — a no-op on POSIX. **CI is
+      ubuntu-latest so CI and production never had this**; the patch exists so
+      what we measure here matches what ships, which matters because **CI does
+      not run e2e** (lint/test/build/check:budget only) — the visual baselines
+      execute *only* on this Windows machine.
+      **(2) The preload still never reaches `<head>` — NOT Windows-specific.**
+      With the manifest fixed, Next calls `ReactDOM.preload(href,{as:"font"})`
+      and that lands in the RSC Flight payload as a `:HL[...]` instruction
+      inside an inline script. Verified on a production `/`: **18 `<link>`
+      elements, none of them the font**; the woff2 appears only inside
+      `self.__next_f`. The hint does not exist until the JS bundle loads and
+      React processes the stream. The 11 hero image preloads *are* real
+      `<link>`s because `next/image` renders JSX rather than calling the Float
+      API. **Production very likely has no font preload either.** Not chased
+      further — it means React Float internals.
+      **Why it holds the decision:** `optional` only pays if the face usually
+      wins its ~100ms window. Without a parser-visible preload it does not — the
+      fallback persisted for the whole load in **4 of 6** captures on a *local*
+      server, rewrapping the hero heading 3 lines → 2 and shortening the page
+      **177px (~1.7%)**. That is the common case, not the occasional slow visit,
+      and not the trade that was agreed. Reverting to `swap` restored e2e to
+      **151 passed**, confirming the cause.
+      **Held, not abandoned:** `optional` measured **CLS 0.0322 → 0.0000** (the
+      0.0322 was entirely the swap event) and swap ~50ms → ~10ms. The whole
+      reasoning is written into `apps/web/lib/fonts.ts`. Also shipped: fallback
+      chains now name Persian-capable system faces (Segoe UI, Noto Naskh/Sans
+      Arabic, Geeza Pro) rather than ending at bare `sans-serif` — zero bytes.
+
+- [ ] **P15.S3d — Get a real `<link rel="preload" as="font">` into `<head>`.**
+      OWNER CALL. Unblocks `optional` and its CLS 0.0322 → 0.0000. Options not
+      yet costed: a JSX `<link>` rendered in the layout head (needs the hashed
+      font URL, which `next/font` does not expose — brittle); moving off
+      `next/font/local` to a hand-written `@font-face` + explicit preload (full
+      control, loses the metric-matched fallback); or waiting on upstream.
+
 - [ ] **P15.S4 — Name the visitor's car, client-side.** The garage is already a
       plain non-httpOnly `document.cookie` (`apps/web/lib/cookie.ts`, by design
       per masterPlan §3.4) and the garage store already ships, so a client read
