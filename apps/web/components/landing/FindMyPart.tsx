@@ -4,6 +4,7 @@ import { VehicleSelectorLazy } from "@/components/garage";
 import { getSystemPartCounts } from "@/lib/fetchers/exploded-view";
 import { Reveal } from "@/components/motion";
 import { PartCodeSearch } from "./HeroV2/PartCodeSearch";
+import { SavedCarLead } from "./SavedCarLead";
 import { SystemGlyph, hasSystemGlyph } from "./SystemGlyph";
 
 /**
@@ -53,8 +54,18 @@ export async function FindMyPart() {
           </h2>
           {/* P14.S6 item 4: every section opens with its H2 and a lead. This
               was the one primary section on the page with no sentence under
-              its heading -- the two cards below had to explain themselves. */}
-          <p className="max-w-2xl text-body text-text-muted">{tSection("subtitle")}</p>
+              its heading -- the two cards below had to explain themselves.
+
+              P15.S4: the lead names the visitor's car when the garage holds
+              one. `subtitle` is what the server renders and what is in the
+              HTML; the client leaf swaps its text after hydration and nothing
+              else. `raw` because the substitution happens in the browser --
+              the label only exists there -- so what crosses the boundary is
+              the ICU-free template, not a formatted string. */}
+          <SavedCarLead
+            generic={tSection("subtitle")}
+            personalized={String(tSection.raw("subtitleWithCar"))}
+          />
         </Reveal>
 
         {/* Side by side from `md`, because these are alternatives rather than
