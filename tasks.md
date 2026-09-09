@@ -1922,16 +1922,48 @@ A per-route total can never say *who* grew; these three layers can.
       `next/font/local` to a hand-written `@font-face` + explicit preload (full
       control, loses the metric-matched fallback); or waiting on upstream.
 
-- [ ] **P15.S4 — Name the visitor's car, client-side.** The garage is already a
-      plain non-httpOnly `document.cookie` (`apps/web/lib/cookie.ts`, by design
-      per masterPlan §3.4) and the garage store already ships, so a client read
-      costs ~0 KB. **Do not use `cookies()`**: it turns the landing from static to
-      fully dynamic — every visitor gets a server render, TTFB rises, the CDN can
-      no longer cache the page — a large architectural cost for one sentence of
-      copy. **PPR is not the escape hatch: `experimental.ppr` requires Next's
-      canary channel and this repo is on 15.5.21 stable** (verified, not assumed).
-      Render the generic line server-side and swap only its text, or reserve its
-      box — personalization must not introduce CLS.
+- [x] **P15.S4 — Name the visitor's car, client-side.** ✅ 2026-09-09, `f11e211`.
+      `SavedCarLead` at `#find-my-part`: «{car} را به گاراژ اضافه کرده‌اید. همان
+      را انتخاب کنید یا کد قطعه را بزنید.» Claims only what the garage entry
+      proves — that they saved it, never that it fits.
+      No `cookies()`, as the step required. **The bytes were already paid for:**
+      `Header.tsx` is shop chrome on every route and has always imported
+      `useGarageStore` + `selectActiveVehicle`, so zustand and the store were in
+      the landing bundle before this step — floor and chrome are byte-identical
+      after.
+      **Hydration safety was verified, not copied.** zustand v5's `persist`
+      overrides `api.getInitialState()` to the pre-rehydration state and
+      `useStore` feeds that to `useSyncExternalStore` as *getServerSnapshot*,
+      which React uses for the SSR render *and* the hydration render — so both
+      emit the generic line. Confirmed in installed `zustand@5.0.14` source;
+      the Header's own comment misdescribes the mechanism.
+      **CLS delta 0.0000**, measured both paths, 5 runs, 360×640 DPR2/4×CPU:
+      generic 0.0322, personalized 0.0329 — and both are identical on the
+      baseline build. The +0.0007 is the **Header's vehicle chip** widening on
+      rehydration (`SPAN.truncate`, 74.6 → 82.7px at t≈2850ms), pre-existing for
+      returning visitors. The hero subheadline was deliberately not attempted.
+
+- [ ] **P15.S4b — Three findings from S4, none of them S4's fault.** Owner's
+      call which are worth a step:
+      **(a) THE LANDING CEILING IS 76 BYTES.** First load 199.926 KB against a
+      200 KB hard fail. The next client leaf of any size on this route fails the
+      gate. Either raise nothing and treat the landing as closed to new client
+      code, or recover bytes first — S0 recorded ~36 KB of unattributed landing
+      code as the place to look.
+      **(b) The garage label carries a Gregorian year in Persian digits** —
+      `VehicleSelector.tsx:86` builds «سایپا پراید ۱۱۱ ۲۰۲۰». «۲۰۲۰» reads oddly
+      beside a Persian car name, and CLAUDE.md §9 says dates display through
+      `formatJalali`. Pre-existing (the header chip says the same), but the new
+      sentence makes it conspicuous where a chip did not.
+      **(c) `CORS_ORIGINS` defaults to `http://localhost:3000` only**
+      (`apps/api/src/config/env.ts:22`). Served on **:3200** — the port
+      `E2E_PORT` and the Lighthouse recipe both use — every client-side vehicle
+      fetch fails CORS and all three selects stay disabled. **The vehicle
+      selector has no live local coverage on the port the harness runs on.**
+      That is a hole in the test environment, not in the product.
+      **(d) Header chip CLS 0.0007** — a `min-w-` floor sized to the longest
+      plausible label would close it.
+
 - [ ] **P15.S5 — `.evidence-code` is two contracts; split it.** `EvidenceCode`
       (the component) is a 36–45 char verification token that must not wrap, must
       not bidi-reorder, must stay **whole in the DOM** and truncates only
