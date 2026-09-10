@@ -35,6 +35,22 @@
     color: var(--text);
   }
 
+  /* Persian line-breaking (P14.S1). `balance` keeps a two-line heading from
+     ending on a one-word orphan -- the reason HeroV2's H1 carried
+     `text-balance` as a one-off utility; as an element rule every heading on
+     every route gets it, so no new heading has to remember. `pretty` is the
+     running-text counterpart: it only prevents orphans, so it stays cheap on
+     the long paragraphs `balance` would be wrong for. Both degrade to normal
+     wrapping where unsupported, which is why there is no fallback here. */
+  h1,
+  h2 {
+    text-wrap: balance;
+  }
+
+  p {
+    text-wrap: pretty;
+  }
+
   /* Backstop for the hero's undock (P9.S5 part 3).
      Note what is NOT here: any rule touching the layers themselves. The v1
      stage's backstop read `.hero-stage > * { transform: none !important }`,
@@ -61,6 +77,958 @@
     }
   }
 
+  /* ---- Parts manifest (P12.S4) ----------------------------------------
+
+     The choreography is data attributes plus transitions, so scrolling the
+     hero re-renders no React at all: `ManifestCheckIn` writes one attribute on
+     the list and everything below reacts to it.
+
+     `[data-choreographed]` is the guard, and its direction is the whole
+     accessibility story. Rows are visible by default; they are hidden ONLY
+     once JavaScript has said it can bring them back. A no-JS visitor, or one
+     with reduced motion, never gets that attribute and reads the finished list
+     (fableTasks2 §2.3). Written the other way round -- hidden by default,
+     revealed by JS -- the same markup would be an empty panel for both. */
+  /* ## A ghosted row, not a blank slot (P14.S5)
+
+     This rule used to be `opacity: 0` on the whole row, and P13.S4's own
+     comment beside it described a "ghosted row" that did not exist: at rest the
+     card rendered *empty*, nine invisible rows holding their height under a
+     heading and a counter. P14.S3 had just spent the first screen's budget
+     getting that card above the fold, so half of that step's win was being
+     thrown away on the frame everybody sees.
+
+     An un-checked row now renders its NAME and nothing else. The list reads as
+     a list from the first paint, its height is unchanged, and check-in still
+     has something to do -- the picture, the system code and the count arrive
+     with the part, which is what makes the card read as being written rather
+     than revealed.
+
+     ## Why the ghost is a token and not "40%"
+
+     The plan asked for 40% opacity. Measured rather than assumed: --text at
+     0.4 over --bg composites to 2.47:1 in the light theme and 3.35:1 in the
+     dark one, both under 1.4.3's 4.5:1 -- and this text is inside a link, so
+     none of the incidental-text exemptions apply. A ghost that fails AA is not
+     a ghost, it is a defect with a design rationale.
+
+     --text-muted is the same intent expressed in a colour the token suite
+     already proves (lib/design-tokens.ts asserts it against --bg and
+     --surface), and the rest of the "40%" reading is bought where contrast has
+     nothing to say: the thumbnail is a decorative image with an empty `alt`, so
+     it can be as faint as it likes. */
+  .manifest-list[data-choreographed] .manifest-name {
+    color: var(--text-muted);
+    transition: color var(--duration-base) var(--ease-out);
+  }
+
+  /* Rows accumulate: a row that has checked in stays checked in, because the
+     job card by the end of the hero is supposed to be the whole list.
+
+     Per row as of P13.S4, keyed off `data-checked` rather than the nine
+     chapter-pair selectors this replaced. Those grouped three rows onto one
+     beat, so chapter 1's whole block arrived while only the headlights were
+     moving -- the list said three parts had come off while one had.
+
+     `inherit`, not `--text`: the name takes the anchor's colour, so the hover,
+     focus and highlight states below keep working through it instead of being
+     overridden by a rule that is more specific than any of them. */
+  .manifest-list[data-choreographed] .manifest-row[data-checked] .manifest-name,
+  .manifest-list[data-choreographed] .manifest-row:hover .manifest-name,
+  .manifest-list[data-choreographed] .manifest-row:focus-within .manifest-name,
+  .manifest-list[data-choreographed] .manifest-row[data-highlight] .manifest-name {
+    color: inherit;
+  }
+
+  /* The two halves that actually arrive with the part. The travel is
+     `--reveal-travel`, the same distance every other reveal on this page moves,
+     and it is on these rather than on the row: a ghosted row is already in its
+     final position, so sliding it would move a line of text the visitor is
+     reading.
+
+     Never `display: none` on either -- the row has to hold its height or every
+     check-in would shift the eight below it. */
+  .manifest-list[data-choreographed] .manifest-thumb,
+  .manifest-list[data-choreographed] .manifest-detail {
+    opacity: 0;
+    transform: translateY(var(--reveal-travel));
+    transition:
+      opacity var(--duration-base) var(--ease-out),
+      transform var(--duration-base) var(--ease-out);
+  }
+
+  .manifest-list[data-choreographed] .manifest-row[data-checked] .manifest-thumb,
+  .manifest-list[data-choreographed] .manifest-row[data-checked] .manifest-detail {
+    opacity: 1;
+    transform: none;
+  }
+
+  /* The counter shows one of its pre-rendered values.
+
+     Every possible count is in the markup and the client marks the true one,
+     rather than CSS matching a count attribute against a value -- CSS cannot
+     compare two attributes, and the alternative was one selector per possible
+     total, which would quietly stop covering the list the day a tenth part
+     joined the scene.
+
+     The default with no JavaScript is the *complete* count, because a visitor
+     without JavaScript is reading the complete list: the number and the rows
+     under it have to agree. */
+  .manifest-counter > span {
+    display: none;
+  }
+
+  .manifest-counter:not([data-live]) > span:last-child,
+  .manifest-counter > span[data-shown-count] {
+    display: inline;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .manifest-list .manifest-name,
+    .manifest-list .manifest-thumb,
+    .manifest-list .manifest-detail {
+      transition: none !important;
+    }
+  }
+
+  /* The row half of the bidirectional highlight. Steel Blue, never Marigold:
+     this is navigation, and tokens.css's two-accent rule reserves Marigold for
+     where money changes hands. The marker is a logical inline-start bar, the
+     same affordance primitives/Sheet.tsx uses for an active row. */
+  .manifest-row[data-highlight] > a {
+    color: var(--brand);
+  }
+
+  /* The inline-start bar. This used to be split in two -- a bar for the panel
+     row and a border tint for `.manifest-chip`, the mobile rail's own class --
+     but P13.S7 merged the panel and the rail into one node and that class went
+     with it, so `:not(.manifest-chip)` matched everything and the chip rule
+     matched nothing. Both halves are gone; what is left is the rule that was
+     actually rendering. */
+  .manifest-row[data-highlight] > a::before {
+    content: "";
+    position: absolute;
+    inset-block: 0;
+    inset-inline-start: -0.5rem;
+    width: 2px;
+    background-color: var(--brand-solid);
+  }
+
+  /* ---- Light, shadow and focus (P13.S5) -------------------------------
+
+     The audit's fourth finding was "no camera, no light, no depth". P13.S2 was
+     the camera; this is the light. All of it is CSS keyed off the one
+     `data-active` / `data-focus` pair StageNarration already writes, so the
+     depth costs no motion values and no extra elements except the floor.
+
+     ## The floor
+
+     A soft ellipse under the car, in the frame's own coordinates. It is the
+     single cheapest depth cue available here: without it the sprites are
+     cutouts on a flat dark field, and nothing in the scene says the car is
+     standing on anything. Static rather than scroll-linked -- the plan wanted
+     it to widen as parts detach, which is a motion value per frame for an
+     effect at 35% opacity behind a car. */
+  .hero-floor {
+    position: absolute;
+    /* Under the car's own footprint, from the same canvas coordinates the
+       sprites use. The car spans canvas rows 333-700 and columns 103-926. */
+    inset-inline-start: 8%;
+    top: 66%;
+    width: 84%;
+    height: 7%;
+    background: radial-gradient(
+      ellipse at center,
+      color-mix(in oklab, var(--color-graphite-1000) 55%, transparent) 0%,
+      transparent 70%
+    );
+    filter: blur(18px);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* ## The soft edge (P14.S9)
+
+     Chapter 1 pushes the camera in to 1.35 aimed at the nose, and the stage
+     then shows canvas columns 0..758 of a car that runs 103..926. Measured, not
+     estimated: `cameraWindow(1)` returns exactly that window, so **167 of the
+     car's 823 columns -- its whole rear fifth -- are outside the stage**, and
+     `overflow-x-clip` ends them in a dead vertical line down the inline-end
+     edge.
+
+     The alternative the plan offered was reducing the push-in, and the
+     arithmetic rules it out: containing 823 columns plus `CAMERA_MARGIN`
+     needs scale <= 1.13, and chapter 2 already frames at 1.1246. A "push-in"
+     one percent tighter than the shot after it is not a push-in, and
+     `CAMERA_MAX_SCALE` is also what `frame()` solves every other station
+     against and what `leaderTarget` clamps into -- retuning it to fix an edge
+     would move three things to fix one.
+
+     So the cut gets a soft edge instead: the drawing dissolves into the stage's
+     own ground over the last 24px rather than being guillotined. Painted as an
+     overlay and NOT as a `mask-image`, deliberately. A mask on `.hero-camera`
+     would be scaled and translated by the camera's own transform, so the fade
+     would drift away from the edge it exists to soften; a mask on `.hero-stage`
+     would eat the frame's border and, because the frame deliberately overflows
+     the stage vertically, would tile the gradient over the undock bands. An
+     opaque strip of `--stage` is exact here because `--stage` is a flat colour.
+
+     `to right` is physical, and here that is correct rather than sloppy: the
+     stage box is `dir="ltr"` at every locale (its coordinates are LTR
+     percentages), so its inline-end IS the right edge. The strip is *placed*
+     logically all the same. */
+  .hero-edge-fade {
+    position: absolute;
+    inset-block: 0;
+    inset-inline-end: 0;
+    width: var(--space-6);
+    z-index: 2;
+    pointer-events: none;
+    background: linear-gradient(to right, transparent 0%, var(--stage) 100%);
+  }
+
+  /* ## The station controls, on the stage (P14.S9)
+
+     Below `lg` the prev/next pair leaves the text row under the drawing and
+     becomes two 44px round buttons in the stage's own bottom corners -- a
+     thumb reaches a corner of the picture it is scrubbing, and does not reach
+     a 12px caption row below it. The text pair is what a desktop pointer gets,
+     and it is unchanged.
+
+     `dir="rtl"`, against the stage's `dir="ltr"`: these are UI chrome, not
+     canvas coordinates, so their inline axis is the page's. «قدم قبلی» is
+     therefore the start (right-hand) corner, matching the arrows the copy
+     already carries.
+
+     z-index 4 puts them above `.hero-callout` (3), so an open plate can never
+     sit on top of a control. */
+  .hero-stage-nav {
+    position: absolute;
+    inset-inline: var(--space-3);
+    bottom: var(--space-3);
+    z-index: 4;
+    display: flex;
+    justify-content: space-between;
+    /* The row itself must not swallow taps aimed at the drawing between the
+       two corners; the buttons put it back for themselves. */
+    pointer-events: none;
+  }
+
+  .hero-stage-nav > button {
+    pointer-events: auto;
+  }
+
+  /* The chevron, DRAWN rather than shipped.
+
+     Two hairlines on a square, turned 45 degrees. An inline SVG would have
+     been the obvious markup and it costs the route's JavaScript budget ~200
+     bytes to say a thing CSS can say for nothing -- and `/[locale]` is already
+     over that budget (docs/performance-landing.md). 1px is also simply what
+     the rest of this design draws with: every rule, divider and container edge
+     in `tokens.css` is a hairline.
+
+     Logical borders read against the row's own `dir="rtl"`, so `inline-start`
+     is the right-hand side: block-start + inline-start makes a corner at the
+     top right, and a clockwise quarter-turn of a half-turn points it at the
+     right -- «→ قدم قبلی». The mirror image points at «قدم بعدی ←».
+
+     `:first-child` / `:last-child` rather than a data attribute: the row is
+     rendered from a two-element array in one place, and its order IS the
+     reading order the labels assume. */
+  .hero-stage-nav > button::before {
+    content: "";
+    width: var(--space-3);
+    height: var(--space-3);
+    border-block-start: 1px solid currentColor;
+  }
+
+  .hero-stage-nav > button:first-child::before {
+    border-inline-start: 1px solid currentColor;
+    transform: rotate(45deg);
+  }
+
+  .hero-stage-nav > button:last-child::before {
+    border-inline-end: 1px solid currentColor;
+    transform: rotate(-45deg);
+  }
+
+  /* ## Focus
+
+     While one part is out, everything else drops back. This is the cinematic
+     half of "the camera moves before the part does": the camera says where to
+     look and this says what to look at. `data-focus` gates it, so a stage with
+     nothing detached is not a stage with everything dimmed. */
+  .hero-stage[data-focus] img:not([data-active]) {
+    /* Light, not transparency. The plan asked for 55% opacity and that is what
+       shipped first -- on a graphite-950 stage it made the car look see-through
+       rather than out of focus, a ghost of itself with the background showing
+       through the bodywork. Dropping brightness and saturation instead keeps
+       every panel solid and simply moves it out of the light, which is what
+       "focus" means when the subject is an object rather than a layer. */
+    filter: saturate(0.5) brightness(0.62);
+  }
+
+  .hero-stage img {
+    transition:
+      opacity var(--duration-base) var(--ease-out),
+      filter var(--duration-base) var(--ease-out);
+  }
+
+  /* ## The detached part's own shadow
+
+     Only while it is out, which is also when it is true: a docked panel sits
+     flush on the body and casts nothing. `drop-shadow` follows the alpha
+     channel, so it traces the part's real silhouette rather than boxing it --
+     the same reason the highlight uses it. */
+  .hero-stage img[data-active] {
+    filter: drop-shadow(
+      0 14px 18px color-mix(in oklab, var(--color-graphite-1000) 45%, transparent)
+    );
+  }
+
+  /* The highlight has to restate the shadow: both rules set `filter`, and the
+     later one wins outright rather than composing. A hovered part that is also
+     the part currently out should keep its shadow AND gain the glow. */
+  .hero-stage img[data-highlight][data-active] {
+    filter: drop-shadow(
+        0 14px 18px color-mix(in oklab, var(--color-graphite-1000) 45%, transparent)
+      )
+      drop-shadow(0 0 6px var(--brand-solid));
+  }
+
+  /* ## Headlight bloom
+
+     Two soft warm discs at the lamp anchors, on while the headlights are the
+     part that is out. `screen` so they add light rather than paint over the
+     lens, and marigold because that is the warm end of the palette -- this is
+     the one place in the hero it appears without being a call to action, and
+     it is light rather than an accent. */
+  .hero-bloom {
+    position: absolute;
+    display: none;
+    /* 22%, not 70%. At 70% under `screen` the two lamps rendered as flat
+       yellow discs sitting on the car rather than as light coming off it --
+       the shot at p=0.087 made that obvious in a way no number would have. */
+    background: radial-gradient(
+      circle,
+      color-mix(in oklab, var(--color-marigold-300) 22%, transparent) 0%,
+      transparent 62%
+    );
+    mix-blend-mode: screen;
+    pointer-events: none;
+  }
+
+  .hero-bloom[data-shown] {
+    display: block;
+  }
+
+  /* ## Arrival
+
+     One slow pass of light across the body as the hero comes in. Deliberately
+     NOT scroll-linked, unlike everything else here: the plan drove it from
+     p 0.00-0.02, which on the desktop track is 38 pixels of scroll -- a beat
+     almost nobody would ever see. As a one-shot on load it is what it is
+     named for, the car arriving on the lift, and it costs one CSS animation.
+
+     Masked to the base sprite so the light falls on the car and not on the
+     empty stage around it. */
+  .hero-sweep {
+    position: absolute;
+    pointer-events: none;
+    background: linear-gradient(
+      100deg,
+      transparent 40%,
+      color-mix(in oklab, var(--color-graphite-50) 22%, transparent) 50%,
+      transparent 60%
+    );
+    background-size: 300% 100%;
+    background-position: 100% 0;
+    -webkit-mask-image: var(--hero-sweep-mask);
+    mask-image: var(--hero-sweep-mask);
+    -webkit-mask-size: contain;
+    mask-size: contain;
+    -webkit-mask-repeat: no-repeat;
+    mask-repeat: no-repeat;
+    /* `forwards`, and the last keyframe is transparent. With `both` and a
+       final background-position the gradient's tail stayed parked across the
+       body for the rest of the session -- a permanent haze over the car that
+       looked like a rendering fault. A sweep has to leave. */
+    opacity: 0;
+  }
+
+  /* The arrival pass, gated on the stage having been SEEN (P14.S9).
+
+     It used to run unconditionally from the base rule above, which is correct
+     for the only case anyone had checked -- the hero is the first paint -- and
+     wrong for every other entry into the page. Deep-link to `#find-my-part`,
+     or reload restored to mid-track, and the browser jumps past the hero
+     before the 300ms delay is up: the light swept across a car nobody was
+     looking at, and the one moment the effect exists for was spent. Worse, it
+     could never happen again, because a CSS animation on load fires once.
+
+     `StageNarration` now sets `data-arrive` from an IntersectionObserver, so
+     the arrival happens the first time the stage is actually on screen --
+     immediately when the hero is the first paint, and on the way back up when
+     it is not. */
+  .hero-sweep[data-arrive] {
+    animation: hero-sweep 1600ms var(--ease-out) 300ms 1 forwards;
+  }
+
+  /* And once more as each station opens (P14.S5 item 7).
+
+     Same gradient, same mask, shorter: the arrival is an event and a chapter
+     change is punctuation, so 900ms rather than 1600 and no delay. Setting the
+     attribute replaces the load animation rather than stacking on it, which is
+     why this is one `animation` shorthand and not a second layer.
+
+     `StageNarration` re-triggers it by removing the attribute, forcing a
+     reflow and re-adding -- a CSS animation does not restart on an attribute
+     change alone. Four times per track, on the frame a chapter opens. */
+  .hero-sweep[data-sweep] {
+    animation: hero-sweep 900ms var(--ease-out) 1 forwards;
+  }
+
+  @keyframes hero-sweep {
+    0% {
+      background-position: 100% 0;
+      opacity: 0;
+    }
+    20% {
+      opacity: 1;
+    }
+    80% {
+      opacity: 1;
+    }
+    100% {
+      background-position: 0 0;
+      opacity: 0;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    /* Both the load pass and the per-station one (P14.S5): the attribute is
+       never written under reduced motion anyway -- `StageNarration` returns
+       early -- but a rule that only covered the bare selector would be one
+       `!important`-free override away from letting it through. */
+    .hero-sweep,
+    .hero-sweep[data-arrive],
+    .hero-sweep[data-sweep] {
+      animation: none;
+      opacity: 0;
+    }
+
+    .hero-stage img {
+      transition: none !important;
+    }
+  }
+
+  /* The sprite half. `filter` rather than `outline` because these are cutouts:
+     drop-shadow follows the alpha channel, so the glow traces the part's real
+     silhouette instead of boxing it. It is also the one property here that
+     cannot collide with the inline transform Framer is already animating on
+     the same element. */
+  .hero-stage img[data-highlight] {
+    filter: drop-shadow(0 0 6px var(--brand-solid));
+  }
+
+  .hero-stage img[data-part] {
+    transition: filter var(--duration-fast) var(--ease-out);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .manifest-list .manifest-row,
+    .hero-stage img[data-part] {
+      transition: none !important;
+    }
+  }
+
+  /* ---- Part callouts (P13.S3) -----------------------------------------
+
+     The narrator. A plate naming the part that just left the car, joined to it
+     by a leader line, shown one at a time as the scroll passes each beat.
+
+     `display: none` rather than `opacity: 0` for the ten that are not showing,
+     and that is an accessibility decision rather than a performance one. A
+     hidden plate is a link; ten of them left in the tree would put ten
+     destinations in the tab order that a keyboard user cannot see, on top of
+     the nine the parts manifest already offers. `display: none` takes them out
+     of the accessibility tree and the tab order entirely, so exactly one
+     callout link exists at any moment -- the one whose part is on screen.
+
+     Without JavaScript no plate is ever shown, which is correct: the car never
+     separates either, and the manifest beside it carries the same names, codes
+     and links in a list that needs no scrolling to read. */
+  /* One caption slot in STAGE space, not eleven in canvas space.
+
+     The version this replaces placed each plate beside its own part inside the
+     camera, with a leader line joining them. It read well at chapters 2 and 3
+     and broke at chapter 1: a plate measured in canvas pixels is magnified 35%
+     by that chapter's push-in while the window it has to fit inside shrinks to
+     roughly 760x570 at the same moment. The headlights' caption rendered cut in
+     half against the top of the stage. Narrowing the plate only makes its copy
+     wrap taller, and the band is 195 rows. There is no size that works.
+
+     Here it cannot be clipped, cannot cover the car, and needs no solver. The
+     slot takes the band the part did NOT travel into, so the caption and the
+     thing it names are never in the same half of the stage. */
+  .hero-callout {
+    position: absolute;
+    inset-inline-start: 3%;
+    width: min(22rem, 44%);
+    display: none;
+    z-index: 3;
+  }
+
+  .hero-callout[data-band="above"] {
+    bottom: 3%;
+  }
+
+  .hero-callout[data-band="below"] {
+    top: 3%;
+  }
+
+  .hero-callout[data-shown] {
+    display: block;
+  }
+
+  /* ## The anchor dot and its leader (P14.S5)
+
+     The half of "anchor the narrator" the geometry allows: the plate above
+     stays in its fixed stage-space slot, and the *connection* is drawn in
+     canvas space instead -- a dot on the detached part and a hairline from it
+     to the plate. See `PartCallout.PartLeaders` for why the text cannot follow
+     the dot into the camera, and `heroScene.leaderTarget` for where the far end
+     of the line is.
+
+     The SVG covers the whole square frame, so its viewBox units ARE canvas
+     pixels and the anchors go in unconverted. `display` rather than opacity for
+     the same reason the plates use it: an SVG left in the layer at zero opacity
+     is ten more elements the compositor keeps alive on a route already over its
+     TBT budget. */
+  .hero-leader {
+    position: absolute;
+    inset: 0;
+    display: none;
+    width: 100%;
+    height: 100%;
+    overflow: visible;
+    pointer-events: none;
+    /* Above every sprite. Sprites take z-index 2..10 (ENGINE_PART_Z upward),
+       and a leader that runs under the car it points at reads as broken. */
+    z-index: 20;
+  }
+
+  .hero-leader[data-shown] {
+    display: block;
+  }
+
+  /* --stage-link, not --brand, and for the reason recorded on the plate below:
+     the stage keeps its dark ground in both themes, and --brand flips. This is
+     the same blue the plate's own link takes, so the dot, the line and the
+     «مشاهده ←» read as one thing. */
+  .hero-leader-line {
+    fill: none;
+    stroke: var(--stage-link);
+    /* `vector-effect: non-scaling-stroke` is on the element, so this is a real
+       CSS pixel at every camera scale. A leader that thickened by 35% during
+       chapter 1's push-in would read as a highlight, not as a pointer. */
+    stroke-width: 1;
+    /* `pathLength="1"` on the element normalises the dash to the line's own
+       length, so every leader draws in the same time however far its part sits
+       from its plate. */
+    stroke-dasharray: 1;
+    stroke-dashoffset: 1;
+  }
+
+  .hero-leader[data-shown] .hero-leader-line {
+    animation: hero-leader-draw var(--duration-slow) var(--ease-out) forwards;
+  }
+
+  @keyframes hero-leader-draw {
+    to {
+      stroke-dashoffset: 0;
+    }
+  }
+
+  .hero-leader-dot {
+    fill: none;
+    stroke: var(--stage-link);
+    stroke-width: 1;
+  }
+
+  .hero-leader[data-shown] .hero-leader-dot {
+    animation: hero-leader-dot var(--duration-base) var(--ease-out) backwards;
+  }
+
+  @keyframes hero-leader-dot {
+    from {
+      opacity: 0;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    /* No draw-on, and no leader at all: reduced motion renders the docked
+       composite (HeroStage's DockedLayer) and StageNarration shows no caption,
+       so there is neither a detached part to mark nor a plate to point at. The
+       job card beside the stage is the accessible copy of this content, forced
+       fully visible for exactly these visitors. */
+    .hero-leader {
+      display: none !important;
+    }
+  }
+
+  /* Beat 0's narration, in the stage rather than above it (P14.S3).
+
+     It was a page paragraph between the subline and the stage, and at 1440x900
+     it and its gap were 122px of the 459px that stood between the header and
+     the top of the drawing. It is not page copy -- it describes the picture --
+     so it moves inside as the caption of the beat before any part has left,
+     shown and hidden by the same `data-callout`/`data-shown` write as every
+     other caption.
+
+     A lower third, not a plate. It spans the stage rather than taking the
+     `.hero-callout` slot's 44% column, because at 390px that column is 157px
+     wide and an 85-character sentence sets seven lines in it. Full width it
+     sets two, in a band that is empty at beat 0 by construction: nothing has
+     undocked yet, and the callouts that will use the same lower band are never
+     on screen at the same time as this is -- `StageNarration` shows exactly
+     one subject. The scrim is there for the `hero-floor` gradient underneath,
+     not for the car.
+
+     The TOP band, not the bottom, and that was measured rather than chosen: at
+     1440x900 the stage runs y312..1015 at rest, so a lower third sits at y957
+     -- below the fold, which would have moved this sentence out of the first
+     screen in the very step that exists to pull things into it. The upper band
+     is 187px of clear canvas above the car at that width and 65px at 390, and
+     the caption sets 36px and 52px. */
+  .hero-lead {
+    position: absolute;
+    inset-inline: 3%;
+    top: 3%;
+    z-index: 3;
+    display: none;
+    box-sizing: border-box;
+    background-color: color-mix(in oklab, var(--stage) 88%, transparent);
+    padding: var(--space-2) var(--space-3);
+    color: var(--stage-text-muted);
+    text-align: start;
+    text-wrap: pretty;
+  }
+
+  .hero-lead[data-shown] {
+    display: block;
+  }
+
+  /* Beat 0's invitation. Hidden by default so it never outlives its own truth;
+     StageNarration shows it only before the first part moves. Without
+     JavaScript nothing ever moves either, so a permanently hidden hint is the
+     honest state -- the same reasoning as the captions. */
+  .hero-hint {
+    visibility: hidden;
+  }
+
+  .hero-hint[data-shown] {
+    visibility: visible;
+  }
+
+  /* The narrator's line, one per station (P14.S5). See `PartCallout`'s
+     `StationLines` for why all five are in the DOM and only one is visible.
+
+     A single grid cell holding all of them: the container is as tall as the
+     LONGEST line at whatever width it is being read, so changing which line
+     shows never moves the hint, the finale CTA or the station buttons below it.
+     No measurement, no reserved line count, and it stays correct when the copy
+     is rewritten. */
+  .hero-stations {
+    display: grid;
+    text-wrap: pretty;
+  }
+
+  .hero-station {
+    grid-area: 1 / 1;
+    /* `visibility`, not `display`: a hidden line still has to contribute its
+       height to the grid, which is the whole mechanism. It also drops out of
+       the accessibility tree, so a screen reader reads the one showing rather
+       than all five. */
+    visibility: hidden;
+  }
+
+  .hero-station[data-shown] {
+    visibility: visible;
+  }
+
+  .hero-callout-plate {
+    pointer-events: auto;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+    /* `box-sizing` explicit: without it the padding and border sat outside the
+       declared width, and the plate rendered 26px wider than it was asked to
+       be -- which mattered a great deal when the layout was solving collisions
+       against that number, and is merely tidy now that it is not. */
+    box-sizing: border-box;
+    /* The plate is a surface on the stage, not on the page: the stage keeps
+       its dark ground in both themes (P14.S2 frames it rather than lightening
+       it), so these are the --stage-* tokens, which by construction do not
+       flip. They used to be raw graphite steps, which said the same thing but
+       could not be told apart from a section that had simply forgotten to
+       switch. */
+    border: 1px solid var(--stage-border);
+    background-color: color-mix(in oklab, var(--stage) 88%, transparent);
+    padding: var(--space-3);
+    color: var(--stage-text-muted);
+    text-align: start;
+    transition:
+      border-color var(--duration-fast) var(--ease-out),
+      color var(--duration-fast) var(--ease-out);
+  }
+
+  /* --stage-link, for the same reason .hero-callout-go below takes it, and it
+     was the same live bug: --brand-solid flips with the theme and this ground
+     does not. In LIGHT theme --brand-solid is #1e52d6, which is 2.86:1 on the
+     stage -- under 1.4.11's 3:1 floor for a focus indicator, and invisible to
+     every dark-theme screenshot because the plate looks identical in both.
+     --stage-link is 7.72:1 in both themes and is already this plate's blue:
+     the plate IS a link, so its focus edge taking the link colour is the
+     token doing what it was minted for. Guarded now -- see
+     lib/design-tokens.test.ts, which fails if any token painted on the stage
+     starts flipping with the theme. */
+  a.hero-callout-plate:hover,
+  a.hero-callout-plate:focus-visible {
+    border-color: var(--stage-link);
+    color: var(--stage-text);
+  }
+
+  /* Type sizes are Tailwind utilities on the elements themselves, not custom
+     properties here: the scale lives in tailwind.config.js (`text-body-sm`,
+     `text-caption`), and `var(--text-body-sm)` does not exist. Only the colours
+     and the family, which are real tokens, are set in CSS. */
+  .hero-callout-name {
+    font-family: var(--font-display);
+    color: var(--stage-text);
+  }
+
+  .hero-callout-code,
+  .hero-callout-why {
+    color: var(--stage-text-faint);
+  }
+
+  /* --stage-link, not --brand. --brand flips with the theme and the plate does
+     not: in LIGHT theme --brand is steel-700, which is 2.51:1 on the stage --
+     the "see the part" link was unreadable in light mode from the day the
+     plate shipped, and no screenshot of the dark theme could show it. */
+  .hero-callout-go {
+    color: var(--stage-link);
+  }
+
+  /* The finale's call to action. Same show/hide mechanism as a plate, placed
+     in the lower band where the parked parts are not. */
+  /* Shown by the same `data-shown` mechanism as a plate, so the finale and the
+     captions are one code path rather than two. `display` rather than opacity
+     for the same reason the plates use it: these are links, and a hidden link
+     is a destination in the tab order that nobody can see. */
+  .hero-finale {
+    display: none;
+  }
+
+  .hero-finale[data-shown] {
+    display: flex;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .hero-callout-plate {
+      transition: none !important;
+    }
+
+    /* The one caption that is NOT a narration of something moving. Reduced
+       motion renders the docked car and `StageNarration` shows nothing at all,
+       which is right for ten plates naming parts that never detach and wrong
+       for this sentence: it is the hero's value proposition, and it was
+       readable page copy before this step moved it into the stage. So it stays
+       on, permanently, over a lower band that is permanently empty. The
+       `noscript` block in HeroV2 is the other half of the pair. */
+    .hero-lead {
+      display: block;
+    }
+  }
+
+  /* ---- Off-screen landing sections (P15.S2) ---------------------------
+
+     The landing is ~10,100px tall on a phone and every pixel of it was being
+     laid out before first paint. `content-visibility: auto` lets the browser
+     skip layout and paint for a section until it approaches the viewport.
+
+     MEASURED, not adopted on principle. A CDP trace under 4x CPU throttle at
+     360x640, three runs each, median Style + Layout for the whole load:
+
+       baseline                            529ms
+       this rule                           293ms   (-236ms, -45%)
+
+     Dirty layout objects in the largest pass fall from ~1,145 -- essentially
+     the entire document -- to ~222. The trace is in
+     `docs/performance-landing.md` under the P15.S2 heading, along with the
+     hypothesis it disproved: this cost was previously attributed to the hero's
+     container-query sprite layers, and the trace shows it is simply the whole
+     page being laid out at once.
+
+     WHY `#hero` IS EXCLUDED: it is above the fold, so there is nothing to
+     defer, and it is `position: sticky` for the length of the scroll story --
+     containment on a sticky scroll container is not a trade worth making for a
+     section that renders immediately anyway.
+
+     `#find-my-part` IS deferred, deliberately, and it is worth 81ms of the
+     236: it is the tallest non-hero section (1,849px at 360px wide) and sits
+     entirely below the fold at both breakpoints, since the hero alone is
+     2,539px on a phone and 3,773px at 1440.
+
+     WHY `auto` PRECEDES EACH LENGTH: with the `auto` keyword the browser
+     remembers a section's real height once it has rendered, so the number is
+     only the first guess and stops mattering afterwards.
+
+     WHY THE NUMBERS ARE PER-SECTION AND NOT ONE SHARED VALUE. The first
+     version of this rule used `auto 100vh` for all nine, reasoning that nine
+     hand-measured numbers would rot. Measured, that was worse than the thing it
+     avoided: 100vh over-estimates almost every section (the trust strip is
+     461px, the brand wall 278px), so the document loaded 1,258px TALLER than it
+     really is and shrank as the visitor scrolled. The scrollbar lied for the
+     whole first pass down the page. One wrong number for nine sections is not
+     simpler than nine right ones -- it is one bug in nine places.
+
+     The values are the rendered heights at 390px wide, measured 2026-09-08, and
+     the four `md:` overrides are the sections whose height changes by more than
+     40% at 1440px. To re-measure: load the page, scroll it end to end so every
+     section has rendered, then read `getBoundingClientRect().height` for each
+     `main > section`. Being wrong here costs scrollbar accuracy on first scroll,
+     not correctness -- so an estimate that is close is fine and an estimate
+     that is absent is not.
+
+     These are measured layout estimates, not design values, which is why they
+     are px literals here rather than tokens in `tokens.css`: a token is a
+     decision, and these are observations that should be corrected whenever the
+     observation changes. */
+  main > section:not(#hero) {
+    content-visibility: auto;
+  }
+
+  #find-my-part {
+    contain-intrinsic-size: auto 1826px;
+  }
+  #trust-strip {
+    contain-intrinsic-size: auto 461px;
+  }
+  #best-sellers {
+    contain-intrinsic-size: auto 607px;
+  }
+  #authenticity {
+    contain-intrinsic-size: auto 1112px;
+  }
+  #shop-by-vehicle {
+    contain-intrinsic-size: auto 730px;
+  }
+  #symptom-finder {
+    contain-intrinsic-size: auto 537px;
+  }
+  #interstitial {
+    contain-intrinsic-size: auto 292px;
+  }
+  #brand-wall {
+    contain-intrinsic-size: auto 278px;
+  }
+  #closing {
+    contain-intrinsic-size: auto 929px;
+  }
+
+  @media (min-width: 768px) {
+    #find-my-part {
+      contain-intrinsic-size: auto 881px;
+    }
+    #trust-strip {
+      contain-intrinsic-size: auto 124px;
+    }
+    #best-sellers {
+      contain-intrinsic-size: auto 1212px;
+    }
+    #interstitial {
+      contain-intrinsic-size: auto 501px;
+    }
+  }
+
+  /* Print renders the whole document at once with no scrolling, so skipped
+     content would print blank. The same is true of any full-page screenshot --
+     `pnpm og:landing` and the visual-regression harness both force these
+     sections to render before capturing, and the reason is written where they
+     do it. */
+  @media print {
+    main > section:not(#hero) {
+      content-visibility: visible;
+    }
+  }
+
+  /* ---- Evidence code (P12.S10) ----------------------------------------
+
+     `dir="ltr"` sets the direction INSIDE the run; `unicode-bidi: isolate`
+     is what stops the surrounding RTL paragraph from deciding where the run
+     sits relative to the text around it. Tailwind has a utility for the
+     first and none for the second, and only the pair together makes a Latin
+     code render the same way in Persian copy as it does on its own. */
+  .evidence-code {
+    unicode-bidi: isolate;
+    /* Tabular digits belong to the CLASS, not to one component (P14.S9).
+       `EvidenceCode` carried `tabular-nums` as a utility and the three other
+       places that stamp a code -- the hero callout plate, the system tiles in
+       `#find-my-part`, the model years in `#shop-by-vehicle` -- did not, so
+       `SYS-02` sitting under `SYS-10` in the same mono face set at two
+       different widths. A stamped identifier is exactly the case
+       `font-variant-numeric` exists for, and there is no call site that wants
+       the other behaviour. Utilities out-rank this, so a future one still
+       can. */
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* ---- Technical plate (P12.S9) ---------------------------------------
+
+     The missing-photograph state on a product card: ruled paper with a
+     drawing frame, so an unphotographed part arrives as a diagram rather
+     than as a gap. Built from tokens only -- `--rule` is the divider inside
+     a surface, which is exactly what a ruled sheet is made of.
+
+     The grid is a pair of repeating gradients rather than an SVG or an
+     image: it costs no request, scales with the card, and inherits the
+     theme, because `--rule` is redefined under [data-theme="dark"] like
+     every other token. */
+  .technical-plate {
+    /* 14px, not 8: at 8 the lines are closer together than they are thick
+       relative to the card, and the plate reads as screen texture rather than
+       as graph paper. Every fourth line is heavier, the way ruled drawing
+       paper is, which is what makes it read as a surface to draw ON. */
+    background-image:
+      repeating-linear-gradient(to right, var(--rule) 0 1px, transparent 1px 56px),
+      repeating-linear-gradient(to bottom, var(--rule) 0 1px, transparent 1px 56px),
+      repeating-linear-gradient(to right, var(--rule) 0 1px, transparent 1px 14px),
+      repeating-linear-gradient(to bottom, var(--rule) 0 1px, transparent 1px 14px);
+    position: relative;
+  }
+
+  /* Corner ticks: the frame a workshop drawing sits inside. One element, four
+     corners, via two gradients per axis -- cheaper than four positioned spans
+     and it cannot fall out of alignment with the box. */
+  .technical-plate::before {
+    content: "";
+    position: absolute;
+    inset: 0.5rem;
+    background:
+      linear-gradient(var(--text-muted) 0 0) 0 0 / 0.75rem 1px no-repeat,
+      linear-gradient(var(--text-muted) 0 0) 0 0 / 1px 0.75rem no-repeat,
+      linear-gradient(var(--text-muted) 0 0) 100% 0 / 0.75rem 1px no-repeat,
+      linear-gradient(var(--text-muted) 0 0) 100% 0 / 1px 0.75rem no-repeat,
+      linear-gradient(var(--text-muted) 0 0) 0 100% / 0.75rem 1px no-repeat,
+      linear-gradient(var(--text-muted) 0 0) 0 100% / 1px 0.75rem no-repeat,
+      linear-gradient(var(--text-muted) 0 0) 100% 100% / 0.75rem 1px no-repeat,
+      linear-gradient(var(--text-muted) 0 0) 100% 100% / 1px 0.75rem no-repeat;
+    opacity: 0.55;
+    pointer-events: none;
+  }
+
   /* The interstitial plate's copy sits on the start-side third, so the scrim
      is heaviest there and thins out across the artwork. CSS gradients take no
      logical direction keyword, so the default is written for RTL (start =
@@ -69,18 +1037,18 @@
   .interstitial-scrim {
     background: linear-gradient(
       to left,
-      var(--color-graphite-950) 0%,
-      color-mix(in srgb, var(--color-graphite-950) 82%, transparent) 38%,
-      color-mix(in srgb, var(--color-graphite-950) 25%, transparent) 100%
+      var(--stage) 0%,
+      color-mix(in srgb, var(--stage) 82%, transparent) 38%,
+      color-mix(in srgb, var(--stage) 25%, transparent) 100%
     );
   }
 
   [dir="ltr"] .interstitial-scrim {
     background: linear-gradient(
       to right,
-      var(--color-graphite-950) 0%,
-      color-mix(in srgb, var(--color-graphite-950) 82%, transparent) 38%,
-      color-mix(in srgb, var(--color-graphite-950) 25%, transparent) 100%
+      var(--stage) 0%,
+      color-mix(in srgb, var(--stage) 82%, transparent) 38%,
+      color-mix(in srgb, var(--stage) 25%, transparent) 100%
     );
   }
 
@@ -93,18 +1061,42 @@
   .closing-scrim {
     background: linear-gradient(
       to top,
-      var(--color-graphite-950) 0%,
-      color-mix(in srgb, var(--color-graphite-950) 88%, transparent) 55%,
-      color-mix(in srgb, var(--color-graphite-950) 72%, transparent) 100%
+      var(--stage) 0%,
+      color-mix(in srgb, var(--stage) 88%, transparent) 55%,
+      color-mix(in srgb, var(--stage) 72%, transparent) 100%
     );
+  }
+
+  /* The authenticity beat's clip runs behind copy docked to its bottom edge,
+     so the scrim is vertical like the closing one but weighted to the bottom.
+
+     It replaces a Tailwind gradient that was half-dead: the element read
+     `via-graphite-950/70 bg-gradient-to-t from-graphite-950 to-transparent`,
+     and the `via` stop generated NO CSS -- an opacity modifier on an opaque
+     var() colour is exactly the trap --brand-subtle documents. The middle of
+     the ramp was therefore linear from opaque to nothing, which is why the
+     copy sat on the thinnest part of it. */
+  .authenticity-scrim {
+    background: linear-gradient(
+      to top,
+      var(--stage) 0%,
+      color-mix(in srgb, var(--stage) 70%, transparent) 45%,
+      transparent 100%
+    );
+  }
+
+  /* The product tile behind the example record: same vertical ramp, shorter,
+     because the artwork under it is a product render on the same ground. */
+  .authenticity-tile-scrim {
+    background: linear-gradient(to top, var(--stage) 0%, transparent 100%);
   }
 
   .hero-scrim {
     background: linear-gradient(
       to left,
-      var(--color-graphite-950) 12%,
-      color-mix(in srgb, var(--color-graphite-950) 92%, transparent) 52%,
-      color-mix(in srgb, var(--color-graphite-950) 18%, transparent) 100%
+      var(--stage) 12%,
+      color-mix(in srgb, var(--stage) 92%, transparent) 52%,
+      color-mix(in srgb, var(--stage) 18%, transparent) 100%
     );
   }
 
@@ -113,31 +1105,584 @@
      building Modal/Drawer, P1.S7) -- plain CSS is the reliable path here.
      color-mix() keeps this token-driven without a new hex literal. */
   dialog::backdrop {
-    background-color: color-mix(in srgb, var(--color-graphite-950) 50%, transparent);
+    background-color: color-mix(in srgb, var(--stage) 50%, transparent);
   }
 
-  /* Marquee loop (components/motion/Marquee.tsx). Translating by exactly
-     -50% works because the marquee duplicates its content once, making the
-     track exactly double the width of one copy. */
+  /* ---- Mobile-only disclosure (components/primitives/Disclosure.tsx) ----
+
+     P14.S6. A group that is collapsed on a phone and always open from `sm` up,
+     with no JavaScript at all: the state is a visually-hidden checkbox's
+     `:checked`, and the breakpoint override is one media query.
+
+     `<details>` would be the better element and cannot do this -- its open
+     state is an HTML attribute fixed at prerender time, and a closed
+     `<details>` cannot be force-opened by author CSS on any engine older than
+     `::details-content`. Disclosure.tsx carries the full reasoning.
+
+     The panel is `display: none` when closed rather than clipped, so its links
+     leave the tab order and the accessibility tree with it -- a collapsed
+     footer column of sixteen brand links should not be sixteen tab stops. */
+  .disclosure-panel {
+    display: none;
+  }
+
+  .disclosure-input:checked ~ .disclosure-panel {
+    display: block;
+  }
+
+  /* The chevron lives inside the label, which lives inside the heading, whose
+     tag varies by caller -- hence `~ * >` rather than a tag name. Scoped
+     through `.disclosure-heading` so a nested disclosure inside the panel
+     cannot be flipped by its parent's state. */
+  .disclosure-input:checked ~ * > .disclosure-heading .disclosure-chevron {
+    transform: rotate(180deg);
+  }
+
+  .disclosure-chevron {
+    transition: transform var(--duration-fast) var(--ease-out);
+  }
+
+  @media (min-width: 640px) {
+    /* Above the breakpoint this is not a disclosure at all: the panel is open,
+       and the toggle stops being a target so a desktop pointer cannot collapse
+       a column that has no reason to collapse. The label keeps its text -- it
+       is the column heading. */
+    .disclosure-panel {
+      display: block;
+    }
+
+    .disclosure-heading {
+      pointer-events: none;
+    }
+
+    .disclosure-chevron {
+      display: none;
+    }
+  }
+
+  /* ---- Symptom chips: the «بیشتر» expander (P14.S6) -------------------
+
+     Same `:checked` mechanism, applied to list items rather than a panel: the
+     first six chips always render, the remaining four are revealed by the
+     toggle below the list, and from `sm` up every chip is visible and the
+     toggle is gone. One <ul>, not two -- splitting the ten systems across two
+     lists to make the CSS easier would tell a screen reader there are two
+     unrelated groups of symptoms. */
+  .symptom-list > .symptom-extra {
+    display: none;
+  }
+
+  /* The toggle sits after the list in the DOM because that is where it sits on
+     screen, and focus order has to agree with both (WCAG 2.4.3) -- see
+     SymptomFinder.tsx. That puts the chips out of `~`'s reach, so the list
+     asks about the checkbox rather than the other way round. */
+  .symptom-list:has(~ .symptom-more:checked) > .symptom-extra {
+    display: list-item;
+  }
+
+  /* Without `:has()` the toggle cannot reach the chips at all, and a control
+     that does nothing is worse than a long list. Show all ten and drop the
+     toggle, which is exactly the `sm` layout below. */
+  @supports not selector(:has(*)) {
+    .symptom-list > .symptom-extra {
+      display: list-item;
+    }
+
+    .symptom-more,
+    .symptom-more-label {
+      display: none;
+    }
+  }
+
+  /* The label is never hidden while it is the checkbox's only accessible
+     name -- axe flags exactly that ("Form elements must have labels",
+     critical, measured at 390px with the expander open). Its TEXT swaps
+     instead, which also makes it a real two-way toggle rather than a
+     one-shot: six chips, «۴ علامت دیگر», ten chips, «کمتر». */
+  .symptom-more-close {
+    display: none;
+  }
+
+  .symptom-more:checked ~ .symptom-more-label .symptom-more-open {
+    display: none;
+  }
+
+  .symptom-more:checked ~ .symptom-more-label .symptom-more-close {
+    display: inline;
+  }
+
+  @media (min-width: 640px) {
+    .symptom-list > .symptom-extra {
+      display: list-item;
+    }
+
+    .symptom-more-label {
+      display: none;
+    }
+  }
+
+  /* ---- Header: the second row collapses on the way down (P14.S6) -------
+
+     Row 2 carries the search field and the vehicle chip -- for a parts shop,
+     the two most-used mobile actions, which is why they are in the header at
+     all rather than behind the hamburger. They are also 48px of a 844px
+     screen, so they fold away once the visitor has committed to scrolling and
+     come back the moment they scroll up.
+
+     `grid-template-rows: 1fr -> 0fr` rather than `height`, because the row's
+     height is content-derived and there is no number to animate to. The child
+     needs `min-block-size: 0` for the 0fr track to be able to squeeze it, and
+     `overflow: hidden` so the content clips instead of spilling.
+
+     The attribute is written on <header> imperatively by a passive scroll
+     listener (Header.tsx) -- no React state, so scrolling re-renders nothing.
+
+     Reduced motion keeps the collapse (it is layout, not decoration -- a
+     visitor who asked for less movement still wants the screen space) and
+     drops only the transition. */
+  .header-row-2 {
+    display: grid;
+    grid-template-rows: 1fr;
+    transition: grid-template-rows var(--duration-base) var(--ease-out);
+  }
+
+  .header-row-2 > * {
+    min-block-size: 0;
+    overflow: hidden;
+  }
+
+  header[data-header-collapsed="true"] .header-row-2 {
+    grid-template-rows: 0fr;
+  }
+
+  /* Row 2 does not exist above `md` -- the search field and the vehicle chip
+     are back in row 1 there. Written here rather than as `md:hidden` on the
+     element because this whole block sits after `@tailwind utilities` in the
+     same cascade layer, so `.header-row-2 { display: grid }` would out-order
+     the utility and win. */
+  @media (min-width: 768px) {
+    .header-row-2 {
+      display: none;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .header-row-2,
+    .disclosure-chevron {
+      transition: none;
+    }
+  }
+
+  /* ---- Enter-on-view reveals (components/motion/Reveal.tsx, P14.S7) ----
+
+     CSS, not motion's `whileInView`, and the reason is the route's measured
+     problem rather than a preference. `/` sits at 197KB First Load JS against
+     a 193KB gate and 306ms TBT against 200ms, and the attribution pass found
+     692 of ~936ms across the long tasks is Style & Layout recalculation, not
+     script execution. `motion` is already in this route's chunk (the hero), so
+     a `whileInView` wrapper would cost ~0 KB -- but roughly forty more
+     VisualElements to mount and measure at hydration is exactly the work that
+     number is made of. An IntersectionObserver plus a class costs one observer
+     for the whole page and does no layout reads on scroll at all.
+
+     Travel and duration are masterPlan.md §5's motion budget (<=24px, <=400ms)
+     and live in tokens.css. No scale, no blur, no bounce -- deliberately: this
+     is a workshop manual, not a startup deck.
+
+     Two shapes, one attribute:
+       [data-reveal]                      the block fades and rises as one
+       [data-reveal][data-reveal-stagger] its *children* do, 60ms apart
+
+     The observer only ever writes `data-reveal="in"`, so both shapes share one
+     code path and neither re-renders React.
+
+     ## The hidden state is OPT-IN, and that is the load-bearing part
+
+     Every rule that hides anything is gated on `:root[data-reveal-armed]`,
+     which nothing in this stylesheet and nothing on the server ever sets --
+     only `RevealBoot`'s blocking inline script does, before paint. The
+     server-rendered page is therefore *visible*, and JavaScript is what asks
+     for it to be hidden first.
+
+     Written the other way round -- hidden by default, cleared by an observer
+     that only exists after successful hydration -- the whole landing page below
+     the hero disappears permanently on any failure between paint and
+     hydration: a chunk 404, a throw from an unrelated component, an extension
+     eating part of the bundle. None of those are the no-JS visitor a
+     `scripting: none` query covers, and there is no error boundary that can
+     reach a CSS opacity. `ManifestCheckIn` already states this rule for the job
+     card -- "it only ever hides rows that it can bring back" -- and this is the
+     same rule for the rest of the page. The reveal is a nicety; the content is
+     the product. */
+  :root[data-reveal-armed] [data-reveal]:not([data-reveal-stagger]),
+  :root[data-reveal-armed] [data-reveal-stagger] > * {
+    opacity: 0;
+    transform: translate3d(0, var(--reveal-travel), 0);
+    transition:
+      opacity var(--duration-slow) var(--ease-out),
+      transform var(--duration-slow) var(--ease-out);
+  }
+
+  :root[data-reveal-armed] [data-reveal="in"]:not([data-reveal-stagger]),
+  :root[data-reveal-armed] [data-reveal-stagger][data-reveal="in"] > * {
+    opacity: 1;
+    transform: none;
+  }
+
+  /* The stagger, as :nth-child rather than an index written onto each child.
+     Cloning children to stamp a `--reveal-i` would turn every staggered grid
+     into client-owned markup, which is the one thing a leaf wrapper exists to
+     avoid. Capped at eight so a ten-chip grid's last chip is not held back
+     half a second after the first.
+
+     Not gated on `data-reveal-armed`: a `transition-delay` with no `transition`
+     to delay is inert, so an unarmed page carries these declarations and is
+     unaffected by them. Gating them would only add specificity noise. */
+  [data-reveal-stagger] > :nth-child(2) {
+    transition-delay: calc(1 * var(--reveal-stagger-step));
+  }
+  [data-reveal-stagger] > :nth-child(3) {
+    transition-delay: calc(2 * var(--reveal-stagger-step));
+  }
+  [data-reveal-stagger] > :nth-child(4) {
+    transition-delay: calc(3 * var(--reveal-stagger-step));
+  }
+  [data-reveal-stagger] > :nth-child(5) {
+    transition-delay: calc(4 * var(--reveal-stagger-step));
+  }
+  [data-reveal-stagger] > :nth-child(6) {
+    transition-delay: calc(5 * var(--reveal-stagger-step));
+  }
+  [data-reveal-stagger] > :nth-child(7) {
+    transition-delay: calc(6 * var(--reveal-stagger-step));
+  }
+  [data-reveal-stagger] > :nth-child(n + 8) {
+    transition-delay: calc(7 * var(--reveal-stagger-step));
+  }
+
+  /* Reduced motion renders the FINAL state, never the hidden one -- and does it
+     in CSS so it is true of the very first paint, before hydration has decided
+     anything. The same guarantee the marquee already had a backstop for.
+
+     `RevealBoot` reads the same preference and simply does not arm, so on the
+     normal path this query has nothing to override. It is kept for the two
+     cases the script cannot answer:
+
+       - the visitor turns reduced motion ON after the page armed. A media query
+         is live; the script ran once, at parse.
+       - `window.matchMedia` is missing, so the script armed without being able
+         to ask.
+
+     `(scripting: none)` is GONE from this query, and deliberately. It was a
+     Media Queries Level 5 feature with uneven engine support being asked to
+     carry the entire no-JS guarantee -- if it did not match, the page stayed
+     invisible. With the hidden state opted into by a script, a browser with no
+     scripting never arms and the query has nothing left to do.
+
+     Carries the `:root[data-reveal-armed]` prefix so it matches the specificity
+     of the rules it overrides and wins on source order. Without the prefix it
+     is two attribute selectors against four and would silently lose. */
+  @media (prefers-reduced-motion: reduce) {
+    :root[data-reveal-armed] [data-reveal]:not([data-reveal-stagger]),
+    :root[data-reveal-armed] [data-reveal-stagger] > * {
+      opacity: 1;
+      transform: none;
+      transition: none;
+      transition-delay: 0s;
+    }
+  }
+
+  /* ---- Marquee (components/motion/Marquee.tsx, P14.S7) ----------------
+
+     The track is two structurally identical runs. Each run is
+     item, separator, item, separator, ... including a *trailing* separator, so
+     the rhythm across the seam is the same as the rhythm inside a run -- the
+     previous shape put fifteen real nodes beside one wrapper holding the
+     duplicate, and the missing separator between the last name and the first
+     is what made the loop visibly restart.
+
+     Spacing lives on the separator (`ms-8 me-8`), never on a `gap`. A gap on
+     the track would sit between the two runs as well, making the track
+     2 x run + gap wide while the animation translates by exactly half of it --
+     off by half a gap every lap, which is a seam you can see.
+
+     Direction: `50%`, not `-50%`. Under `dir="rtl"` an overflowing block hangs
+     its inline-start edge on the container's *right* edge and spills to the
+     left, so the visible window shows the head of run 1 and everything to the
+     left of it is off-screen. Translating negatively walks the track's right
+     edge away from the container's and opens a growing blank band -- which is
+     what "not infinite" looked like. Translating positively feeds the
+     off-screen duplicate in from the left and lands run 2's first item exactly
+     where run 1's was. The custom property keeps the LTR case correct without
+     forcing `direction: ltr` onto Persian text. */
+  .motion-marquee-track {
+    --marquee-shift: -50%;
+    animation: marquee calc(var(--marquee-items) * var(--marquee-item-duration)) linear infinite;
+    /* Paused until the section is on screen. This is the default, not a state
+       JS has to reach in time: at scrollY=0 the brand wall is far below the
+       fold and `document.getAnimations()` must report `paused`. */
+    animation-play-state: paused;
+  }
+
+  [dir="rtl"] .motion-marquee-track {
+    --marquee-shift: 50%;
+  }
+
+  .motion-marquee[data-inview="true"] .motion-marquee-track {
+    animation-play-state: running;
+  }
+
+  /* After the in-view rule, so it wins at equal specificity. Hover and
+     focus-within both: a keyboard user tabbing through fifteen brand links
+     cannot chase a moving target. */
+  .motion-marquee:hover .motion-marquee-track,
+  .motion-marquee:focus-within .motion-marquee-track {
+    animation-play-state: paused;
+  }
+
   @keyframes marquee {
     from {
-      transform: translateX(0);
+      transform: translate3d(0, 0, 0);
     }
     to {
-      transform: translateX(-50%);
+      transform: translate3d(var(--marquee-shift), 0, 0);
     }
   }
 
-  /* CSS-level backstop for the same reduced-motion check Marquee.tsx does
-     in JS: `useReducedMotion()` needs `window.matchMedia`, unavailable
-     during SSR, so the very first paint (before hydration resolves the
-     preference) could otherwise briefly run the animation. This guarantees
-     it never does, independent of hydration timing. Targets a stable class
-     (not an inline-style attribute selector, whose serialized string order
-     isn't guaranteed across browsers for shorthand properties). */
+  /* Reduced motion is a different *layout*, not a slower loop: the names wrap
+     into rows and stay put. Done in CSS rather than by branching in the
+     component so the first paint is already correct -- `useReducedMotion()`
+     needs `window.matchMedia`, which does not exist during SSR, so a JS branch
+     would render the scrolling shape and swap it at hydration. The duplicate
+     run is display:none here rather than merely still, so a screen reader and
+     a Tab press meet each brand exactly once. */
   @media (prefers-reduced-motion: reduce) {
     .motion-marquee-track {
       animation: none !important;
+    }
+
+    /* `width` and `flex-shrink` both have to be undone: the run carries
+       `w-max shrink-0` so that it can be exactly half a track, and a
+       max-content run that cannot shrink is a run that cannot wrap. */
+    .motion-marquee-track,
+    .motion-marquee-run {
+      width: auto;
+      flex-shrink: 1;
+      flex-wrap: wrap;
+      row-gap: var(--space-4);
+    }
+
+    .motion-marquee-run[data-clone] {
+      display: none;
+    }
+  }
+
+  /* ---- The hero stage's first paint (P15.S3) --------------------------
+
+     A 410-byte copy of the base render, inline in the HTML, painted at the
+     same registration as the real one and one stacking level below it. The
+     full argument for why this is a low-resolution render rather than a
+     shimmer plate is in `HeroV2/stageSkeleton.ts`; the short version is that
+     every sprite here is a masked cut, so a RECTANGLE under the car is never
+     covered by the car -- it stays visible around it permanently. A copy of
+     the car is, because its alpha is the car's alpha.
+
+     `z-index: 0` puts it under the base image (1) and under every sprite
+     (ENGINE_PART_Z upward). `.hero-floor`'s shadow shares level 0 and is
+     written after this rule's element in the DOM, so the floor paints over
+     the placeholder exactly as it paints over nothing today.
+
+     ** Only non-colour tokens here, and that is a rule rather than a
+     coincidence. ** The stage does not follow the theme (see `--stage` in
+     tokens.css), so anything painted on it that DID flip would land on a
+     ground it was never contrast-checked against. This element's colour is
+     the placeholder image; `--loader-rest` / `--loader-peak` are opacities
+     and `--loader-duration` is a time, none of which have a theme.
+     `design-tokens.test.ts` scans this selector for exactly that. */
+  .hero-skeleton {
+    position: absolute;
+    z-index: 0;
+    pointer-events: none;
+    background-image: var(--hero-skeleton-image);
+    /* `100% 100%`, not `contain`: the box is already the render's exact
+       registered box, and rounding 823x367 to 32x14 costs 2% of aspect --
+       stretching to the box is what puts the placeholder's wheels under the
+       real wheels rather than 7px above them. */
+    background-size: 100% 100%;
+    background-repeat: no-repeat;
+    opacity: var(--loader-rest);
+    /* Three passes and then done, `forwards` to the resting opacity. Bounded
+       rather than infinite because the placeholder is never removed from the
+       DOM -- it is covered -- and an infinite animation on a covered element
+       is compositor work nobody will ever see. Three passes is about 3.6s,
+       which is the window this is for; past that the wait is not a wait any
+       more, it is a failure, and a pulse does not help.
+
+       Safe to animate at all only because the alpha channels match: every
+       pixel this element paints is under the sharp render once that arrives,
+       so nothing about the pulse is visible after the car lands. */
+    animation: hero-skeleton-wait var(--loader-duration) var(--ease-in-out) 3 forwards;
+  }
+
+  @keyframes hero-skeleton-wait {
+    0%,
+    100% {
+      opacity: var(--loader-rest);
+    }
+    50% {
+      opacity: var(--loader-peak);
+    }
+  }
+
+  /* ---- The route loader and its progress bar (P15.S3) -----------------
+
+     Both belong to `components/loading/ShopRouteLoader.tsx`, a Server
+     Component meant to be a `loading.tsx` default export, so **neither costs a
+     byte of JavaScript**. The step's brief expected the progress bar to need a
+     client leaf listening for navigation; it does not, because the App Router
+     mounts a loading subtree for exactly the interval a navigation is pending
+     and unmounts it when the page arrives. A CSS animation on a mounted
+     element is the whole mechanism -- and it was the only option that fit the
+     budget: the landing measures 199.8 kB against a 200 kB hard fail, so
+     anything reaching the shop chrome had 0.2 kB to spend.
+
+     ** No route renders it today. ** A loading boundary in this app commits
+     the response before the page decides its status, which turns four real
+     404s into soft ones and the auth redirect into a meta refresh.
+     `ShopRouteLoader`'s own comment carries the A/B, and
+     `loading-boundaries.test.ts` is the guard. These rules stay because
+     wiring it back up is one file once a route qualifies. */
+  .route-progress {
+    position: fixed;
+    inset-block-start: 0;
+    inset-inline: 0;
+    block-size: var(--loader-bar);
+    /* Above the header (z-40), below nothing that matters -- the toast rail
+       is z-50 but sits in the opposite corner. A progress bar under the
+       sticky header is a progress bar nobody sees. */
+    z-index: 50;
+    overflow: hidden;
+    pointer-events: none;
+    background-color: var(--loader-track);
+    /* Transforms are physical by definition -- there is no logical translate --
+       so the sweep's sign is flipped for RTL instead, from the `[dir]` rule
+       below. next-intl already sets `dir` on the document element, so this is
+       correct on the first frame and needs no JavaScript. A bar that sweeps
+       the wrong way is not something a test would catch and is immediately
+       obvious to the only people who will use this site. */
+    --route-progress-dir: 1;
+  }
+
+  .route-progress::after {
+    content: "";
+    position: absolute;
+    inset-block: 0;
+    inset-inline-start: 0;
+    inline-size: 40%;
+    background-color: var(--loader-ink);
+    /* Indeterminate on purpose. Nothing here knows how far along the
+       navigation is, and a bar that eases toward 90% and waits is telling the
+       visitor a number it made up. A segment that keeps moving says "still
+       working" and claims nothing.
+
+       `translate` (the standalone property) rather than a transform, so the
+       direction can be flipped by a custom property below without rewriting
+       the keyframes. Compositor-only: no layout, no paint. */
+    animation: route-progress-sweep var(--loader-duration) var(--ease-in-out) infinite;
+  }
+
+  [dir="rtl"] .route-progress {
+    --route-progress-dir: -1;
+  }
+
+  @keyframes route-progress-sweep {
+    from {
+      translate: calc(var(--route-progress-dir) * -100%);
+    }
+    to {
+      translate: calc(var(--route-progress-dir) * 250%);
+    }
+  }
+
+  /* ## The mark -- THE HIGGSFIELD SEAM
+
+     Three rules of a job card being written in, staggered. Deliberately not a
+     spinner: a spinner says "a computer is busy", and every surface on this
+     site says "someone at a counter is doing something for you". The widths
+     are 100 / 72 / 44 rather than three equal bars for the same reason the
+     rest of the page avoids uniform rhythm -- a docket has a long line, a
+     shorter one and a stub.
+
+     Everything visual about the loader is in this block and in
+     `WorkshopLoader.tsx`. Replacing the pair with the owner's generated
+     animation is the one-file change the P15 decision asks for. */
+  .workshop-loader {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+    inline-size: 100%;
+    max-inline-size: 18rem;
+  }
+
+  .workshop-loader-rule {
+    block-size: var(--loader-bar);
+    border-radius: var(--radius-full);
+    background-color: var(--loader-track);
+    position: relative;
+    overflow: hidden;
+  }
+
+  .workshop-loader-rule:nth-child(2) {
+    inline-size: 72%;
+  }
+
+  .workshop-loader-rule:nth-child(3) {
+    inline-size: 44%;
+  }
+
+  .workshop-loader-rule::after {
+    content: "";
+    position: absolute;
+    inset-block: 0;
+    inset-inline-start: 0;
+    inline-size: 45%;
+    background-color: var(--loader-ink);
+    animation: route-progress-sweep calc(var(--loader-duration) * 1.5) var(--ease-in-out) infinite;
+    --route-progress-dir: 1;
+  }
+
+  [dir="rtl"] .workshop-loader-rule::after {
+    --route-progress-dir: -1;
+  }
+
+  .workshop-loader-rule:nth-child(2)::after {
+    animation-delay: var(--loader-stagger);
+  }
+
+  .workshop-loader-rule:nth-child(3)::after {
+    animation-delay: calc(var(--loader-stagger) * 2);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    /* Every one of these becomes a static tint, in CSS rather than by
+       branching in a component: all three are Server Components with no
+       client JavaScript at all, so there is no `useReducedMotion()` here to
+       branch on and the first paint has to be right already.
+
+       The placeholder rests at --loader-peak rather than --loader-rest under
+       reduced motion: with no pulse to carry it, the one frame it gets should
+       be the legible one. */
+    .hero-skeleton {
+      animation: none;
+      opacity: var(--loader-peak);
+    }
+
+    .route-progress::after,
+    .workshop-loader-rule::after {
+      animation: none;
+      /* Still says "in progress" without moving: a filled stub against the
+         track, at the start of the rule, in the loader's own ink. */
+      inline-size: 30%;
     }
   }
 }

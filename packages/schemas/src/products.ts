@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { CATALOG_SYSTEM_CODES } from "./catalogSystems.js";
 
 // Mirrors the subset of apps/api/src/models/Product.ts that apps/web
 // actually renders (landing's featured grid + authenticity story,
@@ -35,6 +36,12 @@ export const productListItemSchema = z.object({
   isWholesalePrice: z.boolean(),
   stock: z.number(),
   media: z.array(z.string()),
+  // Which of the ten systems this part belongs to (P12.S9). Optional because
+  // only the endpoints that resolve the product's category can fill it -- the
+  // catalog list does, the cart's embedded product snapshot does not -- and a
+  // consumer that has to render without it (the landing's no-photo plate) is
+  // better off knowing it does not know than being handed a guess.
+  systemCode: z.enum(CATALOG_SYSTEM_CODES).optional(),
   authenticity: authenticitySchema,
 });
 export type ProductListItemDto = z.infer<typeof productListItemSchema>;

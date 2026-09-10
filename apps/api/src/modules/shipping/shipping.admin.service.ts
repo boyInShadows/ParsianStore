@@ -1,8 +1,13 @@
-import type { FilterQuery, HydratedDocument } from "mongoose";
+import type { ShippingRate } from "@prisma/client";
 import { SHIPPING_METHODS, type AdminShippingRateDto } from "schemas";
-import { ShippingRateModel, type ShippingRate } from "../../models/ShippingRate.js";
+import { ANY_STATE, prisma, softDeleteData, stateFilter } from "../../config/prisma.js";
 import { ApiError } from "../../utils/ApiError.js";
-import { paginate, type PaginationMeta, type PaginationQuery } from "../../utils/pagination.js";
+import {
+  paginate,
+  type PaginationMeta,
+  type PaginationQuery,
+  type Where,
+} from "../../utils/pagination.js";
 import type {
   AdminShippingRateListQuery,
   CreateShippingRateInput,
@@ -11,38 +16,32 @@ import type {
 
 const NOT_FOUND = "نرخ ارسال یافت نشد";
 
-/** See categories.admin.service.ts for why this shape, not `$in: [null, ...]`. */
-const ANY_STATE = { deletedAt: { $exists: true } } as const;
-
 type ListFilters = Omit<AdminShippingRateListQuery, keyof PaginationQuery>;
 
-function buildListFilter(filters: ListFilters): FilterQuery<ShippingRate> {
-  const filter: FilterQuery<ShippingRate> =
-    filters.state === "deleted" ? { deletedAt: { $ne: null } } : { deletedAt: null };
-  if (filters.methodCode) filter.methodCode = filters.methodCode;
-  if (filters.zone) filter.zone = filters.zone;
-  return filter;
+function buildListFilter(filters: ListFilters): Where {
+  return {
+    ...stateFilter(filters.state),
+    ...(filters.methodCode ? { methodCode: filters.methodCode } : {}),
+    ...(filters.zone ? { zone: filters.zone } : {}),
+  };
 }
 
-function toDto(doc: HydratedDocument<ShippingRate>): AdminShippingRateDto {
-  const method = SHIPPING_METHODS.find((entry) => entry.code === doc.methodCode);
+function toDto(rate: ShippingRate): AdminShippingRateDto {
+  const method = SHIPPING_METHODS.find((entry) => entry.code === rate.methodCode);
   return {
-    id: String(doc._id),
-    methodCode: doc.methodCode,
+    id: rate.id,
+    methodCode: rate.methodCode,
     // A rate row whose courier code is no longer in SHIPPING_METHODS still
     // has to render -- falling back to the raw code beats an empty label
     // that hides which row is stale.
     methodName: method
       ? { fa: method.name.fa, en: method.name.en }
-      : {
-          fa: doc.methodCode,
-          en: doc.methodCode,
-        },
-    zone: doc.zone,
-    minWeightGram: doc.minWeightGram,
-    maxWeightGram: doc.maxWeightGram,
-    priceRial: doc.priceRial,
-    deletedAt: doc.deletedAt ? doc.deletedAt.toISOString() : null,
+      : { fa: rate.methodCode, en: rate.methodCode },
+    zone: rate.zone,
+    minWeightGram: rate.minWeightGram,
+    maxWeightGram: rate.maxWeightGram,
+    priceRial: rate.priceRial,
+    deletedAt: rate.deletedAt ? rate.deletedAt.toISOString() : null,
   };
 }
 
@@ -62,12 +61,18 @@ function toDto(doc: HydratedDocument<ShippingRate>): AdminShippingRateDto {
  * so that is a guarantee and not an accident of insertion order.
  *
  * `null` max means open-ended, compared as +Infinity.
+ *
+ * The schema's `@@unique([methodCode, zone, minWeightGram])` catches only the
+ * exact-duplicate case; a band that starts elsewhere and overlaps is still
+ * this function's job.
  */
 async function assertNoOverlap(input: CreateShippingRateInput, excludeId?: string): Promise<void> {
-  const siblings = await ShippingRateModel.find({
-    methodCode: input.methodCode,
-    zone: input.zone,
-    ...(excludeId ? { _id: { $ne: excludeId } } : {}),
+  const siblings = await prisma.shippingRate.findMany({
+    where: {
+      methodCode: input.methodCode,
+      zone: input.zone,
+      ...(excludeId ? { id: { not: excludeId } } : {}),
+    },
   });
 
   const newMax = input.maxWeightGram ?? Number.POSITIVE_INFINITY;
@@ -89,18 +94,23 @@ export async function listAdminShippingRates(
   pagination: PaginationQuery,
   filters: ListFilters,
 ): Promise<{ data: AdminShippingRateDto[]; meta: PaginationMeta }> {
-  const { data, meta } = await paginate(ShippingRateModel, buildListFilter(filters), {
-    ...pagination,
-    // Grouped the way staff read the table: courier, then zone, then the
-    // weight ladder in order.
-    sort: pagination.sort ?? "methodCode zone minWeightGram",
-  });
+  const { data, meta } = await paginate<ShippingRate>(
+    prisma.shippingRate,
+    "ShippingRate",
+    buildListFilter(filters),
+    {
+      ...pagination,
+      // Grouped the way staff read the table: courier, then zone, then the
+      // weight ladder in order.
+      sort: pagination.sort ?? "methodCode zone minWeightGram",
+    },
+  );
   return { data: data.map(toDto), meta };
 }
 
 /** Finds regardless of soft-delete state, so edit/restore can reach a deleted row. */
-async function findAnyById(id: string): Promise<HydratedDocument<ShippingRate>> {
-  const rate = await ShippingRateModel.findOne({ _id: id, ...ANY_STATE });
+async function findAnyById(id: string): Promise<ShippingRate> {
+  const rate = await prisma.shippingRate.findFirst({ where: { id, ...ANY_STATE } });
   if (!rate) throw new ApiError(404, NOT_FOUND);
   return rate;
 }
@@ -113,33 +123,31 @@ export async function createShippingRate(
   input: CreateShippingRateInput,
 ): Promise<AdminShippingRateDto> {
   await assertNoOverlap(input);
-  return toDto(await ShippingRateModel.create(input));
+  return toDto(await prisma.shippingRate.create({ data: input }));
 }
 
 export async function updateShippingRate(
   id: string,
   input: UpdateShippingRateInput,
 ): Promise<AdminShippingRateDto> {
-  const rate = await ShippingRateModel.findById(id);
+  const rate = await prisma.shippingRate.findUnique({ where: { id } });
   if (!rate) throw new ApiError(404, NOT_FOUND);
   await assertNoOverlap(input, id);
-  Object.assign(rate, input);
-  await rate.save();
-  return toDto(rate);
+  return toDto(await prisma.shippingRate.update({ where: { id }, data: input }));
 }
 
 /**
  * No usage guard like the catalog entities have: a rate is never
- * referenced by another document (an order snapshots the resolved price,
- * per Order.shippingMethod), so deleting one can orphan nothing. What it
- * CAN do is leave a weight range with no bracket at all, which
+ * referenced by another row (an order snapshots the resolved price, per
+ * Order's shipping-method columns), so deleting one can orphan nothing.
+ * What it CAN do is leave a weight range with no bracket at all, which
  * estimateShipping reports as "this method is unavailable" -- correct
  * behaviour, and visible in the list, so it is not blocked here.
  */
 export async function deleteShippingRate(id: string): Promise<void> {
-  const rate = await ShippingRateModel.findById(id);
+  const rate = await prisma.shippingRate.findUnique({ where: { id } });
   if (!rate) throw new ApiError(404, NOT_FOUND);
-  await rate.softDelete();
+  await prisma.shippingRate.update({ where: { id }, data: softDeleteData() });
 }
 
 export async function restoreShippingRate(id: string): Promise<AdminShippingRateDto> {
@@ -156,7 +164,9 @@ export async function restoreShippingRate(id: string): Promise<AdminShippingRate
     },
     id,
   );
-  rate.deletedAt = null;
-  await rate.save();
-  return toDto(rate);
+  const restored = await prisma.shippingRate.update({
+    where: { id, ...ANY_STATE },
+    data: { deletedAt: null },
+  });
+  return toDto(restored);
 }

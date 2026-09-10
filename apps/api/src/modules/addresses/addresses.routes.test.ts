@@ -1,41 +1,25 @@
+import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
-import mongoose from "mongoose";
-import type { Server } from "node:http";
-import { app } from "../../app.js";
-import { testDbUri } from "../../config/testDbUri.js";
-import { CityModel } from "../../models/City.js";
-import { ProvinceModel } from "../../models/Province.js";
-import { UserModel } from "../../models/User.js";
+import { prisma } from "../../config/prisma.js";
+import { disconnectDB, resetDb, startTestServer } from "../../config/testDb.js";
+import { seedUser, uniqueSuffix } from "../../test/factories.js";
 import { signAccessToken } from "../../utils/jwt.js";
 
-const TEST_URI = testDbUri("parsian-store-test-addresses-routes");
-let server: Server;
 let baseUrl: string;
+let close: () => void;
 
 beforeAll(async () => {
-  await mongoose.connect(TEST_URI);
-  await new Promise<void>((resolve) => {
-    server = app.listen(0, () => resolve());
-  });
-  const address = server.address();
-  if (address === null || typeof address === "string") {
-    throw new Error("Expected server to bind to a TCP port");
-  }
-  baseUrl = `http://127.0.0.1:${address.port}`;
+  await resetDb();
+  ({ baseUrl, close } = await startTestServer());
 });
 
 beforeEach(async () => {
-  await Promise.all([
-    UserModel.deleteMany({}),
-    ProvinceModel.deleteMany({}),
-    CityModel.deleteMany({}),
-  ]);
+  await resetDb();
 });
 
 afterAll(async () => {
-  server.close();
-  await mongoose.connection.dropDatabase();
-  await mongoose.disconnect();
+  close();
+  await disconnectDB();
 });
 
 interface Envelope<T> {
@@ -53,15 +37,11 @@ interface AddressDto {
   receiverPhone: string;
 }
 
-// addresses.service.ts looks the caller up via UserModel.findById -- unlike
-// Wishlist (which never touches UserModel at all), a real User document is
-// required for these routes, not just a bare ObjectId in the JWT.
+// An address row has a foreign key to its owner, so these routes need a real
+// user -- not just a subject id inside a signed token, which is all Wishlist
+// ever needed.
 async function createUser(overrides: Record<string, unknown> = {}) {
-  return UserModel.create({
-    phone: `+989${Math.floor(100000000 + Math.random() * 800000000)}`,
-    name: "Test User",
-    ...overrides,
-  });
+  return seedUser({ name: "Test User", ...overrides });
 }
 
 function customerCookie(userId: string): Record<string, string> {
@@ -70,23 +50,27 @@ function customerCookie(userId: string): Record<string, string> {
 }
 
 async function seedGeo() {
-  const province = await ProvinceModel.create({
-    name: { fa: "تهران", en: "Tehran" },
-    slug: `tehran-${new mongoose.Types.ObjectId().toString()}`,
+  const province = await prisma.province.create({
+    data: { nameFa: "تهران", nameEn: "Tehran", slug: `tehran-${uniqueSuffix()}` },
   });
-  const otherProvince = await ProvinceModel.create({
-    name: { fa: "فارس", en: "Fars" },
-    slug: `fars-${new mongoose.Types.ObjectId().toString()}`,
+  const otherProvince = await prisma.province.create({
+    data: { nameFa: "فارس", nameEn: "Fars", slug: `fars-${uniqueSuffix()}` },
   });
-  const city = await CityModel.create({
-    provinceId: province._id,
-    name: { fa: "تهران", en: "Tehran" },
-    slug: `tehran-city-${new mongoose.Types.ObjectId().toString()}`,
+  const city = await prisma.city.create({
+    data: {
+      provinceId: province.id,
+      nameFa: "تهران",
+      nameEn: "Tehran",
+      slug: `tehran-city-${uniqueSuffix()}`,
+    },
   });
-  const cityInOtherProvince = await CityModel.create({
-    provinceId: otherProvince._id,
-    name: { fa: "شیراز", en: "Shiraz" },
-    slug: `shiraz-${new mongoose.Types.ObjectId().toString()}`,
+  const cityInOtherProvince = await prisma.city.create({
+    data: {
+      provinceId: otherProvince.id,
+      nameFa: "شیراز",
+      nameEn: "Shiraz",
+      slug: `shiraz-${uniqueSuffix()}`,
+    },
   });
   return { province, otherProvince, city, cityInOtherProvince };
 }
@@ -108,10 +92,10 @@ describe("GET/POST/PATCH/DELETE /me/addresses", () => {
     const results = await Promise.all([
       fetch(`${baseUrl}/api/v1/me/addresses`),
       fetch(`${baseUrl}/api/v1/me/addresses`, { method: "POST" }),
-      fetch(`${baseUrl}/api/v1/me/addresses/${new mongoose.Types.ObjectId().toString()}`, {
+      fetch(`${baseUrl}/api/v1/me/addresses/${randomUUID()}`, {
         method: "PATCH",
       }),
-      fetch(`${baseUrl}/api/v1/me/addresses/${new mongoose.Types.ObjectId().toString()}`, {
+      fetch(`${baseUrl}/api/v1/me/addresses/${randomUUID()}`, {
         method: "DELETE",
       }),
     ]);
@@ -137,9 +121,7 @@ describe("GET/POST/PATCH/DELETE /me/addresses", () => {
     const createRes = await fetch(`${baseUrl}/api/v1/me/addresses`, {
       method: "POST",
       headers: { ...customerCookie(user.id as string), "content-type": "application/json" },
-      body: JSON.stringify(
-        addressPayload({ provinceId: province._id.toString(), cityId: city._id.toString() }),
-      ),
+      body: JSON.stringify(addressPayload({ provinceId: province.id, cityId: city.id })),
     });
     expect(createRes.status).toBe(200);
     const createBody = (await createRes.json()) as Envelope<AddressDto>;
@@ -164,8 +146,8 @@ describe("GET/POST/PATCH/DELETE /me/addresses", () => {
       headers: { ...customerCookie(user.id as string), "content-type": "application/json" },
       body: JSON.stringify(
         addressPayload({
-          provinceId: province._id.toString(),
-          cityId: cityInOtherProvince._id.toString(),
+          provinceId: province.id,
+          cityId: cityInOtherProvince.id,
         }),
       ),
     });
@@ -181,8 +163,8 @@ describe("GET/POST/PATCH/DELETE /me/addresses", () => {
       headers: { ...customerCookie(user.id as string), "content-type": "application/json" },
       body: JSON.stringify(
         addressPayload({
-          provinceId: province._id.toString(),
-          cityId: city._id.toString(),
+          provinceId: province.id,
+          cityId: city.id,
           postalCode: "۱۲۳۴۵۶۷۸۹۰",
         }),
       ),
@@ -201,8 +183,8 @@ describe("GET/POST/PATCH/DELETE /me/addresses", () => {
       headers: { ...customerCookie(user.id as string), "content-type": "application/json" },
       body: JSON.stringify(
         addressPayload({
-          provinceId: province._id.toString(),
-          cityId: city._id.toString(),
+          provinceId: province.id,
+          cityId: city.id,
           // Persian digits, and too short -- normalizePostalCode must run
           // before the 10-digit regex check for this to correctly reject.
           postalCode: "۱۲۳۴۵",
@@ -220,9 +202,7 @@ describe("GET/POST/PATCH/DELETE /me/addresses", () => {
     const createRes = await fetch(`${baseUrl}/api/v1/me/addresses`, {
       method: "POST",
       headers: { ...cookie, "content-type": "application/json" },
-      body: JSON.stringify(
-        addressPayload({ provinceId: province._id.toString(), cityId: city._id.toString() }),
-      ),
+      body: JSON.stringify(addressPayload({ provinceId: province.id, cityId: city.id })),
     });
     const createBody = (await createRes.json()) as Envelope<AddressDto>;
 
@@ -231,8 +211,8 @@ describe("GET/POST/PATCH/DELETE /me/addresses", () => {
       headers: { ...cookie, "content-type": "application/json" },
       body: JSON.stringify(
         addressPayload({
-          provinceId: province._id.toString(),
-          cityId: city._id.toString(),
+          provinceId: province.id,
+          cityId: city.id,
           line: "خیابان انقلاب، پلاک ۵",
         }),
       ),
@@ -254,9 +234,7 @@ describe("GET/POST/PATCH/DELETE /me/addresses", () => {
         ...customerCookie(owner.id as string),
         "content-type": "application/json",
       },
-      body: JSON.stringify(
-        addressPayload({ provinceId: province._id.toString(), cityId: city._id.toString() }),
-      ),
+      body: JSON.stringify(addressPayload({ provinceId: province.id, cityId: city.id })),
     });
     const createBody = (await createRes.json()) as Envelope<AddressDto>;
 
@@ -266,9 +244,7 @@ describe("GET/POST/PATCH/DELETE /me/addresses", () => {
         ...customerCookie(stranger.id as string),
         "content-type": "application/json",
       },
-      body: JSON.stringify(
-        addressPayload({ provinceId: province._id.toString(), cityId: city._id.toString() }),
-      ),
+      body: JSON.stringify(addressPayload({ provinceId: province.id, cityId: city.id })),
     });
     expect(updateRes.status).toBe(404);
   });
@@ -281,9 +257,7 @@ describe("GET/POST/PATCH/DELETE /me/addresses", () => {
     const createRes = await fetch(`${baseUrl}/api/v1/me/addresses`, {
       method: "POST",
       headers: { ...cookie, "content-type": "application/json" },
-      body: JSON.stringify(
-        addressPayload({ provinceId: province._id.toString(), cityId: city._id.toString() }),
-      ),
+      body: JSON.stringify(addressPayload({ provinceId: province.id, cityId: city.id })),
     });
     const createBody = (await createRes.json()) as Envelope<AddressDto>;
 

@@ -77,17 +77,27 @@ enum FuelType {
   cng
 }
 
+/// The ten catalog systems (packages/schemas/src/catalogSystems.ts).
+///
+/// Every member is `@map`ped because the wire values are hyphenated -- "SYS-01"
+/// -- and a Prisma enum member cannot contain a hyphen. Without the map the
+/// database would store "SYS_01" while every schema, route and admin screen in
+/// the project uses "SYS-01": the same value in two spellings, converted
+/// nowhere, and wrong in a way no type error would catch. The map keeps the
+/// PostgreSQL enum labels identical to the wire values; only the TypeScript
+/// identifier differs, and `systemCodeToWire`/`systemCodeFromWire` in
+/// utils/serialize.ts are the single place that bridges the two.
 enum CatalogSystemCode {
-  SYS_01
-  SYS_02
-  SYS_03
-  SYS_04
-  SYS_05
-  SYS_06
-  SYS_07
-  SYS_08
-  SYS_09
-  SYS_10
+  SYS_01 @map("SYS-01")
+  SYS_02 @map("SYS-02")
+  SYS_03 @map("SYS-03")
+  SYS_04 @map("SYS-04")
+  SYS_05 @map("SYS-05")
+  SYS_06 @map("SYS-06")
+  SYS_07 @map("SYS-07")
+  SYS_08 @map("SYS-08")
+  SYS_09 @map("SYS-09")
+  SYS_10 @map("SYS-10")
 }
 
 enum AttributeType {
@@ -103,11 +113,13 @@ enum ProductStatus {
   archived
 }
 
+/// Wire values are hyphenated; see CatalogSystemCode above for why every
+/// hyphen-bearing enum has to be `@map`ped and what goes wrong without it.
 enum SupplyRoute {
   oem
-  genuine_imported
+  genuine_imported   @map("genuine-imported")
   domestic
-  grade1_aftermarket
+  grade1_aftermarket @map("grade1-aftermarket")
 }
 
 enum FitmentConfidence {
@@ -144,12 +156,13 @@ enum ModerationStatus {
   rejected
 }
 
+/// Wire values are hyphenated; see CatalogSystemCode above.
 enum InventoryMoveReason {
-  manual_adjustment
+  manual_adjustment     @map("manual-adjustment")
   restock
   reservation
-  reservation_released
-  reservation_confirmed
+  reservation_released  @map("reservation-released")
+  reservation_confirmed @map("reservation-confirmed")
 }
 
 enum ShippingZone {
@@ -255,6 +268,11 @@ model VehicleGen {
   fitments Fitment[]
   garage   GarageEntry[]
 
+  // The seed's natural key. A model cannot have two generations beginning in
+  // the same year, and the seed already relied on that being true -- under
+  // Mongoose it was an assumption living only in an upsert filter, which is
+  // exactly the kind of invariant a database should be enforcing.
+  @@unique([modelId, yearFrom])
   @@index([modelId])
   @@index([deletedAt])
 }
@@ -263,7 +281,13 @@ model VehicleEngine {
   id           String    @id @default(uuid(7)) @db.Uuid
   genId        String    @db.Uuid
   code         String
-  displacement Int
+  /// Litres, so 1.3 for a Pride's 1.3L -- which is why this is a float and
+  /// not an Int. It was translated as `Int` and every seeded engine silently
+  /// stored 1 (verified by reading the rows back, not assumed): the seed data
+  /// is in litres, the wire schema accepts `z.number()`, and PostgreSQL
+  /// truncates. Nothing failed; the number was just wrong everywhere it was
+  /// shown.
+  displacement Float
   fuel         FuelType
   power        Int
   createdAt    DateTime  @default(now())
@@ -274,6 +298,8 @@ model VehicleEngine {
   fitments   Fitment[]
   garage     GarageEntry[]
 
+  // The seed's natural key: an engine code is unique within a generation.
+  @@unique([genId, code])
   @@index([genId])
   @@index([deletedAt])
 }
@@ -382,9 +408,35 @@ model Product {
   ratingCount Int          @default(0)
 
   /// Derived on write from name, sku, oem numbers and brand — the same job the
-  /// Mongoose pre-save hook does today. In Postgres this is what the tsvector
-  /// index is built from; see the migration note in docs/engineering-standards.
+  /// Mongoose pre-save hook used to do.
   searchText String @default("")
+
+  /// The full-text index, and the reason the derive hook shrank.
+  ///
+  /// `Unsupported` because Prisma Client has no tsvector type -- which is fine,
+  /// since nothing in the application ever reads or writes this column. It is a
+  /// `GENERATED ALWAYS ... STORED` column: PostgreSQL recomputes it from
+  /// `searchText` on every insert and update, so it cannot drift the way a
+  /// hand-maintained derived field can. The migration that adds it is
+  /// hand-edited for exactly that reason -- Prisma would otherwise create a
+  /// plain nullable column and leave the generation to us.
+  ///
+  /// Configured `simple`, not a language dictionary: PostgreSQL ships no
+  /// Persian configuration, and `simple` does no stemming, which is the honest
+  /// behaviour here rather than stemming Persian text with English rules.
+  ///
+  /// ## Read this before generating the next migration
+  ///
+  /// `prisma migrate diff` does not understand generated columns. It reads the
+  /// generation expression as a column default and emits
+  ///
+  ///     ALTER TABLE "Product" ALTER COLUMN "searchVector" DROP DEFAULT;
+  ///
+  /// on every diff, forever. That statement **fails** -- PostgreSQL answers
+  /// `column "searchVector" of relation "Product" is a generated column`
+  /// (42601), verified by running it. Delete that line from any generated
+  /// migration before applying it. It is the only false drift in this schema.
+  searchVector Unsupported("tsvector")?
 
   seoTitle       String?
   seoDescription String?
@@ -409,6 +461,7 @@ model Product {
   @@index([categoryId])
   @@index([status])
   @@index([oemNumbers], type: Gin)
+  @@index([searchVector], type: Gin)
   @@index([deletedAt])
 }
 
@@ -594,9 +647,14 @@ model RefreshToken {
 
 model Cart {
   id         String    @id @default(uuid(7)) @db.Uuid
-  userId     String?   @db.Uuid
+  /// One live cart per identity, which the application has always assumed:
+  /// `findOrCreateCart` upserts on it, and two carts for one shopper would
+  /// silently split their items. Mongo enforced it with a sparse unique index;
+  /// a unique column that is nullable is the same thing here, since PostgreSQL
+  /// does not consider two nulls equal.
+  userId     String?   @unique @db.Uuid
   /// The guest identity cookie. Exactly one of userId/anonId is set.
-  anonId     String?
+  anonId     String?   @unique
   couponCode String?
   expiresAt  DateTime
   createdAt  DateTime  @default(now())
@@ -606,8 +664,6 @@ model Cart {
   user  User?      @relation(fields: [userId], references: [id], onDelete: Cascade)
   items CartItem[]
 
-  @@index([userId])
-  @@index([anonId])
   @@index([expiresAt])
 }
 
@@ -768,7 +824,20 @@ model ShippingRate {
   updatedAt      DateTime     @updatedAt
   deletedAt      DateTime?
 
-  @@index([methodCode, zone, minWeightGram])
+  // No unique on (methodCode, zone, minWeightGram), deliberately, and it is
+  // worth knowing why the obvious one is wrong here.
+  //
+  // Rates are soft-deleted, and a plain unique counts tombstoned rows: delete
+  // the "۰ تا ۱۰۰۰ گram" band and staff can never create that band again,
+  // because the dead row still owns the key. What is actually wanted is
+  // "unique among live rows", which is a partial index Prisma cannot declare
+  // -- and writing one by hand would make `migrate diff` fight it on every
+  // future migration.
+  //
+  // `assertNoOverlap` in shipping.admin.service.ts is the real guard, and it
+  // is strictly stronger: it rejects any overlapping band, not merely one
+  // starting at the same gram. The invariant is enforced, just not here.
+  @@index([methodCode, zone])
   @@index([deletedAt])
 }
 

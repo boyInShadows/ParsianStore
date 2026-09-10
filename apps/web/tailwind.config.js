@@ -87,6 +87,19 @@ module.exports = {
       surface: "var(--surface)",
       "surface-raised": "var(--surface-raised)",
       "surface-sunken": "var(--surface-sunken)",
+      // --surface behind a backdrop-filter; the sticky header's ground.
+      "surface-translucent": "var(--surface-translucent)",
+      // The lit workshop (§6.4). These six do NOT flip with the theme --
+      // the hero stage, the interstitial plate and the two video plates keep
+      // a dark ground in light mode and gain a frame instead. Anything
+      // painted on one of those grounds uses these; anything on a section
+      // that follows the theme uses `surface`/`text`/`border`.
+      stage: "var(--stage)",
+      "stage-border": "var(--stage-border)",
+      "stage-text": "var(--stage-text)",
+      "stage-text-muted": "var(--stage-text-muted)",
+      "stage-text-faint": "var(--stage-text-faint)",
+      "stage-link": "var(--stage-link)",
       text: "var(--text)",
       "text-muted": "var(--text-muted)",
       border: "var(--border)",
@@ -105,6 +118,10 @@ module.exports = {
       "brand-fg": "var(--brand-fg)",
       cta: "var(--cta)",
       "cta-fg": "var(--cta-fg)",
+      // Marigold as TEXT. `text-cta` is 2.12:1 on --surface -- a fill colour
+      // used as ink. Any marigold glyph on a theme-following surface takes
+      // this instead (§6.3).
+      "cta-ink": "var(--cta-ink)",
       focus: "var(--focus)",
     },
     spacing: {
@@ -157,31 +174,103 @@ module.exports = {
       // See tokens.css on why this is a named token, not a spacing step.
       width: {
         rail: "var(--rail-card)",
+        // `w-tap` -- the square half of `h-tap`, for a control that is round
+        // (P14.S9's stage nav). Same token, same reason it is not a spacing
+        // step.
+        tap: "var(--tap-target)",
       },
       flexBasis: {
         rail: "var(--rail-card)",
       },
-      // Type scale -- masterPlan.md §6.5. fontFamily/fontWeight compose with
-      // these: e.g. `font-display text-display-1` or `font-mono text-data`.
+      // `h-tap` / `min-h-tap` / `min-w-tap` -- the 44px primary-mobile-control
+      // floor (P14.S6). Deliberately NOT added to `spacing`: see tokens.css's
+      // --tap-target for why a new spacing step would switch on every dead
+      // `p-11`-shaped utility already written in this app.
+      height: {
+        tap: "var(--tap-target)",
+      },
+      minHeight: {
+        tap: "var(--tap-target)",
+      },
+      minWidth: {
+        tap: "var(--tap-target)",
+      },
+      // fontFamily/fontSize compose: e.g. `font-display text-display-1` or
+      // `font-mono text-data`. `display` resolves to the body face --
+      // tokens.css aliases --font-display to --font-body (P14.S1).
+      //
+      // The three names after next/font's own pair (P15.S3c) are named
+      // system Persian-capable faces, not decoration. `display: "optional"`
+      // on `bodyFont` (lib/fonts.ts) means a visit that misses the load
+      // window keeps whatever this list resolves to for the WHOLE page, so
+      // "falls through to a Latin-only face" stopped being a theoretical
+      // ~100ms flash and became a real per-visit outcome. Verified on this
+      // machine (Windows/Chromium): next/font's generated fallback --
+      // `local("Arial")` with an auto-computed size-adjust -- already
+      // renders Persian correctly here, because Windows' own Arial carries
+      // Arabic-script coverage; `Tahoma` was already next and is Windows'
+      // purpose-built Arabic-UI face. Neither of those is installed by
+      // default on macOS/iOS or Android, so this adds their platform
+      // equivalents explicitly rather than trusting each engine's own
+      // last-resort script fallback to pick one silently: `Segoe UI`
+      // (Windows 10+, broader Arabic coverage than Tahoma), `Noto Naskh
+      // Arabic` / `Noto Sans Arabic` (Android system default), `Geeza Pro`
+      // (iOS/macOS). Costs zero bytes -- these are system font names, no
+      // file is fetched for a name the OS does not have installed.
       fontFamily: {
-        display: ["var(--font-display)", "Tahoma", "sans-serif"],
-        body: ["var(--font-body)", "Tahoma", "sans-serif"],
+        display: [
+          "var(--font-display)",
+          "Tahoma",
+          "Segoe UI",
+          "Noto Naskh Arabic",
+          "Noto Sans Arabic",
+          "Geeza Pro",
+          "sans-serif",
+        ],
+        body: [
+          "var(--font-body)",
+          "Tahoma",
+          "Segoe UI",
+          "Noto Naskh Arabic",
+          "Noto Sans Arabic",
+          "Geeza Pro",
+          "sans-serif",
+        ],
         mono: ["var(--font-mono)", "ui-monospace", "monospace"],
       },
+      // Type scale -- tokens.css owns every value (CLAUDE.md rule 5); this
+      // map only composes size + leading + tracking into Tailwind's shape.
+      // P14.S1 moved the numbers there and retuned them for Persian: the
+      // old display-1 was `clamp(2.5rem, 6vw, 3.5rem)` at line-height 1.10
+      // with letter-spacing -0.02em, which is a Latin display setting and
+      // the reason every heading read as cramped. See tokens.css for the
+      // reasoning and the mobile -> desktop figure behind each clamp().
       fontSize: {
         "display-1": [
-          "clamp(2.5rem, 6vw, 4.5rem)",
-          { lineHeight: "1.1", letterSpacing: "-0.02em" },
+          "var(--type-display-1-size)",
+          {
+            lineHeight: "var(--type-display-1-lh)",
+            letterSpacing: "var(--type-display-1-ls)",
+          },
         ],
-        "display-2": ["clamp(2rem, 4.5vw, 3rem)", { lineHeight: "1.15" }],
-        h1: ["clamp(1.75rem, 3vw, 2.25rem)", { lineHeight: "1.25" }],
-        h2: ["1.5rem", { lineHeight: "1.35" }],
-        h3: ["1.25rem", { lineHeight: "1.4" }],
-        "body-lg": ["1.125rem", { lineHeight: "1.75" }],
-        body: ["1rem", { lineHeight: "1.75" }],
-        "body-sm": ["0.875rem", { lineHeight: "1.7" }],
-        caption: ["0.75rem", { lineHeight: "1.5", letterSpacing: "0.02em" }],
-        data: ["0.875rem", { letterSpacing: "0.01em" }],
+        "display-2": ["var(--type-display-2-size)", { lineHeight: "var(--type-display-2-lh)" }],
+        h1: ["var(--type-h1-size)", { lineHeight: "var(--type-h1-lh)" }],
+        h2: ["var(--type-h2-size)", { lineHeight: "var(--type-h2-lh)" }],
+        h3: ["var(--type-h3-size)", { lineHeight: "var(--type-h3-lh)" }],
+        "body-lg": ["var(--type-body-lg-size)", { lineHeight: "var(--type-body-lg-lh)" }],
+        body: ["var(--type-body-size)", { lineHeight: "var(--type-body-lh)" }],
+        "body-sm": ["var(--type-body-sm-size)", { lineHeight: "var(--type-body-sm-lh)" }],
+        caption: [
+          "var(--type-caption-size)",
+          {
+            lineHeight: "var(--type-caption-lh)",
+            letterSpacing: "var(--type-caption-ls)",
+          },
+        ],
+        data: [
+          "var(--type-data-size)",
+          { lineHeight: "var(--type-data-lh)", letterSpacing: "var(--type-data-ls)" },
+        ],
       },
     },
   },

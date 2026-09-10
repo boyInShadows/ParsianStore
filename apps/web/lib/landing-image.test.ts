@@ -24,6 +24,7 @@ function allEntries(): { group: string; entry: Entry }[] {
   return [
     ...manifest.cutouts.map((entry) => ({ group: "cutouts", entry: entry as Entry })),
     ...manifest.hero.map((entry) => ({ group: "hero", entry: entry as Entry })),
+    ...manifest["hero-parts"].map((entry) => ({ group: "hero-parts", entry: entry as Entry })),
     ...manifest.plates.map((entry) => ({ group: "plates", entry: entry as Entry })),
     ...manifest.video.map((clip) => ({ group: "video", entry: clip.poster as Entry })),
   ];
@@ -36,7 +37,13 @@ describe("landing-assets.json", () => {
     // A hand-edit or a partial pipeline run is otherwise invisible until a
     // component throws at render time, which on a Server Component means the
     // whole section disappears rather than one image breaking.
-    expect(Object.keys(manifest).sort()).toEqual(["cutouts", "hero", "plates", "video"]);
+    expect(Object.keys(manifest).sort()).toEqual([
+      "cutouts",
+      "hero",
+      "hero-parts",
+      "plates",
+      "video",
+    ]);
     for (const { entry } of allEntries()) {
       expect(entry.name.length, "name").toBeGreaterThan(0);
       expect(isPositiveInt(entry.intrinsic.width), `${entry.name} intrinsic.width`).toBe(true);
@@ -44,7 +51,7 @@ describe("landing-assets.json", () => {
       expect(typeof entry.hasAlpha, `${entry.name} hasAlpha`).toBe("boolean");
       expect(typeof entry.mirrored, `${entry.name} mirrored`).toBe("boolean");
       // Present on every group, `null` where the pipeline does not trim -- one
-      // shape for all four groups keeps the reader free of special cases.
+      // shape for all five groups keeps the reader free of special cases.
       expect("trim" in entry, `${entry.name} trim`).toBe(true);
       if (entry.trim !== null) {
         expect(isPositiveInt(entry.trim.canvas.width), `${entry.name} canvas`).toBe(true);
@@ -115,5 +122,40 @@ describe("landingAsset", () => {
       asset.widths.map((width) => `${asset.src}-${width}.avif ${width}w`).join(", "),
     );
     expect(landingFallback(asset)).toBe(`${asset.src}-${asset.widths.at(-1)}.avif`);
+  });
+});
+
+/**
+ * P12.S11, verifying defect 5 rather than assuming it.
+ *
+ * The clips were composed for LTR -- subject in the end-side two-thirds, empty
+ * third on the start side -- so the shipped file is horizontally flipped for a
+ * Persian page (fableTasks §3.3). The report was that the un-mirrored variant
+ * might be the one referenced.
+ *
+ * It is not. Verified against the bytes, not the config: a frame from each
+ * shipped mp4, flipped, is pixel-identical to the same frame of its source in
+ * `landing-src/video/`, for both clips. That check needs ffmpeg, so what stays
+ * behind as a permanent guard is this: the manifest has to keep saying the
+ * clips are mirrored, which fails the moment someone flips `MIRRORED.video` in
+ * `scripts/optimize-landing.mjs` and re-runs the pipeline.
+ */
+describe("the landing clips ship mirrored for RTL", () => {
+  it("records the flip on the clip itself, for every clip", () => {
+    const clips = manifest.video ?? [];
+    expect(clips.length, "no clips in the manifest").toBeGreaterThan(0);
+    for (const clip of clips) {
+      expect(clip.mp4.mirrored, `${clip.name} is not marked mirrored`).toBe(true);
+    }
+  });
+
+  it("does not read the flip off the poster, which cannot know it", () => {
+    // The poster is cut from the already-flipped encode, so sharp does no
+    // flopping and honestly records `mirrored: false`. True of what sharp did,
+    // and the opposite of what a reader wants -- which is exactly why the flag
+    // above exists on the clip. Pinned so nobody "fixes" the poster's flag.
+    for (const clip of manifest.video ?? []) {
+      expect(clip.poster.mirrored, `${clip.name} poster`).toBe(false);
+    }
   });
 });

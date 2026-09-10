@@ -1,7 +1,7 @@
 import { pathToFileURL } from "node:url";
-import { connectDB, disconnectDB } from "../config/db.js";
+import type { ShippingRate } from "@prisma/client";
 import { logger } from "../config/logger.js";
-import { ShippingRateModel, type ShippingRate } from "../models/ShippingRate.js";
+import { connectDB, disconnectDB, prisma } from "../config/prisma.js";
 
 // P6.S4: every priceRial below is a documented ESTIMATE, not real courier
 // contract pricing -- the owner confirmed directly (asked, not guessed)
@@ -191,18 +191,34 @@ const SHIPPING_RATE_SEED_DATA: SeedRow[] = [
   },
 ];
 
-/** Idempotent (upsert on the methodCode+zone+minWeightGram natural key)
- * -- safe to re-run on every deploy, and the intended way to push a real
- * rate update before Phase 8's admin UI exists. */
+/**
+ * Idempotent on the methodCode+zone+minWeightGram natural key -- safe to
+ * re-run on every deploy, and the intended way to push a real rate update
+ * before Phase 8's admin UI exists.
+ *
+ * Find-then-write rather than `upsert`, because that natural key is no longer
+ * a database constraint. P10.S14 removed it: rates are soft-deletable, and a
+ * plain unique counts tombstoned rows, so a deleted band could never be
+ * recreated. The seed matches live rows only -- a band staff deliberately
+ * deleted stays deleted rather than being resurrected by the next deploy.
+ */
 export async function seedShipping(): Promise<void> {
   let rates = 0;
 
   for (const row of SHIPPING_RATE_SEED_DATA) {
-    await ShippingRateModel.findOneAndUpdate(
-      { methodCode: row.methodCode, zone: row.zone, minWeightGram: row.minWeightGram },
-      row,
-      { upsert: true, new: true },
-    );
+    const existing = await prisma.shippingRate.findFirst({
+      where: {
+        methodCode: row.methodCode,
+        zone: row.zone,
+        minWeightGram: row.minWeightGram,
+      },
+      select: { id: true },
+    });
+    if (existing) {
+      await prisma.shippingRate.update({ where: { id: existing.id }, data: row });
+    } else {
+      await prisma.shippingRate.create({ data: row });
+    }
     rates += 1;
   }
 

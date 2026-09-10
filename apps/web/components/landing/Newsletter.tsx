@@ -34,7 +34,7 @@ export async function Newsletter() {
       <Reveal className="mx-auto flex max-w-md flex-col items-center gap-4 text-center">
         <div className="flex flex-col gap-2">
           <p className="font-mono text-data text-text-muted">{t("code")}</p>
-          <h2 id="newsletter-heading" className="font-display text-h2 font-black text-text">
+          <h2 id="newsletter-heading" className="font-display text-h2 font-bold text-text">
             {t("title")}
           </h2>
           <p className="text-body text-text-muted">{t("subtitle")}</p>

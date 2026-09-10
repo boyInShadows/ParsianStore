@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useId, useRef, type MouseEvent, type ReactNode } from "react";
-import { cn } from "@/lib/cn";
+import { cx } from "@/lib/cx";
 
 type Side = "start" | "end";
 
@@ -10,6 +10,9 @@ type Props = {
   onClose: () => void;
   title: string;
   side?: Side;
+  /** The close button's accessible name -- see Modal for why this is a prop
+   *  with a Persian default rather than a hardcoded English one. */
+  closeLabel?: string;
   children: ReactNode;
 };
 
@@ -27,7 +30,14 @@ const sidePosition: Record<Side, string> = {
 // Same native <dialog> foundation as Modal (focus trap, Escape, top layer),
 // positioned as a full-height panel pinned to the logical start/end edge --
 // never "left"/"right" (masterPlan.md §7.2).
-export function Drawer({ open, onClose, title, side = "end", children }: Props) {
+export function Drawer({
+  open,
+  onClose,
+  title,
+  side = "end",
+  closeLabel = "بستن کشو",
+  children,
+}: Props) {
   const dialogRef = useRef<HTMLDialogElement>(null);
   const titleId = useId();
 
@@ -54,7 +64,7 @@ export function Drawer({ open, onClose, title, side = "end", children }: Props) 
       onCancel={onClose}
       onClick={handleBackdropClick}
       aria-labelledby={titleId}
-      className={cn(
+      className={cx(
         "fixed top-0 m-0 h-dvh w-full max-w-sm border-s border-border bg-surface p-0 text-text",
         sidePosition[side],
       )}
@@ -66,7 +76,7 @@ export function Drawer({ open, onClose, title, side = "end", children }: Props) 
         <button
           type="button"
           onClick={onClose}
-          aria-label="Close"
+          aria-label={closeLabel}
           className="rounded-md p-1 text-text-muted hover:text-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus"
         >
           <CloseIcon />

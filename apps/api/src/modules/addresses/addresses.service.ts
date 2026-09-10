@@ -1,21 +1,8 @@
-import { Types } from "mongoose";
-import { CityModel } from "../../models/City.js";
-import { ProvinceModel } from "../../models/Province.js";
-import { UserModel, type Address } from "../../models/User.js";
+import { Prisma } from "@prisma/client";
+import { prisma } from "../../config/prisma.js";
 import { ApiError } from "../../utils/ApiError.js";
+import { localized } from "../../utils/serialize.js";
 import type { AddressInput } from "./addresses.schema.js";
-
-// AddressInput's provinceId/cityId are Zod-validated ObjectId-shaped
-// strings (route input); the Mongoose Address schema wants real
-// Types.ObjectId values, same conversion cart.service.ts's addItem
-// already does with a fetched Product's _id.
-function toAddressDoc(input: AddressInput): Omit<Address, "_id"> {
-  return {
-    ...input,
-    provinceId: new Types.ObjectId(input.provinceId),
-    cityId: new Types.ObjectId(input.cityId),
-  };
-}
 
 export interface AddressView {
   id: string;
@@ -29,110 +16,114 @@ export interface AddressView {
   receiverPhone: string;
 }
 
+/**
+ * An address is a table now, not an array embedded in the user document,
+ * which is what makes this whole module shrink: "the caller's own address"
+ * is a two-column `where` rather than a scan of `user.addresses`, and the
+ * province and city arrive joined instead of through two batched lookups
+ * and two Maps.
+ *
+ * The joins name `deletedAt` because the soft-delete extension does not
+ * reach nested reads (config/prisma.ts), and geo rows are soft-deletable.
+ */
+const GEO = {
+  province: { select: { id: true, nameFa: true, nameEn: true, slug: true, deletedAt: true } },
+  city: { select: { id: true, nameFa: true, nameEn: true, slug: true, deletedAt: true } },
+} as const;
+
+type AddressRow = Prisma.AddressGetPayload<{ include: typeof GEO }>;
+
+/** A province or city removed after an address referenced it drops the
+ * address from the view rather than crashing it -- the same orphan-drop
+ * convention wishlist.service.ts's listWishlist uses. */
+function toView(row: AddressRow): AddressView | null {
+  if (row.province.deletedAt !== null || row.city.deletedAt !== null) return null;
+  return {
+    id: row.id,
+    province: {
+      id: row.province.id,
+      name: localized(row.province),
+      slug: row.province.slug,
+    },
+    city: { id: row.city.id, name: localized(row.city), slug: row.city.slug },
+    line: row.line,
+    postalCode: row.postalCode,
+    ...(row.plate ? { plate: row.plate } : {}),
+    ...(row.unit ? { unit: row.unit } : {}),
+    receiverName: row.receiverName,
+    receiverPhone: row.receiverPhone,
+  };
+}
+
 /** Confirms `cityId` genuinely belongs to `provinceId` before a write ever
- * happens -- an ObjectId-shape check alone would silently accept a
- * mismatched pair and produce a nonsense shipping address. Returns the
- * City doc (callers that already need it avoid a second lookup). */
-async function assertCityInProvince(provinceId: string, cityId: string) {
-  const city = await CityModel.findById(cityId);
-  if (!city || city.provinceId.toString() !== provinceId) {
+ * happens. The foreign keys guarantee both exist; only this can say they
+ * belong together, and a mismatched pair is a nonsense shipping address. */
+async function assertCityInProvince(provinceId: string, cityId: string): Promise<void> {
+  const city = await prisma.city.findUnique({
+    where: { id: cityId },
+    select: { provinceId: true },
+  });
+  if (!city || city.provinceId !== provinceId) {
     throw new ApiError(400, "شهر انتخاب‌شده متعلق به استان انتخاب‌شده نیست");
   }
-  return city;
 }
 
-/** Separate-query hydration, not `.populate()` -- the established
- * convention across this codebase (products.service.ts, cart.service.ts,
- * wishlist.service.ts). Batches every referenced Province/City in the
- * list into two queries total, regardless of how many addresses exist. */
-async function hydrateAddresses(addresses: Address[]): Promise<AddressView[]> {
-  if (addresses.length === 0) return [];
-
-  const provinceIds = [...new Set(addresses.map((a) => a.provinceId.toString()))];
-  const cityIds = [...new Set(addresses.map((a) => a.cityId.toString()))];
-  const [provinces, cities] = await Promise.all([
-    ProvinceModel.find({ _id: { $in: provinceIds } }),
-    CityModel.find({ _id: { $in: cityIds } }),
-  ]);
-  const provinceById = new Map(provinces.map((p) => [p.id as string, p]));
-  const cityById = new Map(cities.map((c) => [c.id as string, c]));
-
-  // A province/city removed after an address referenced it (shouldn't
-  // happen in practice -- no admin CRUD for geo data exists yet) drops
-  // the address from the view rather than crash, same orphan-drop
-  // convention wishlist.service.ts's listWishlist already uses.
-  return addresses.flatMap((address): AddressView[] => {
-    const province = provinceById.get(address.provinceId.toString());
-    const city = cityById.get(address.cityId.toString());
-    if (!province || !city) return [];
-    return [
-      {
-        id: address._id!.toString(),
-        province: { id: province.id as string, name: province.name, slug: province.slug },
-        city: { id: city.id as string, name: city.name, slug: city.slug },
-        line: address.line,
-        postalCode: address.postalCode,
-        plate: address.plate,
-        unit: address.unit,
-        receiverName: address.receiverName,
-        receiverPhone: address.receiverPhone,
-      },
-    ];
+/** "An address that belongs to this user", the one query shape every
+ * owned-address operation needs. */
+async function findOwnAddress(userId: string, addressId: string): Promise<AddressRow> {
+  const address = await prisma.address.findFirst({
+    where: { id: addressId, userId },
+    include: GEO,
   });
-}
-
-/** Used by modules/shipping's estimate-shipping to resolve a zone from
- * one of the caller's own addresses, without duplicating the "find an
- * address that belongs to this user" query shape update/deleteAddress
- * already have. Throws the same 404 an owned-resource lookup would. */
-export async function getOwnAddressProvinceId(
-  userId: string,
-  addressId: string,
-): Promise<Types.ObjectId> {
-  const user = await UserModel.findById(userId);
-  const address = user?.addresses.find((a) => a._id!.toString() === addressId);
   if (!address) {
     throw new ApiError(400, "آدرس یافت نشد یا متعلق به شما نیست");
   }
-  return address.provinceId;
+  return address;
 }
 
-/** Used by modules/checkout to snapshot the caller's chosen address into
- * a new Order -- same "find an address that belongs to this user" query
- * shape as getOwnAddressProvinceId above, but returns the full hydrated
- * view since the order needs the whole address, not just its province. */
+/** Used by modules/shipping's estimate-shipping to resolve a zone from one
+ * of the caller's own addresses. */
+export async function getOwnAddressProvinceId(userId: string, addressId: string): Promise<string> {
+  return (await findOwnAddress(userId, addressId)).provinceId;
+}
+
+/** Used by modules/checkout to snapshot the caller's chosen address into a
+ * new Order -- the whole address, not just its province. */
 export async function getOwnAddress(userId: string, addressId: string): Promise<AddressView> {
-  const user = await UserModel.findById(userId);
-  const address = user?.addresses.find((a) => a._id!.toString() === addressId);
-  if (!address) {
+  const view = toView(await findOwnAddress(userId, addressId));
+  if (!view) {
     throw new ApiError(400, "آدرس یافت نشد یا متعلق به شما نیست");
   }
-  const [view] = await hydrateAddresses([address]);
-  return view!;
+  return view;
 }
 
 export async function listAddresses(userId: string): Promise<AddressView[]> {
-  const user = await UserModel.findById(userId);
+  const user = await prisma.user.findUnique({ where: { id: userId }, select: { id: true } });
   if (!user) {
     throw new ApiError(404, "کاربر یافت نشد");
   }
-  return hydrateAddresses(user.addresses);
+  const rows = await prisma.address.findMany({
+    where: { userId },
+    orderBy: { createdAt: "asc" },
+    include: GEO,
+  });
+  return rows.flatMap((row) => {
+    const view = toView(row);
+    return view ? [view] : [];
+  });
 }
 
 export async function createAddress(userId: string, input: AddressInput): Promise<AddressView> {
   await assertCityInProvince(input.provinceId, input.cityId);
-
-  const user = await UserModel.findByIdAndUpdate(
-    userId,
-    { $push: { addresses: toAddressDoc(input) } },
-    { new: true },
-  );
+  const user = await prisma.user.findUnique({ where: { id: userId }, select: { id: true } });
   if (!user) {
     throw new ApiError(404, "کاربر یافت نشد");
   }
-  const created = user.addresses[user.addresses.length - 1]!;
-  const [view] = await hydrateAddresses([created]);
-  return view!;
+  const created = await prisma.address.create({
+    data: { userId, ...input },
+    include: GEO,
+  });
+  return toView(created)!;
 }
 
 export async function updateAddress(
@@ -141,42 +132,34 @@ export async function updateAddress(
   input: AddressInput,
 ): Promise<AddressView> {
   await assertCityInProvince(input.provinceId, input.cityId);
-
-  // Whole-subdocument replace via the positional operator, preserving the
-  // existing _id -- simpler and less error-prone than setting each field
-  // individually.
-  const result = await UserModel.updateOne(
-    { _id: userId, "addresses._id": addressId },
-    { $set: { "addresses.$": { _id: new Types.ObjectId(addressId), ...toAddressDoc(input) } } },
-  );
-  if (result.matchedCount === 0) {
+  const existing = await prisma.address.findFirst({
+    where: { id: addressId, userId },
+    select: { id: true },
+  });
+  if (!existing) {
     throw new ApiError(404, "آدرس یافت نشد");
   }
-
-  const user = await UserModel.findById(userId);
-  const updated = user!.addresses.find((a) => a._id!.toString() === addressId)!;
-  const [view] = await hydrateAddresses([updated]);
-  return view!;
+  const updated = await prisma.address.update({
+    where: { id: addressId },
+    data: input,
+    include: GEO,
+  });
+  return toView(updated)!;
 }
 
-/** Not idempotent, unlike Wishlist's DELETE -- an address's `_id` is the
- * only handle a client has to a specific row, so acting on one that
- * doesn't exist is a real client error worth surfacing, not a silent
- * no-op the way "unsave a product that was never saved" is. */
+/**
+ * Not idempotent, unlike Wishlist's DELETE -- an address id is the only
+ * handle a client has to a specific row, so acting on one that does not
+ * exist is a real client error worth surfacing, not a silent no-op the way
+ * "unsave a product that was never saved" is.
+ *
+ * `deleteMany` scoped to the owner, and its count is the signal. The Mongo
+ * version needed a paragraph here because `$pull` reported `modifiedCount: 1`
+ * even when it matched no array element; a row either deletes or it does not.
+ */
 export async function deleteAddress(userId: string, addressId: string): Promise<void> {
-  // Real MongoDB behavior worth remembering: `$pull` reports
-  // `modifiedCount: 1` even when it matches zero array elements (the
-  // array path is still "touched"), so `modifiedCount` can't tell success
-  // from a no-op here -- confirmed empirically, not assumed. The query
-  // FILTER itself must require "addresses._id": addressId (same pattern
-  // updateAddress already uses) so `matchedCount` is the reliable signal:
-  // the user document only matches at all if that address currently
-  // exists.
-  const result = await UserModel.updateOne(
-    { _id: userId, "addresses._id": addressId },
-    { $pull: { addresses: { _id: addressId } } },
-  );
-  if (result.matchedCount === 0) {
+  const { count } = await prisma.address.deleteMany({ where: { id: addressId, userId } });
+  if (count === 0) {
     throw new ApiError(404, "آدرس یافت نشد");
   }
 }

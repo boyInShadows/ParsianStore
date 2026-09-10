@@ -1,29 +1,25 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
-import mongoose from "mongoose";
-import { testDbUri } from "../config/testDbUri.js";
-import { UserModel } from "../models/User.js";
+import { prisma } from "../config/prisma.js";
+import { disconnectDB, resetDb } from "../config/testDb.js";
 import { seedStaff } from "./staff.js";
 
-const TEST_URI = testDbUri("parsian-store-test-seed-staff");
-
 beforeAll(async () => {
-  await mongoose.connect(TEST_URI);
+  await resetDb();
 });
 
 beforeEach(async () => {
-  await UserModel.deleteMany({});
+  await resetDb();
 });
 
 afterAll(async () => {
-  await mongoose.connection.dropDatabase();
-  await mongoose.disconnect();
+  await disconnectDB();
 });
 
 describe("seedStaff", () => {
   it("creates exactly one superadmin for the given phone", async () => {
     await seedStaff("09121110099");
 
-    const user = await UserModel.findOne({ phone: "+989121110099" });
+    const user = await prisma.user.findFirst({ where: { phone: "+989121110099" } });
     expect(user).not.toBeNull();
     expect(user?.role).toBe("superadmin");
   });
@@ -32,12 +28,12 @@ describe("seedStaff", () => {
     await seedStaff("09121110099");
     await seedStaff("09121110099");
 
-    const count = await UserModel.countDocuments({ phone: "+989121110099" });
+    const count = await prisma.user.count({ where: { phone: "+989121110099" } });
     expect(count).toBe(1);
   });
 
   it("is a no-op when no phone is provided (e.g. ADMIN_SEED_PHONE unset)", async () => {
     await seedStaff(undefined);
-    expect(await UserModel.countDocuments({})).toBe(0);
+    expect(await prisma.user.count()).toBe(0);
   });
 });

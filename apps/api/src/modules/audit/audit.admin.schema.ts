@@ -1,8 +1,10 @@
 import { z } from "zod";
 import { AUDIT_METHODS } from "schemas";
 import { paginationQuerySchema } from "../../utils/pagination.js";
+import { idSchema } from "schemas";
 
-const objectId = z.string().regex(/^[0-9a-fA-F]{24}$/, "شناسه معتبر نیست");
+// The shared UUID id schema; see packages/schemas/src/id.ts.
+const objectId = idSchema;
 
 export const adminAuditListQuerySchema = paginationQuerySchema.extend({
   // Not validated against AUDIT_ENTITIES: that list is a UI convenience,

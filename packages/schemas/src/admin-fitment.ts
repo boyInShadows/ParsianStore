@@ -1,11 +1,13 @@
 import { z } from "zod";
+import { idSchema } from "./id.js";
 
 // P8.S6: the Fitment Manager (§3.7). Fitment records have existed since
 // P2.S6 and are what /fitment/check and the vehicle-filtered PLP run on,
 // but nothing has ever been able to create or correct one outside a seed
 // script.
 
-const objectId = z.string().regex(/^[0-9a-fA-F]{24}$/, "شناسه معتبر نیست");
+// The shared UUID id schema; see packages/schemas/src/id.ts.
+const objectId = idSchema;
 
 const modelYear = z
   .number()

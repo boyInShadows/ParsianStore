@@ -1,16 +1,18 @@
 import { pathToFileURL } from "node:url";
-import { connectDB, disconnectDB } from "../config/db.js";
 import { logger } from "../config/logger.js";
-import { VehicleEngineModel } from "../models/VehicleEngine.js";
-import { VehicleGenModel } from "../models/VehicleGen.js";
-import { VehicleMakeModel } from "../models/VehicleMake.js";
-import { VehicleModelModel } from "../models/VehicleModel.js";
+import { connectDB, disconnectDB, prisma } from "../config/prisma.js";
+import { toColumns } from "../utils/serialize.js";
 import { VEHICLE_SEED_DATA } from "./vehicles.data.js";
 
 /**
  * Idempotent (upsert on the natural key at each level: make/model slug,
- * generation name+yearFrom, engine code) — safe to re-run on every
+ * generation modelId+yearFrom, engine genId+code) — safe to re-run on every
  * deploy as the data set grows, without duplicating existing rows.
+ *
+ * Each of those natural keys is now a real `@@unique` in `schema.prisma`.
+ * Under Mongoose they existed only as the filter half of a `findOneAndUpdate`,
+ * so nothing stopped a second writer creating the duplicate the seed was
+ * carefully avoiding.
  */
 export async function seedVehicles(): Promise<void> {
   let makes = 0;
@@ -19,57 +21,51 @@ export async function seedVehicles(): Promise<void> {
   let engines = 0;
 
   for (const makeSeed of VEHICLE_SEED_DATA) {
-    const make = await VehicleMakeModel.findOneAndUpdate(
-      { slug: makeSeed.slug },
-      {
-        name: makeSeed.name,
-        slug: makeSeed.slug,
-        country: makeSeed.country,
-        isDomestic: makeSeed.isDomestic,
-      },
-      { upsert: true, new: true },
-    );
+    const makeFields = {
+      ...toColumns(makeSeed.name),
+      country: makeSeed.country,
+      isDomestic: makeSeed.isDomestic,
+    };
+    const make = await prisma.vehicleMake.upsert({
+      where: { slug: makeSeed.slug },
+      update: makeFields,
+      create: { ...makeFields, slug: makeSeed.slug },
+    });
     makes += 1;
 
     for (const modelSeed of makeSeed.models) {
-      const vehicleModel = await VehicleModelModel.findOneAndUpdate(
-        { makeId: make._id, slug: modelSeed.slug },
-        {
-          makeId: make._id,
-          name: modelSeed.name,
-          slug: modelSeed.slug,
-          bodyType: modelSeed.bodyType,
-        },
-        { upsert: true, new: true },
-      );
+      const modelFields = { ...toColumns(modelSeed.name), bodyType: modelSeed.bodyType };
+      const vehicleModel = await prisma.vehicleModel.upsert({
+        where: { makeId_slug: { makeId: make.id, slug: modelSeed.slug } },
+        update: modelFields,
+        create: { ...modelFields, slug: modelSeed.slug, makeId: make.id },
+      });
       models += 1;
 
       for (const genSeed of modelSeed.generations) {
-        const gen = await VehicleGenModel.findOneAndUpdate(
-          { modelId: vehicleModel._id, yearFrom: genSeed.yearFrom },
-          {
-            modelId: vehicleModel._id,
-            name: genSeed.name,
-            yearFrom: genSeed.yearFrom,
-            yearTo: genSeed.yearTo,
-            facelift: genSeed.facelift,
-          },
-          { upsert: true, new: true },
-        );
+        const genFields = {
+          ...toColumns(genSeed.name),
+          yearTo: genSeed.yearTo,
+          facelift: genSeed.facelift,
+        };
+        const gen = await prisma.vehicleGen.upsert({
+          where: { modelId_yearFrom: { modelId: vehicleModel.id, yearFrom: genSeed.yearFrom } },
+          update: genFields,
+          create: { ...genFields, yearFrom: genSeed.yearFrom, modelId: vehicleModel.id },
+        });
         generations += 1;
 
         for (const engineSeed of genSeed.engines) {
-          await VehicleEngineModel.findOneAndUpdate(
-            { genId: gen._id, code: engineSeed.code },
-            {
-              genId: gen._id,
-              code: engineSeed.code,
-              displacement: engineSeed.displacement,
-              fuel: engineSeed.fuel,
-              power: engineSeed.power,
-            },
-            { upsert: true, new: true },
-          );
+          const engineFields = {
+            displacement: engineSeed.displacement,
+            fuel: engineSeed.fuel,
+            power: engineSeed.power,
+          };
+          await prisma.vehicleEngine.upsert({
+            where: { genId_code: { genId: gen.id, code: engineSeed.code } },
+            update: engineFields,
+            create: { ...engineFields, code: engineSeed.code, genId: gen.id },
+          });
           engines += 1;
         }
       }

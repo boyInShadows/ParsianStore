@@ -9,7 +9,7 @@
   "scripts": {
     "predev": "node scripts/dev-db.mjs",
     "dev": "turbo run dev",
-    "dev:infra": "docker compose up -d --wait mongodb",
+    "dev:infra": "docker compose up -d --wait postgres",
     "dev:stop": "docker compose down",
     "db:setup": "node scripts/setup-postgres.mjs",
     "dev:api": "turbo run dev --filter=api",
@@ -22,7 +22,12 @@
     "e2e": "playwright test",
     "optimize:landing": "node scripts/optimize-landing.mjs",
     "prepare": "husky",
-    "check:hero": "node scripts/check-hero-registration.mjs"
+    "check:budget": "node scripts/check-budget.mjs",
+    "check:hero": "node scripts/check-hero-registration.mjs",
+    "shots:hero": "node scripts/hero-shots.mjs",
+    "shots:mobile": "node scripts/mobile-shots.mjs",
+    "check:mobile-a11y": "node scripts/mobile-axe.mjs",
+    "og:landing": "node scripts/og-image.mjs"
   },
   "devDependencies": {
     "@axe-core/playwright": "4.12.1",
@@ -44,5 +49,10 @@
     "typescript": "^5.7.0",
     "typescript-eslint": "8.65.0",
     "vitest": "4.1.10"
+  },
+  "pnpm": {
+    "patchedDependencies": {
+      "next": "patches/next.patch"
+    }
   }
 }

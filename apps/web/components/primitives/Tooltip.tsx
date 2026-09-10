@@ -22,7 +22,7 @@ export function Tooltip({ label, children }: Props) {
         // centering transform has to flip sign to match (raw `translate`
         // has no logical equivalent in CSS, so this needs an explicit
         // rtl: override; masterPlan.md §7.2).
-        className="pointer-events-none absolute bottom-full start-1/2 mb-1 -translate-x-1/2 whitespace-nowrap rounded-md bg-graphite-900 px-2 py-1 text-caption text-graphite-0 opacity-0 transition-opacity duration-fast group-focus-within:opacity-100 group-hover:opacity-100 motion-reduce:transition-none rtl:translate-x-1/2"
+        className="pointer-events-none absolute bottom-full start-1/2 mb-1 -translate-x-1/2 whitespace-nowrap rounded-md border border-border bg-surface-raised px-2 py-1 text-caption text-text opacity-0 transition-opacity duration-fast group-focus-within:opacity-100 group-hover:opacity-100 motion-reduce:transition-none rtl:translate-x-1/2"
       >
         {label}
       </span>

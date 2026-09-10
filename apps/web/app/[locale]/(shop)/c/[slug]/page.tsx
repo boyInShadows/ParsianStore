@@ -1,3 +1,5 @@
+import { JsonLd } from "@/components/seo/JsonLd";
+import { breadcrumbJsonLd } from "@/lib/json-ld";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { cookies } from "next/headers";
@@ -173,6 +175,7 @@ export default async function CategoryPage({ params, searchParams }: Props) {
 
   const totalCount = facets?.categories.find((c) => c.slug === slug)?.count ?? null;
 
+  const path = `/c/${slug}`;
   const breadcrumbItems = [
     { label: catalogMessages.breadcrumbHome, href: localizedPath(locale, "/") },
     ...ancestors.map((ancestor) => ({
@@ -184,6 +187,20 @@ export default async function CategoryPage({ params, searchParams }: Props) {
 
   return (
     <main className="mx-auto max-w-container px-4 py-8">
+      {/* Structured data from the SAME array the visible trail renders from
+          (P13.S9). Emitting a second hand-built list is how the two end up
+          disagreeing about where a page sits. The last crumb has no href
+          because it is the page you are on, so it contributes its own path. */}
+      <JsonLd
+        data={[
+          breadcrumbJsonLd(
+            breadcrumbItems.map((item) => ({
+              name: item.label,
+              path: item.href ?? localizedPath(locale, path),
+            })),
+          ),
+        ]}
+      />
       <Breadcrumb items={breadcrumbItems} />
       <h1 className="mt-2 font-display text-h2 font-black text-text">{category.data.name.fa}</h1>
 

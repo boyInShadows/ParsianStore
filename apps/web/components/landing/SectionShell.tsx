@@ -21,7 +21,7 @@ export function SectionShell({ id, code, title, subtitle, children }: Props) {
     <section id={id} aria-labelledby={headingId} className="mx-auto max-w-container px-4 py-12">
       <Reveal className="flex flex-col gap-2">
         <p className="font-mono text-data text-text-muted">{code}</p>
-        <h2 id={headingId} className="font-display text-h2 font-black text-text">
+        <h2 id={headingId} className="font-display text-h2 font-bold text-text">
           {title}
         </h2>
         {subtitle ? <p className="max-w-2xl text-body text-text-muted">{subtitle}</p> : null}

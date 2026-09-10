@@ -1,5 +1,4 @@
 import type { NextFunction, Request, Response } from "express";
-import { toPublicProductJson } from "../catalog/pricing.js";
 import * as wishlistService from "./wishlist.service.js";
 import type { WishlistListQuery, WishlistProductParam } from "./wishlist.schema.js";
 
@@ -10,20 +9,16 @@ export async function listWishlistHandler(
 ): Promise<void> {
   try {
     const pagination = req.validatedQuery as WishlistListQuery;
-    const { data, meta } = await wishlistService.listWishlist(req.user!.sub, pagination);
-    res.json({
-      ok: true,
-      // Same account-aware shaping every other product-serving list uses
-      // (products.controller.ts) -- listWishlist's own doc comment already
-      // notes this is separate-query hydration, not the DTO shape itself;
-      // a raw Product doc has no `isWholesalePrice` and would leak
-      // `wholesalePriceRial` to a retail viewer.
-      data: data.map((entry) => ({
-        ...entry,
-        product: toPublicProductJson(entry.product, req.user!.accountType),
-      })),
-      meta,
-    });
+    // The service returns finished DTOs now, shaped for this viewer. Doing it
+    // there rather than here is what keeps the raw wholesale price from ever
+    // leaving the module: a Prisma row carries every column, so a service that
+    // returned rows would be handing the leak to the layer above.
+    const { data, meta } = await wishlistService.listWishlist(
+      req.user!.sub,
+      pagination,
+      req.user!.accountType,
+    );
+    res.json({ ok: true, data, meta });
   } catch (err) {
     next(err);
   }

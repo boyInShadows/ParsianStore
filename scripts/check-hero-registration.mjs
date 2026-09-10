@@ -5,8 +5,8 @@
  * sprites, stacked at 0,0 with no transform, reconstruct the source render.
  * This script measures that, so "matched" is a number rather than an opinion.
  *
- *   node scripts/check-hero-registration.mjs landing-src/hero/source-car.png
- *   node scripts/check-hero-registration.mjs <source.png> <hero-dir>
+ *   node scripts/check-hero-registration.mjs                       # uses DEFAULT_SOURCE
+ *   node scripts/check-hero-registration.mjs <source.png> [hero-dir]
  *
  * Reports, per sprite, where its content sits in the frame and how much of the
  * source it accounts for; then the whole-composite agreement. Exit 1 if the set
@@ -21,6 +21,22 @@ import sharp from "sharp";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const BASE = "car-stripped.png";
+
+/**
+ * The frame the hero set has to reconstruct, when no argument names one.
+ *
+ * `pnpm check:hero` used to take no default and exit 1 on a clean tree, so it
+ * was a script that looked like a gate and was neither -- written up as such
+ * when Phase 12 closed. The assembled render is the honest answer: it is the
+ * SAME render as `car-stripped.png` with the panels on, downscaled to 1024 from
+ * `landing-src/samples-opaque/car.png` (registration measured at scale 1.000,
+ * dx 0, dy 0), which is exactly what every sprite is now cut from.
+ *
+ * It can never be a CI gate, because `landing-src/` is gitignored by design and
+ * never enters git history. It is a local check, run after `optimize:landing`
+ * whenever the hero set changes.
+ */
+const DEFAULT_SOURCE = path.join("landing-src", "hero-reference", "source-car-assembled.png");
 
 // Per-pixel channel delta below which two renders count as the same surface.
 // Generative edits re-shade slightly even when geometry holds; 70 is the
@@ -111,12 +127,12 @@ function agreement(layer, source, mask) {
 }
 
 async function main() {
-  const sourceArg = process.argv[2];
+  const sourceArg = process.argv[2] ?? DEFAULT_SOURCE;
   // Second arg lets a rejected batch be re-checked after a fix without
   // shuffling directories, and lets a new batch be compared against an old one.
   const HERO = path.resolve(ROOT, process.argv[3] ?? path.join("landing-src", "hero"));
   if (!sourceArg) {
-    console.error("usage: node scripts/check-hero-registration.mjs <source-render.png> [hero-dir]");
+    console.error("usage: node scripts/check-hero-registration.mjs [source-render.png] [hero-dir]");
     console.error("The source render is the frame every hero output was derived from.");
     process.exitCode = 1;
     return;
@@ -124,6 +140,9 @@ async function main() {
   const source = path.resolve(ROOT, sourceArg);
   if (!existsSync(source) || !existsSync(path.join(HERO, BASE))) {
     console.error(`Need both ${sourceArg} and landing-src/hero/${BASE}.`);
+    console.error(
+      "Both live in the gitignored `landing-src/` masters -- see docs/landing-assets.md.",
+    );
     process.exitCode = 1;
     return;
   }

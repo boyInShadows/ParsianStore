@@ -144,6 +144,25 @@ function luminance([r, g, b]: [number, number, number]): number {
   return 0.2126 * srgbToLinear(r) + 0.7152 * srgbToLinear(g) + 0.0722 * srgbToLinear(b);
 }
 
+/**
+ * The two resolved theme maps from tokens.css SOURCE TEXT. Split out from
+ * getDesignTokens() so a test can hold the stage tokens to their contrast
+ * floors without going through process.cwd() -- and, more to the point, so
+ * there is exactly one parser and exactly one luminance formula in this repo
+ * rather than a second copy living in a test file.
+ */
+export function readThemes(css: string): {
+  light: Record<string, string>;
+  dark: Record<string, string>;
+} {
+  const stripped = stripComments(css);
+  const light = readBlock(stripped, /:root\s*\{([^}]*)\}/);
+  const darkOverrides = readBlock(stripped, /\[data-theme="dark"\]\s*\{([^}]*)\}/);
+  // The dark block only lists what it changes, so it layers over light --
+  // exactly how the cascade resolves it in the browser.
+  return { light, dark: { ...light, ...darkOverrides } };
+}
+
 export function contrastRatio(foreground: string, background: string): number | null {
   const fg = parseHex(foreground);
   const bg = parseHex(background);
@@ -183,7 +202,20 @@ const GROUP_SPECS = [
     id: "surfaces",
     title: "زمینه و سطح‌ها",
     note: "چهار پلهٔ ارتفاع. در تم تیره سایه‌ای وجود ندارد و ارتفاع فقط با همین پله‌ها ساخته می‌شود.",
-    names: ["bg", "surface", "surface-raised", "surface-sunken"],
+    names: ["bg", "surface", "surface-raised", "surface-sunken", "surface-translucent"],
+  },
+  {
+    id: "stage",
+    title: "صحنه (زمینهٔ همیشه-تیره)",
+    note: "این شش توکن با تم عوض نمی‌شوند: اسپرایت‌های هیرو و پلیت‌های ویدئویی روی زمینهٔ تیره رندر شده‌اند، پس در تم روشن صحنه قاب می‌گیرد، نه اینکه روشن شود.",
+    names: [
+      "stage",
+      "stage-border",
+      "stage-text",
+      "stage-text-muted",
+      "stage-text-faint",
+      "stage-link",
+    ],
   },
   {
     id: "ink",
@@ -195,7 +227,17 @@ const GROUP_SPECS = [
     id: "accents",
     title: "دو لهجهٔ رنگی",
     note: "انضباط دو-لهجه‌ای (§۶.۳): فولادی صاحب ناوبری است و همیشه‌بهار صاحب پول.",
-    names: ["brand", "brand-solid", "brand-fg", "brand-subtle", "cta", "cta-fg", "price", "focus"],
+    names: [
+      "brand",
+      "brand-solid",
+      "brand-fg",
+      "brand-subtle",
+      "cta",
+      "cta-fg",
+      "cta-ink",
+      "price",
+      "focus",
+    ],
   },
   {
     id: "status",
@@ -315,6 +357,43 @@ const CONTRAST_SPECS: {
   { label: "قیمت روی سطح", fg: "price", bg: "surface", min: 4.5, note: "قیمت داخل کارت" },
   { label: "قیمت روی زمینه", fg: "price", bg: "bg", min: 4.5, note: "قیمت روی زمینهٔ صفحه" },
   {
+    label: "لهجهٔ همیشه‌بهار روی سطح",
+    fg: "cta-ink",
+    bg: "surface",
+    min: 4.5,
+    note: "شمارهٔ ترتیبی و گلیف طلایی — «cta» خودش ۲٫۱۲ است",
+  },
+  {
+    label: "لهجهٔ همیشه‌بهار روی زمینه",
+    fg: "cta-ink",
+    bg: "bg",
+    min: 4.5,
+    note: "همان لهجه روی زمینهٔ صفحه",
+  },
+  { label: "متن روی صحنه", fg: "stage-text", bg: "stage", min: 4.5, note: "تیتر روی پلیت تیره" },
+  {
+    label: "متن ملایم روی صحنه",
+    fg: "stage-text-muted",
+    bg: "stage",
+    min: 4.5,
+    note: "متن جاری روی پلیت تیره",
+  },
+  {
+    label: "متن کم‌رنگ روی صحنه",
+    fg: "stage-text-faint",
+    bg: "stage",
+    min: 4.5,
+    note: "برچسب و کد تک‌عرض روی پلیت تیره",
+  },
+  { label: "CTA روی صحنه", fg: "cta", bg: "stage", min: 4.5, note: "شمارهٔ ترتیبی روی پلیت تیره" },
+  {
+    label: "لینک روی صحنه",
+    fg: "stage-link",
+    bg: "stage",
+    min: 4.5,
+    note: "«brand» در تم روشن روی صحنه ۲٫۵۱ می‌شود — این توکن ثابت است",
+  },
+  {
     label: "متن روی «موفق»",
     fg: "success-fg",
     bg: "color-success",
@@ -372,7 +451,7 @@ const CONTRAST_SPECS: {
  * custom property. Read it from the config itself for the same
  * never-goes-stale reason the colors are read from tokens.css.
  */
-function readTypeScale(): TypeStep[] {
+function readTypeScale(vars: Record<string, string>): TypeStep[] {
   // Read as TEXT, not require()'d, for two reasons. First, `require(<an
   // expression>)` is not statically analyzable, and webpack emits a real
   // "Critical dependency" warning for it. Second, tailwind.config.js
@@ -392,15 +471,23 @@ function readTypeScale(): TypeStep[] {
   const entry = /["']?([\w-]+)["']?\s*:\s*\[\s*["']([^"']+)["']\s*,\s*\{([^}]*)\}/g;
   const steps: TypeStep[] = [];
   let match: RegExpExecArray | null;
+  // P14.S1 moved the numbers themselves into tokens.css, so a step now reads
+  // `var(--type-h2-size)` here. Substitute the custom property back out or the
+  // styleguide would list variable names instead of the scale it documents.
+  // `readBlock` keys the map without the leading `--`, so the capture group
+  // deliberately excludes it.
+  const resolve = (value: string): string =>
+    value.replace(/var\(\s*--([\w-]+)\s*\)/g, (whole, token: string) => vars[token] ?? whole);
+
   while ((match = entry.exec(block)) !== null) {
     const [, name, size, meta] = match;
     if (name === undefined || size === undefined || meta === undefined) continue;
     steps.push({
       name,
-      size,
-      lineHeight: /lineHeight:\s*["']([^"']+)["']/.exec(meta)?.[1] ?? "—",
+      size: resolve(size),
+      lineHeight: resolve(/lineHeight:\s*["']([^"']+)["']/.exec(meta)?.[1] ?? "—"),
       // Only display-1, caption and data set one; the rest inherit normal.
-      letterSpacing: /letterSpacing:\s*["']([^"']+)["']/.exec(meta)?.[1] ?? "normal",
+      letterSpacing: resolve(/letterSpacing:\s*["']([^"']+)["']/.exec(meta)?.[1] ?? "normal"),
     });
   }
   return steps;
@@ -414,9 +501,14 @@ function readTypeScale(): TypeStep[] {
  */
 const FONTS: FontFamily[] = [
   {
+    // P14.S1: an alias of --font-body, not a second family. The display face
+    // (Estedad 900) set Persian headings with Latin metrics and was the thing
+    // that made every heading on the site read as cramped; the token name
+    // survives so the ~30 `font-display` utilities and the admin `sx` rules
+    // that reference it keep working.
     token: "--font-display",
-    family: "Estedad",
-    weights: "700 · 900",
+    family: "Vazirmatn Variable (هم‌نام متن)",
+    weights: "700 · 800",
     role: "تیترهای نمایشی و سرتیترها",
   },
   {
@@ -434,12 +526,7 @@ const FONTS: FontFamily[] = [
 ];
 
 export function getDesignTokens(): DesignTokens {
-  const css = stripComments(readFileSync(TOKENS_PATH, "utf8"));
-  const light = readBlock(css, /:root\s*\{([^}]*)\}/);
-  const darkOverrides = readBlock(css, /\[data-theme="dark"\]\s*\{([^}]*)\}/);
-  // The dark block only lists what it changes, so it layers over light --
-  // exactly how the cascade resolves it in the browser.
-  const dark = { ...light, ...darkOverrides };
+  const { light, dark } = readThemes(readFileSync(TOKENS_PATH, "utf8"));
 
   const toToken = (name: string): TokenValue => ({
     name,
@@ -477,5 +564,41 @@ export function getDesignTokens(): DesignTokens {
     dark: contrastRatio(dark[spec.fg] ?? "", dark[spec.bg] ?? ""),
   }));
 
-  return { ramps, groups, contrast, typeScale: readTypeScale(), fonts: FONTS };
+  return { ramps, groups, contrast, typeScale: readTypeScale(light), fonts: FONTS };
+}
+
+/**
+ * The page background in each theme, for `<meta name="theme-color">`.
+ *
+ * Read from tokens.css rather than written here, and that is not tidiness:
+ * CLAUDE.md rule 5 makes tokens.css the sole hex source, and Next's
+ * `themeColor` metadata cannot reference a CSS custom property -- it needs a
+ * literal at build time. Parsing the value keeps the rule intact instead of
+ * pasting `#0e1418` into a `.ts` file and hoping the two stay in step. The
+ * browser paints its own chrome with this, so a drift would be visible as a
+ * seam between the page and the address bar.
+ *
+ * `--bg` specifically, not a graphite step: theme-color has to match what the
+ * page's body actually paints, which is `var(--bg)` (globals.css).
+ */
+export function readThemeColors(): { light: string; dark: string } {
+  const source = stripComments(readFileSync(TOKENS_PATH, "utf8"));
+
+  // `--bg` is declared twice: once under `:root` and once under the dark
+  // override. Order in the file is light then dark, and that is asserted rather
+  // than assumed -- reversing them would silently swap the two.
+  const values = [...source.matchAll(/--bg:\s*(#[0-9a-fA-F]{3,8})\s*;/g)].map(
+    (match) => match[1] as string,
+  );
+  const darkBlock = source.indexOf('[data-theme="dark"]');
+  const firstIsLight = darkBlock === -1 || source.indexOf(`--bg: ${values[0]}`) < darkBlock;
+
+  if (values.length < 2 || !firstIsLight) {
+    throw new Error(
+      `Expected tokens.css to declare --bg for the light theme and then for [data-theme="dark"], ` +
+        `found ${values.length} declaration(s). theme-color is read from those two.`,
+    );
+  }
+
+  return { light: values[0]!, dark: values[1]! };
 }

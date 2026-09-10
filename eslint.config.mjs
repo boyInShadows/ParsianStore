@@ -2,11 +2,13 @@ import js from "@eslint/js";
 import tseslint from "typescript-eslint";
 import react from "eslint-plugin-react";
 import reactHooks from "eslint-plugin-react-hooks";
+import noGraphiteUtility from "./eslint-rules/no-graphite-utility.mjs";
 import noPhysicalDirection from "./eslint-rules/no-physical-direction.mjs";
 import noRawHex from "./eslint-rules/no-raw-hex.mjs";
 
 const local = {
   rules: {
+    "no-graphite-utility": noGraphiteUtility,
     "no-physical-direction": noPhysicalDirection,
     "no-raw-hex": noRawHex,
   },
@@ -38,6 +40,13 @@ export default tseslint.config(
     rules: {
       "local/no-physical-direction": "error",
       "local/no-raw-hex": "error",
+      // The graphite ramp does not flip with [data-theme]; reaching for it in
+      // app code is how the site ended up with a light theme in tokens.css and
+      // a dark header, hero, find-my-part, trust strip, interstitial and
+      // closing beat on screen (P14.S2). `allowPaths` is deliberately empty --
+      // the hero stage was the one case that needed the ramp, and it has
+      // --stage-* tokens now. See eslint-rules/no-graphite-utility.mjs.
+      "local/no-graphite-utility": ["error", { allowPaths: [] }],
     },
   },
   {
@@ -76,6 +85,36 @@ export default tseslint.config(
       // a connection string with the standard API instead of a hand-rolled
       // regex that a password containing ":" or "@" would defeat.
       globals: { process: "readonly", console: "readonly", URL: "readonly" },
+    },
+  },
+  {
+    // The one script that drives a browser (P13.S0's hero scrub harness).
+    //
+    // `window` and `document` appear in it only inside `page.evaluate()`
+    // callbacks, which Playwright serialises and runs in Chromium -- so they
+    // are genuinely defined where they execute, and `no-undef` is reading them
+    // in the wrong runtime. Scoped to this one file rather than added to the
+    // `scripts/**` block above, because in any other script a bare `document`
+    // really would be the mistake that rule is for.
+    files: [
+      "scripts/hero-shots.mjs",
+      "scripts/og-image.mjs",
+      "scripts/mobile-shots.mjs",
+      "scripts/mobile-axe.mjs",
+    ],
+    languageOptions: {
+      globals: { window: "readonly", document: "readonly" },
+    },
+  },
+  {
+    // ESM tool configs (next.config.mjs) -- Node ESM read by the framework at
+    // build time, never bundled into a browser chunk, so `process` here is a
+    // real Node global rather than the app-code smell `no-undef` guards
+    // against. Separate from the `scripts/**` block above because these are
+    // framework configs rather than scripts anyone runs.
+    files: ["**/*.config.mjs"],
+    languageOptions: {
+      globals: { process: "readonly" },
     },
   },
   {

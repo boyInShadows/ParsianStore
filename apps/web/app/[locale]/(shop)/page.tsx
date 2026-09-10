@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { getTranslations } from "next-intl/server";
 import { routing } from "@/i18n/routing";
 import { absoluteUrl, hreflangAlternates, localizedPath } from "@/lib/seo";
-import { organizationJsonLd, websiteJsonLd } from "@/lib/json-ld";
+import { organizationJsonLd, systemsItemListJsonLd, websiteJsonLd } from "@/lib/json-ld";
 import { JsonLd } from "@/components/seo/JsonLd";
 import {
   AuthenticityStory,
@@ -10,6 +10,7 @@ import {
   BrandWall,
   ClosingBeat,
   Deals,
+  FindMyPart,
   GuidesTeaser,
   HeroV2,
   InterstitialPlate,
@@ -44,11 +45,18 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       siteName: "پارسیان",
       locale: locale === "fa" ? "fa_IR" : "en_US",
       type: "website",
+      // The finale frame, rendered by `pnpm og:landing` from the page itself
+      // rather than drawn separately -- so the card a link preview shows is the
+      // hero as it actually is, and cannot drift from it (P13.S9).
+      images: [{ url: "/og/landing.png", width: 1200, height: 630, alt: title }],
     },
     twitter: {
-      card: "summary",
+      // `summary` shows a thumbnail beside text; the exploded catalogue says
+      // nothing at that size. It is the image that carries this page.
+      card: "summary_large_image",
       title,
       description,
+      images: ["/og/landing.png"],
     },
   };
 }
@@ -60,8 +68,13 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 export default function LandingPage() {
   return (
     <main>
-      <JsonLd data={[organizationJsonLd(), websiteJsonLd()]} />
+      <JsonLd data={[organizationJsonLd(), websiteJsonLd(), systemsItemListJsonLd()]} />
       <HeroV2 />
+      {/* The two entry paths and the system index, which P13.S7 moved out of
+          the hero so the job card could take the pinned space beside the
+          drawing. Immediately after it, so a visitor who already knows their
+          car reaches the selector the moment the diagram lets go. */}
+      <FindMyPart />
       <TrustStrip />
       <BestSellers />
       <AuthenticityStory />

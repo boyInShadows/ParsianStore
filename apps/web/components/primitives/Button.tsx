@@ -1,5 +1,6 @@
 import type { ButtonHTMLAttributes, ReactNode } from "react";
 import { cn } from "@/lib/cn";
+import { Spinner } from "./Spinner";
 
 type Variant = "brand" | "cta" | "ghost" | "outline";
 type Size = "sm" | "md" | "lg" | "icon";
@@ -7,6 +8,18 @@ type Size = "sm" | "md" | "lg" | "icon";
 type Props = ButtonHTMLAttributes<HTMLButtonElement> & {
   variant?: Variant;
   size?: Size;
+  /**
+   * Work is in flight: shows a spinner, marks the button busy, and blocks
+   * further clicks.
+   *
+   * Every submit button in this codebase already swapped its own label
+   * ("ثبت سفارش" -> "در حال ثبت...") and set `disabled`, which a screen
+   * reader handles fine and a sighted user on a slow connection experiences
+   * as a button that greyed out for no visible reason. Keep the label swap --
+   * it is the clearest signal there is -- and let this add the visual one and
+   * `aria-busy`, which the label swap alone does not provide.
+   */
+  loading?: boolean;
   children: ReactNode;
 };
 
@@ -49,16 +62,23 @@ export const buttonVariants: Record<Variant, string> = {
 export function Button({
   variant = "brand",
   size = "md",
+  loading = false,
   className = "",
   children,
+  disabled,
   ...rest
 }: Props) {
   return (
     <button
       type="button"
+      aria-busy={loading || undefined}
+      disabled={disabled || loading}
       className={cn(buttonBase, buttonSizes[size], buttonVariants[variant], className)}
       {...rest}
     >
+      {/* label={null}: the button already carries aria-busy, and a nested
+          "loading" status would announce the same state a second time. */}
+      {loading ? <Spinner size="sm" label={null} /> : null}
       {children}
     </button>
   );

@@ -49,7 +49,7 @@ export function VideoStage({ clip, alt, className = "", children }: Props) {
   const showVideo = isDesktop && !reduceMotion;
 
   return (
-    <div className={`relative overflow-hidden bg-graphite-950 ${className}`}>
+    <div className={`relative overflow-hidden bg-stage ${className}`}>
       <LandingImage
         src={`/landing/video/${clip}-poster`}
         alt={alt}

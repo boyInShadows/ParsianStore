@@ -22,22 +22,22 @@ const envSchema = z.object({
     .default("http://localhost:3000")
     .transform((value) => value.split(",").map((origin) => origin.trim())),
   LOG_LEVEL: z.enum(["trace", "debug", "info", "warn", "error", "fatal", "silent"]).default("info"),
-  MONGODB_URI: z.string().min(1).default("mongodb://localhost:27017/parsian-store"),
 
-  // The PostgreSQL migration's destination. Optional on purpose *for now*:
-  // both databases coexist while phase 2 moves the data layer module by
-  // module, and a developer who has not created the Postgres role yet must
-  // still be able to boot the API on Mongo. It becomes required in phase 3,
-  // when Mongo comes out and this is the only database left.
-  //
-  // No default, unlike MONGODB_URI: this URL carries a password, and a
-  // hardcoded fallback containing credentials is the thing the secret rule
-  // exists to prevent.
-  DATABASE_URL: z.string().min(1).optional(),
+  // The only database. Required, and with no default: this URL carries a
+  // password, and a hardcoded fallback containing credentials is exactly what
+  // the secret-management rule exists to prevent. An API that cannot reach its
+  // database should refuse to boot, loudly, rather than start serving traffic
+  // and fail one request at a time.
+  DATABASE_URL: z.string().min(1, "DATABASE_URL is required"),
+
+  // Only read when NODE_ENV=test, and optional even then: config/prisma.ts
+  // derives `<database>_test` from DATABASE_URL when this is unset. It exists
+  // for a CI service whose database is not named that way.
+  TEST_DATABASE_URL: z.string().optional(),
 
   // P2.S4 — auth. Secrets get NO default: a hardcoded fallback secret in
   // source is itself the vulnerability (CLAUDE.md's secret-management
-  // rule), unlike CORS_ORIGINS/MONGODB_URI above which are non-secret
+  // rule), unlike CORS_ORIGINS/DATABASE_URL above which are non-secret
   // config with a legitimate local-dev default.
   JWT_ACCESS_SECRET: z.string().min(32, "JWT_ACCESS_SECRET must be at least 32 characters"),
   JWT_REFRESH_SECRET: z.string().min(32, "JWT_REFRESH_SECRET must be at least 32 characters"),
@@ -58,10 +58,10 @@ const envSchema = z.object({
   STORAGE_DRIVER: z.enum(["local"]).default("local"),
   PUBLIC_URL: z.string().url().default("http://localhost:4000"),
 
-  // P3.S4 — search. Only "mongo" is implemented (§4 manifest anticipates
+  // P3.S4 — search. Only "postgres" is implemented (§4 manifest anticipates
   // a Meilisearch driver via MEILI_HOST/MEILI_KEY later, same enum-of-one
   // pattern as STORAGE_DRIVER above until that second driver actually exists).
-  SEARCH_DRIVER: z.enum(["mongo"]).default("mongo"),
+  SEARCH_DRIVER: z.enum(["postgres"]).default("postgres"),
 
   // P6.S3 — payment. ZARINPAL_MERCHANT_ID stays optional here (same
   // "required-if-selected" split as KAVENEGAR_API_KEY above) -- enforced

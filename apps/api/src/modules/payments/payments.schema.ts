@@ -1,6 +1,8 @@
 import { z } from "zod";
+import { idSchema } from "schemas";
 
-const objectId = z.string().regex(/^[0-9a-fA-F]{24}$/, "شناسه معتبر نیست");
+// The shared UUID id schema; see packages/schemas/src/id.ts.
+const objectId = idSchema;
 
 // Zarinpal's own real callback query shape is `Authority`/`Status`
 // (capitalized, not this codebase's usual camelCase) -- kept verbatim

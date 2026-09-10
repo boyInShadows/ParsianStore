@@ -1,6 +1,4 @@
-import { OrderModel } from "../../models/Order.js";
-import { ProductModel } from "../../models/Product.js";
-import { UserModel } from "../../models/User.js";
+import { prisma } from "../../config/prisma.js";
 
 function csvCell(value: unknown): string {
   const text = value == null ? "" : String(value);
@@ -12,9 +10,9 @@ export function toCsv(headers: string[], rows: unknown[][]): string {
 
 export async function reportSummary() {
   const [orders, products, customers] = await Promise.all([
-    OrderModel.find({}, "status totalRial"),
-    ProductModel.find({}, "stock lowStockAt status"),
-    UserModel.countDocuments({ role: "customer" }),
+    prisma.order.findMany({ select: { status: true, totalRial: true } }),
+    prisma.product.findMany({ select: { stock: true, lowStockAt: true, status: true } }),
+    prisma.user.count({ where: { role: "customer" } }),
   ]);
   const paid = orders.filter((order) =>
     ["paid", "processing", "shipped", "delivered"].includes(order.status),
@@ -32,7 +30,7 @@ export async function reportSummary() {
 
 export async function exportReport(kind: "orders" | "inventory" | "customers"): Promise<string> {
   if (kind === "orders") {
-    const docs = await OrderModel.find().sort({ createdAt: -1 });
+    const docs = await prisma.order.findMany({ orderBy: { createdAt: "desc" } });
     return toCsv(
       ["code", "status", "subtotalRial", "shippingRial", "totalRial", "createdAt"],
       docs.map((order) => [
@@ -46,12 +44,12 @@ export async function exportReport(kind: "orders" | "inventory" | "customers"): 
     );
   }
   if (kind === "inventory") {
-    const docs = await ProductModel.find().sort({ sku: 1 });
+    const docs = await prisma.product.findMany({ orderBy: { sku: "asc" } });
     return toCsv(
       ["sku", "nameFa", "status", "stock", "lowStockAt", "priceRial"],
       docs.map((product) => [
         product.sku,
-        product.name.fa,
+        product.nameFa,
         product.status,
         product.stock,
         product.lowStockAt,
@@ -59,7 +57,10 @@ export async function exportReport(kind: "orders" | "inventory" | "customers"): 
       ]),
     );
   }
-  const docs = await UserModel.find({ role: "customer" }).sort({ createdAt: -1 });
+  const docs = await prisma.user.findMany({
+    where: { role: "customer" },
+    orderBy: { createdAt: "desc" },
+  });
   return toCsv(
     ["phone", "name", "email", "accountType", "createdAt"],
     docs.map((user) => [

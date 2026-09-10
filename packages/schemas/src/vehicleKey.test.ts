@@ -1,10 +1,14 @@
 import { describe, expect, it } from "vitest";
 import { buildVehicleKey, parseVehicleKey } from "./vehicleKey.js";
 
-const makeId = "507f1f77bcf86cd799439011";
-const modelId = "507f1f77bcf86cd799439012";
-const genId = "507f1f77bcf86cd799439013";
-const engineId = "507f1f77bcf86cd799439014";
+// UUIDs, not the 24-hex ObjectIds this file was written with: the shared
+// `idSchema` moved to UUID v7 at P10 and `isId` moved with it, but this test
+// was missed -- so both round-trip cases had been failing ever since,
+// unnoticed because the API suite does not cover this package.
+const makeId = "01a04993-304b-711b-bc3b-07984d11e822";
+const modelId = "01a04993-30e5-73da-9a74-4056b27d7dab";
+const genId = "01a04993-3a94-76ce-bf53-e0e6356e99f0";
+const engineId = "01a04993-3a9b-767b-a305-debb16a8d600";
 
 describe("buildVehicleKey / parseVehicleKey", () => {
   it("round-trips without an engineId", () => {

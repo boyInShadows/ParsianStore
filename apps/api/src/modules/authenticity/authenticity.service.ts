@@ -1,7 +1,7 @@
-import { ProductModel } from "../../models/Product.js";
-import type { LocalizedName } from "../../models/plugins.js";
-import type { ProductWarranty } from "../../models/Product.js";
+import type { LocalizedName } from "schemas";
+import { prisma } from "../../config/prisma.js";
 import { ApiError } from "../../utils/ApiError.js";
+import { localized, supplyRouteToWire } from "../../utils/serialize.js";
 
 // §3.5: the public verify endpoint hands back the evidence panel's
 // contents, not the whole Product (price/stock/etc. aren't this
@@ -14,23 +14,40 @@ export interface AuthenticityVerification {
   countryOfManufacture: string;
   hologramCode?: string;
   guideUrl?: string;
-  warranty: ProductWarranty;
+  warranty: { months: number; text: string };
 }
 
 export async function verifyCode(code: string): Promise<AuthenticityVerification> {
-  const product = await ProductModel.findOne({ "authenticity.verificationCode": code });
+  // The authenticity record is columns on Product now rather than an embedded
+  // document, so this is a plain equality filter instead of a dotted path --
+  // and `verificationCode` is a real column the planner can use.
+  const product = await prisma.product.findFirst({
+    where: { verificationCode: code },
+    select: {
+      nameFa: true,
+      nameEn: true,
+      slug: true,
+      supplyRoute: true,
+      sourceBrand: true,
+      countryOfManufacture: true,
+      hologramCode: true,
+      guideUrl: true,
+      warrantyMonths: true,
+      warrantyText: true,
+    },
+  });
   if (!product) {
     throw new ApiError(404, "کد اصالت یافت نشد");
   }
 
   return {
-    productName: product.name,
+    productName: localized(product),
     productSlug: product.slug,
-    supplyRoute: product.authenticity.supplyRoute,
-    sourceBrand: product.authenticity.sourceBrand,
-    countryOfManufacture: product.authenticity.countryOfManufacture,
-    hologramCode: product.authenticity.hologramCode,
-    guideUrl: product.authenticity.guideUrl,
-    warranty: product.warranty,
+    supplyRoute: supplyRouteToWire(product.supplyRoute),
+    sourceBrand: product.sourceBrand,
+    countryOfManufacture: product.countryOfManufacture,
+    ...(product.hologramCode ? { hologramCode: product.hologramCode } : {}),
+    ...(product.guideUrl ? { guideUrl: product.guideUrl } : {}),
+    warranty: { months: product.warrantyMonths, text: product.warrantyText },
   };
 }

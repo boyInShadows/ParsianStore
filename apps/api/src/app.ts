@@ -10,7 +10,6 @@ import { notFoundHandler } from "./middleware/notFound.js";
 import { errorHandler } from "./middleware/error.js";
 import { apiRateLimiter } from "./middleware/rateLimit.js";
 import { requestId } from "./middleware/requestId.js";
-import { sanitizeRequest } from "./middleware/sanitize.js";
 import { authenticityRouter } from "./modules/authenticity/authenticity.routes.js";
 import { addressesRouter } from "./modules/addresses/addresses.routes.js";
 import { authRouter } from "./modules/auth/auth.routes.js";
@@ -56,7 +55,6 @@ app.use(cookieParser());
 app.use(express.json());
 app.use(requestId);
 app.use(httpLogger);
-app.use(sanitizeRequest);
 app.use("/api/v1", apiRateLimiter);
 
 app.get("/api/v1/health", healthHandler);

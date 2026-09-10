@@ -1,7 +1,7 @@
 import { app } from "./app.js";
 import { env } from "./config/env.js";
 import { logger } from "./config/logger.js";
-import { connectDB, disconnectDB } from "./config/db.js";
+import { connectDB, disconnectDB } from "./config/prisma.js";
 import { scheduleInventoryJobs } from "./jobs/inventoryCron.js";
 import type { ScheduledTask } from "node-cron";
 import type { Server } from "node:http";

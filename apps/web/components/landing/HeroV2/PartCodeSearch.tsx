@@ -44,10 +44,14 @@ export function PartCodeSearch({ label, placeholder, hint, submit, emptyError }:
 
   return (
     <form onSubmit={onSubmit} noValidate className="flex flex-col gap-2">
-      <label htmlFor={inputId} className="text-body-sm font-medium text-graphite-100">
+      <label htmlFor={inputId} className="text-body-sm font-medium text-text">
         {label}
       </label>
-      <div className="flex gap-2">
+      {/* Stacked with a full-width submit on a phone, side by side from `sm`
+          (P14.S6 item 4). Side by side at 360px left the code field ~190px
+          wide for a field whose whole job is holding a part number the visitor
+          is copying off a box. */}
+      <div className="flex flex-col gap-2 sm:flex-row">
         <input
           id={inputId}
           name="code"
@@ -61,16 +65,16 @@ export function PartCodeSearch({ label, placeholder, hint, submit, emptyError }:
           autoComplete="off"
           aria-describedby={error ? `${hintId} ${errorId}` : hintId}
           aria-invalid={error ? true : undefined}
-          className="min-w-0 flex-1 border border-graphite-700 bg-graphite-950 px-3 py-2 font-mono text-body-sm text-graphite-50 outline-none placeholder:text-graphite-400 focus-visible:border-focus focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
+          className="min-h-12 min-w-0 flex-1 border border-border bg-surface px-3 py-2 font-mono text-body-sm text-text outline-none placeholder:text-text-muted focus-visible:border-focus focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
         />
         <button
           type="submit"
-          className="inline-flex min-h-12 shrink-0 items-center bg-cta px-4 text-body-sm font-bold text-cta-fg transition-opacity hover:opacity-90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus motion-reduce:transition-none"
+          className="inline-flex min-h-12 w-full shrink-0 items-center justify-center bg-cta px-4 text-body-sm font-bold text-cta-fg transition-opacity hover:opacity-90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus motion-reduce:transition-none sm:w-auto"
         >
           {submit}
         </button>
       </div>
-      <p id={hintId} className="text-caption text-graphite-400">
+      <p id={hintId} className="text-caption text-text-muted">
         {hint}
       </p>
       {error ? (

@@ -6,8 +6,10 @@ import {
   adminUpdateShippingRateInputSchema,
 } from "schemas";
 import { paginationQuerySchema } from "../../utils/pagination.js";
+import { idSchema } from "schemas";
 
-const objectId = z.string().regex(/^[0-9a-fA-F]{24}$/, "شناسه معتبر نیست");
+// The shared UUID id schema; see packages/schemas/src/id.ts.
+const objectId = idSchema;
 
 export const adminShippingRateIdParamSchema = z.object({ id: objectId });
 

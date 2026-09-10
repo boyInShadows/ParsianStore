@@ -1,0 +1,178 @@
+import { PrismaPg } from "@prisma/adapter-pg";
+import { Prisma, PrismaClient } from "@prisma/client";
+import { env } from "./env.js";
+import { logger } from "./logger.js";
+
+/**
+ * The single PostgreSQL client for the whole API.
+ *
+ * Prisma 7 does not take a connection URL: the client is handed a *driver
+ * adapter* built over a real `pg` pool, and Migrate/Studio read the URL from
+ * `prisma.config.ts` instead (https://pris.ly/d/config-datasource).
+ */
+
+/**
+ * Every model in `schema.prisma` that carries a `deletedAt` column, derived
+ * from Prisma's own runtime metadata rather than hand-listed. A hand-written
+ * list is a second source of truth that silently rots the moment somebody adds
+ * `deletedAt` to a new model and forgets this file -- and the failure mode of
+ * *missing* a model here is soft-deleted rows quietly reappearing in results,
+ * which no test asserts against because no query mentions the filter.
+ */
+const SOFT_DELETABLE: ReadonlySet<string> = new Set(
+  Prisma.dmmf.datamodel.models
+    .filter((model) => model.fields.some((field) => field.name === "deletedAt"))
+    .map((model) => model.name),
+);
+
+/**
+ * Read/write operations that must not see soft-deleted rows.
+ *
+ * `create`/`createMany` are absent because they have no `where`. `upsert` is
+ * absent deliberately: injecting the filter would make it miss an existing
+ * soft-deleted row and attempt an insert, which then fails on the unique
+ * constraint instead of doing something sensible. Callers that upsert over a
+ * soft-deletable model decide for themselves what a tombstoned row means.
+ */
+const FILTERED_OPERATIONS: ReadonlySet<string> = new Set([
+  "findFirst",
+  "findFirstOrThrow",
+  "findMany",
+  "findUnique",
+  "findUniqueOrThrow",
+  "count",
+  "aggregate",
+  "groupBy",
+  "update",
+  "updateMany",
+  "delete",
+  "deleteMany",
+]);
+
+type WhereArgs = { where?: Record<string, unknown> };
+
+/**
+ * Re-imposes Mongoose's soft-delete semantics, which the app depends on far
+ * more than it looks like it does.
+ *
+ * The Mongoose plugin injected `deletedAt: null` in a `pre(/^(find|countDocuments)/)`
+ * hook, so **every query in this codebase is written assuming that filter and
+ * none of them say so**. Prisma has no such hook, and a missed filter does not
+ * fail -- it silently resurrects deleted rows. Re-imposing it centrally here is
+ * the only version of this that is safe to review: the alternative is trusting
+ * twenty modules of hand-edits to each remember an invisible invariant.
+ *
+ * The escape hatch matches the old plugin's exactly: a caller who *names*
+ * `deletedAt` in the filter (an admin "trash" view asking for `{ not: null }`)
+ * is left alone.
+ *
+ * **Known limitation, inherited from Prisma, not from us:** query extensions do
+ * not reach nested relation reads, so `include`/`select` of a soft-deletable
+ * relation still needs its own explicit `where: { deletedAt: null }`. Mongoose's
+ * `populate` did run the hook. Every such site in the app spells the filter out.
+ */
+function softDeleteExtension(client: PrismaClient) {
+  return client.$extends({
+    name: "softDelete",
+    query: {
+      $allModels: {
+        $allOperations({ model, operation, args, query }) {
+          if (!SOFT_DELETABLE.has(model) || !FILTERED_OPERATIONS.has(operation)) {
+            return query(args);
+          }
+          const typed = args as WhereArgs;
+          if (typed.where?.deletedAt !== undefined) return query(args);
+          return query({ ...typed, where: { ...typed.where, deletedAt: null } });
+        },
+      },
+    },
+  });
+}
+
+/**
+ * The database this process talks to -- which is deliberately NOT the
+ * development one when the test suite is running.
+ *
+ * Mongo had `config/testDbUri.ts`: same server, a dedicated database name, so
+ * `pnpm test` could never touch `pnpm dev`'s data. Nothing replaced it when
+ * the client moved to Prisma, and `resetDb()` truncates every table -- so a
+ * test run silently wiped the developer's seeded catalogue. Found by running
+ * the e2e suite straight after `pnpm test` and getting an empty storefront.
+ *
+ * `<name>_test` by default, overridable with `TEST_DATABASE_URL` for a CI
+ * service that names its database something else.
+ */
+export function resolveDatabaseUrl(): string {
+  if (env.NODE_ENV !== "test") return env.DATABASE_URL;
+  if (env.TEST_DATABASE_URL) return env.TEST_DATABASE_URL;
+  const url = new URL(env.DATABASE_URL);
+  url.pathname = `${url.pathname.replace(/\/$/, "")}_test`;
+  return url.toString();
+}
+
+function createClient() {
+  const adapter = new PrismaPg(resolveDatabaseUrl());
+  return softDeleteExtension(new PrismaClient({ adapter }));
+}
+
+export type Db = ReturnType<typeof createClient>;
+
+/**
+ * The client handed to an interactive `$transaction` callback: the same
+ * extended client minus the methods that cannot be called inside a
+ * transaction. Named here because several services pass it to helpers, and
+ * `Prisma.TransactionClient` is the *unextended* one -- assigning this to that
+ * is a type error, which is a confusing way to discover the difference.
+ */
+export type Tx = Omit<
+  Db,
+  "$connect" | "$disconnect" | "$on" | "$transaction" | "$use" | "$extends"
+>;
+
+/**
+ * Built once at import time so every module shares one connection pool. A
+ * per-module client would open a pool each, which in a `tsx watch` loop
+ * exhausts Postgres' connection slots within a few reloads.
+ */
+export const prisma: Db = createClient();
+
+export async function connectDB(): Promise<Db> {
+  await prisma.$connect();
+  logger.info({ db: "postgres" }, "PostgreSQL connected");
+  return prisma;
+}
+
+export async function disconnectDB(): Promise<void> {
+  await prisma.$disconnect();
+}
+
+/**
+ * Soft delete: mark-and-hide, so audit trails and order history survive a
+ * "delete". The Mongoose equivalent was a document method (`doc.softDelete()`);
+ * Prisma has no document objects, so it is a function over the model delegate.
+ */
+export function softDeleteData(): { deletedAt: Date } {
+  return { deletedAt: new Date() };
+}
+
+/**
+ * Spread into a `where` to see live *and* soft-deleted rows in one query --
+ * what an admin screen with an "any state" filter needs.
+ *
+ * It reads oddly, so: the extension above leaves a query alone the moment the
+ * caller names `deletedAt` themselves, and Prisma drops a filter whose only
+ * operand is `undefined`. Together those mean this opts out of the soft-delete
+ * filter without adding any condition of its own. The Mongoose equivalent was
+ * `{ deletedAt: { $exists: true } }` and was equally non-obvious; naming it
+ * once here beats re-deriving it in each of the four admin modules that need it.
+ */
+export const ANY_STATE = { deletedAt: { not: undefined } } as const;
+
+/** The `state` filter every admin list endpoint accepts, as a `where` fragment. */
+export function stateFilter(state: "active" | "deleted" | "any" | undefined): {
+  deletedAt: unknown;
+} {
+  if (state === "deleted") return { deletedAt: { not: null } };
+  if (state === "any") return ANY_STATE;
+  return { deletedAt: null };
+}

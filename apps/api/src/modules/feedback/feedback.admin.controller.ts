@@ -5,8 +5,12 @@ import type {
   AdminFeedbackListQuery,
   ModerateFeedbackInput,
 } from "./feedback.admin.schema.js";
-function dto(item: { _id: unknown; toObject(): Record<string, unknown> }) {
-  return { ...item.toObject(), id: String(item._id) };
+/** A row already carries a plain `id`, so this is the identity function the
+ * Mongoose version could not be: it existed only to rename `_id` and unwrap
+ * the document. Kept as a named seam because the admin moderation screen is
+ * the one place that is *meant* to see every column. */
+function dto<T extends { id: string }>(item: T): T {
+  return item;
 }
 export async function reviews(req: Request, res: Response, next: NextFunction) {
   try {

@@ -153,6 +153,169 @@
   --price: #78550c;
   --brand-subtle: #eaf1ff;
 
+  /* ---- Stage tokens (§6.4, P14.S2) ------------------------------------
+     A LIT WORKSHOP, not a theme. These six do not flip with [data-theme],
+     and that is the whole point: the hero's sprites, the interstitial plate,
+     the closing clip and the authenticity clip were all rendered on a dark
+     ground, and a light stage would show cut-out edges and dark drop shadows
+     against white. So in light mode the stage becomes a FRAMED plate -- the
+     section around it follows the theme, the plate keeps its own dark ground
+     and gains a 1px --border edge and a radius.
+
+     They exist so that "dark ground" is sayable without a graphite literal.
+     Before this, every element sitting on a permanently dark surface reached
+     for `bg-graphite-950` / `text-graphite-0` directly, which is exactly what
+     made the theme audit impossible to run: a graphite utility on a section
+     that should flip and a graphite utility on a plate that must not flip
+     were indistinguishable. Now the first is a bug the ESLint rule catches
+     and the second is a token.
+
+     Contrast, computed rather than eyeballed, against --stage (#0e1418):
+       --stage-text        18.55:1   headings, the strong line
+       --stage-text-muted  12.25:1   running copy
+       --stage-text-faint   8.78:1   labels, mono codes, hints
+       --stage-link         7.72:1   links on the plate
+     --cta lands at 8.77:1 light / 9.44:1 dark on the same ground, so the
+     accent needs no stage-specific variant. --stage-border is a container
+     edge (1.78:1), which 1.4.11 does not govern on its own -- same reasoning
+     as --border, see CONTRAST_SPECS in lib/design-tokens.ts.
+
+     `text-faint` replaces the graphite-400 (5.30:1) these plates used for
+     hints. It passes either way; one fewer near-identical step is the
+     reason, not a contrast fix. */
+  --stage: #0e1418;
+  --stage-border: #36414c;
+  --stage-text: #ffffff;
+  --stage-text-muted: #cbd3da;
+  --stage-text-faint: #a8b4be;
+  /* Steel-300: the link colour --brand already takes in dark mode, pinned so
+     it cannot follow the theme. This is the token that was missing, and its
+     absence was a live contrast bug rather than a tidiness problem --
+     `.hero-callout-go` and the closing beat's contact links painted
+     var(--brand) on the dark stage, which in LIGHT theme resolves to
+     steel-700 and lands at 2.51:1 on --stage. 7.72:1 here, in both themes,
+     and it keeps §6.3's two-accent discipline: a link on the stage is still
+     blue, not marigold. */
+  --stage-link: #7ba6ff;
+
+  /* Marigold that survives as TEXT (§6.3, P14.S2). --cta is 2.12:1 on
+     --surface and 1.87:1 on --bg -- it is a fill colour and always was, and
+     the landing's `text-cta` ordinals were only ever legible because the
+     sections under them were dark. Real relative-luminance figures for the
+     ramp on --surface: marigold-500 2.12, -600 2.98, -700 4.47 (misses),
+     -800 6.77. So -800 light, and -300 in dark (10.60:1 on --bg, 9.18:1 on
+     --surface) -- the same one-step-brighter move --cta and --price both
+     make.
+
+     Byte-identical to --price today, deliberately NOT an alias of it: §6.3
+     gives Marigold two jobs on this palette, money and action, and --price
+     is the money one. A trust-strip ordinal is neither, so borrowing --price
+     for it would quietly turn "Marigold owns prices" into "Marigold owns
+     anything warm". If the price colour is ever retuned, this must not
+     follow it. */
+  --cta-ink: #78550c;
+
+  /* --surface behind a backdrop-filter (P14.S2). The header is the one
+     element that sits over scrolling content in both themes, and an opaque
+     bar there loses the depth cue that says it is floating. 88% -- written
+     as 8-digit hex rather than `--surface / 88%`, because an opacity
+     modifier on an opaque var() colour generates NO CSS in Tailwind 3.4
+     (see --brand-subtle above for the same trap). */
+  --surface-translucent: #ffffffe0;
+
+  /* ---- Loading tokens (P15.S3) — THE HIGGSFIELD SEAM ------------------
+     One token set for every "this is arriving" surface on the site, and it
+     exists to be swapped. The owner's branded loader will be generated with
+     HiggsField as launch prep; the deliberate seam that decision asks for is
+     `components/loading/WorkshopLoader.tsx` (the mark) plus this block (its
+     palette, its rhythm and its timing). Swapping the simple version for the real
+     animation should touch that one component and, at most, this block.
+
+     --loader-ink and --loader-track are ALIASES, not new colours: a loading
+     signal is the same blue the rest of the chrome uses, and it should follow
+     the theme when the brand does. Written as var() rather than as a copied
+     hex so a retune of --brand-solid reaches them, which is the opposite of
+     the --cta-ink / --price case above (that one must NOT follow).
+
+     ** Both of them flip with the theme, so neither may ever be painted on
+     the stage. ** The stage does not flip (see the stage block above), and
+     `design-tokens.test.ts` enforces that for every `.hero-*` rule it scans --
+     but it compares the two blocks' literal values, so an alias that resolves
+     differently per theme reads to it as "shared". The hero skeleton
+     therefore takes only the three non-colour values below; its colour is the
+     placeholder image itself.
+
+     --loader-rest / --loader-peak are the hero skeleton's opacity pair. It
+     paints UNDER the real car at the same registration, so it is dim on
+     purpose: the placeholder should read as "not yet", and a low alpha is
+     also what keeps the upscaled placeholder's soft edge from showing around
+     the sharp render once that arrives. */
+  --loader-ink: var(--brand-solid);
+  /* --border, not --rule, and that was a screenshot rather than a preference:
+     --rule is a divider *inside a surface* and measures 1.1:1 on --bg, so the
+     loader's three docket lines were invisible in light mode against the page
+     ground they actually sit on. --border is the token for a hairline that has
+     to read on --bg. */
+  --loader-track: var(--border);
+  --loader-bar: 3px;
+  --loader-duration: 1200ms;
+  --loader-stagger: 160ms;
+  --loader-rest: 0.55;
+  --loader-peak: 0.85;
+
+  /* ---- Type scale (§6.5, P14.S1) --------------------------------------
+     The scale used to live only in tailwind.config.js, because a fontSize
+     step is a (size, leading, tracking) triple rather than a single value.
+     It lives here now -- one custom property per part -- and the config
+     composes them, so the same "tokens.css is the only definition" rule the
+     colours follow (CLAUDE.md rule 5) finally covers type as well.
+
+     The numbers are Persian metrics, not Latin ones. The previous scale set
+     display-1 at line-height 1.10 with letter-spacing -0.02em (= -1.12px at
+     56px). Negative tracking and 1.1 leading are Latin display habits: on a
+     Persian face they crush the dot and kashida rhythm and clip ascenders,
+     which is precisely what made every heading on the site look wrong while
+     the one heading set in the body face at 700 looked right. Persian wants
+     >= 1.3 leading at display sizes and >= 1.7 in running text, and no
+     negative tracking at all. Tracking above zero survives only on the
+     mono step (--type-data-ls), whose runs are codes and SKUs, never
+     Persian prose.
+
+     Every clamp() is a real line through two viewports: the minimum is
+     reached at 390px and the maximum at 1280px, so a 360-390 phone gets the
+     mobile figure and a >= 1280 desktop gets the desktop one, with a smooth
+     ramp in between rather than a jump at a breakpoint. */
+  --type-display-1-size: clamp(1.875rem, 1.38rem + 2.02vw, 3rem); /* 30 -> 48px */
+  --type-display-1-lh: 1.3;
+  --type-display-1-ls: 0em;
+  --type-display-2-size: clamp(1.75rem, 1.42rem + 1.35vw, 2.5rem); /* 28 -> 40px */
+  --type-display-2-lh: 1.3;
+  /* 28 -> 36px on the same hybrid `rem + vw` line as every other step
+     (P14.S2). It kept the pre-P14 shape -- `clamp(1.75rem, 3vw, 2.25rem)` --
+     whose pure-vw middle term does not reach the 28px floor until 933px, so
+     h1 sat pinned at its minimum across the entire phone-to-laptop range
+     while h2 (retuned in P14.S1) grew from 390px upward. The two crossed at
+     ~934px, where h2 momentarily set LARGER than h1. Same endpoints, now
+     reached at 390px and 1280px like the rest of the scale. */
+  --type-h1-size: clamp(1.75rem, 1.53rem + 0.9vw, 2.25rem); /* 28 -> 36px */
+  --type-h1-lh: 1.3;
+  --type-h2-size: clamp(1.375rem, 1.1rem + 1.12vw, 2rem); /* 22 -> 32px */
+  --type-h2-lh: 1.35;
+  --type-h3-size: clamp(1.125rem, 1.02rem + 0.45vw, 1.375rem); /* 18 -> 22px */
+  --type-h3-lh: 1.4;
+  --type-body-lg-size: clamp(1.0625rem, 1.04rem + 0.11vw, 1.125rem); /* 17 -> 18px */
+  --type-body-lg-lh: 1.75;
+  --type-body-size: clamp(0.9375rem, 0.91rem + 0.11vw, 1rem); /* 15 -> 16px */
+  --type-body-lh: 1.75;
+  --type-body-sm-size: 0.875rem; /* 14px */
+  --type-body-sm-lh: 1.7;
+  --type-caption-size: clamp(0.75rem, 0.72rem + 0.11vw, 0.8125rem); /* 12 -> 13px */
+  --type-caption-lh: 1.5;
+  --type-caption-ls: 0em;
+  --type-data-size: clamp(0.75rem, 0.72rem + 0.11vw, 0.8125rem); /* 12 -> 13px */
+  --type-data-lh: 1.5;
+  --type-data-ls: 0.01em;
+
   /* ---- Radius (§6.6) ---- */
   --radius-sm: 6px;
   --radius-md: 10px;
@@ -185,6 +348,26 @@
   --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
   --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
 
+  /* ---- Enter-on-view + marquee (P14.S7) ----------------------------
+
+     `--reveal-travel` is motion distance, not layout spacing, which is why it
+     is its own token rather than `--space-4`: masterPlan.md §5 caps
+     scroll-reveal at 24px of travel and 400ms, and the cap belongs on the
+     thing being capped. The reveal reuses `--duration-slow` (400ms) rather
+     than minting a longer one -- fableTasks §P14.S7 asks for 500ms, which is
+     over that budget; 400ms is the longest value the budget allows.
+
+     `--reveal-stagger-step` is the per-child delay; globals.css multiplies it
+     by the child's index with :nth-child, so no component computes a delay.
+
+     `--marquee-item-duration` is seconds *per item*: the track sets
+     `--marquee-items` (a unitless count) inline and the duration is
+     count x this, so a longer brand list runs proportionally longer instead of
+     faster. */
+  --reveal-travel: 16px;
+  --reveal-stagger-step: 60ms;
+  --marquee-item-duration: 3.5s;
+
   /* ---- Rail card (§6.6) --------------------------------------------
      The width of one card inside a horizontal snap rail. It needs to be a
      definite length: inside a no-wrap flex rail an `auto` width resolves to
@@ -200,6 +383,22 @@
      icon button under the 44px touch-target floor. */
   --rail-card: 256px;
 
+  /* ---- Touch target (P14.S6) ---------------------------------------
+     The minimum hit area for a PRIMARY mobile control -- the header's four
+     row-1 buttons, the search field, the vehicle chip, a symptom chip.
+
+     44px, and it is a product choice rather than a compliance claim: WCAG
+     2.2 AA Target Size (Minimum) asks for 24x24 and this page already passes
+     that everywhere (fableTasks §0.5 records the audit that got this wrong in
+     the other direction). 44 is what a thumb actually wants.
+
+     A token rather than a spacing step, for the reason the rail card above
+     gives: the scale is deliberately short and adding an 11th step would
+     silently switch on every dead `p-11`/`h-11` already written against it.
+     Exposed to Tailwind as `h-tap` / `min-h-tap` / `min-w-tap` only, so it
+     can never be reached for as padding. */
+  --tap-target: 44px;
+
   /* ---- Container (§6.6) ---- */
   --container-max: 1440px;
   --container-gutter: 16px; /* mobile; widened to 32px at --breakpoint-lg below */
@@ -214,6 +413,36 @@
   --breakpoint-lg: 1024px;
   --breakpoint-xl: 1280px;
   --breakpoint-2xl: 1536px;
+}
+
+/* ---- Display family = body family (§6.5, P14.S1) ---------------------
+   The owner's complaint about "every heading" resolved to the face as well
+   as the metrics. The one heading he likes -- «فهرست قطعه‌ها» -- computes to
+   the BODY face at 700; every heading he dislikes is the display face at
+   900. So --font-display now aliases --font-body. The token name survives
+   deliberately: the MUI admin panels and .hero-callout-name read
+   var(--font-display) directly, and `font-display` is a Tailwind utility on
+   ~30 elements. They all keep working and all get the face that works.
+
+   `html:root`, not `:root`, and that is not decoration. next/font/local
+   emits its own `.__variable_<hash> { --font-display: ... }` rule onto the
+   same <html> element; a class selector and `:root` carry identical
+   specificity, so a bare `:root` here would win or lose purely on
+   stylesheet source order -- a bundler detail, not a decision. The element
+   selector makes this rule strictly more specific, so it is deterministic.
+
+   The Estedad files are GONE from lib/fonts.ts (P14.S2). The note here used
+   to say removal waited "once no route still asks for `font-black` on the
+   display family" -- but this very rule is what makes that condition
+   unreachable-by-construction rather than something to wait for: `html:root`
+   wins unconditionally, so `--font-display` resolves to Vazirmatn for every
+   element at every weight, and `font-black` on a `font-display` heading has
+   been rendering Vazirmatn's 900 variable axis since the alias shipped.
+   Nothing could reach Estedad, so the two preloaded WOFF2 files were ~64KB
+   on every route's critical path serving a family with no consumers. The
+   files stay on disk under public/fonts/estedad/ with their OFL.txt. */
+html:root {
+  --font-display: var(--font-body);
 }
 
 @media (min-width: 1024px) {
@@ -256,6 +485,12 @@
   --surface-sunken: #0e1418;
   --price: #efbc55;
   --brand-subtle: #0a1733;
+
+  /* Marigold-300, the same step --price takes in dark. The stage tokens
+     above are deliberately absent from this block: they do not flip. */
+  --cta-ink: #efbc55;
+
+  --surface-translucent: #1a222ae0;
 
   /* Dark mode uses NO shadows -- elevation comes from --surface-raised
      + --border instead (§6.6). */

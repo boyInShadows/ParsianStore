@@ -1,8 +1,7 @@
 import { pathToFileURL } from "node:url";
-import { connectDB, disconnectDB } from "../config/db.js";
 import { logger } from "../config/logger.js";
-import { CityModel } from "../models/City.js";
-import { ProvinceModel } from "../models/Province.js";
+import { connectDB, disconnectDB, prisma } from "../config/prisma.js";
+import { toColumns } from "../utils/serialize.js";
 import { GEO_SEED_DATA } from "./geo.data.js";
 
 /**
@@ -15,19 +14,21 @@ export async function seedGeo(): Promise<void> {
   let cities = 0;
 
   for (const provinceSeed of GEO_SEED_DATA) {
-    const province = await ProvinceModel.findOneAndUpdate(
-      { slug: provinceSeed.slug },
-      { name: provinceSeed.name, slug: provinceSeed.slug },
-      { upsert: true, new: true },
-    );
+    const province = await prisma.province.upsert({
+      where: { slug: provinceSeed.slug },
+      update: toColumns(provinceSeed.name),
+      create: { ...toColumns(provinceSeed.name), slug: provinceSeed.slug },
+    });
     provinces += 1;
 
     for (const citySeed of provinceSeed.cities) {
-      await CityModel.findOneAndUpdate(
-        { provinceId: province._id, slug: citySeed.slug },
-        { provinceId: province._id, name: citySeed.name, slug: citySeed.slug },
-        { upsert: true, new: true },
-      );
+      await prisma.city.upsert({
+        // The compound unique `@@unique([provinceId, slug])`; Prisma exposes it
+        // under the joined field name, not as two loose keys.
+        where: { provinceId_slug: { provinceId: province.id, slug: citySeed.slug } },
+        update: toColumns(citySeed.name),
+        create: { ...toColumns(citySeed.name), slug: citySeed.slug, provinceId: province.id },
+      });
       cities += 1;
     }
   }

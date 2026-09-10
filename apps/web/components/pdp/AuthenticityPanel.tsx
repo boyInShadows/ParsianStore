@@ -1,5 +1,6 @@
 import type { ProductDetailDto } from "schemas";
 import { Card } from "@/components/primitives";
+import { EvidenceCode } from "@/components/authenticity";
 
 export interface AuthenticityMessages {
   title: string;
@@ -49,7 +50,9 @@ function Field({ label, value, mono = false }: { label: string; value: string; m
   return (
     <div className="flex flex-col gap-1">
       <dt className="text-caption text-text-muted">{label}</dt>
-      <dd className={`text-body-sm text-text ${mono ? "font-mono" : ""}`}>{value}</dd>
+      <dd className="flex text-body-sm text-text">
+        {mono ? <EvidenceCode code={value} /> : value}
+      </dd>
     </div>
   );
 }

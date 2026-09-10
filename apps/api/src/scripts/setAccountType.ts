@@ -1,8 +1,12 @@
 import { pathToFileURL } from "node:url";
 import { normalizePhone } from "schemas";
-import { connectDB, disconnectDB } from "../config/db.js";
+import { AccountType } from "@prisma/client";
 import { logger } from "../config/logger.js";
-import { ACCOUNT_TYPES, UserModel, type AccountType } from "../models/User.js";
+import { connectDB, disconnectDB, prisma } from "../config/prisma.js";
+
+/** From Prisma's generated enum, so the CLI's accepted values cannot drift
+ * from what the column allows. */
+const ACCOUNT_TYPES = Object.values(AccountType);
 
 // P6.S1's sanctioned mechanism for "admin manually flags an account as
 // wholesale" (owner's explicit choice -- no self-service application flow,
@@ -11,10 +15,11 @@ import { ACCOUNT_TYPES, UserModel, type AccountType } from "../models/User.js";
 //   pnpm --filter api exec tsx src/scripts/setAccountType.ts <phone> retail
 export async function setAccountType(rawPhone: string, accountType: AccountType): Promise<void> {
   const phone = normalizePhone(rawPhone);
-  const user = await UserModel.findOneAndUpdate({ phone }, { accountType }, { new: true });
-  if (!user) {
+  const existing = await prisma.user.findUnique({ where: { phone }, select: { id: true } });
+  if (!existing) {
     throw new Error(`No user found for phone ${phone} -- they must sign up (OTP) first.`);
   }
+  const user = await prisma.user.update({ where: { phone }, data: { accountType } });
   logger.info({ phone, accountType: user.accountType, userId: user.id }, "Account type updated");
 }
 

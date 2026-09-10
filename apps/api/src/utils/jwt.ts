@@ -1,6 +1,6 @@
 import jwt, { type SignOptions } from "jsonwebtoken";
 import { env } from "../config/env.js";
-import type { AccountType, UserRole } from "../models/User.js";
+import type { AccountType, UserRole } from "@prisma/client";
 
 export interface AccessTokenPayload {
   sub: string;

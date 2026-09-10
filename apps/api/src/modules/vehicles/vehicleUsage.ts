@@ -1,15 +1,11 @@
-import { Types, type Model } from "mongoose";
 import { toPersianDigits } from "schemas";
-import { FitmentModel } from "../../models/Fitment.js";
-import { VehicleEngineModel } from "../../models/VehicleEngine.js";
-import { VehicleGenModel } from "../../models/VehicleGen.js";
-import { VehicleModelModel } from "../../models/VehicleModel.js";
+import { prisma } from "../../config/prisma.js";
 import { ApiError } from "../../utils/ApiError.js";
 
 /**
  * P8.S6. Referential-usage counting for the vehicle tree, in one place --
  * the same job catalogUsage.ts does for the catalog taxonomy, and for the
- * same reason: the four vehicle collections had no admin surface at all
+ * same reason: the four vehicle tables had no admin surface at all
  * before this step, so nothing ever asked whether a make/model/generation
  * was still referenced.
  *
@@ -23,47 +19,93 @@ import { ApiError } from "../../utils/ApiError.js";
  *    fitment silently matching nothing, which reads on the storefront as
  *    "this part fits no car" rather than as an error.
  *
- * `aggregate` is never covered by the soft-delete query middleware
- * (models/plugins.ts), so every `$match` states `deletedAt: null` itself.
+ * The `deletedAt: null` filter is no longer written out here. Under Mongoose
+ * these were `aggregate` pipelines, which query middleware never covered, so
+ * each `$match` had to state it. Prisma's `groupBy` *is* covered by the
+ * soft-delete client extension (config/prisma.ts), so stating it again would
+ * be duplicate, and duplicating an invariant is how the two copies drift.
  */
 
-async function countByField<T>(
-  model: Model<T>,
-  field: string,
-  ids: string[],
-): Promise<Map<string, number>> {
-  if (ids.length === 0) return new Map();
-  const rows = await model.aggregate<{ _id: Types.ObjectId; count: number }>([
-    {
-      $match: {
-        [field]: { $in: ids.map((id) => new Types.ObjectId(id)) },
-        deletedAt: null,
-      },
-    },
-    { $group: { _id: `$${field}`, count: { $sum: 1 } } },
-  ]);
-  return new Map(rows.map((row) => [String(row._id), row.count]));
+type Counted = Map<string, number>;
+
+function tally(rows: { _count: number; key: string | null }[]): Counted {
+  return new Map(rows.filter((row) => row.key !== null).map((row) => [row.key!, row._count]));
 }
 
-export function countModelsByMake(makeIds: string[]): Promise<Map<string, number>> {
-  return countByField(VehicleModelModel, "makeId", makeIds);
+export async function countModelsByMake(makeIds: string[]): Promise<Counted> {
+  if (makeIds.length === 0) return new Map();
+  const rows = await prisma.vehicleModel.groupBy({
+    by: ["makeId"],
+    where: { makeId: { in: makeIds } },
+    _count: true,
+  });
+  return tally(rows.map((row) => ({ key: row.makeId, _count: row._count })));
 }
 
-export function countGenerationsByModel(modelIds: string[]): Promise<Map<string, number>> {
-  return countByField(VehicleGenModel, "modelId", modelIds);
+export async function countGenerationsByModel(modelIds: string[]): Promise<Counted> {
+  if (modelIds.length === 0) return new Map();
+  const rows = await prisma.vehicleGen.groupBy({
+    by: ["modelId"],
+    where: { modelId: { in: modelIds } },
+    _count: true,
+  });
+  return tally(rows.map((row) => ({ key: row.modelId, _count: row._count })));
 }
 
-export function countEnginesByGeneration(genIds: string[]): Promise<Map<string, number>> {
-  return countByField(VehicleEngineModel, "genId", genIds);
+export async function countEnginesByGeneration(genIds: string[]): Promise<Counted> {
+  if (genIds.length === 0) return new Map();
+  const rows = await prisma.vehicleEngine.groupBy({
+    by: ["genId"],
+    where: { genId: { in: genIds } },
+    _count: true,
+  });
+  return tally(rows.map((row) => ({ key: row.genId, _count: row._count })));
 }
 
 export type FitmentRefField = "makeId" | "modelId" | "genId" | "engineId";
 
-export function countFitmentsBy(
-  field: FitmentRefField,
-  ids: string[],
-): Promise<Map<string, number>> {
-  return countByField(FitmentModel, field, ids);
+/**
+ * Written as four literal branches rather than one dynamic `by: [field]`
+ * because Prisma's `groupBy` types the result from the grouping key: a
+ * computed key erases that and needs a cast to get back, which is exactly the
+ * kind of cast that stops the compiler noticing a renamed column.
+ */
+export async function countFitmentsBy(field: FitmentRefField, ids: string[]): Promise<Counted> {
+  if (ids.length === 0) return new Map();
+  switch (field) {
+    case "makeId": {
+      const rows = await prisma.fitment.groupBy({
+        by: ["makeId"],
+        where: { makeId: { in: ids } },
+        _count: true,
+      });
+      return tally(rows.map((row) => ({ key: row.makeId, _count: row._count })));
+    }
+    case "modelId": {
+      const rows = await prisma.fitment.groupBy({
+        by: ["modelId"],
+        where: { modelId: { in: ids } },
+        _count: true,
+      });
+      return tally(rows.map((row) => ({ key: row.modelId, _count: row._count })));
+    }
+    case "genId": {
+      const rows = await prisma.fitment.groupBy({
+        by: ["genId"],
+        where: { genId: { in: ids } },
+        _count: true,
+      });
+      return tally(rows.map((row) => ({ key: row.genId, _count: row._count })));
+    }
+    case "engineId": {
+      const rows = await prisma.fitment.groupBy({
+        by: ["engineId"],
+        where: { engineId: { in: ids } },
+        _count: true,
+      });
+      return tally(rows.map((row) => ({ key: row.engineId, _count: row._count })));
+    }
+  }
 }
 
 // 409, not 400: a genuine state conflict, matching catalogUsage.ts.
@@ -71,7 +113,7 @@ const CONFLICT = 409;
 
 async function assertUnused(
   id: string,
-  checks: { count: Promise<Map<string, number>>; message: (count: string) => string }[],
+  checks: { count: Promise<Counted>; message: (count: string) => string }[],
 ): Promise<void> {
   for (const check of checks) {
     const count = (await check.count).get(id) ?? 0;

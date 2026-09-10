@@ -79,9 +79,11 @@ describe("errorHandler", () => {
     );
   });
 
-  it("maps a Mongo duplicate-key error to 400 and logs the conflicting field", () => {
+  it("maps a unique-constraint violation to 400 and logs the conflicting field", () => {
     const res = mockRes();
-    const err = { code: 11000, keyValue: { slug: "brake-pad" } };
+    // The shape Prisma raises: P2002 with the offending column in
+    // `meta.target`. Mongo said the same thing as `{ code: 11000, keyValue }`.
+    const err = { code: "P2002", meta: { target: ["slug"] } };
 
     errorHandler(err, { originalUrl: "/api/v1/admin/catalog/brands" } as Request, res, vi.fn());
 

@@ -16,6 +16,15 @@ export { Select } from "./Select";
 export { Textarea } from "./Textarea";
 export { Checkbox } from "./Checkbox";
 export { Radio } from "./Radio";
+// P11.S3: Label, FormField and Spinner are free to export here -- Input,
+// Select, Textarea and Button already import them, so every barrel consumer
+// pays for them either way. RadioGroup, Switch and SearchField are NOT here
+// for exactly the opposite reason: nothing in the barrel pulls them in, so
+// exporting them would add weight to /cart, /checkout and /addresses to serve
+// the handful of screens that use them. Import those three by file path.
+export { Label } from "./Label";
+export { FormField } from "./FormField";
+export { Spinner } from "./Spinner";
 export { Badge } from "./Badge";
 export { Chip } from "./Chip";
 export { Card } from "./Card";

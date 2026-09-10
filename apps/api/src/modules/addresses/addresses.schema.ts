@@ -1,7 +1,9 @@
 import { z } from "zod";
 import { normalizePhone, normalizePostalCode } from "schemas";
+import { idSchema } from "schemas";
 
-const objectId = z.string().regex(/^[0-9a-fA-F]{24}$/, "شناسه معتبر نیست");
+// The shared UUID id schema; see packages/schemas/src/id.ts.
+const objectId = idSchema;
 
 // postalCode/receiverPhone both normalize through the same §7.5 helpers
 // the rest of this codebase already uses -- a Persian-keyboard digit

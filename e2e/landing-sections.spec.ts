@@ -20,6 +20,253 @@ const SECTION_RENDER = 45_000;
 const MOBILE = { width: 390, height: 900 };
 const NARROW = { width: 360, height: 900 };
 
+/**
+ * P12.S10, recording defect 4. Verification codes are 36-45 characters
+ * (`VER-SKU-ENGINE-CYLINDER-HEAD-GASKET-PRIDE-111`). As plain text inside
+ * Persian copy they wrapped across lines, and a Latin run in an RTL paragraph
+ * can be *repositioned* by the bidi algorithm -- every character present, in the
+ * wrong visual order, which is the worst possible failure for a value someone
+ * is asked to compare against a hologram.
+ */
+/**
+ * P12.S11, verifying defect 7 rather than assuming it: a reported black tail
+ * of scrollable nothing under the footer.
+ *
+ * The document ends exactly at the footer's bottom edge at every width -- there
+ * is no void to close. What a recording can still show past it is the browser's
+ * over-scroll, which paints the canvas colour (`body`'s background, since
+ * `html` is transparent), and in the dark theme that is very dark by design.
+ * This asserts the thing that would be a real bug -- scrollable space, or
+ * something sticking out below the footer -- and does not chase a colour that
+ * is correct.
+ */
+/**
+ * P12.S12, recording defect 6. The wall was a thin line of 20px grey text
+ * drifting through the page -- it read as a caption, not as a wall, and the
+ * missing logos (fableTasks2 §5.6) left nothing carrying the weight.
+ */
+test.describe("brand wall (defect 6)", () => {
+  for (const viewport of [NARROW, MOBILE, { width: 1440, height: 900 }]) {
+    test(`sets every brand whole and on one line at ${viewport.width}px`, async ({ page }) => {
+      await page.setViewportSize(viewport);
+      await page.goto("/");
+      await page.locator("#hero").waitFor();
+      const wall = page.locator("#brand-wall");
+      await expect(wall).toHaveCount(1, { timeout: SECTION_RENDER });
+
+      const info = await wall.evaluate((el) => {
+        const links = [...el.querySelectorAll("a")];
+        const band = el.querySelector("a")!.closest("div.border-y");
+        const bandStyle = band ? getComputedStyle(band) : null;
+        return {
+          fontSize: parseFloat(getComputedStyle(links[0]!).fontSize),
+          borderTop: bandStyle?.borderTopWidth ?? "0px",
+          borderBottom: bandStyle?.borderBottomWidth ?? "0px",
+          wrapped: links
+            .map((link) => {
+              const style = getComputedStyle(link);
+              const lineHeight = parseFloat(style.lineHeight) || parseFloat(style.fontSize) * 1.2;
+              return link.getBoundingClientRect().height > lineHeight * 1.6
+                ? link.textContent
+                : null;
+            })
+            .filter(Boolean),
+          // Anything clipped to nothing would be an orphan of a different kind.
+          empty: links.filter((link) => !link.textContent?.trim()).length,
+        };
+      });
+
+      // Ruled top and bottom -- what makes it a band rather than loose text.
+      expect(parseFloat(info.borderTop), "no rule above the wall").toBeGreaterThan(0);
+      expect(parseFloat(info.borderBottom), "no rule below the wall").toBeGreaterThan(0);
+      // Larger than the caption it used to be. h3 was 20px.
+      expect(info.fontSize, "the wall is still set at caption weight").toBeGreaterThan(24);
+      // No orphans: a proper noun broken over two lines inside a scrolling
+      // track. «سایپا یدک» is one name, not two words that may be split.
+      expect(info.wrapped, `these brand names wrapped: ${info.wrapped.join(", ")}`).toEqual([]);
+      expect(info.empty, "a brand rendered with no name").toBe(0);
+    });
+  }
+});
+
+test.describe("the page ends at the footer (defect 7)", () => {
+  for (const viewport of [NARROW, MOBILE, { width: 1440, height: 900 }]) {
+    test(`has nothing scrollable past the footer at ${viewport.width}px`, async ({ page }) => {
+      await page.setViewportSize(viewport);
+      await page.goto("/");
+      await page.locator("#hero").waitFor();
+      await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
+
+      const info = await page.evaluate(() => {
+        const footer = document.querySelector("footer");
+        if (!footer) return null;
+        const rect = footer.getBoundingClientRect();
+
+        /**
+         * The floor of the page, which below `md` is NOT the viewport's bottom.
+         *
+         * `MobileNav` is a fixed bar over the last ~59px of the screen, and
+         * P14.S6 moved the `pb-16` that reserves room for it onto the layout's
+         * OUTER wrapper -- the footer was sitting under the bar with its
+         * copyright line covered. So at 360 and 390 the document deliberately
+         * ends one bar's height above the viewport, and measuring against
+         * `innerHeight` reported that reserve as 63.86px of dead space. It is
+         * not dead: the bar is standing on it.
+         *
+         * Above `md` the bar is `display: none` and this is the viewport bottom
+         * again, which is what the 1440 case has always asserted.
+         */
+        const bar = document.querySelector("[data-bottom-nav]");
+        const barVisible = bar ? getComputedStyle(bar).display !== "none" : false;
+        const floor = barVisible ? bar!.getBoundingClientRect().top : window.innerHeight;
+
+        return {
+          gap: floor - rect.bottom,
+          // The reserve itself: room kept for the bar that the bar does not
+          // occupy is real dead space, just a smaller kind.
+          overReserve: barVisible ? window.innerHeight - bar!.getBoundingClientRect().top : null,
+          // What renders past the END OF THE PAGE, which is the floor above and
+          // not the footer's own edge -- the strip between the two is the bar's
+          // reserve and is already measured by `gap`.
+          //
+          // Three things sit below the footer legitimately and are not dead
+          // space, so each is named rather than tolerated by a loose threshold:
+          //
+          // - the fixed bottom bar and its contents: being below the page is
+          //   what "fixed to the bottom of the viewport" means;
+          // - anything else `position: fixed` -- the toast region, `bottom-4`
+          //   in the corner -- which is viewport chrome, not page flow;
+          // - the footer's own ancestors, whose `pb-16` IS the reserve. A
+          //   wrapper's padding extending past its last child is the mechanism
+          //   under test, not a violation of it.
+          //
+          // Zero-area elements are excluded because they cannot be seen:
+          // `<next-route-announcer>` is Next's own sr-only live region and
+          // trails the body on every page.
+          past: [...document.querySelectorAll("body *")]
+            .filter((el) => {
+              if (el === bar || bar?.contains(el)) return false;
+              if (el.contains(footer)) return false;
+              if (getComputedStyle(el).position === "fixed") return false;
+              const box = el.getBoundingClientRect();
+              return box.width > 0 && box.height > 0 && box.bottom > floor + 1;
+            })
+            .map((el) => `${el.tagName}.${String(el.className).slice(0, 40)}`)
+            .slice(0, 5),
+        };
+      });
+
+      expect(info, "the page has no footer").not.toBeNull();
+      // Scrolled to the very bottom, the footer's last pixel is the last pixel
+      // of the page -- the viewport's, or, below `md`, the top edge of the
+      // fixed bottom bar. A NEGATIVE gap is the P14.S6 defect: the footer
+      // running on under the bar with its copyright line covered.
+      expect(info!.gap, `the footer runs under the bottom bar by ${-info!.gap}px`).toBeGreaterThan(
+        -1.5,
+      );
+
+      if (info!.overReserve === null) {
+        // No bar (>= md): the old assertion, unchanged. Within a pixel, because
+        // a fractional layout height rounds either way -- and because
+        // `Math.round` can hand back `-0`, which `toBe(0)` rejects.
+        expect(info!.gap, `gap below the footer: ${info!.gap}`).toBeLessThan(1.5);
+      } else {
+        // With the bar, the page reserves room for it with `pb-16` (64px), and
+        // the bar measures ~59: the reserve is spent, minus whatever a whole
+        // spacing step overshoots by. The scale is REPLACED, so 64 is the
+        // smallest step that clears the bar at all -- 48 would put the footer
+        // back underneath it. What must stay true is that the leftover is a
+        // rounding artefact rather than a band: under one spacing step. The
+        // 63.86px this reported before the bar was taken into account -- a
+        // whole reserve of nothing -- fails this.
+        expect(
+          info!.gap,
+          `dead space between the footer and the bottom bar: ${info!.gap}px ` +
+            `(bar is ${info!.overReserve}px tall)`,
+        ).toBeLessThan(8);
+      }
+      expect(info!.past, `these render below the footer: ${info!.past.join(", ")}`).toEqual([]);
+    });
+  }
+});
+
+test.describe("evidence codes (defect 4)", () => {
+  test("stamps every code on one line, isolated from the RTL text around it", async ({ page }) => {
+    await page.goto("/");
+    await page.locator("#authenticity").waitFor({ timeout: SECTION_RENDER });
+    const codes = page.locator(".evidence-code");
+    const count = await codes.count();
+    expect(count, "no evidence code rendered").toBeGreaterThan(0);
+
+    for (let index = 0; index < count; index += 1) {
+      const code = codes.nth(index);
+      const info = await code.evaluate((el) => {
+        const style = getComputedStyle(el);
+        return {
+          height: el.getBoundingClientRect().height,
+          lineHeight: parseFloat(style.lineHeight) || parseFloat(style.fontSize) * 1.2,
+          direction: style.direction,
+          bidi: style.unicodeBidi,
+          variant: style.fontVariantNumeric,
+          family: style.fontFamily,
+          title: el.getAttribute("title"),
+          text: el.textContent,
+        };
+      });
+
+      // One line: a wrapped 45-character code was two or three.
+      expect(info.height, `code ${index} wrapped`).toBeLessThan(info.lineHeight * 1.6);
+      // `dir` alone sets direction inside the run; the isolate is what stops the
+      // surrounding paragraph deciding where the run is placed.
+      expect(info.bidi, `code ${index} is not bidi-isolated`).toContain("isolate");
+      expect(info.variant, `code ${index} digits are not tabular`).toContain("tabular-nums");
+      expect(info.family.toLowerCase(), `code ${index} is not mono`).toMatch(/mono/);
+    }
+  });
+
+  /**
+   * The rest of defect 4's contract, on the elements it was written for.
+   *
+   * The block above used to carry these three assertions too, and it had been
+   * failing since the hero callouts shipped -- for a good reason that was not
+   * the one it reported. `.evidence-code` started as `EvidenceCode`'s own class
+   * and has since been adopted by three other call sites that stamp a short
+   * identifier in a mono face: the hero's `PartCallout` plate, the system tiles
+   * in `#find-my-part` and the model years in `#shop-by-vehicle`. Those share
+   * the *typographic* contract -- one line, isolated, mono, tabular -- and
+   * cannot meet the rest of it: `SYS-02` is six characters, not the ">10" a
+   * clipped verification code has to keep in the DOM, and a Persian-digit year
+   * inside an RTL link is correctly `rtl`, not `ltr`.
+   *
+   * So the class-wide assertions stay class-wide (and P14.S9 moved
+   * `tabular-nums` onto the class to make that true rather than to make the
+   * test pass), and the assertions that belong to a 45-character verification
+   * code are scoped to it. `[title]` is the discriminator because `title` is
+   * the thing only a truncated code needs.
+   */
+  test("keeps a truncated verification code whole in the DOM", async ({ page }) => {
+    await page.goto("/");
+    await page.locator("#authenticity").waitFor({ timeout: SECTION_RENDER });
+    const codes = page.locator("#authenticity .evidence-code[title]");
+    const count = await codes.count();
+    expect(count, "no verification code rendered").toBeGreaterThan(0);
+
+    for (let index = 0; index < count; index += 1) {
+      const info = await codes.nth(index).evaluate((el) => ({
+        direction: getComputedStyle(el).direction,
+        title: el.getAttribute("title"),
+        text: el.textContent,
+      }));
+
+      expect(info.direction, `code ${index} direction`).toBe("ltr");
+      // Truncation is visual only. The DOM keeps the whole code, so a screen
+      // reader reads it and selecting it copies it; `title` shows it on hover.
+      expect(info.title, `code ${index} lost its full value`).toBe(info.text);
+      expect(info.text!.length, `code ${index} was shortened in the DOM`).toBeGreaterThan(10);
+    }
+  });
+});
+
 test.describe("best sellers rail (audit item 2)", () => {
   for (const viewport of [NARROW, MOBILE]) {
     test(`cards keep a definite width at ${viewport.width}px`, async ({ page }) => {
@@ -44,6 +291,53 @@ test.describe("best sellers rail (audit item 2)", () => {
     });
   }
 
+  /**
+   * P12.S9, recording defect 3. A part with no photograph used to render as a
+   * dashed box reading «بدون تصویر»; four of them in a row read as a broken
+   * grid. It is a technical plate now -- the system's line drawing, its SYS
+   * code and its Persian name on ruled paper.
+   */
+  test("draws a technical plate for a part with no photograph", async ({ page }) => {
+    await page.goto("/");
+    await page.locator("#hero").waitFor();
+    const plates = page.locator("#best-sellers .technical-plate");
+    test.skip((await plates.count()) === 0, "every featured product has a photo");
+
+    const first = plates.first();
+    // A drawing, not a photograph: the glyph is inline SVG, never an <img>.
+    await expect(first.locator("svg")).toHaveCount(1);
+    await expect(first.locator("img")).toHaveCount(0);
+    // The code is real, resolved from the product's own category by the API.
+    await expect(first).toContainText(/SYS-\d\d/);
+    // And it says a photo is missing, rather than letting the code imply the
+    // part was shown -- P9.S17's Label-in-Name lesson, applied to role="img".
+    await expect(first).toHaveAttribute("aria-label", /بدون تصویر/);
+  });
+
+  test("leads the rail with photographed parts when there are any", async ({ page }) => {
+    await page.goto("/");
+    await page.locator("#hero").waitFor();
+    const cards = page.locator("#best-sellers li");
+    const count = await cards.count();
+    test.skip(count === 0, "no featured products seeded");
+
+    const hasPhoto: boolean[] = [];
+    for (let index = 0; index < count; index += 1) {
+      hasPhoto.push((await cards.nth(index).locator("img").count()) > 0);
+    }
+    // Not a filter -- an unphotographed part still ships, it just does not open
+    // the rail while photographed ones are waiting behind it. Expressed as
+    // "never a photo after a plate", which is what sorting by that key means
+    // and which holds trivially when every card is one kind or the other.
+    const firstPlate = hasPhoto.indexOf(false);
+    if (firstPlate !== -1) {
+      expect(
+        hasPhoto.slice(firstPlate).some(Boolean),
+        `photo after a plate: ${hasPhoto.join(",")}`,
+      ).toBe(false);
+    }
+  });
+
   test("the rail scrolls sideways instead of growing the page", async ({ page }) => {
     await page.setViewportSize(MOBILE);
     await page.goto("/");
@@ -51,6 +345,14 @@ test.describe("best sellers rail (audit item 2)", () => {
 
     const section = page.locator("#best-sellers");
     test.skip((await section.count()) === 0, "no featured products seeded");
+
+    // The section is deferred by P15.S2's `content-visibility: auto`, so an
+    // unscrolled `boundingBox()` returns its `contain-intrinsic-size`
+    // placeholder rather than its laid-out height -- which would make this
+    // assertion pass or fail on a CSS estimate instead of on the rail. Scroll
+    // it into view first so the number under test is the real one.
+    await section.scrollIntoViewIfNeeded();
+    await expect(section.locator("h2")).toBeVisible();
 
     const height = (await section.boundingBox())!.height;
     // The audit measured 1,848px here, caused by cards stacking at their
@@ -111,8 +413,13 @@ test.describe("shop-by-system absorbed into the hero (S9)", () => {
     await page.goto("/");
     await page.locator("#hero").waitFor();
 
+    // Scoped to the index's own list, not to every /c/ link in the hero. The
+    // parts manifest (P12.S4/S5) links into categories too, and it renders
+    // twice -- the desktop panel and the mobile chip rail, one hidden by CSS --
+    // so `#hero a[href^=/c/]` matches 28 anchors with intended duplicates and
+    // has stopped being a count of the systems.
     const heroHrefs = await page
-      .locator("#hero a[href^='/c/']")
+      .locator("ul[aria-labelledby='shop-by-system-heading'] a[href^='/c/']")
       .evaluateAll((anchors) => anchors.map((anchor) => anchor.getAttribute("href") ?? ""));
     expect(new Set(heroHrefs).size).toBe(heroHrefs.length);
     expect(heroHrefs).toHaveLength(10);
@@ -313,7 +620,13 @@ test.describe("brand wall (S13)", () => {
     // aria-hidden AND inert -- aria-hidden alone hides it from assistive tech
     // but leaves it in the tab order, so a sighted keyboard user would tab
     // through invisible links.
-    await expect(wall.locator("[aria-hidden='true']")).toHaveAttribute("inert", /.*/);
+    //
+    // Scoped to the track's own child rather than to every `aria-hidden` in the
+    // wall: the separators between brand names are hidden too (P12.S12), and
+    // they are decoration inside the list, not the duplicate this is about.
+    const duplicate = wall.locator(".motion-marquee-track > [aria-hidden='true']");
+    await expect(duplicate).toHaveCount(1);
+    await expect(duplicate).toHaveAttribute("inert", /.*/);
 
     // The scrolling region carries its own name; the section heading names the
     // section, not the group of links inside it.
@@ -508,17 +821,19 @@ test.describe("closing ambience (S15)", () => {
 });
 
 test.describe("footer (S15)", () => {
-  test("keeps a slot for each trust seal that is still unregistered", async ({ page }) => {
+  test("shows no placeholder trust seal", async ({ page }) => {
     await page.goto("/");
     await page.locator("footer").waitFor();
 
-    // Both seals are blocked on the business registration (masterPlan §11), so
-    // the footer reserves labelled slots rather than either faking a seal or
-    // silently leaving no room for one.
-    const seals = page.locator("footer [role='img']");
-    await expect(seals).toHaveCount(2);
-    await expect(seals.first()).toHaveAttribute("aria-label", /نماد اعتماد/);
-    await expect(seals.nth(1)).toHaveAttribute("aria-label", /نشان ملی/);
+    // This assertion is REVERSED as of P14.S6, at the owner's call. Both seals
+    // are blocked on the business registration (masterPlan §11), and the
+    // footer used to reserve two dashed slots labelled "pending registration".
+    // An empty box announcing that a trust seal does not exist yet is a worse
+    // trust signal than no box, so the slots are gone. When the assets arrive
+    // this test flips back with them.
+    await expect(page.locator("footer [role='img']")).toHaveCount(0);
+    await expect(page.locator("footer")).not.toContainText("اینماد");
+    await expect(page.locator("footer")).not.toContainText("نشان ملی");
   });
 
   test("shows exactly the channels the closing beat shows", async ({ page }) => {

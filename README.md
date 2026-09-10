@@ -100,9 +100,11 @@ pnpm --filter api seed:visual-catalog
 The idempotent importer keeps the first 100 unique records with a valid name,
 price, and product image in the single `/c/visual-products` category.
 
-The API needs MongoDB reachable at the `MONGODB_URI` in `apps/api/.env` before
-it will serve anything. The default development URI uses the container managed
-by `pnpm dev`; custom or production environments may point it elsewhere.
+The API needs PostgreSQL reachable at the `DATABASE_URL` in `apps/api/.env`
+before it will serve anything — it refuses to boot without one rather than
+starting and failing on the first query. `pnpm dev` brings the container up
+(see `scripts/dev-db.mjs`); custom or production environments point it
+elsewhere.
 
 ### Reading the logs
 

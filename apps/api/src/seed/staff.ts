@@ -1,9 +1,8 @@
 import { pathToFileURL } from "node:url";
 import { normalizePhone } from "schemas";
-import { connectDB, disconnectDB } from "../config/db.js";
 import { env } from "../config/env.js";
 import { logger } from "../config/logger.js";
-import { UserModel } from "../models/User.js";
+import { connectDB, disconnectDB, prisma } from "../config/prisma.js";
 
 /**
  * Idempotent: safe to run on every deploy. Seeds exactly one superadmin
@@ -23,16 +22,14 @@ export async function seedStaff(phone: string | undefined): Promise<void> {
   }
 
   const normalizedPhone = normalizePhone(phone);
-  const existing = await UserModel.findOne({ phone: normalizedPhone });
+  const existing = await prisma.user.findUnique({ where: { phone: normalizedPhone } });
   if (existing) {
     logger.info({ phone: normalizedPhone }, "Staff seed: superadmin already exists, skipping");
     return;
   }
 
-  await UserModel.create({
-    phone: normalizedPhone,
-    name: "مدیر سیستم",
-    role: "superadmin",
+  await prisma.user.create({
+    data: { phone: normalizedPhone, name: "مدیر سیستم", role: "superadmin" },
   });
   logger.info({ phone: normalizedPhone }, "Staff seed: superadmin created");
 }

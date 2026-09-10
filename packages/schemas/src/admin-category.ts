@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { CATALOG_SYSTEM_CODES } from "./catalogSystems.js";
+import { idSchema } from "./id.js";
 
 // P8.S4: admin-only category CRUD -- its own file, never appended to
 // categories.ts, for the same reason admin-product.ts is its own file
@@ -11,7 +12,8 @@ const localizedNameSchema = z.object({
   fa: z.string().min(1, "نام فارسی الزامی است"),
   en: z.string().min(1, "نام انگلیسی الزامی است"),
 });
-const objectId = z.string().regex(/^[0-9a-fA-F]{24}$/, "شناسه معتبر نیست");
+// The shared UUID id schema; see packages/schemas/src/id.ts.
+const objectId = idSchema;
 const slugField = z
   .string()
   .min(1, "نامک الزامی است")

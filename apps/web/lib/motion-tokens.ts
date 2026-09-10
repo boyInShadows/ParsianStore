@@ -14,5 +14,7 @@ export const DURATION = {
 export const EASE_OUT = [0.16, 1, 0.3, 1] as const; // --ease-out
 export const EASE_IN_OUT = [0.65, 0, 0.35, 1] as const; // --ease-in-out
 
-// masterPlan.md §5 motion budget: scroll-reveal travel stays <= 24px.
-export const REVEAL_TRAVEL_PX = 16;
+// The scroll-reveal travel constant that used to live here is gone (P14.S7).
+// Reveal is CSS now, so the value belongs in tokens.css as `--reveal-travel`
+// and nowhere else -- a JS copy of a number only CSS reads is a second source
+// of truth waiting to drift.

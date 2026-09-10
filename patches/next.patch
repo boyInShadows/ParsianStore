@@ -1,0 +1,36 @@
+diff --git a/dist/build/webpack/plugins/next-font-manifest-plugin.js b/dist/build/webpack/plugins/next-font-manifest-plugin.js
+index 1752d5b645d48ec276d04669486e16a849aaac24..01186f3f1a2be29ab31fd946ceddca2c4334b190 100644
+--- a/dist/build/webpack/plugins/next-font-manifest-plugin.js
++++ b/dist/build/webpack/plugins/next-font-manifest-plugin.js
+@@ -57,7 +57,14 @@ class NextFontManifestPlugin {
+                     // After all modules are created, we collect the modules that was created by next-font-loader.
+                     (0, _utils.traverseModules)(compilation, (mod, _chunk, chunkGroup)=>{
+                         var _mod_request;
+-                        if (mod == null ? void 0 : (_mod_request = mod.request) == null ? void 0 : _mod_request.includes('/next-font-loader/index.js?')) {
++                        // PATCH (P15.S3c, Windows-only): `mod.request` is delimited by the OS
++                        // path separator, so on Windows it is backslash-separated and this
++                        // hardcoded forward-slash check never matches -- `nextFontManifest.app`
++                        // silently stays `{}` for every route and no font ever gets a preload
++                        // link. `.replace(/\\/g, '/')` is a true no-op on POSIX, where the
++                        // string already uses forward slashes and contains no backslashes to
++                        // replace. Drop this patch once upstream fixes the check itself.
++                        if (mod == null ? void 0 : (_mod_request = mod.request) == null ? void 0 : _mod_request.replace(/\\/g, '/').includes('/next-font-loader/index.js?')) {
+                             var _mod_buildInfo;
+                             if (!((_mod_buildInfo = mod.buildInfo) == null ? void 0 : _mod_buildInfo.assets)) return;
+                             const chunkEntryName = (appDirBase + chunkGroup.name).replace(/[\\/]/g, _path.default.sep);
+diff --git a/dist/esm/build/webpack/plugins/next-font-manifest-plugin.js b/dist/esm/build/webpack/plugins/next-font-manifest-plugin.js
+index 710d38ad552b433edc97351260bed86ae9ee1ef4..ad8183fe90946b1b7db8b34260f62edcff5d5c76 100644
+--- a/dist/esm/build/webpack/plugins/next-font-manifest-plugin.js
++++ b/dist/esm/build/webpack/plugins/next-font-manifest-plugin.js
+@@ -55,7 +55,10 @@ const PLUGIN_NAME = 'NextFontManifestPlugin';
+                     // After all modules are created, we collect the modules that was created by next-font-loader.
+                     traverseModules(compilation, (mod, _chunk, chunkGroup)=>{
+                         var _mod_request;
+-                        if (mod == null ? void 0 : (_mod_request = mod.request) == null ? void 0 : _mod_request.includes('/next-font-loader/index.js?')) {
++                        // PATCH (P15.S3c, Windows-only): see the CJS copy of this file
++                        // (dist/build/webpack/plugins/next-font-manifest-plugin.js) for the
++                        // full explanation. `.replace(/\\/g, '/')` is a no-op on POSIX.
++                        if (mod == null ? void 0 : (_mod_request = mod.request) == null ? void 0 : _mod_request.replace(/\\/g, '/').includes('/next-font-loader/index.js?')) {
+                             var _mod_buildInfo;
+                             if (!((_mod_buildInfo = mod.buildInfo) == null ? void 0 : _mod_buildInfo.assets)) return;
+                             const chunkEntryName = (appDirBase + chunkGroup.name).replace(/[\\/]/g, path.sep);

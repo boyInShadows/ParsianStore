@@ -1,6 +1,26 @@
 # ParsianStore — Remaining Work Checklist
 
-## ACTIVE — Landing rebuild, Phase 9 (P9.S2 → S17) — adopted 2026-08-20
+> **The three Fable plan files are gone.** `fableTasks.md` (Phase 9) and
+> `fableTasks2.md` (Phase 12) were deleted on 2026-09-05 once every step in both
+> had shipped; `fableTasks.md` v1.1 (Phase 13) followed on 2026-09-07. All three
+> at the owner's request. Around forty source comments still cite them by
+> section — `fableTasks §3.2`, `fableTasks2 §2.1`, `fableTasks v1.1 P13.S7`, and so
+> on. Those citations are not dangling references to fix: they are the reasoning
+> behind a decision, and **the phase sections in this file are what they now
+> point at**. Each was written fuller than a checklist needs to be for exactly
+> this — and the Phase 13 section fullest of all, because that plan was deleted
+> with four steps still open, so it carries their specifications too.
+>
+> **The name has since been reused.** A *new* `fableTasks.md` landed at the root
+> on 2026-09-07 carrying the **Phase 14** landing plan — same filename, different
+> file, no relation to the three above. A comment citing `fableTasks` means one
+> of the deleted three; a comment citing `P14.Sn` means the live one.
+
+## SHIPPED — Landing rebuild, Phase 9 (P9.S2 → S17) — closed 2026-08-26
+
+All sixteen steps and the P9 tail are done; the two boxes still open below are
+blocked on the owner, not on work. Phase 12 succeeds it — see the ACTIVE
+section further down.
 
 Step-level plan of record: **`fableTasks.md`** (external plan by Fable 5, written
 against `docs/landing-rebuild-brief.md`). Summary + binding amendments:
@@ -832,7 +852,8 @@ cart, and checkout as separate reviewable slices; do not redo this account slice
       inventory, and customers.
 - [ ] Admin: Staff RBAC (today: any staff role passes `requireStaff()`,
       no per-role permission granularity — P8.S8's audit viewer is the
-      first and only per-role gate)
+      first and only per-role gate). **See "Found while closing Phase 12" —
+      this is a privilege-escalation hole, not a missing feature.**
 - [ ] Admin: Settings page
 
 ## Phase 11 — Design-system consolidation — adopted 2026-08-26
@@ -851,11 +872,13 @@ Storybook), **iframe the storefront guide** inside the admin page so Tailwind
 never enters the admin document, and **landing / PDP / checkout** as the three
 token-validation screens.
 
-- [ ] **P11.S1 — `/admin/design-system`.** Foundations tab generated from
-      `tokens.css` at build time (colour ramps with live contrast ratios, type
-      scale, spacing, radius, shadow, motion, breakpoints), storefront tab
-      embedding `/styleguide` in a sandboxed iframe, MUI admin-component tab.
-      Nav entry in `AdminShell`.
+- [x] **P11.S1 — `/admin/design-system`.** ✅ 2026-08-26 (`edc7325`); the
+      checkbox was simply never ticked. Verified 2026-08-29 before continuing:
+      the foundations tab is genuinely parsed from `tokens.css` at build time
+      (`lib/design-tokens.ts`) rather than transcribed, contrast ratios are
+      recomputed from the hex values instead of copied from the ADRs that
+      first calculated them, and the page has zero axe violations and no
+      console errors in both themes.
 - [x] **P11.S2 — `cn()`.** ✅ 2026-08-26. `clsx` + **tailwind-merge v2**
       (v3 targets Tailwind v4; this repo is on 3.4, so the v2 line is the
       matching one). All 21 primitives that composed classes with a template
@@ -873,26 +896,1298 @@ token-validation screens.
       tests re-parse `tailwind.config.js` and fail if the literal scales in
       `cn.ts` ever drift from it (mutation-checked: removing one colour
       fails them).
-- [ ] **P11.S3 — Missing form primitives.** `Label`, `FormField`, `Switch`,
-      `RadioGroup`, `SearchField`, plus real `error`/`loading` states on the
-      existing form controls.
+- [x] **P11.S3 — Missing form primitives.** ✅ 2026-08-29 (`edb8d55`).
+      `Label`, `FormField`, `Switch`, `RadioGroup`, `SearchField`, and
+      `loading` on `Button`. **`Spinner` moved here from S4** — Button and
+      SearchField both need one, and duplicating it to preserve the plan's
+      ordering would have been worse. S4 is short one component, not one
+      behaviour.
+
+      `FormField` is the reason the step pays for itself: Input, Select and
+      Textarea each carried their own copy of the label/error/describedby
+      wiring, a rule that fails silently when it is wrong. All three delegate
+      now.
+
+      **Three bugs found doing it:** `aria-required` on a `<fieldset>` is a
+      critical axe violation (a fieldset is `role="group"`, which does not
+      support it); the switch was first written with `w-11` and rendered as a
+      1px line — the silent-utility bug class above, hit again; and
+      `Modal`/`Drawer` hardcoded `aria-label="Close"`, one English word inside
+      an otherwise Persian dialog.
+
+      **A transparent pseudo-element does not extend hit testing on a form
+      control** — proven by a test that clicked 8px above the switch and
+      toggled nothing. The switch is a 48×48 control with a 48×24 track drawn
+      inside it instead.
 - [ ] **P11.S4 — Missing display primitives.** `Avatar`, `Separator`,
-      `Spinner`, `Progress`, `Alert`, `ErrorState`, `Link`, `Table`,
-      `Accordion`, `DropdownMenu`. The last two carry hand-written keyboard
+      `Progress`, `Alert`, `ErrorState`, `Link`, `Table`, `Accordion`,
+      `DropdownMenu`. (`Spinner` shipped at S3 — see above.) The last two carry hand-written keyboard
       behaviour (roving tabindex, typeahead, focus return) since Radix was
       declined — explicit keyboard tests, not just an axe pass.
 - [ ] **P11.S5 — Retrofit.** Replace hand-rolled one-offs across the 122
       components with the new primitives; ESLint guard against reintroduction.
+      **Add a guard for the off-scale-utility bug class too** — the 13 dead
+      utilities listed above plus the two S3 hit are all the same silent
+      failure, and a lint rule that knows the real spacing steps would catch
+      every future one at write time rather than in a screenshot.
 - [ ] **P11.S6 — Validation pass.** Landing / PDP / checkout, both themes,
       360→1920, keyboard, axe, contrast. Token revisions land here if those
       three screens demand a one-off colour, spacing, radius or shadow.
+
+## SHIPPED — Phase 12: the Parts Manifest and the eight defects — closed 2026-09-05
+
+Plan of record was **`fableTasks2.md`** (Fable 5, 2026-09-03), untracked by
+owner request and **deleted on close** now that every step has shipped — which
+makes this section the only surviving record of the phase. It is kept fuller
+than the usual checklist for that reason. `fableTasks.md` (Phase 9) went with
+it, for the same reason: its section above already carries the detail.
+
+**Numbered 12, not 10 as the plan says.** Fable wrote `[P10.Sn]`; P10.S1–S22 is
+the shipped Postgres migration, so the tags would have duplicated real history
+and commitlint's `step-tag-present` would have accepted the collision silently.
+Owner chose P12 (2026-09-03); the local plan file was retitled to match.
+
+Two halves, one hero. **The Parts Manifest**: the exploded diagram gets the
+numbered parts list a workshop manual prints beside the drawing — a real
+`<nav>` + ordered list on the start side, each row a link to that part's
+category, rows checking in as their sprite undocks and accumulating rather than
+clearing. **The fix list**: the eight defects the owner saw in the 2026-09-03
+V1 screen recording, each closed by a named step below.
+
+Hard walls for the whole phase, from the P9.S17 receipts: **route JS 189KB gz**
+(budget 180, already over) and **LCP 1.9s** (ceiling 2.0). No new dependency,
+no measurable route weight — the manifest's thumbnails are images, not JS.
+
+**Both walls held, and one moved the right way.** At close: route JS **193KB**
+and LCP **1.65s** (P12.S13). The route went 198 → 200 as the manifest landed
+and then 200 → 193 when S6 took tailwind-merge out of the client bundle. The
+one budget that broke is TBT, and it is written up under "what it left open".
+
+**The 189 was stale: the landing route measured 198KB when the phase opened**
+(route Size 9.23 → 9.97kB; shared chunks unchanged at 103KB). Attributed at
+P12.S5 by rebuilding every commit since P9.S17 clean and reading the
+`/[locale]` row: **+1KB at P9.S18, +8KB at P11.S2, +2KB at P12.S4.** The 8KB
+was `tailwind-merge` entering the client graph through four client primitives,
+three of them in the header — a step whose commit message is a careful account
+of the real bug it fixed, and which nothing re-measured afterwards. P12.S6
+recovered 7 of it and added the guard that would have objected. Full ledger in
+`docs/performance-landing.md`.
+
+- [x] **P12.S1 — Hero typography.** ✅ 2026-09-03. Both defects measured
+      before they were touched, by walking the h1's text with a Range and
+      grouping characters into visual lines — reading the string and guessing
+      where it breaks is the eyeballing this repo has been bitten by before.
+      At 1440px the headline set in **five** lines ending on the single word
+      «آن.»; the marker sat 32px from the headline as a sibling of it.
+
+      **The cause was not the size, it was the measure.** `display-1`'s fluid
+      term is `6vw` but its only consumer lives in a fixed `26rem` column, so
+      past 1024px the type kept growing inside a measure that did not. Proven
+      by sweeping the cap: 72px → 5 lines, and 64/56/52/48px all → **4**. The
+      line count plateaus because the column, not the type, is binding, so
+      shrinking further would have spent the display voice for nothing.
+
+      Fixed with three changes, each doing a different job: cap `display-1` at
+      `3.5rem` (one consumer, so the token itself was mis-set rather than being
+      bent for a caller); `text-balance` on the h1, which is what actually
+      kills the orphan since greedy wrap leaves a short last line at *every*
+      size this measure allows; and the copy column widened to `32rem` **at xl
+      only**. Not at lg: there 32rem costs 19% of the diagram's width
+      (494→398px) to buy one line of headline, which is the wrong trade at the
+      one breakpoint where the diagram can least afford it. Measured after:
+      1920/1440/1280 = 3 lines, 1024 = 4, 768 = 2, 390 = 3, 360 = 4, **no
+      single-word last line at any width**, and the marker anchored at 12px
+      inside the headline's own block, the way `SectionShell` pairs code and
+      heading. The xl column also happens to bring the stage to 57vw at 1440,
+      close to the `STAGE_VW.desktop = 55` that `HeroStage` already claims in
+      its `sizes` — it was really 63vw before.
+
+      Nine tracked screenshot baselines regenerated. Route JS unchanged,
+      measured on both sides of the diff.
+- [x] **P12.S2 — Manifest strings + data.** ✅ 2026-09-03.
+      `HeroV2/manifestData.ts` + `Landing.manifest` in `fa.json`. No UI.
+
+      **Every SYS code in Fable's §2.4 table was wrong**, which is why it said
+      to resolve rather than transcribe. It gave body parts `SYS-09`; `SYS-09`
+      is `interior` and body is `SYS-06`. It gave headlights `SYS-06 lighting`;
+      there is no lighting system, and the catalogue seeds «چراغ جلو» under
+      `electrical`, so `SYS-05`. It gave air filter `SYS-02 filters`; `SYS-02`
+      is `transmission`, filters are `SYS-10`.
+
+      **Six rows, not nine, for two different reasons.** Windshield is dropped
+      by §2.4's own rule — it ships "only if a glass category route exists" and
+      none does; the catalogue's only glass sits inside `body-exterior`. The
+      other three are **piston, alternator and air filter, which are not in the
+      scene at all**: §2.1 assigns them chapter 2, but `HERO_LAYERS` has exactly
+      one chapter-2 layer (the hood). The three engine cutouts P9.S5 planned
+      were never docked, though `public/landing/cutouts/` ships all three
+      optimized. See the open question below — it decides S3's shape.
+
+      Rows are **derived from `HERO_LAYERS`**, not listed beside it: the
+      manifest is an index of the diagram, so a row for a part that does not
+      undock would highlight nothing and a sprite without a row would undock
+      un-named. `manifestData.test.ts` (11 tests) fails if a layer ever appears
+      with neither a row nor a stated exclusion. Mutation-checked both ways:
+      removing the windshield exclusion fails 2 tests, and filing the bumper
+      under `SYS-09` the way the plan did fails the body-panel test.
+
+      **The strings went in the wrong place first and the repo caught it.**
+      They were put under `Landing.beats`, and `i18n/messages.test.ts` failed
+      because `beats` holds exactly the eleven v1.27 beats, each with an 01-10
+      code. The manifest is part of the hero beat, not a twelfth beat — so it
+      lives at `Landing.manifest`, which is what Fable specified.
+
+      Part names are the catalogue's own wording wherever the catalogue sells
+      the part («چراغ جلو», «سپر جلو», «درب موتور», «گلگیر جلو» are seeded
+      product names) so the row's promise matches what is behind the link. Two
+      are not: the grille has no seeded product, and the door is «درب خودرو»
+      so a list already carrying «درب موتور» for the hood cannot be misread.
+
+      Route JS unchanged at 198KB — nothing imports the module yet.
+
+      **RESOLVED at S3.** Six rows meant five led to `/c/body-exterior`, because
+      the catalogue's categories are flat (ten, one per system) and five of the
+      six parts are body panels. Owner chose to put the three engine parts in
+      the scene rather than ship the thin version; because rows derive from
+      `HERO_LAYERS`, they appeared here on their own and the manifest is nine
+      rows across four systems.
+- [x] **P12.S3 — Engine parts into the bay.** ✅ 2026-09-03. Inserted after
+      S2 with owner approval: §2.1 assigns piston, alternator and air filter to
+      chapter 2, and the scene never had them. Piston → SYS-01 engine,
+      alternator → SYS-05 electrical, air filter → SYS-10 filters-fluids, so the
+      manifest now spans four systems instead of two.
+
+      **They are placed, not docked, and that distinction is the step.** A hero
+      sprite was cut out of the car render, so its trim box is a real coordinate
+      and `HeroDock` is only a *correction* to it. These three are catalogue
+      product shots — an alternator is nowhere in an exterior 3/4 render — so
+      there is no native position to correct. `HeroPartPlacement` says where the
+      part goes (canvas centre + height; width follows the asset's own aspect
+      ratio, since the three trim to 215×528, 497×297 and 395×434 and a shared
+      `scale` would size them at random).
+
+      **New `hero-parts` pipeline group**, deliberately not the `hero` one:
+      `check:hero` reads `landing-src/hero/sprite-*.png` and asks whether each
+      file reconstructs the source car, which these could never do. Masters are
+      downscaled to 640² before trimming because a trimmed source contributes
+      its own width as the top rung, and the 2048² cutouts would have made that
+      rung 1577px for a part that renders ~57 CSS px tall. Three assets, 40KB
+      AVIF total.
+
+      **The parts travel down; the hood goes up.** The obvious reading of "the
+      parts rise" was built first and rendered wrong: the alternator was
+      completely behind the lifted hood — both move rearward, so they arrive in
+      the same place — and the other two were pinched into the 38px between the
+      hood's underside and the bay. The car occupies canvas rows 333-700 of a
+      visible 130-894, so the hood's peak eats the upper band while the lower
+      one is 194px of nothing. The bay now opens in two directions, which is
+      also how a workshop manual draws one.
+
+      Painted between the base and the sprites, so the docked hood covers them
+      completely and the page still opens with a closed car — verified by the
+      nine landing screenshot baselines matching **unchanged**. Two new guards,
+      both mutation-checked: every part's docked box must sit inside
+      `HERO_BAY` (the hood's own footprint), and every undock must clear the car
+      body rather than travel back up into the hood's space.
+
+      Route JS 198KB, unchanged. `check:hero` is red — **and was already red on
+      a clean HEAD**, identical numbers (78.4% base, 36.8% composite, 7 of 7
+      scored as product shots). It reads `landing-src/hero/`, which this step
+      does not touch. It is a batch-evaluation tool rather than a gate, and the
+      shipped hero was hand-calibrated instead; worth its own look, not this
+      step's to fix.
+
+- [x] **P12.S4 — Manifest panel (desktop).** ✅ 2026-09-03. Nine rows, behind
+      `MANIFEST_HIDDEN` — S5 flips it with the mobile rail. Verified live with
+      the flag temporarily off before shipping it on.
+
+      **The panel is a server component and the choreography is data
+      attributes**, which is the only reason it fits: nine rows of image, text
+      and link never reach the browser as JavaScript. One client leaf
+      (`ManifestCheckIn`) writes `data-chapter-reached` on the `<ol>` from
+      scroll progress and `globals.css` does the transitions, so scrolling the
+      hero re-renders no React at all.
+
+      **Check-in only ever hides rows it can bring back.** The server renders
+      `data-chapter-reached="3"` — every row present — and the client opts *in*
+      to the choreography on mount. No JS, or reduced motion, means the
+      attribute never appears and the full list simply stands (§2.3). Written
+      the other way round the same markup would be an empty panel for both.
+
+      **The highlight is two `setAttribute` calls, not per-part CSS.** Rows and
+      sprites both carry `data-part` (stamped in `HeroStage`), so one delegated
+      pointer/focus listener pairs them by attribute and both directions fall
+      out of it. The pure-CSS `:has()` form needs one rule per part id and would
+      hardcode the manifest into a stylesheet. Sprites glow with `filter:
+      drop-shadow` rather than an outline — it follows the cutout's alpha, and
+      it is the one property that cannot collide with the inline transform
+      Framer is already animating on the same element.
+
+      `HeroScrollProvider` lifts `useScroll` out of `HeroStage`: the stage and
+      the manifest are in different grid columns, so they now share one
+      measurement instead of subscribing twice.
+
+      **A dead utility caught by measuring, not by looking.** The thumbnails
+      were written `h-10 w-12`; the piston rendered **118px tall in a 48px
+      row**. This config *replaces* Tailwind's spacing scale with
+      0,1,2,3,4,6,8,12,16,20,24,32, so `h-10` generates no CSS and the image
+      fell back to `height:auto` — `w-12` worked, which is what made it look
+      deliberate. Exactly the silent off-scale-utility class P11.S3 hit with
+      `w-11` and P11.S5 plans to lint. Now `h-12 w-12`, all nine measured at
+      48×48.
+
+      96px thumbnail rung added to the `hero` and `hero-parts` pipeline groups.
+      It sits below every stage rung, so the stage still picks what it picked
+      before, and small sprites gain a genuinely useful one (`sprite-door`'s
+      ladder was `[158]` alone, so a 16px dock on a phone fetched the full 158w).
+
+      **Route JS 198 → 200KB (+2).** Stated rather than rounded away: that is
+      the manifest's entire client cost — the provider plus the one leaf — on a
+      budget already 18KB over. S5's chip rail is server-rendered and should
+      add none.
+
+- [x] **P12.S5 — Manifest mobile + flip.** ✅ 2026-09-05. Chip rail under the
+      stage below 1024px, panel above it, one server component under two
+      variants with CSS showing exactly one — so there is never a duplicate
+      navigation landmark in the accessibility tree. The row/sprite highlight
+      moved into `HeroScrollProvider`, which mounts once; left in the manifest
+      it would have attached the same delegated listener twice.
+      **Three defects the mobile audit found, none visible to any existing
+      check.** (1) The hero's columns laid out 1248px wide inside a 390px
+      viewport — a grid item's automatic minimum size is its min-content width,
+      the rail is a horizontal scroller, and `overflow-x-clip` on `#hero` hid
+      the result perfectly: the vehicle selector and all ten system links sat
+      at `x=-875`, off-canvas and unreachable. One `min-w-0` on the grid item.
+      It surfaced only because axe could not resolve a background for text
+      painted outside its ancestor — **a cluster of contrast failures naming
+      the page background is a layout failure in disguise.** (2) The manifest
+      flashed on every load: the server must send every row visible for the
+      no-JS case, so the choreography removed them *after* first paint. Now a
+      blocking pre-paint script, the same technique next-themes already uses
+      here (masterPlan §6.7). This was also what made the page-level axe sweep
+      fail — axe was scoring half-transparent rows mid-fade. (3) Counts
+      rendered Latin digits inside Persian copy; ICU's plain `{count}` is a
+      string substitution, not a number format. Fixed with `toPersianDigits`,
+      applied to the ten system links too, which had the same gap since P9.
+- [x] **P12.S3 (re-issued) — Seat the hood on the engine bay.** ✅ 2026-09-05.
+      Owner-reported from the running hero: the hood sat over the cowl and the
+      windshield with the bay still open in front of it. `dy -95` put its box
+      at rows 352–490; the bay is at 389–527. Scale and rotation were already
+      right, only the offset moved. **`HERO_BAY` moved with it, and so did the
+      three engine parts** — that constant is derived from the hood's own
+      registration, so while the hood was wrong the box was wrong, and
+      `manifestData.test.ts` was confirming that all three parts sat inside a
+      bay that was not where the bay is. *A derived constant is only as true as
+      the thing it is derived from.* Calibrated by compositing the sprite onto
+      the stripped shell against the shell's own geometry, not by eye.
+- [x] **P12.S6 — Take tailwind-merge out of the client bundle.** ✅ 2026-09-05.
+      Inserted before the separation work at owner request. Landing route
+      **200KB → 193KB**. `cn()` pulls tailwind-merge into any route a Client
+      Component reaches it from; four did, three of them via the header. Three
+      accept no `className` at all and compose a static base with an internal
+      variant map, so the merge had nothing to resolve — they use `cx()`
+      (`lib/cx.ts`, clsx only, a **separate module on purpose**: importing any
+      binding from `lib/cn.ts` pulls the module and the module pulls the
+      merge). `SearchField` keeps `cn()` because it really does merge a
+      caller's className, and it is not on the landing route's client graph.
+      **The guard matters more than the kilobytes**: `cx.test.ts` pins
+      `cx(...) === cn(...)` for all eight migrated compositions, then walks
+      `components/` and `app/` and fails on any `"use client"` file importing
+      `@/lib/cn` that is not in an allowlist carrying a written reason. P11.S2
+      was not careless — nothing re-measured the route afterwards and nothing
+      would have objected. Now something objects.
+- [x] **P12.S7 — Run e2e against a build, not `next dev`.** ✅ 2026-09-05.
+      The whole suite runs in one invocation for the first time: **119 tests,
+      1.7 minutes.** `next dev` rewrites `.next/prerender-manifest.json` as it
+      discovers routes and does not truncate, so concurrent route compilation
+      (Next's own link prefetch on a long page) lands a short write on top of a
+      long one. The file becomes valid JSON followed by the tail of the
+      previous copy, every render throws `SyntaxError: Unexpected non-whitespace
+      character after JSON at position 741`, and **it never recovers**. From
+      the outside it looks like the last nine tests failing on `data-theme` —
+      i.e. a theming bug. It was written off as "dev-server endurance" once
+      already. Not memory (`--max-old-space-size` changes nothing) and not
+      slowness (a 30s timeout just fails slower); found by scanning every
+      `.json` under `.next` after a failed run — 26 files, exactly one
+      unparseable.
+- [x] **P12.S8 — Separation legibility.** ✅ 2026-09-05. Defect 2. Three causes
+      fixed together: every layer in a chapter shared one beat, so a chapter
+      was one event with several shapes in it; a beat had no hold, so a part
+      was never still and was a smear at any scroll speed; and the whole
+      sequence had 544px of scroll to happen in, about 60px per part. Each slot
+      now has its own staggered span with a rise/hold/fall, and the track is
+      56rem/120rem (was 14/34) so a beat is ~257px, about 0.9s at an unhurried
+      scroll. **The hood is a cover, not a beat** — given a slot like anything
+      else it opened, shut, and *then* the piston and alternator emerged
+      through a closed bonnet, which the filmstrip showed immediately. A cover
+      holds open across every slot in its chapter, by construction. `BEAT_SPAN`
+      came down 0.62 → 0.42 because the test caught two slots holding at once;
+      the invariant is the point of the step, so the constant moved, not the
+      test.
+- [x] **P12.S9 — Best-sellers honesty upgrade.** ✅ 2026-09-05. Defect 3. The
+      no-photo state is a technical plate now: the part's system drawn as line
+      art on ruled paper with its `SYS-xx` code and Persian name, corner ticks
+      like a drawing frame. Ten glyphs drawn in-repo, stroke only, no
+      dependency and no request. **The plate needed the product to know its own
+      system and it did not** — a product row carries a `categoryId`, the code
+      lives on `Category` — so `systemCode` is now an optional field on the
+      product list DTO, resolved in one extra query per page and converted to
+      wire form (`SYS_05` → `SYS-05`). Optional because only endpoints that
+      resolve a category can fill it, and a consumer that cannot is better off
+      knowing than guessing. The rail leads with photographed parts when there
+      are any — a preference, not a filter.
+- [x] **P12.S10 — Evidence code format.** ✅ 2026-09-05. Defect 4. Codes are
+      36–45 characters (`VER-SKU-ENGINE-CYLINDER-HEAD-GASKET-PRIDE-111`) and
+      were plain text inside Persian copy: they wrapped, they could be
+      **reordered** by the bidi algorithm (every character present, in the
+      wrong visual order — the worst failure for a value whose whole job is to
+      be compared against a hologram), and proportional digits made a column of
+      them jitter. One `EvidenceCode` component: `dir="ltr"` **with
+      `unicode-bidi: isolate`**, one line, tabular mono, ellipsis. The full
+      code never leaves the DOM — truncation is `text-overflow` only. It does
+      **not** shorten the codes: the stored value is what
+      `GET /authenticity/verify/:code` resolves, so minting shorter ones is a
+      migration that invalidates every code already printed.
+- [x] **P12.S11 — Media verify pass.** ✅ 2026-09-05. Defects 5 and 7, and
+      **neither was a bug.** Defect 5: a frame from each shipped `.mp4`,
+      flipped, is pixel-identical to the same frame of its source — mean
+      absolute difference **0**, both clips. There are no `-rtl` files to swap
+      between; the flip is baked in by ffmpeg. The manifest was easy to misread
+      on exactly this point, so each clip now carries its own `mp4.mirrored`
+      and a test fails if it stops being true. Defect 7: at 360, 390 and 1440
+      the footer's bottom edge lands exactly on the viewport's at maximum
+      scroll and nothing renders below it. What a recording shows past the end
+      is browser over-scroll painting the canvas colour, which is dark by
+      design in the dark theme.
+- [x] **P12.S12 — Brand wall treatment.** ✅ 2026-09-05. Defect 6. A ruled band
+      with names at h1 (36px/28px, was 20px) and a separator between entries.
+      **No letter-spacing, deviating from the plan on purpose**: Persian is a
+      cursive script and `letter-spacing` pulls joined letters apart, so «بوش»
+      would render as three disconnected shapes. The spacing that reads as
+      deliberate here is between names. `whitespace-nowrap` closes the orphan —
+      «سایپا یدک» is one name. `grayscale` stays on the link although it does
+      nothing to text: it is the hook the SVG-mark swap needs (§5.6).
+- [x] **P12.S13 — Regression + receipts.** ✅ 2026-09-05. Full numbers in
+      `docs/performance-landing.md`. **LCP improved 1.9s → 1.65s; CLS 0.034;
+      route JS 193KB; Lighthouse a11y 100; the full e2e suite is 119 green.**
+      One number got worse and is carried into the backlog below.
+
+### Phase 12 — what it left open
+
+- [ ] **TBT is 261ms against a 200ms budget** (median of five runs; was
+      90–120ms pre-phase, measured on the same machine in the same session so
+      it is not contention). Isolated: building the current tree with
+      `MANIFEST_HIDDEN = true` puts it back to 130ms with every other Phase 12
+      change still in place, so **the visible manifest is the whole
+      regression** — and it is hydration, not layout. `content-visibility: auto`
+      on the below-the-fold rail was the obvious candidate; it was tried and
+      **measured no change** (median 299ms over five runs). `srcset` weight was
+      ruled out too (4.2KB across the whole page). What is left is that the
+      manifest renders **twice** — panel and rail — so the fix is to render it
+      once, and that is blocked on a real conflict: §2.1 wants the panel sticky
+      inside the copy column, §2.2 wants the rail pinned with the stage or it
+      scrolls away before the chapters play. Resolving it means rethinking the
+      hero grid so one manifest can sit in either column per breakpoint and
+      stay sticky in both — a design step, not a property.
+      **Do not measure `/fa`** — it 307-redirects to `/` and the redirect alone
+      reads as +0.6s of LCP.
+- [x] ~~The page has no `rel=canonical`~~ — **wrong, and corrected the same
+      session.** It has had one since P4. Lighthouse reported it missing
+      because `NEXT_PUBLIC_SITE_URL` is unset locally and falls back to
+      `localhost:3000` while the audit served the build on `:3200`, and a
+      canonical pointing at another origin is correctly rejected. Rebuilt with
+      the two matching: **SEO 100.** The lasting note is the trap, not the
+      task: set `NEXT_PUBLIC_SITE_URL` to the origin you are actually serving
+      before running Lighthouse.
+- [ ] **Seed data makes the best-sellers rail look broken** even though the
+      code is right: eight cards that are two product names repeated four
+      times each at stepped prices, and not one seeded product has a photo. So
+      S9's photo-first ordering is a no-op until real photos land (§5.5).
+
+### Phase 12 — parked, unchanged (fableTasks2 §4)
+
+WebGL v2 (the budget says no; the Manifest was this phase's wow at zero
+grams) · the coupe→sedan re-render batch (owner runs it with Fable; the §3.1
+rename map keeps it drop-in, and manifest thumbnails swap with it) ·
+light-theme video siblings · Newsletter backend · Guides content · `en.json` ·
+a scrub-driven hero.
+
+**Numbering note.** The shipped tags do not match the plan's, because two
+steps were inserted (S6 budget, S7 harness) and one was re-issued (S3, the
+hood). Plan S6→S8, S7→S9, S8→S10, S9→S11, S10→S12, S11→S13. Commit subjects
+are the source of truth.
+
+**Owner inputs this phase waits on** (fableTasks2 §5 — none blocked S1–S13):
+WhatsApp number · returns window/conditions/who-pays · warranty duration and
+what voids it · business name and registration details for privacy + terms ·
+product photos for the best-seller eight · a real ParsianStore mark and any
+part-brand SVGs you have rights to · the four Numbers figures.
+
+## The hero sprites, recut in place — 2026-09-06
+
+Owner-reported from the running hero (`screenshots/hood issues.png`): "the hood
+and window are not fit on their position". They were not, and no dock number was
+ever going to fix them.
+
+**Three of the seven sprites were catalogue product shots, not cuts of this
+car.** `sprite-hood`, `sprite-windshield` and `sprite-headlights` were a
+different hood and a different windscreen, photographed on a different camera,
+carried onto the render by a hand-tuned scale, offset and a `rotateZ`. A panel
+shot from another angle is the wrong *shape* in this projection, so every
+"nudge the numbers" pass — P12.S3, then P12.S3 re-issued — moved a wrong shape
+to a different wrong place. The grille and bumper were the same class of defect,
+milder: measured against the render they disagreed by MAD 115 and 52, which is
+why the bumper hung off the nose and the grille read as a bright slab.
+
+**The fix was a source nobody had checked.** `landing-src/samples-opaque/car.png`
+is the *same render* as `car-stripped.png` with the panels on: downscaled 2048 →
+1024 it registers at **scale 1.000, dx 0, dy 0**, searched over scale 0.36–0.64
+and ±80px against the rear half of the body where nothing was removed. So the
+five wrong sprites are now that render masked to one panel each, and door and
+fender kept their outlines but had their pixels repainted from it, which removed
+the light fringe their mattes carried down the door gap.
+
+**Every dock is `NATIVE`.** No scale, no offset, no rotation anywhere in
+`heroLayout.ts` — the test now asserts that for all eight entries rather than
+the four it used to allow. The two lamps share one native dock and differ only
+by a `clip-path` window, because both lenses are at their true coordinates in
+one master.
+
+**Measured, not judged.** `pnpm check:hero` went from *7 of 7 scored as product
+shots, composite 36.8%* to **every sprite 100% inside its own box, composite
+99.0%, "MATCHED — the set docks at 0,0 with no calibration."** Route JS
+unchanged at 193KB; the hero group got *smaller* (hood 3.6KB from a 737w rung to
+a 436w one). 122 e2e green, 656 unit green, nine visual baselines regenerated.
+
+**`docs/landing-assets.md` carried the belief that blocked this.** P9.S5 wrote
+that the base "is not a mask of `cutouts/car.png`" because a per-pixel diff
+showed 56% of body pixels changed, and concluded the sprites *could not* be cut
+from the complete car. The 56% was real and the conclusion was wrong: stripping
+panels changes global illumination across the whole shell, so a colour diff of a
+stripped car against a complete one is large however well the two register.
+*Colour agreement is not registration.* The doc is corrected.
+
+- [ ] **The engine parts are much smaller, and that is now honest.**
+      `HERO_BAY` is derived from the hood, and while the hood was a product shot
+      scaled 0.66 the bay measured 487x138. The real panel is seen almost
+      edge-on: its box is 436x68 and the largest rectangle inside its alpha is
+      **196x36**. The three parts were sized against the fiction and were about
+      three times too big for the panel that is meant to hide them, so they now
+      stand 30-32 canvas px at rest and grow on `undock.scale: 2.4` instead of
+      the 1.12 the body panels use — about 50 CSS px at 1440 once they are out.
+      That is the only lever left with a real hood. **If the owner wants them
+      larger the answer is a render with the hood open, not a bigger number**;
+      anything taller than ~32 pokes out of a closed car before the visitor has
+      scrolled. A derived constant is only as true as what it is derived from,
+      and this one has now been wrong in both directions.
+- [x] ~~`pnpm check:hero` is wired to nothing and cannot run as written.~~
+      **Half fixed.** It now has a `DEFAULT_SOURCE` — the assembled render at
+      `landing-src/hero-reference/source-car-assembled.png` — so `pnpm
+      check:hero` runs and passes on a clean tree instead of exiting 1 on a
+      missing argument. It still cannot be a CI gate: it reads `landing-src/`,
+      which is gitignored by design. A local check that works beats a gate that
+      cannot exist.
+
+### Environment note, added to the list below
+
+- **An orphan API on :4000 makes the landing e2e look randomly broken.**
+  `playwright.config.ts` sets `RATE_LIMIT_DISABLED` on the API it starts, but
+  `reuseExistingServer: !CI` means an API already listening on 4000 is reused
+  *with whatever env it was started with*. One suite run is ~25 landing renders
+  past a 100/min/IP cap, so throttled responses degrade Server Components to
+  empty sections and a different handful of tests fails each run —
+  `#shop-by-vehicle` resolving to 0 elements is the tell. It also nearly baked a
+  page missing a whole section into a screenshot baseline: the regenerated
+  `landing-360-reduced-motion` came out **1723px shorter** than the one it
+  replaced, which is the only reason it was caught. Kill the orphan
+  (`Get-NetTCPConnection -LocalPort 4000`) and the same suites go 122/122.
+  **Check baseline heights against the previous ones before keeping them.**
+
+## Found while closing Phase 12 — 2026-09-05
+
+Not Phase 12 work, not previously written down, and each one verified rather
+than suspected. Ordered by how much it would cost to discover later.
+
+- [x] ~~The storefront ships no security headers at all.~~ **Fixed the same
+      session.** `apps/api` had `helmet()` since P2 and `apps/web` had nothing,
+      which is the shape of gap that survives review because "we use helmet" is
+      true and covers the wrong half. `next.config.mjs` now sends
+      `X-Frame-Options`, `X-Content-Type-Options`, `Referrer-Policy` and
+      `Permissions-Policy` on every route and static asset, asserted in
+      `e2e/layout-shell-a11y.spec.ts`. HSTS is gated on
+      `NEXT_PUBLIC_SITE_URL` being an https origin — **not** on
+      `NODE_ENV === "production"`, which was the first cut and was wrong:
+      `next start` sets it, so it pinned HSTS for `localhost` in the profile of
+      every developer running the production server, and in this suite's
+      browser. That is hard to undo, and there is a test for it now.
+- [ ] **A real Content-Security-Policy is still missing**, and it is the half
+      of the above that could not be done safely in one pass. A useful CSP here
+      must be nonce-based: three inline scripts need the nonce — next-themes'
+      blocking theme script, the parts manifest's pre-paint script (P12.S5),
+      and Next's own hydration bootstrap — which means threading a nonce from
+      middleware through the document. Shipping `script-src 'unsafe-inline'`
+      instead would be a header that reads like protection and is not. Launch
+      blocker; do it with the nonce plumbing, not before.
+- [ ] **Every staff role can do everything.** `requireStaff()` admits all four
+      non-customer roles (`support`, `operator`, `admin`, `superadmin`), and
+      **every** admin router uses it — catalogue, coupons, inventory, orders,
+      customers, shipping, payments, reports. So a `support` account can
+      delete products, rewrite prices, edit coupons and read payment records.
+      The line already in the Phase 8 list undersells this as "no per-role
+      granularity"; it is a privilege-escalation hole, not a missing feature.
+      Needs an owner decision on what each role may touch before it can be
+      implemented — that matrix is a business call, not a technical default.
+- [ ] **`landing-src/` exists only on this machine.** 113 MB of hero masters,
+      plate renders and source clips, gitignored (`.gitignore:34`) by design so
+      they never enter git history. Everything in `apps/web/public/landing/` is
+      *derived* from them by `pnpm optimize:landing`, and `heroLayout.ts`'s
+      dock coordinates are meaningless without the originals to re-trim
+      against. If this disk fails, the hero cannot be regenerated or
+      recalibrated — only the already-optimized outputs survive. Needs a
+      backup somewhere the repo can point at.
+- [x] ~~**`pnpm check:hero` is wired to nothing and cannot run as written.**~~
+      Given its argument on 2026-09-06 — see "The hero sprites, recut in place"
+      above. It still appears in no CI workflow and no git hook, and cannot:
+      it reads `landing-src/`, which never enters git history.
+
+### Environment notes, so a future session does not re-debug them
+
+- **The Postgres container dies mid-session** (`Exited (137)`). Symptom is a
+  landing page that silently degrades: `ShopByVehicle` returns null when the
+  vehicle tree is empty, `#shop-by-vehicle` vanishes, unique internal links
+  fall from ~35 to 19, and the link-sweep floor fails. Check `docker ps -a`
+  before believing any landing failure, and **never regenerate screenshot
+  baselines without confirming the container is healthy** — one pass this
+  session baked a page missing a whole section into six baselines before it
+  was caught.
+- **Set `NEXT_PUBLIC_SITE_URL` to the origin you are serving on** before
+  running Lighthouse. It defaults to `localhost:3000`; audit a build on any
+  other port and every canonical-dependent SEO audit measures the mismatch
+  rather than the page.
+- **Measure `/`, never `/fa`.** `fa` is the default locale with `as-needed`
+  prefixing, so `/fa` 307-redirects — worth ~0.6s of apparent LCP.
+
+## SHIPPED — Phase 14: mobile-first landing, typography, real light mode, hero pacing — closed 2026-09-08
+
+Step-level plan of record: **`fableTasks.md`** at the root (Fable, round 3),
+**tracked this time** rather than deleted at close. Read its **§0.5 CTO
+amendments** first — it overrides §1 wherever the two disagree, because §1 was
+written from a browser session and §0.5 is what survived verification.
+
+Ten steps, S0–S9, landing route only (owner's scope call). Numbered 14 because
+**Phase 12 closed 2026-09-05 and Phase 13 is still open** — the plan arrived
+tagged `[P12.Sn]`, which would have collided silently with shipped commits.
+All ten tags were renumbered before any work began.
+
+### Shipped, in order
+
+| Step | Commit | What |
+|---|---|---|
+| S0 | `7de56a6` `30d0b0e` | evidence harness, the TBT ledger, the outsider's brief |
+| S1 | `6088380` | one family, Persian metrics — `display-1` lh 1.10→1.30, tracking −1.12px→0 |
+| S6a | `1012fcb` | the 5px/35px horizontal overflow at phone widths |
+| S2 | `f4f0fd5` | a light mode that is actually light; the stage a dark plate on purpose |
+| S7 | `66cf434` | enter-on-view reveals that fail **open**; the marquee seam |
+| S3 | `24f5a5f` | the job card reaches the first screen at every width |
+| S4 | `c3ff146` | smoothed scrub, station snapping, an explicit tour |
+| S5 | `d8b4ecf` | ghosted rows; the finale holds exploded (Gate B reversed) |
+| S6 | `43156c0` | the phone pass — two-row header, drawer, disclosures, footer |
+| S8 | `dfe24bf` | the «استادکار» voice, and `docs/voice.md` |
+| S9 | `0ee3a0a` | polish, and nine baselines that were about to lie |
+
+Final gate: **lint · typecheck · 755 unit tests · 151/151 e2e · clean build** — all
+green. Route JS **200 kB** (see the open item below).
+
+### Eight of the plan's premises did not survive verification
+
+Recorded because the pattern repeated at *every* step, and the next external
+plan should be read the same way:
+
+1. **The car is below the fold on mobile.** It is not — the car sits y546–663 at
+   390×844. The **job card** is what falls off, at y888.
+2. **…and on desktop.** Also no: 75.6% visible at 1440, past the plan's own ≥60%
+   bar. The lever was `max-w-4xl` forcing the H1 to two lines.
+3. **`#authenticity` is dark in light mode.** It was already light. "Fixing" it
+   would have broken it. `#trust-strip` *was* dark and the plan omitted it.
+4. **Section 05 is missing.** Numbering is contiguous 01–09; not reproducible.
+5. **Nothing below the hero animates in.** `Reveal` shipped in P1.S8 and every
+   section already used it — a DOM query returns zero because the reveals are
+   `once:true` and had already fired. The **grids** were what lacked it.
+6. **Three of the four dwell points.** Spec 0.24/0.52/0.76/0.95 vs derived
+   0.18/0.51/0.83/0.93. Snapping to the spec's numbers parks the visitor on a
+   part **in flight** — the one thing a dwell point prevents.
+7. **The finale collides on mobile.** The finale has no width dependence at all
+   (percentages of a 1024² canvas), and what "overlaps" is the headlights'
+   **element box**: one render drawn twice and clipped to a 28px and a 34px lens,
+   so `getBoundingClientRect` returns the uncropped box. The audit's ~11px and
+   ~5px reproduce exactly from the boxes; the visible rectangles clear.
+8. **The job-card counter should say ten.** Nine is correct and test-pinned — the
+   windshield has a callout and no row because there is no glass route.
+
+Also invented and not built: a mobile parking table, `docs/deferred.md`,
+`?featured=true`, and a «برندها» nav item pointing at a `/brand` index route that
+does not exist.
+
+### Bugs found that were in no plan
+
+- **`.hero-callout-go` at 2.51:1** — the "see the part" link has been unreadable
+  in light mode since the callouts shipped. Invisible because only dark-theme
+  screenshots were ever taken.
+- **The callout plate's focus border at 2.86:1** — a live WCAG 2.2 SC 1.4.11
+  failure, reported to the CTO as a passing 3.65:1. The guard test written to
+  protect that margin is what proved the number wrong.
+- **A scrim that never existed** — `via-graphite-950/70` emits **no CSS**; a
+  Tailwind opacity modifier on an opaque `var()` colour produces nothing.
+- **The beat-0 caption never rendered at rest.** `useMotionValueEvent` fires only
+  on change, so the one frame every visitor sees was blank.
+- **…and fixing that dimmed the whole car**, because `__hint` is a beat with no
+  sprite, so the focus rule engaged with nothing exempt.
+- **The camera cropped the held finale** — an undocumented dependency of the Gate
+  B reversal.
+- **`restDelta` would have skipped the last 12.8px of the story** — motion's
+  default on a 160rem track.
+- **The tour leaked listeners and suppressed snapping for ~15s** after the Stop
+  button, and **Next/Previous lost a scroll fight** with it.
+- **The drawer reopened itself on forward navigation.**
+- **The mobile job card never auto-scrolled** — guarded on a class no element
+  carries, dead since the P13.S7 merge.
+- **`Select`'s `pe-9` emitted no CSS**, so the chevron sat on the option text.
+- **The footer's last 64px lived under the fixed bottom nav** — `pb-16` was on
+  the content div and the footer is its sibling.
+- **The reveals fail-closed**, caught in review: sections server-rendered at
+  `opacity: 0` with no recovery if hydration died. Now inverted — a pre-paint
+  script opts *into* hiding and a watchdog inside it disarms at 2s.
+- **Nine baselines nearly regenerated blank** — eight sections at `opacity: 0`,
+  caught only by opening the PNGs. A blank baseline compares clean forever.
+
+### Open, for the owner
+
+- **Route JS is 200 kB against a 193 kB gate** (197 was the accepted line). The
+  true cost of S9's controls is 266 bytes gzipped; the rest accumulated across
+  the phase. Needs a decision or a recovery step — not a rebaseline.
+- **TBT ~306 ms against 200 ms.** The attribution found **692 of ~936 ms is Style
+  & Layout recalculation, not script** — this is hydration layout cost, so
+  shaving bundles aims at the wrong target.
+- **Naming the visitor's car** is free in JS (the garage is already a cookie) but
+  `cookies()` turns the SSG landing route fully dynamic and PPR is not enabled.
+  An architecture call.
+- `.evidence-code` has become two contracts — a 45-char verification code and a
+  short stamped identifier; three of four call sites are the second. Wants a
+  split.
+- `Landing.beats.closing.support.hoursPending` is now misnamed for the honest
+  line it holds.
+- The footer tagline has nowhere to live — there is no `Footer` namespace and no
+  wordmark element.
+- `WishlistButton` still pairs `aria-pressed` with a label that flips; the
+  ThemeToggle precedent is fixed, that one is not.
+- Two trust-strip titles at 32 chars will likely wrap on the desktop four-column
+  row. Cosmetic.
+
+### Owner decisions
+
+- **The finale holds exploded.** Reverses "Gate B" (`heroLayout.ts:632`), which
+  three assertions pin — `e2e/landing-hero.spec.ts:515`, `:534`, `:786`. Those
+  get **rewritten to assert the new ending, never deleted.** Settled 2026-09-07;
+  do not re-litigate. **Shipped at S5.** `FINALE_BEAT` is now a three-value beat
+  `[re-dock threshold, fully exploded, end of track]` and its docstring carries
+  the reversal, by whom and when, so a future reader cannot read it as drift.
+  There were **four** pinned assertions, not three: P14.S4 added a fifth-hop
+  spring check ("the story still ends as a whole car once the spring has
+  settled") that pinned the same promise. All four were rewritten, plus one
+  added — the finale has to *un-blend* on the way back up, and "holds" and
+  "is stuck" are indistinguishable to every other assertion in the file.
+- **Shared type scale vs. a landing-only fork — OPEN.** `display-1`/`h1`/`h2`
+  are shared with cart, checkout and `PageHeader`. S1 does not start until this
+  is answered.
+
+### S0 — evidence, done 2026-09-07
+
+`scripts/hero-shots.mjs` extended (not rewritten) with `SHOTS_MODE=evidence`:
+390×844, 412×915 and 1440×900, thirteen scrub points, both themes, full-page
+shots and the open mobile menu. Output in `docs/shots/p14/` (gitignored) —
+85 screenshots, a contact sheet, and five Lighthouse runs.
+
+**Measured, median of five:** TBT **474ms** against a 200ms gate (last
+documented at 261ms), performance **0.87** against 0.90, route JS **197 KB**
+against 193. LCP 1.64s ✓, CLS 0 ✓, a11y and SEO 100 ✓. The box was busy, so
+treat TBT as directional — but it is directionally *worse*, so **a TBT
+attribution pass runs before S4**, not after S9. S4 and S7 both add client JS
+to a route already failing two budgets; find the cost before spending more.
+
+**Two premises of the plan died here.** The car is *not* below the fold at
+390×844 (it sits y546–663; the **job card** is what falls off at y888–1020), and
+the light-mode dark-section list was wrong in both directions — `#authenticity`
+is already light, `#trust-strip` is dark and was missing. Full table in §0.5.
+
+**Method note:** Playwright `fullPage: true` renders a phantom ~75px band above
+the header on this page that does not exist in a real viewport. Judge the fold
+from a viewport screenshot or a live `getBoundingClientRect`, never from
+`full-page.png`. That artefact is probably what produced the fold claim.
+
+### Fixed on the way — the job card reads in the order the parts leave
+
+Two real bugs, each confirmed independently by a source review and by
+instrumented evidence before a line was changed.
+
+- **The blank slot mid-list was an ordering disagreement, not a counter bug.**
+  Rows were emitted in sprite *paint* order while they tick in *scene* order,
+  and those disagree inside a chapter: chapter 1 paints grille→headlights→bumper
+  but the headlights detach first, and chapter 3 lists fender before door while
+  the door goes first. `ManifestCheckIn` marks the first N rows from the top, so
+  a ticked row could sit below a still-blank one — a gap. Visible at p≈0.70–0.76
+  **and** at p≈0.02–0.11. `manifestEntries()` now sorts on `checkInAt` with
+  `paintIndex` kept only as a deterministic tie-break; sprite painting reads
+  `HERO_LAYERS` directly and was not touched. The comment in `heroLayout.ts`
+  that already *claimed* list order matched scene order is now true by
+  derivation instead of by coincidence.
+- **`calloutSubjects()` was correct by luck.** It sorted by chapter alone and
+  relied on `Array.sort` stability plus the windshield happening to be chapter
+  3's last beat. It now sorts on the beat itself.
+- **The mobile job card never auto-scrolled.** `ManifestCheckIn` guarded
+  scroll-into-view on a class `manifest-chip` that no element carries — it died
+  in the P13.S7 two-lists-into-one merge and the guard was never updated. The
+  guard now reads the layout off `overflow-x` rather than holding a fourth
+  hand-synced copy of the `lg` breakpoint, so it cannot rot the same way.
+
+Five regression tests, including a p=0→1 sweep asserting the checked rows are
+always an unbroken run from the top — the visitor-facing invariant. All five
+were verified to fail against the old sort. Reviewed: zero findings.
+
+### Open, carried into the numbered steps
+
+- **`/` overflows 5px at 390** — `scrollWidth` 395 vs 390, from the vehicle
+  selector `#driver-path` (`FindMyPart.tsx:60`) rendering 378px wide at
+  `left:-5`. Clean at 412 and 1440, which is why it survived. → **S6**
+- ~~**The finale collides on mobile.**~~ **Closed at S5 as not-a-bug**, with
+  the arithmetic in `heroScene.test.ts` ("overlaps only where a clipped
+  sprite's box is bigger than its pixels"). Two problems with the finding: the
+  finale has *no width dependence* — every parked position is a percentage of
+  the 1024² canvas, so 390 and 1440 render the same layout and a `finaleMobile`
+  table would have nothing different to say — and what overlaps is the
+  headlights' **element box**, not their pixels. They are one 231-wide render
+  drawn twice and clipped to a 28px and a 34px lens, and
+  `getBoundingClientRect` returns the box. Reproduced exactly: 39.7 and 18.8
+  canvas pixels of box overlap, which at 390 (0.3217 CSS px per canvas px) is
+  **12.8px and 6.0px** — the audit's ~11 and ~5. The visible rectangles clear
+  each other by more than `FINALE_CLEARANCE` in every pair, which
+  `heroScene.test.ts` has asserted since P13.S1.
+- **The desktop fold was never re-measured.** The mobile claim was refuted; the
+  1440 one is still untested. Measure before S3 rather than building to it.
+- **A cosmetic highlight-bar defect at mobile widths**, deliberately not fixed:
+  restoring it needs a fourth hand-synced copy of the `lg` breakpoint in
+  `globals.css` and would move visual baselines.
+- **No unit test covers the scroll guard.** `vitest.config.ts` runs
+  `environment: "node"`, so `scrollWidth`/`clientWidth` are 0 and
+  `scrollIntoView` is a stub — a test there would assert nothing. Needs jsdom,
+  which is a dependency decision, not a step.
+
+## Phase 15 — the honest budget — ACTIVE, opened 2026-09-08
+
+Owner brief: raise the JS budget because the route needs it, **but keep it as
+low as we can** — "don't open it for like 600kb" — and set standing rules so it
+cannot drift again. Plus a loading state, an answer on the Style & Layout time,
+a decision on `cookies()`, and an opinion on `.evidence-code`.
+
+**The finding that shaped the plan: there was no budget gate.** `pnpm build`
+asserted nothing about route size, `scripts/` had no checker, and the ≤180 KB
+figure lived only in `masterPlan.md` §10's table. That is the whole reason
+P11.S2's +8 KB survived a full phase undetected and the landing drifted
+189 → 200 KB across four phases with every step believing it had held the line.
+**Raising the number without making it a check just edits a sentence nobody
+enforces.**
+
+### Owner decisions — settled 2026-09-08, do not re-litigate
+
+- **Loading state: server-rendered hero skeleton + route-transition loader. No
+  full-page curtain.** A splash does not make the page arrive sooner, it makes
+  the visitor wait *behind* something that arrives sooner, and web.dev's own
+  position is that FCP stops describing the visitor's experience once a page
+  shows a splash or a loading indicator. The skeleton *is* the first paint (zero
+  JS, in the HTML, same box as the real stage so no CLS); the `loading.tsx`
+  loader fires where a wait genuinely exists — page-to-page navigation.
+- **The HiggsField-generated branded loader is a launch-prep follow-up, not this
+  phase.** S3 must leave a deliberate seam — one component, one token set — so
+  swapping the simple version for the owner's animation is a one-file change.
+  **Remind the owner before launch.**
+- **اینماد / نشان ملی stay, with «در حال ثبت» as visible on-screen text**, not
+  living only in an `aria-label`. Closes the P13.S12 owner call. It is the only
+  place on `/` claiming something the page cannot prove, which `docs/voice.md`
+  forbids.
+- **Admin staff RBAC runs after this phase, before launch**, as its own phase.
+  It is a privilege-escalation hole, not a missing feature, but the site is not
+  public, so it is not currently reachable by a stranger.
+- **Phase 11's S4–S6 come after Phase 15**, not interleaved: retrofitting 122
+  components would invalidate every number this phase measures.
+
+### The three-layer attribution — measured at S0, and it reorders the work
+
+The landing's 199.7 KB is not one number, it is three, and only the third is
+ours to argue with:
+
+| Layer | Size | Recoverable? |
+|---|---|---|
+| Framework floor (`rootMainFiles`: webpack, react-dom, App Router runtime, main-app) | **102.9 KB** | No — not without leaving Next's App Router |
+| Shop chrome (chunks common to all 23 `(shop)` routes: header, footer, providers) | **17.0 KB** | Yes — and this is the layer P11.S2's regression landed in |
+| The landing's own code | **79.8 KB** | Yes — this is the number the repo controls |
+
+**This corrects the record.** `docs/performance-landing.md` and
+[[reference-landing-js-budget-ledger]] both track a "route chunk" of 16.5 KB —
+that is Next's *Size* column, the page-specific chunk alone, and it is not the
+landing's own cost. The landing's own code is **79.8 KB, four times that**, most
+of it the non-shared dependencies the page pulls in (motion, the hero graph).
+A per-route total can never say *who* grew; these three layers can.
+
+### Steps
+
+- [x] **P15.S0 — Measure, then make the number un-driftable.** ✅ 2026-09-08.
+      Ports cleared first (a live `next dev` on :3000 and an orphan API on :4000,
+      both this project's own, either of which would have poisoned the build —
+      the same trap as [[reference-orphaned-dev-servers]]). Clean
+      `rm -rf apps/web/.next && pnpm build`, then `scripts/check-budget.mjs`:
+      reads `app-build-manifest.json` + `build-manifest.json`, gzips every chunk,
+      reports the three layers above and exits non-zero on a breach. Wired as
+      `pnpm check:budget` and added to CI after the build step.
+      **Verified against Next's own printed table** rather than trusted: cart
+      150.9 vs 151, checkout 164.9 vs 165, styleguide 148.1 vs 148, framework
+      floor 102.9 vs 103. **Mutation-checked** — dropping the landing budget to
+      150 exits 1, dropping the chrome budget to 10 raises the chrome failure,
+      both restore clean. A gate nobody has seen fail is not known to work.
+      Two bugs found writing it, both worth recording because both produced a
+      *plausible wrong number* rather than an error: unioning the layout entry
+      into the page entry double-counted a chunk and put every route ~15 KB over
+      (the page entry already contains the shared root files); and including
+      `/_not-found` in the chrome intersection collapsed it to empty, reporting
+      **0.0 KB for a layer that measures 17.0**.
+- [x] **P15.S1 — The new budgets, with sub-budgets that name the culprit.** ✅ 2026-09-08.
+      Landing First Load JS **≤200 KB hard-fail, ≤190 KB warn** (199.7 measured,
+      so this is a freeze, not headroom; 200 KB gz is the common industry ceiling
+      for first-load JS). Landing own code ≤82 KB. Other shop routes ≤180 KB
+      total / ≤48 KB own (checkout at 45.0 is the closest). Framework floor
+      ≤105 KB. Shop chrome ≤20 KB.
+      **Write the reason 600 KB is not on the table into the standards doc** —
+      roughly 1 ms of parse+compile per KB on a mid-tier phone, and this shop's
+      customer is on a mid-tier Android over an Iranian mobile network.
+      Note: every non-landing shop route already passes the number it has always
+      had. The landing is the only route that ever breached §10, and the only one
+      raised here.
+      **A mistake worth keeping:** the first draft of the §10 edit quietly
+      loosened PLP 160→180 and PDP 170→180 to match the landing's bucket. Both
+      already pass their own budgets at 155.0 and 161.0. Raising a budget a route
+      already meets is the exact drift this phase exists to stop — made while
+      writing the thing that prevents it, and caught only by re-reading the
+      measured numbers against the edit. The gate now carries per-route entries
+      for PLP and PDP so the looser bucket cannot silently absorb them again.
+- [x] **P15.S2 — The TBT lever is layout, not bytes.** ✅ 2026-09-08. **TBT 221 → 120 ms median, LCP 1.97 → 1.74 s, the ≤200 ms gate met for the first time.** 692 of ~936 ms across the
+      six long tasks is Style & Layout attributed to the *document*, not to any
+      script chunk. **Capture the Chrome trace the last pass explicitly deferred
+      (its recommendation 2) before touching any code** — element-level
+      Recalculate Style / Layout attribution via CDP through Playwright. The
+      standing hypothesis (eleven absolutely-positioned sprite layers on
+      container-query units forcing container resolution during hydration) is
+      *inferred and unconfirmed*: a hypothesis to test, not a cause to fix.
+      Fixes ranked by cheapness, gated on the trace: (1) `content-visibility:
+      auto` + `contain-intrinsic-size` on below-the-fold sections — the browser
+      skips layout *and* paint off-screen, and P14.S7's `Reveal` wrappers already
+      give the boundaries; (2) `contain: layout paint` on the hero stage so
+      sprite recalcs cannot escape into the document; (3) only if the trace
+      blames `cqw`, resolve the stage's pixel basis once into a CSS variable.
+      **Result: the hypothesis was wrong.** `scripts/trace-hydration.mjs` (CDP,
+      `invalidationTracking` on) attributes every invalidation to a node and a
+      reason, and nothing points at container query units. Two things do: the
+      whole ~10,100px document being laid out before first paint, and the
+      webfont swap relaying out every text node (~109 ms). Fixed with
+      `content-visibility: auto` + measured per-section `contain-intrinsic-size`
+      on every section below the hero — Style + Layout **529 → 292 ms**, dirty
+      objects in the largest pass ~1,145 → ~222. Baseline was rebuilt and
+      re-measured in the same session rather than compared across sessions.
+      **Three things caught by measuring rather than assuming:** one shared
+      `auto 100vh` loaded the document 1,258px too tall and shrank it as the
+      visitor scrolled (per-section values cut that to −434); a `fullPage`
+      capture renders skipped content **blank**, which is P14.S9's all-blank
+      baseline arriving through a new door (harness lifts containment for the
+      capture only — and **all nine baselines then pass unmodified**, proving
+      it changes nothing a visitor sees); and an e2e assertion was reading a
+      `contain-intrinsic-size` placeholder instead of a laid-out height.
+      **Left open for the owner:** `font-display: swap` still costs ~47 ms
+      (down from 109, because containment already skips most of what it
+      relaid out). `next/font`'s metric-adjusted fallback is
+      `local("Arial")`, **which cannot render Persian**, so the adjustment
+      does not apply to this page's text at all, and `adjustFontFallback`
+      accepts only Arial or Times. The fix is `display: "optional"` — no
+      reflow, at the cost of a system Persian font on any visit where the
+      72KB preloaded face misses the ~100 ms block window. That is a visible
+      tradeoff on the typeface chosen at P14.S1, so it is the owner's call.
+- [x] **P15.S3 — First paint that does not lie.** ✅ 2026-09-09, `88ec66b` —
+      **the skeleton and the seam shipped; the loading boundary did not, and
+      that is a finding rather than a shortfall.**
+      The stage was an empty dark plate until `car-stripped` arrived — 20 KB of
+      AVIF, and this page LCP element. It now paints a **410-byte 32×14 WebP of
+      the same render**, inline as a data URI, at the base image exact
+      registration, one stacking level beneath it.
+      **The brief mechanism was wrong and measuring caught it.** "A shimmer
+      plate underneath, retired by the real image painting on top" cannot work
+      on this stage: every hero sprite is a masked cut with a transparent
+      surround, so a *rectangle* under the car is never covered by the car — it
+      stays visible around it, permanently. A low-resolution copy of the same
+      render has no such problem, because its alpha **is** the car alpha. Still
+      zero-JS: no `onLoad`, no mount gate, no timer — the placeholder is retired
+      by being underneath its own replacement. **Nine visual baselines pass
+      unmodified**, which is the proof it leaves no trace.
+      Budget, clean build both sides: floor 102.9 (=), chrome 17.0 (=), landing
+      own 79.8 → **79.9**, first load 199.7 → **199.8** against a 200 hard fail.
+      Zero bytes of client JS. CLS 0.0322 → 0.0322; FCP 816 → 804 ms.
+      **BLOCKED, and left deliberately unwired: `loading.tsx` + the progress
+      bar.** Both are written and tested in `components/loading/`, rendered by
+      no route. A loading boundary is not free in this app, and both costs were
+      measured — then **reproduced independently before the step was accepted**:
+      **(1) On a prerendered route it is a curtain.** With `loading.tsx` at
+      `(shop)/`, Next builds the landing as a streaming shell — `<!--$?-->`, the
+      loader painted, the whole real page inside `<div hidden id="S:0">` revealed
+      by one `$RC()`. **FCP *improves*** (a loader is trivial to paint) **while
+      LCP goes 872 → 1080 ms** — precisely the full-page curtain the owner
+      decision above refuses, and precisely why FCP alone would not catch it.
+      **(2) On a dynamic route it commits the response before the page decides
+      it.** A/B on one build, one session, verified twice:
+      `/vehicle/{bad}` 404→200 · `/c/{bad}` 404→200 · `/p/{bad}` 404→200 ·
+      `/brand/{bad}` 404→200 · `/orders/ABC123` signed out **307 → 200 with a
+      `<meta http-equiv="refresh">`**. Four soft 404s on the routes the
+      catalogue SEO depends on, plus an auth redirect degraded into a timed
+      meta refresh — a live **WCAG 2.2.1** violation that fails this step own
+      axe gate. `e2e/vehicle-make.spec.ts:41` catches the first half.
+      Every dynamic shop route calls `notFound()`/`redirect()` after its await;
+      every static one pays cost 1. **No placement in the shop group is free
+      today**, so none ships. `loading-boundaries.test.ts` fails the moment one
+      is added to a route that has not been fixed first.
+      **A premise that did not survive:** the bar was assumed to need client JS.
+      It does not — the App Router mounts a loading subtree for exactly the
+      interval a navigation is pending, so a CSS animation is the whole
+      mechanism. That mattered: **the chrome layer real headroom was 0.2 KB,
+      not the 3 KB its own budget suggests**, because the landing pays for the
+      chrome too and sits at 199.8 against 200.
+      The HiggsField seam is `WorkshopLoader.tsx` + the `--loader-*` token
+      block: one component, one token set, as the decision asks.
+
+- [ ] **P15.S3b — Unblock the loading boundary.** OWNER CALL, two routes open:
+      **(1)** move the not-found/redirect decision ahead of the flush
+      (`generateMetadata` resolves before Next streams) — five pages plus the
+      auth redirect, its own step, and it fixes the soft-404 class permanently.
+      **(2)** give the bar a client leaf in the chrome instead — needs bytes the
+      landing does not have; recover ≥1 KB first (S0 recorded ~36 KB of
+      unattributed landing code).
+
+
+- [x] **P15.S3c — `display: "optional"`: measured, and HELD.** ✅ 2026-09-09,
+      `e8a0baf`. Owner approved `optional` to remove S2's ~47ms swap relayout.
+      **It is not shipped**, and chasing why 4 of 6 landing baselines failed
+      under it found two defects behind it.
+      **(1) next@15.5.21 emits no font preload on Windows — patched.**
+      `next-font-manifest-plugin.js` tests module requests against a hardcoded
+      `'/next-font-loader/index.js?'`; on Windows `mod.request` is
+      backslash-delimited, so it never matches and `nextFontManifest.app` stays
+      `{}` for every route. Three observables agreed: empty manifest with
+      `appUsingSizeAdjust: false`, zero `as="font"` on every route, and the
+      `-s.p.woff2` on disk proving the loader ran and only attribution failed.
+      `patches/next.patch` normalises separators — a no-op on POSIX. **CI is
+      ubuntu-latest so CI and production never had this**; the patch exists so
+      what we measure here matches what ships, which matters because **CI does
+      not run e2e** (lint/test/build/check:budget only) — the visual baselines
+      execute *only* on this Windows machine.
+      **(2) The preload still never reaches `<head>` — NOT Windows-specific.**
+      With the manifest fixed, Next calls `ReactDOM.preload(href,{as:"font"})`
+      and that lands in the RSC Flight payload as a `:HL[...]` instruction
+      inside an inline script. Verified on a production `/`: **18 `<link>`
+      elements, none of them the font**; the woff2 appears only inside
+      `self.__next_f`. The hint does not exist until the JS bundle loads and
+      React processes the stream. The 11 hero image preloads *are* real
+      `<link>`s because `next/image` renders JSX rather than calling the Float
+      API. **Production very likely has no font preload either.** Not chased
+      further — it means React Float internals.
+      **Why it holds the decision:** `optional` only pays if the face usually
+      wins its ~100ms window. Without a parser-visible preload it does not — the
+      fallback persisted for the whole load in **4 of 6** captures on a *local*
+      server, rewrapping the hero heading 3 lines → 2 and shortening the page
+      **177px (~1.7%)**. That is the common case, not the occasional slow visit,
+      and not the trade that was agreed. Reverting to `swap` restored e2e to
+      **151 passed**, confirming the cause.
+      **Held, not abandoned:** `optional` measured **CLS 0.0322 → 0.0000** (the
+      0.0322 was entirely the swap event) and swap ~50ms → ~10ms. The whole
+      reasoning is written into `apps/web/lib/fonts.ts`. Also shipped: fallback
+      chains now name Persian-capable system faces (Segoe UI, Noto Naskh/Sans
+      Arabic, Geeza Pro) rather than ending at bare `sans-serif` — zero bytes.
+
+- [ ] **P15.S3d — Get a real `<link rel="preload" as="font">` into `<head>`.**
+      OWNER CALL. Unblocks `optional` and its CLS 0.0322 → 0.0000. Options not
+      yet costed: a JSX `<link>` rendered in the layout head (needs the hashed
+      font URL, which `next/font` does not expose — brittle); moving off
+      `next/font/local` to a hand-written `@font-face` + explicit preload (full
+      control, loses the metric-matched fallback); or waiting on upstream.
+
+- [x] **P15.S4 — Name the visitor's car, client-side.** ✅ 2026-09-09, `f11e211`.
+      `SavedCarLead` at `#find-my-part`: «{car} را به گاراژ اضافه کرده‌اید. همان
+      را انتخاب کنید یا کد قطعه را بزنید.» Claims only what the garage entry
+      proves — that they saved it, never that it fits.
+      No `cookies()`, as the step required. **The bytes were already paid for:**
+      `Header.tsx` is shop chrome on every route and has always imported
+      `useGarageStore` + `selectActiveVehicle`, so zustand and the store were in
+      the landing bundle before this step — floor and chrome are byte-identical
+      after.
+      **Hydration safety was verified, not copied.** zustand v5's `persist`
+      overrides `api.getInitialState()` to the pre-rehydration state and
+      `useStore` feeds that to `useSyncExternalStore` as *getServerSnapshot*,
+      which React uses for the SSR render *and* the hydration render — so both
+      emit the generic line. Confirmed in installed `zustand@5.0.14` source;
+      the Header's own comment misdescribes the mechanism.
+      **CLS delta 0.0000**, measured both paths, 5 runs, 360×640 DPR2/4×CPU:
+      generic 0.0322, personalized 0.0329 — and both are identical on the
+      baseline build. The +0.0007 is the **Header's vehicle chip** widening on
+      rehydration (`SPAN.truncate`, 74.6 → 82.7px at t≈2850ms), pre-existing for
+      returning visitors. The hero subheadline was deliberately not attempted.
+
+- [ ] **P15.S4b — Three findings from S4, none of them S4's fault.** Owner's
+      call which are worth a step:
+      **(a) THE LANDING CEILING IS 76 BYTES.** First load 199.926 KB against a
+      200 KB hard fail. The next client leaf of any size on this route fails the
+      gate. Either raise nothing and treat the landing as closed to new client
+      code, or recover bytes first — S0 recorded ~36 KB of unattributed landing
+      code as the place to look.
+      **(b) The garage label carries a Gregorian year in Persian digits** —
+      `VehicleSelector.tsx:86` builds «سایپا پراید ۱۱۱ ۲۰۲۰». «۲۰۲۰» reads oddly
+      beside a Persian car name, and CLAUDE.md §9 says dates display through
+      `formatJalali`. Pre-existing (the header chip says the same), but the new
+      sentence makes it conspicuous where a chip did not.
+      **(c) `CORS_ORIGINS` defaults to `http://localhost:3000` only**
+      (`apps/api/src/config/env.ts:22`). Served on **:3200** — the port
+      `E2E_PORT` and the Lighthouse recipe both use — every client-side vehicle
+      fetch fails CORS and all three selects stay disabled. **The vehicle
+      selector has no live local coverage on the port the harness runs on.**
+      That is a hole in the test environment, not in the product.
+      **(d) Header chip CLS 0.0007** — a `min-w-` floor sized to the longest
+      plausible label would close it.
+
+- [ ] **P15.S5 — `.evidence-code` is two contracts; split it.** `EvidenceCode`
+      (the component) is a 36–45 char verification token that must not wrap, must
+      not bidi-reorder, must stay **whole in the DOM** and truncates only
+      visually — 2 call sites. The bare `.evidence-code` class is a short stamped
+      identifier (`SYS-10`, a model year, the hero callout part code), 4–8 chars,
+      never truncates, wants only bidi isolation + tabular digits — 3 call sites.
+      The truncation machinery is inert on three of five sites today, and P14.S9
+      had to push `tabular-nums` down into the shared class to reach them: that is
+      the class reporting it is two things. Proposal: `.bidi-code` as the
+      primitive, `.evidence-code` extends it with the truncation contract.
+      Riding along: `closing.support.hoursPending` renamed for the honest line it
+      now holds · a `Footer` namespace + wordmark so the tagline has somewhere to
+      live · `WishlistButton`'s `aria-pressed`-with-a-flipping-label (ThemeToggle
+      is the fixed precedent) · the two 32-char trust-strip titles that wrap.
+- [ ] **P15.S6 — Phase 13's tail, folded in.** P13.S11's theme toggle — a real
+      bug: page tokens painted inside a header that is `bg-graphite-950` in
+      **both** themes, so light mode shows a 12.25:1 ring around a 3.38:1 glyph —
+      plus its hardcoded **English** accessible name and missing `aria-pressed`.
+      P13.S12's content defects (duplicate «پیشنهاد ما» names from
+      `?sort=newest&limit=8` returning two templates, `SYS-10`'s name narrower
+      than its own contents, the footer `--`, the fake "hours coming soon") and
+      the اینماد decision above. P13.S13's perf gate, which S0–S2 answer.
+      P13.S14 closes both phases.
+      **RECON 2026-09-09 — this bullet is STALE, verified against the tree at
+      `83d0f98`. Do not rebuild what is already fixed.**
+      **The theme toggle is DONE.** All three claimed defects were fixed by
+      P14.S2: the header follows the theme now (so page tokens describe the
+      ground they sit on, and the glyph takes `text-text`), the accessible name
+      is a Persian `label` prop rather than a hardcoded English string, and
+      `aria-pressed` is present with the stable-name rationale written out in
+      the file. Verify with axe and a screenshot; do not re-implement.
+      **The footer `--` is DONE** — already `·` with the Latin half bidi-isolated
+      (P14.S6 item 8). **The "fake hours" copy is DONE** — `hoursPending` now
+      reads «اگر قطعه‌ای را نداشته باشیم، همان تماس اول می‌گوییم». Only the KEY
+      NAME is still wrong, and that rename belongs to S5.
+      **⚠ TWO OWNER DECISIONS CONFLICT on اینماد / نشان ملی, and this one is
+      NOT being decided without the owner.**
+      *P14.S6 item 8* (owner call, shipped): **remove** the placeholder boxes —
+      "an empty box announcing that a trust seal does not exist yet is a worse
+      trust signal than no box." See the comment in `components/layout/Footer.tsx`.
+      *P15, 2026-09-08* (owner call): **keep** them with «در حال ثبت» as visible
+      text, because it is the only place on `/` claiming something the page
+      cannot prove.
+      The P15 decision was near-certainly made without knowing P14.S6 had
+      already removed them — **there is no اینماد anywhere on `/` now** (Footer,
+      TrustStrip and `fa.json` all checked). Its stated *goal* is therefore
+      already met, and met more completely by removal than by a pending label.
+      **Standing call until the owner says otherwise: do not re-add the boxes.**
+      Re-introducing a dashed "pending registration" placeholder on a trust
+      signal, unasked, is the wrong direction to be wrong in.
+      **Still unverified, check when the tree is free:** the duplicate «پیشنهاد
+      ما» names from `?sort=newest&limit=8` returning two templates, and the
+      `SYS-10` tile name being narrower than its own contents.
+- [ ] **P15.S7 — Write the rules down.** `docs/engineering-standards.md` gains a
+      **Performance budgets** section: the numbers, the three layers, the
+      measurement recipe, "measure before *and* after any step that adds a client
+      leaf", and **a budget that is not a failing check is not a budget**.
+
+### Standing rules this phase adds
+
+- **A budget that is not a failing check is not a budget.** The 180 KB line
+  survived three phases of drift because nothing could fail on it.
+- **Measure before and after any step that adds a client leaf.** P11.S2's 8 KB
+  and P12.S4's 2 KB are the same omission twice.
+- **Trace before you optimise.** 692 ms of layout was nearly answered by shaving
+  4 KB of JavaScript.
+- **A tool that reports a plausible wrong number is worse than one that errors.**
+  Both S0 bugs printed confident, wrong totals. Cross-check any new measurement
+  against a source that already knows the answer — here, Next's own table.
+- **Never relay a subagent's finding as confirmed without verifying it.**
+  Phase 14 cost this twice.
+
+## Phase 13 — the Job Card: narrating the hero — ACTIVE, opened 2026-09-06
+
+Step-level plan of record was **`fableTasks.md` v1.1** (external plan by Fable
+5, reconciled against the repo at `d43a391`). **That file was deleted on
+2026-09-07 at the owner's request**, the same way `fableTasks.md` (Phase 9) and
+`fableTasks2.md` (Phase 12) were — so this section is what the source comments
+citing `fableTasks v1.1 §…` / `P13.Sn` now point at. It is deliberately fuller
+than a checklist: the plan was deleted before the phase closed, so the four
+remaining steps below are specified here rather than merely named.
+
+The premise: the v1 hero animated a car coming apart and never said what came
+off. A part slid 40–80px away and slid back, and nothing told the visitor what
+had detached, that we sell it, or where to click. Phase 13 turns the animation
+into a workshop job card — every detachment gets a name, a system code, a
+reason, and a route into the catalogue.
+
+**The audit that opened the phase was about a third wrong**, and the plan's §0
+checked every finding against the running site before adopting it. Findings
+that did not reproduce — the brand wall, the authenticity SKU ellipsis, "36
+targets under 40px" — were not built against.
+
+### Shipped
+
+| Step | Commit | What |
+|---|---|---|
+| PLAN | `d43a391` | fableTasks v1.1 — audit reconciled, renumbered to Phase 13 |
+| S0 | `35b91a3` | `pnpm shots:hero` scrub harness — 17 points × 2 viewports × 2 themes |
+| S1 | `da46cbf` | `heroScene.ts` — geometry **solved, not typed**; finale packing + tests |
+| S2 | `27f8550` | `cameraRig.ts` — framing derived per chapter (1.35 / 1.125 / 1.098) |
+| S3 | `ee4e8f3` | `PartCallout` (server-rendered) + `StageNarration` client leaf |
+| S4 | `81360ba` | the job card checks in per part; pre-rendered Persian counter |
+| S8 | `064a0be` | finale — crossfade, drift, CTA; the car is whole again at `p=1` |
+| S5 | `c2aabcf` | light / shadow / focus; **captions moved to a fixed stage-space slot** |
+| S7 | `b45d3fd` | restructure: job card inside the pin, manifest renders ONCE, `#find-my-part` |
+| S9 | `159ec42` | OG card rendered from the page, `theme-color`, hreflang, JSON-LD |
+| S10 | `ae4738d`, `523b4e5` | digit policy + locale-file test; section numbering contiguous 01–09 |
+
+**S6 (real copy) was absorbed into S3/S4/S7** — a plate cannot render a missing
+key, so the copy landed with the components that needed it rather than as a
+step of its own.
+
+Two decisions worth keeping:
+
+- **The caption is a fixed slot in stage space, not a label beside the part.**
+  A plate inside the camera is measured in canvas pixels, so the camera scales
+  it: chapter 1 pushes in to 1.35, magnifying the plate 35% exactly where the
+  visible canvas is smallest. The headlights' caption rendered cut in half at
+  the top edge of the stage. No geometry keeps the why-line. The cost is the
+  leader line, and with one part detached at a time and everything else dimmed
+  to 55%, there is only one thing the caption could be describing.
+- **The manifest rendering twice was the entire Phase 12 TBT regression**
+  (130ms → 261ms). It was duplicated because one element cannot be in two grid
+  cells — a sticky panel beside the drawing and a rail under the stage. S7
+  dissolved the conflict by moving the job card inside the pinned block at both
+  breakpoints. Whether that actually recovers the TBT is S13's measurement, and
+  **it is still unmeasured**.
+
+### Open
+
+- [ ] **P13.S11 — Accessibility & interaction quality.** Mostly done.
+      ✅ Footer links padded to `py-2` — they were 22px, under WCAG 2.2 AA's
+      24px minimum (measured; the audit's "36 targets under 40px" used the
+      wrong threshold, and the brand wall at 35px and the closing row at 24px
+      both pass AA). ✅ `StageSteps.tsx` — «قدم بعدی» / «قدم قبلی» keyboard
+      scrubbing, which **scrolls the window and never sets progress directly**,
+      so the scrollbar stays the single source of truth for where the hero is.
+      ✅ `StationOutline.tsx` — an `sr-only` ordered list of the three chapters
+      and their nine stations, derived from `CHAPTER_SEQUENCE` +
+      `calloutSubjectByLayerId` so it cannot describe an animation the page no
+      longer plays. Remaining:
+      - `suppressHydrationWarning` on `<body>` — `cz-shortcut-listen` is a
+        browser-extension attribute, not a bug, and the warning is noise in
+        every screenshot run.
+      - The theme toggle's "empty circle in light mode" — **it is a real bug,
+        and not the one first suspected.** `disabled:opacity-0` hides the whole
+        button, ring included, so the pre-hydration state cannot produce a
+        circle. The cause: the toggle paints page-theme tokens
+        (`border-border text-text-muted`) inside a header that is
+        `bg-graphite-950` in **both** themes. In light mode the ring `#cbd3da`
+        on `#0e1418` is **12.25:1** and the icon `#5c6b78` is **3.38:1** — a
+        bright ring around a near-invisible glyph. Dark mode is fine (icon
+        8.78:1). Confirmed by computing both ratios from `tokens.css`.
+      - The toggle's accessible name is **English** — `"Switch to light theme"`,
+        hardcoded, in no locale file — the same class as the `aria-label="Close"`
+        bug P11.S3 fixed. It also lacks `aria-pressed`, a gap
+        `WishlistButton.tsx:23` already notes.
+      - Accept: Lighthouse a11y stays 100; axe zero serious on the hero in both
+        themes and on the mobile rail; keyboard walk headline → stage CTA with a
+        visible focus ring at every stop, recorded in the commit body.
+- [ ] **P13.S12 — Content defects.** Only the items the plan's §0 confirmed —
+      **not** the brand wall (shipped P12.S12, already a 15-brand marquee) and
+      **not** the authenticity SKU (shipped P12.S10; the ellipsis is CSS and the
+      full code is in the DOM).
+      - «پیشنهاد ما» shows duplicate names. The seed makes one product per
+        template per brand, and `fetchFeaturedProducts` asks
+        `?sort=newest&limit=8`, which returns two templates. De-duplicate by
+        template **in the fetcher** — there is no `?featured=true`, and if
+        de-duplication needs API support that is a `BLOCKED:` block naming the
+        endpoint, not an invented query param.
+      - `SYS-10`'s Persian name «فیلتر و روغن» is narrower than its own contents
+        (it holds antifreeze and brake fluid) and than its English «Filters &
+        Fluids». Rename to cover fluids — a `packages/schemas` change, so check
+        every consumer.
+      - Footer `پارسیان -- Ash Tech Group` → « · » or an en-dash.
+      - «ساعات پاسخگویی به‌زودی اعلام می‌شود» — real hours, or delete the line.
+      - اینماد / نشان ملی — **owner call.** If they stay, "pending registration"
+        must be legible on screen, not only in an `aria-label`.
+      - Section numbering is already done (S10).
+      - Accept: no repeated product name in «پیشنهاد ما»; no visible placeholder
+        on `/` that is not labelled as pending.
+- [ ] **P13.S13 — Performance gate.** The point of the phase, and **not yet
+      re-measured.** Route JS is 197 KB against a ≤193 KB gate; TBT was 261ms
+      against a ≤200ms gate, and S7's single-render manifest is the intended
+      fix. Other gates, with the P12-close numbers: `motion` chunk ≤45 KB
+      (39.9), LCP ≤2.0s (1.65), CLS ≤0.05 (0.034), Lighthouse perf ≥90 (94),
+      a11y 100, SEO 100.
+      Also: preload only the base and the three station-1 sprites; no new image
+      files (glow and rim-light reuse the same `src`); assert the **attribute-write
+      budget** — `data-shown` / `data-active` / `data-checked` / `data-highlight`,
+      **≤12 changes per value across the whole track** (there is no `activePart`
+      identifier; `StageNarration.tsx`'s own comment states the budget); take route JS from the build's own
+      route-size output — **there is no `pnpm analyze`**. The measurement recipe
+      is in `docs/performance-landing.md` — production build, `next start` on an
+      explicit port, `NEXT_PUBLIC_SITE_URL` set to that origin, Lighthouse
+      mobile 360×640 DPR 2, `--throttling-method=devtools`, five runs, median,
+      and measure `/` never `/fa`. If TBT is still over after S7, **say so with
+      the attribution breakdown** — a regression that is measured and named is a
+      finding; one quietly omitted is a defect the next phase inherits.
+- [ ] **P13.S14 — Close the phase.** Update
+      `docs/landing-hero-sprite-brief.md` to record that `anchor`, `labelSide`
+      and `finale` are **derived, not authored** — P13.S1 deliberately solved
+      them rather than storing three hand-written fields per sprite
+      (`heroScene.ts` header: "a number that can be computed is computed").
+      fableTasks v1.1 asked for the opposite and this checklist inherited the
+      ask without reconciling it against the step that shipped; the brief
+      currently contains none of the three words. Append the closing measurement to `docs/performance-landing.md` in
+      the P12.S13 block's format. Then mark this section SHIPPED.
+
+### Phase 13 — deferrals to log at close
+
+Engine-bay depth pass (a second stripped base with the bay shadowed, for
+hood-open frames) · light-theme stage variant · English locale return · real
+brand badge assets · product-image pipeline for best-sellers · `?v=`
+slugification · Gate C's catalogue sub-category question · the classic-coupé
+artwork in the interstitial and the authenticity video · no `/c` index route.
 
 ## Phase 9 — Content, SEO, hardening
 
 - [ ] Blog + guides (lead with counterfeit-identification content)
 - [ ] Full JSON-LD coverage
 - [ ] Sitemap splitting
-- [ ] Meilisearch swap behind `SearchProvider` (currently Mongo-backed)
+- [ ] Meilisearch swap behind `SearchProvider` (now PostgreSQL full-text, P10.S8 — still worth revisiting if Persian ranking needs a real analyzer)
 - [ ] Redis for rate limiting + token revocation
 - [ ] Caching & ISR strategy
 - [ ] Error tracking (Sentry or equivalent)
@@ -927,96 +2222,98 @@ that update should be a no-op; the note exists so nobody relaxes to 2.1.
 
 Re-check the cited sections yearly — they are the parts most likely to go stale.
 
-## ACTIVE — migrate MongoDB → PostgreSQL + Prisma
+## DONE — migrate MongoDB → PostgreSQL + Prisma (finished 2026-08-28)
 
-**Promoted from deferred 2026-08-26** at the owner's direction, right after the
-P9 tail. Three decisions confirmed the same day:
+Adopted 2026-08-26, finished 2026-08-28 in steps P10.S9–S20. Three decisions
+made at the start held throughout:
 
 1. **UUID v7 primary keys.** Time-ordered so they index and paginate like a
-   sequence while staying globally unique. Breaks the 24-hex `ObjectId` shape
-   that **30 files** across the monorepo assert — which is exactly why now: the
-   database is empty, there is no production data, and the format will never be
-   cheaper to change. `packages/schemas` gets one shared `id` schema so those 30
-   files each become a one-line edit.
+   sequence while staying globally unique.
 2. **Phased, app green throughout.** Not a big-bang cutover.
 3. **Reference data seeded, no products.** Provinces/cities, Saipa and Iran
-   Khodro makes/models/generations/engines, catalog systems, shipping rates and
-   a superadmin. Zero products, orders, customers, carts, reviews or payments.
+   Khodro vehicle tree, catalog systems, shipping rates and a superadmin.
 
-Measured surface: **289 API TypeScript files** (80 of them tests), **22 models**,
-**20 modules**, 30 files hard-coding the id format.
+Final state: **no Mongoose anywhere.** `src/models/` is gone, so are
+`config/db.ts`, `config/testDbUri.ts`, the sanitize middleware, and both
+`mongoose` and `express-mongo-sanitize`. 58 API test files, 511 tests; 74
+files and 621 tests across the monorepo, all passing, with `pnpm lint`,
+`pnpm typecheck` and a full `pnpm build` clean.
 
-### Phase 1 — infra and schema (in progress)
+### Bugs this actually found
 
-- [x] **Prisma installed, CLI and client both pinned to 7.10.0.** `npx prisma`
-      resolves `8.0.0-rc.12` from the registry — a release candidate, and a
-      major ahead of the client. Always invoke it through the workspace
-      (`pnpm --filter api exec prisma`), never `npx`.
-- [x] **`apps/api/prisma/schema.prisma`** — all 22 models, validating. The
-      shape decisions, written up in the file header: embedded documents become
-      real tables (`Product.variants`, `User.addresses`, `Order.items`) because
-      that is what makes them queryable and constrainable; genuinely
-      unstructured payloads stay `Json` (`Payment.raw`, `AuditLog.before/after`,
-      `Coupon.scope`); `LocalizedName` becomes two columns rather than a blob;
-      enums become real Postgres enums, so the database refuses a bad value
-      instead of trusting a write-time validator.
-- [x] **`apps/api/prisma.config.ts`** — Prisma 7 removed `datasource.url` from
-      the schema. Migrate reads the URL from this file; the client takes a
-      driver adapter instead of a URL string.
-- [x] **`DATABASE_URL`** added to `apps/api/.env` (generated password, never
-      committed) and to the env schema as **optional** — both databases coexist
-      through phase 2, so a developer without the Postgres role yet must still
-      be able to boot the API on Mongo. It becomes required in phase 3.
-- [x] **`pnpm db:setup`** (`scripts/setup-postgres.mjs`) — creates the role and
-      database idempotently. It prompts for the *superuser* password in the
-      operator's own terminal and never reads or logs it; the application
-      role's password is read from `.env` and passed to `psql` as a bound
-      variable, so it cannot reach shell history or a query log.
-- [x] **`postgres:18` added to compose.yaml** for a fresh clone. On this
-      machine it is not what runs: **PostgreSQL 18.2 is already installed
-      natively** on port 5432 and `pnpm db:setup` targets that, because Docker
-      is not running here and the mongo image cannot start on this kernel.
-- [ ] **BLOCKED — the owner must run `pnpm db:setup` once.** `pg_hba.conf` is
-      `scram-sha-256` for every local connection, so creating the role needs the
-      PostgreSQL superuser password. That is the owner's to type, not mine to
-      guess, and editing `pg_hba.conf` to `trust` would be a security downgrade
-      of their machine made without asking.
-- [ ] **First migration** — `prisma migrate dev --name init`, after the above.
-- [ ] **Port the seeds** to Prisma: geo, vehicles, catalog systems, shipping
-      rates, staff. Cannot be written against a database that does not exist
-      yet, so it follows the migration.
+Worth reading before the next schema change: every one of these was silent,
+and most were introduced by the translation itself rather than found in the
+old code.
 
-### Phase 2 — swap the data layer, one module at a time
+- **28 test files could not even be imported.** The P10.S5 codemod wrote
+  `../../../config/testDb.js` regardless of a file's depth. Vitest reports
+  that as a failed *suite*, not a failed test — a run looked like 56 red
+  files with 4 red assertions, and the other 52 never executed a line. The
+  same codemod also replaced auditLog.test.ts's own `listen` with
+  `startTestServer()`, which boots the real app, so every route it tested
+  404'd.
+- **Engine displacement was truncating.** Litres (1.3) into an `Int`
+  column: every seeded engine stored 1. Nothing failed — the seed is in
+  litres, the wire schema accepts any number, PostgreSQL truncates.
+- **The catalog seed was not idempotent.** It pairs templates with
+  `flatModels[i % length]` and that query had no `orderBy`; PostgreSQL
+  returned a different order on the second run, so 320 products became 640.
+  Mongo's natural `_id` order was stable by accident.
+- **Cart identity lost its uniqueness.** Mongo had a sparse unique index on
+  `userId`/`anonId`; the schema translation made it a plain index, so "one
+  cart per identity" was something the code hoped for. Restored as nullable
+  uniques (migration 20260828204500).
+- **Shipping bands had a unique they cannot have.** A plain unique counts
+  tombstoned rows, so deleting a band made it uncreatable forever. Dropped
+  for a plain index; `assertNoOverlap` is stricter anyway (20260828205500).
+- **The duplicate-key handler stopped working.** middleware/error.ts still
+  matched Mongo's `{ code: 11000 }`, so every unique-constraint violation in
+  the app answered 500 instead of 400 from the first migrated module onward.
+- **Two id validators were missed by the UUID sweep**, both in
+  modules/feedback, because they spelled the 24-hex regex out inline
+  instead of importing the shared schema. Every moderation call would have
+  been rejected with a 400. `packages/schemas`' own vehicleKey test had the
+  same problem and had been failing unnoticed.
+- **`verifyOtp` counted failed attempts with read-modify-write**, so two
+  racing attempts could each read the same value and let a sixth try
+  through the five-try lockout. Now `increment`.
 
-20 modules, suite green at every step. Suggested order, dependencies first:
-geo → vehicles → catalog → fitment → auth/users → cart → checkout/orders →
-payments → coupons → shipping → inventory → wishlist → feedback → audit →
-reports/dashboard.
+### What the move bought
 
-**The single biggest correctness risk, flagged now:** Mongoose's soft-delete
-plugin *silently* filtered `deletedAt: null` in a `pre(/^(find|countDocuments)/)`
-hook, so **every query in the app is written assuming that filter exists and
-none of them say so.** Prisma has no equivalent hook. Every read has to add
-`deletedAt: null` explicitly, and a missed one silently resurrects deleted rows
-rather than failing. Consider a Prisma client extension to re-impose it centrally
-rather than trusting 20 modules of hand-editing.
+- **Real transactions.** `adjustStock` used to carry a comment admitting
+  its audit row could be lost, because multi-document transactions need a
+  replica set and this project's MongoDB was not one. Stock+audit,
+  reservation+decrement, order+payment, and payment settlement
+  (payment+status+history) are each one transaction now.
+- **Referential integrity.** A fitment can no longer name a make that does
+  not exist; an order line cannot point at a deleted product. Most of the
+  test-fixture churn in P10.S19 was exactly this being enforced.
+- **Two column-to-column comparisons** (`usedCount < usageLimit`,
+  `stock <= lowStockAt`) became field references instead of `$expr`, and
+  every hand-escaped `$regex` became a bound `contains`/`startsWith`.
 
-Second risk: **two Mongo TTL indexes have no Postgres equivalent** —
-`OtpToken.expiresAt` and `StockReservation.expiresAt` both expired rows
-automatically. Postgres will not, so the existing cron jobs must take over the
-sweep or expired OTPs and stale reservations accumulate forever.
+### Things to know when working on this
 
-Third: **search**. `Product.searchText` is derived on write and read by the
-Mongo-backed `SearchProvider`. Postgres wants `tsvector` + GIN, which changes
-both the derive hook and the read path. Decide the order against the separate
-open task to swap in Meilisearch behind the same interface — doing both at once
-is one rewrite instead of two.
-
-### Phase 3 — remove Mongo
-
-Delete `src/models/`, drop `mongoose` and `express-mongo-sanitize`, remove the
-mongo service from compose, make `DATABASE_URL` required, retire
-`scripts/dev-db.mjs`'s Mongo branch, and update `docs/db-indexes.md`.
+- **The generated-column false drift.** `prisma migrate diff` emits
+  `ALTER TABLE "Product" ALTER COLUMN "searchVector" DROP DEFAULT;` on
+  every diff, forever. That statement fails (42601). Delete it from any
+  generated migration before applying. It is the only false drift.
+- **Hyphenated enum values.** A Prisma enum member cannot contain a hyphen,
+  so `CatalogSystemCode`, `SupplyRoute` and `InventoryMoveReason` are
+  `@map`ped and `utils/serialize.ts` is the only bridge. The failure mode is
+  silent: the database stores one spelling, the app speaks the other, and
+  nothing type-errors.
+- **The soft-delete extension does not reach nested reads.** Every
+  `include`/`select` of a soft-deletable relation states `deletedAt` itself.
+  Sometimes that blind spot is what you want (the admin fitment table wants
+  to show a deleted generation's name); usually it is not.
+- **Two aggregations are raw SQL** — revenue per day and revenue per
+  product — because both group by an expression. The extension cannot see
+  into `$queryRaw`, so those two spell `"deletedAt" IS NULL` out themselves.
+- **`pnpm test` prints a pg deprecation warning** ("Calling client.query()
+  when the client is already executing a query"). It comes from the driver
+  adapter, results are correct, and it is worth revisiting when `pg@9`
+  lands rather than chasing now.
 
 ## Superseded — the original deferred note
 

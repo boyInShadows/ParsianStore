@@ -1,41 +1,40 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
-import mongoose, { Schema } from "mongoose";
-import { testDbUri } from "../config/testDbUri.js";
+import { prisma } from "../config/prisma.js";
+import { disconnectDB, resetDb } from "../config/testDb.js";
+import { seedProduct } from "../test/factories.js";
 import { cursorPaginate } from "./cursorPaginate.js";
 
-const TEST_URI = testDbUri("parsian-store-test-cursor-paginate");
+/**
+ * Products, not a throwaway model.
+ *
+ * Mongoose let a test register an ad-hoc schema at runtime; Prisma's client
+ * is generated from schema.prisma, so a fixture has to be a table that
+ * actually exists. Product is the right one anyway -- it is the only thing
+ * this helper is used for in the app (the PLP's cursor-paged grid), and it
+ * has both a numeric sort field and a timestamp.
+ */
+const Widget = prisma.product;
 
-interface Widget {
-  name: string;
-  priceRial: number;
-  createdAt: Date;
+async function seedWidget(name: string, priceRial: number) {
+  return seedProduct({ nameFa: name, nameEn: name, priceRial });
 }
 
-type WidgetModel = mongoose.Model<Widget>;
-let Widget: WidgetModel;
-
 beforeAll(async () => {
-  await mongoose.connect(TEST_URI);
-  const schema = new Schema<Widget, WidgetModel>(
-    { name: { type: String, required: true }, priceRial: { type: Number, required: true } },
-    { timestamps: true },
-  );
-  Widget = mongoose.model<Widget, WidgetModel>("CursorWidget", schema);
+  await resetDb();
 });
 
 beforeEach(async () => {
-  await Widget.deleteMany({});
+  await resetDb();
 });
 
 afterAll(async () => {
-  await mongoose.connection.dropDatabase();
-  await mongoose.disconnect();
+  await disconnectDB();
 });
 
 describe("cursorPaginate", () => {
   it("pages through ascending numeric sort without skipping or duplicating", async () => {
     for (let i = 1; i <= 5; i += 1) {
-      await Widget.create({ name: `w${i}`, priceRial: i * 100 });
+      await seedWidget(`w${i}`, i * 100);
     }
 
     const page1 = await cursorPaginate(
@@ -82,7 +81,7 @@ describe("cursorPaginate", () => {
 
   it("stays stable when a row is inserted ahead of the cursor between pages", async () => {
     for (let i = 1; i <= 3; i += 1) {
-      await Widget.create({ name: `w${i}`, priceRial: i * 100 });
+      await seedWidget(`w${i}`, i * 100);
     }
 
     const page1 = await cursorPaginate(
@@ -101,7 +100,7 @@ describe("cursorPaginate", () => {
     // Insert a row that would land on "page 1" under skip/limit, then
     // fetch "page 2" via the cursor already handed out for page 1 — a
     // correct cursor implementation must not re-show or skip anything.
-    await Widget.create({ name: "inserted", priceRial: 150 });
+    await seedWidget("inserted", 150);
 
     const page2 = await cursorPaginate(
       Widget,
@@ -117,10 +116,10 @@ describe("cursorPaginate", () => {
     expect(page2.data.map((w) => w.priceRial)).toEqual([300]);
   });
 
-  it("uses _id as a tiebreaker when the sort field has duplicate values", async () => {
-    const a = await Widget.create({ name: "a", priceRial: 100 });
-    const b = await Widget.create({ name: "b", priceRial: 100 });
-    const c = await Widget.create({ name: "c", priceRial: 100 });
+  it("uses the id as a tiebreaker when the sort field has duplicate values", async () => {
+    const a = await seedWidget("a", 100);
+    const b = await seedWidget("b", 100);
+    const c = await seedWidget("c", 100);
     const orderedIds = [a, b, c].map((w) => w.id).sort();
 
     const page1 = await cursorPaginate(
@@ -151,7 +150,7 @@ describe("cursorPaginate", () => {
 
   it("pages through a Date sort field (createdAt) correctly", async () => {
     for (let i = 1; i <= 3; i += 1) {
-      await Widget.create({ name: `w${i}`, priceRial: i });
+      await seedWidget(`w${i}`, i);
       await new Promise((resolve) => setTimeout(resolve, 5));
     }
 
@@ -166,7 +165,7 @@ describe("cursorPaginate", () => {
         limit: 2,
       },
     );
-    expect(page1.data.map((w) => w.name)).toEqual(["w3", "w2"]);
+    expect(page1.data.map((w) => w.nameFa)).toEqual(["w3", "w2"]);
 
     const page2 = await cursorPaginate(
       Widget,
@@ -179,7 +178,7 @@ describe("cursorPaginate", () => {
         limit: 2,
       },
     );
-    expect(page2.data.map((w) => w.name)).toEqual(["w1"]);
+    expect(page2.data.map((w) => w.nameFa)).toEqual(["w1"]);
   });
 
   it("rejects a malformed cursor with an ApiError", async () => {

@@ -6,6 +6,14 @@ type Props = {
   open: boolean;
   onClose: () => void;
   title: string;
+  /**
+   * The close button's accessible name. Defaults to Persian, and that is the
+   * fix rather than the feature: it was hardcoded `aria-label="Close"`, so a
+   * Persian screen reader announced one English word in the middle of an
+   * otherwise Persian dialog. An aria-label is user-facing text and falls
+   * under CLAUDE.md rule 4 like any other string.
+   */
+  closeLabel?: string;
   children: ReactNode;
 };
 
@@ -13,7 +21,7 @@ type Props = {
 // correct focus trap, Escape-to-close, and top-layer stacking for free,
 // which a hand-rolled implementation would have to reimplement and could
 // get wrong (masterPlan.md §10 accessibility floor).
-export function Modal({ open, onClose, title, children }: Props) {
+export function Modal({ open, onClose, title, closeLabel = "بستن پنجره", children }: Props) {
   const dialogRef = useRef<HTMLDialogElement>(null);
   const titleId = useId();
 
@@ -51,7 +59,7 @@ export function Modal({ open, onClose, title, children }: Props) {
         <button
           type="button"
           onClick={onClose}
-          aria-label="Close"
+          aria-label={closeLabel}
           className="rounded-md p-1 text-text-muted hover:text-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus"
         >
           <CloseIcon />

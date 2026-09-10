@@ -1,6 +1,8 @@
 import { getTranslations } from "next-intl/server";
+import { toPersianDigits } from "schemas";
 import { fetchVehicleTreeWithGenerationsSafe } from "@/lib/fetchers/vehicles";
 import { Reveal } from "@/components/motion";
+import { Disclosure } from "@/components/primitives/Disclosure";
 
 // masterPlan.md §5 item 08: "Saipa and Iran Khodro only ... no other makes, no
 // imports." The real seeded vehicle tree already has only these two makes
@@ -33,15 +35,33 @@ export async function ShopByVehicle() {
     >
       <Reveal className="flex flex-col gap-2">
         <p className="font-mono text-data text-text-muted">{t("code")}</p>
-        <h2 id="shop-by-vehicle-heading" className="font-display text-h2 font-black text-text">
+        <h2 id="shop-by-vehicle-heading" className="font-display text-h2 font-bold text-text">
           {t("title")}
         </h2>
         <p className="max-w-2xl text-body text-text-muted">{t("subtitle")}</p>
       </Reveal>
-      <div className="mt-6 grid grid-cols-1 gap-6 sm:grid-cols-2">
-        {tree.map(({ make, models }) => (
-          <div key={make.id} className="rounded-lg border border-border bg-surface p-4">
-            <h3 className="font-display text-h3 font-black text-text">{make.name.fa}</h3>
+      {/* An accordion on a phone, two open cards from `sm` (P14.S6 item 5).
+          Between them the two makes carry 23 models; at 48px a row that is
+          ~700px of links stacked under a heading, which is most of a phone
+          screen spent on a list the visitor has not asked to read yet. Saipa
+          is open by default -- it is the larger catalogue and the first card.
+
+          The mechanism is `Disclosure`'s checkbox, not `<details>`: a
+          `<details>` closed at prerender time cannot be re-opened by the `sm`
+          media query on any engine older than `::details-content`, which would
+          ship a permanently half-collapsed desktop section. See
+          components/primitives/Disclosure.tsx. */}
+      <Reveal stagger className="mt-6 grid grid-cols-1 gap-6 sm:grid-cols-2">
+        {tree.map(({ make, models }, makeIndex) => (
+          <Disclosure
+            key={make.id}
+            id={`shop-by-vehicle-${make.slug}`}
+            title={make.name.fa}
+            as="h3"
+            defaultOpen={makeIndex === 0}
+            titleClassName="font-display text-h3 font-bold text-text"
+            className="rounded-lg border border-border bg-surface p-4"
+          >
             <ul className="mt-3 grid grid-cols-2 gap-2">
               {models.map(({ model, generations }) => {
                 const newest = generations[0];
@@ -53,8 +73,15 @@ export async function ShopByVehicle() {
                         className="flex min-h-12 items-center justify-between gap-2 text-body-sm text-text-muted transition-colors hover:text-brand focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus motion-reduce:transition-none"
                       >
                         <span>{model.name.fa}</span>
-                        <span className="font-mono text-caption text-text-muted">
-                          {newest.yearFrom}
+                        {/* Persian digits, and isolated (P13.S10). A year is a
+                            quantity in a Persian sentence, not a code, so the
+                            digit policy puts it in Persian numerals -- it was
+                            rendering "2007" beside «تیبا» while the header chip
+                            two sections up said «۲۰۲۰», which is the same page
+                            answering one question two ways. The href keeps the
+                            Latin year: that is a route segment, not copy. */}
+                        <span className="evidence-code font-mono text-caption text-text-muted">
+                          {toPersianDigits(String(newest.yearFrom))}
                         </span>
                       </a>
                     ) : (
@@ -66,9 +93,9 @@ export async function ShopByVehicle() {
                 );
               })}
             </ul>
-          </div>
+          </Disclosure>
         ))}
-      </div>
+      </Reveal>
     </section>
   );
 }
