@@ -1964,8 +1964,11 @@ A per-route total can never say *who* grew; these three layers can.
       **(d) Header chip CLS 0.0007** — a `min-w-` floor sized to the longest
       plausible label would close it.
 
-- [ ] **P15.S5 — `.evidence-code` is two contracts; split it.** `EvidenceCode`
-      (the component) is a 36–45 char verification token that must not wrap, must
+- [x] **P15.S5 — `.evidence-code` is two contracts; split it.** ✅ 2026-09-14.
+      **Shipped: the split, the three riders, and four defects none of the
+      riders described.** The original scope is kept below, then what it cost.
+
+      `EvidenceCode` (the component) is a 36–45 char verification token that must not wrap, must
       not bidi-reorder, must stay **whole in the DOM** and truncates only
       visually — 2 call sites. The bare `.evidence-code` class is a short stamped
       identifier (`SYS-10`, a model year, the hero callout part code), 4–8 chars,
@@ -1978,6 +1981,118 @@ A per-route total can never say *who* grew; these three layers can.
       now holds · a `Footer` namespace + wordmark so the tagline has somewhere to
       live · `WishlistButton`'s `aria-pressed`-with-a-flipping-label (ThemeToggle
       is the fixed precedent) · the two 32-char trust-strip titles that wrap.
+
+      **What shipped.** `.bidi-code` is the primitive (isolation + tabular
+      figures); `.evidence-code` is the truncation contract and belongs to the
+      36–45 char token alone. The four utilities that used to spell truncation
+      out on the component (`inline-block max-w-full truncate align-bottom`) are
+      declarations in `globals.css` now, where the contract is stated.
+      `EvidenceCode.contract.test.tsx` is new — 9 source-level assertions that
+      fail if the classes merge back or a second call site hand-writes the token
+      class; `e2e/landing-sections.spec.ts` pins the same contracts as *computed
+      style* in a browser, because a stylesheet can say `text-overflow: ellipsis`
+      and clip nothing without `overflow: hidden` on a line that cannot wrap.
+      Neither test can replace the other.
+      Riders: `hoursPending` → `ifWeDontHaveIt` · a real `Footer` namespace plus
+      a wordmark/tagline lockup, so a five-column index of links no longer ends
+      on a copyright notice and the site signs its own name ·
+      **`WishlistButton`'s name is stable now** — `{add, remove}` collapsed to
+      one `name`, «علاقه‌مندی» singular. The plural is the account-nav *link* to
+      `/wishlist`; reusing it would make a toggle and a navigation
+      indistinguishable in a screen reader's control list. It had announced
+      «حذف از علاقه‌مندی‌ها، دکمه، فشرده» — "pressed" confirming the opposite of
+      the name. ThemeToggle's P14.S2 fix was the precedent, and the comment in
+      the file claiming ThemeToggle *lacked* `aria-pressed` was stale.
+      **Zero bytes:** landing first load **199.926 kB before and after**, to
+      three decimals — the Footer work is server-side, so twelve new `fa.json`
+      keys never reach the client. The 76-byte headroom is intact.
+
+      **The trust-strip rider was wrong in every particular, and measuring it
+      found a worse bug.** The note said "two 32-char titles will likely wrap on
+      the desktop four-column row". Measured on a production build, counting
+      *line boxes* with a Range over the text node: desktop is fine at every
+      width. **Three of four wrap at 768px and one at 1024px** — the strip goes
+      four-up at `sm` (640px), where a title gets 184px, **less than the 358px a
+      390px phone gives it**. Owner chose the layout fix over cutting copy:
+      1 col / 2 cols 640–1279 / 4 cols at 1280+.
+      *Worth a line in `docs/voice.md`:* its "~35 characters, one line" rule is
+      written against a 390px phone, so it could never have caught a component
+      whose worst case is a multi-column tablet row. The phone is not always the
+      narrowest column.
+      **The worse bug: `divide-x` is PHYSICAL.** It sets `border-left-width` on
+      `& > * + *`, and under `dir="rtl"` the first child is the *rightmost*.
+      Measured at 1440px, the three hairlines sat between claims 2|3 and 3|4 and
+      **hanging off the band's outer edge, with 1|2 unruled** — in the one
+      section whose whole visual identity is §5-02's "hairline-separated". The
+      file's own comment claimed `divide` "handles both writing directions". It
+      does not. Per-cell logical `border-s` / `border-t` now: one rule per
+      interior gap, none at a band edge. Four new e2e tests pin the line counts
+      at 390/768/1024/1440 **and** the row counts, because "no title wraps"
+      alone could be satisfied by cutting the copy. Proven to fail against the
+      pre-fix build first.
+
+      **The visual baselines were pinned to a transient — not stale, not
+      flaky.** Nine `landing.spec.ts` captures failed. The only region differing
+      above the footer was the hero, ~404,596 px at 1440 — and this step never
+      touched the hero. `settleForCapture` walks the page, scrolls back to 0 and
+      shoots *while the hero's scroll spring is still relaxing*, so the baseline
+      held beat «۱ از ۹» with a callout plate up, at a scroll position where a
+      visitor sees «۰ از ۹» and a whole car. S5's +82px footer changed the walk
+      and moved where the spring had got to. **Attributed rather than assumed:**
+      two runs produced byte-identical PNGs (deterministic, not flaky), and
+      stashing the work and building HEAD made the old baseline pass — so the
+      height change, not the hero, was the cause. The capture now waits on the
+      hero's own rest signal (`[data-station="0"][data-shown]` present, no
+      `.hero-callout[data-shown]`) and **fails loudly** if it never settles.
+      Any future change to the page's height would have flipped these nine the
+      same way, presenting every time as a hero regression.
+      **Also: `maxDiffPixelRatio: 0.01` on a ~15M-pixel full-page capture is
+      ~151k pixels of slack.** The trust-strip hairline move passed unnoticed
+      inside it, and `--update-snapshots` defaults to `changed` — it will NOT
+      rewrite a passing-but-different baseline. `--update-snapshots=all` is what
+      makes a baseline hold the truth rather than a near-miss.
+
+      **A Windows-only test defect, surfaced by this session's own tooling.**
+      `motion-system.test.tsx` asserted a literal `\n` between a selector and
+      its declaration. This repo has **`core.autocrlf=true` and no
+      `.gitattributes`**, so any git checkout on Windows — clone, branch switch,
+      stash pop — rewrites the working copy to CRLF and the literal stops
+      matching. CI is `ubuntu-latest`, so **CI has never seen it**; same shape as
+      the `next/font` Windows bug. A sibling in the same file was worse and did
+      not fail: `guard.indexOf("\n  }\n")` returns `-1` under CRLF, and
+      `slice(0, -1)` silently made "the rule body" almost the whole remaining
+      file, so its assertions passed against the wrong string. Both tolerate
+      `\r?\n` now, and the second asserts its match exists rather than falling
+      back to `-1`. Each was proven by breaking the CSS it describes and
+      watching it go red.
+
+      **Verified, all of it by running:** `pnpm lint` clean · `tsc` web + api
+      clean · **779/779 unit** · **155 e2e across 9 suites** (landing 18,
+      landing-sections 49, landing-hero 45, smoke/header-overlays/info-pages 18,
+      layout-shell-a11y/styleguide-a11y/vehicle-make 25) · `pnpm build` clean ·
+      `pnpm check:budget` landing 199.9 kB / own 80.0, floor 102.8, chrome 17.1,
+      no gate breached.
+
+      **Left open, deliberately, for the owner:**
+      **(a) The 60ms `Reveal` stagger is inert page-wide.** In `globals.css`,
+      `:root[data-reveal-armed] [data-reveal-stagger] > *` (specificity 0,3,0)
+      sets the `transition` **shorthand**, which resets `transition-delay` to
+      `0s`; the `nth-child` delay rules are only (0,2,0) and lose regardless of
+      source order. With the attribute present all four delays read `0s`; remove
+      it and they snap back to `0s / .06 / .12 / .18`. Affects **every**
+      staggered list on the page. Pre-existing, found while checking the stagger
+      survived the flex→grid switch. A one-line fix, but it changes motion
+      across the whole landing, so it is not being slipped into this step.
+      **(b) No `.gitattributes`.** The root cause behind the CRLF defect is
+      unfixed — the assertions were hardened, the repo's line-ending policy was
+      not. Adding one renormalises every file in the tree: its own step, its own
+      diff, not a rider.
+      **(c) `turbo`'s build cache served a build from a different working-tree
+      state.** With the work stashed at HEAD, `pnpm build` printed `FULL TURBO`
+      in 230ms and left a `.next` containing the stashed code. Every measurement
+      taken through `pnpm build` inherits that risk; `cd apps/web &&
+      ./node_modules/.bin/next build` is the honest path when the number
+      matters. Worth settling before the next perf step trusts a cached build.
 - [ ] **P15.S6 — Phase 13's tail, folded in.** P13.S11's theme toggle — a real
       bug: page tokens painted inside a header that is `bg-graphite-950` in
       **both** themes, so light mode shows a 12.25:1 ring around a 3.38:1 glyph —
