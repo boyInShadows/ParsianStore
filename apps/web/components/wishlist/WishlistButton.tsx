@@ -8,8 +8,10 @@ import { addToWishlist, removeFromWishlist } from "@/lib/fetchers/wishlist";
 import { useToastStore } from "@/stores/toast-store";
 
 export interface WishlistButtonMessages {
-  add: string;
-  remove: string;
+  /** The button's accessible name. STABLE -- it names the feature
+   *  ("wishlist"), never the next action; `aria-pressed` is what says
+   *  whether the feature is on for this product. See the note below. */
+  name: string;
   error: string;
 }
 
@@ -19,9 +21,16 @@ type Props = {
   className?: string;
 };
 
-// aria-pressed is the WCAG-correct pattern for a true toggle button --
-// ThemeToggle (the closest precedent in this codebase) doesn't use it,
-// but that's a gap in existing code, not a reason to repeat it here.
+// A toggle button reports its state through aria-pressed, so its accessible
+// name must stay FIXED and name the feature -- the way a Mute button stays
+// "Mute" whether or not sound is muted. This used to pair aria-pressed with
+// a name that flipped between «افزودن به علاقه‌مندی‌ها» and «حذف از
+// علاقه‌مندی‌ها»: when saved, a screen reader announced "remove from
+// wishlist, button, pressed" -- "pressed" appearing to confirm the opposite
+// of what the name said. ThemeToggle (apps/web/components/theme/theme-toggle.tsx)
+// hit the identical bug and was fixed at P14.S2; this follows the same
+// pattern -- one stable name, «علاقه‌مندی», with aria-pressed carrying the
+// per-product state below.
 export function WishlistButton({ productId, messages, className = "" }: Props) {
   const router = useRouter();
   const pathname = usePathname();
@@ -67,8 +76,10 @@ export function WishlistButton({ productId, messages, className = "" }: Props) {
     <button
       type="button"
       onClick={(event) => void handleClick(event)}
+      aria-label={messages.name}
+      // The name above never changes; this is what changes. pressed = "this
+      // product is in the wishlist".
       aria-pressed={isSaved}
-      aria-label={isSaved ? messages.remove : messages.add}
       className={`inline-flex h-12 w-12 items-center justify-center rounded-full border border-border bg-surface text-text transition-colors duration-fast hover:text-danger focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus motion-reduce:transition-none ${className}`}
     >
       <HeartIcon filled={isSaved} />

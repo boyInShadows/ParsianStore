@@ -19,6 +19,20 @@
  * `dir` alone still lets the surrounding paragraph's direction decide where the
  * run is *placed* -- one line, tabular mono, ellipsis when it does not fit.
  *
+ * ## Two classes, and why this component is the only holder of the second
+ *
+ * `bidi-code` is the primitive: isolation and tabular figures, shared with the
+ * three places that stamp a SHORT identifier (`SYS-10`, a model year, the hero
+ * callout's part code). `evidence-code` is the truncation contract on top of
+ * it, and belongs to a 36-45 character token alone -- it was one class doing
+ * both jobs until P15.S5, which is why P14.S9 had to move `tabular-nums` down
+ * into the shared half to reach call sites that never wanted the other half.
+ * Neither class is written by hand anywhere else;
+ * `EvidenceCode.contract.test.tsx` fails the build if one is. The utilities that used to spell the
+ * truncation out here (`inline-block max-w-full truncate align-bottom`, plus a
+ * `tabular-nums` the class already carried) are now declarations in
+ * `styles/globals.css`, where the contract they implement is stated.
+ *
  * **The full code is never removed from the document**, only visually clipped
  * by `text-overflow`. A screen reader reads the whole thing, selecting it
  * copies the whole thing, and `title` shows it on hover. Truncating a
@@ -30,11 +44,7 @@
  */
 export function EvidenceCode({ code, className = "" }: { code: string; className?: string }) {
   return (
-    <span
-      dir="ltr"
-      title={code}
-      className={`evidence-code inline-block max-w-full truncate align-bottom font-mono tabular-nums ${className}`}
-    >
+    <span dir="ltr" title={code} className={`bidi-code evidence-code font-mono ${className}`}>
       {code}
     </span>
   );

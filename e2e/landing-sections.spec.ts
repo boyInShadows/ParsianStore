@@ -194,9 +194,13 @@ test.describe("evidence codes (defect 4)", () => {
   test("stamps every code on one line, isolated from the RTL text around it", async ({ page }) => {
     await page.goto("/");
     await page.locator("#authenticity").waitFor({ timeout: SECTION_RENDER });
-    const codes = page.locator(".evidence-code");
+    // `.bidi-code`, not `.evidence-code` (P15.S5): the primitive is what every
+    // code on the page carries, and the class-wide contract below is the
+    // primitive's contract. Selecting on the other one would silently narrow
+    // this to the single verification token and go on passing.
+    const codes = page.locator(".bidi-code");
     const count = await codes.count();
-    expect(count, "no evidence code rendered").toBeGreaterThan(0);
+    expect(count, "no code rendered").toBeGreaterThan(0);
 
     for (let index = 0; index < count; index += 1) {
       const code = codes.nth(index);
@@ -225,44 +229,68 @@ test.describe("evidence codes (defect 4)", () => {
   });
 
   /**
-   * The rest of defect 4's contract, on the elements it was written for.
+   * The rest of defect 4's contract, on the one element it was written for.
    *
-   * The block above used to carry these three assertions too, and it had been
-   * failing since the hero callouts shipped -- for a good reason that was not
-   * the one it reported. `.evidence-code` started as `EvidenceCode`'s own class
-   * and has since been adopted by three other call sites that stamp a short
-   * identifier in a mono face: the hero's `PartCallout` plate, the system tiles
-   * in `#find-my-part` and the model years in `#shop-by-vehicle`. Those share
-   * the *typographic* contract -- one line, isolated, mono, tabular -- and
-   * cannot meet the rest of it: `SYS-02` is six characters, not the ">10" a
-   * clipped verification code has to keep in the DOM, and a Persian-digit year
-   * inside an RTL link is correctly `rtl`, not `ltr`.
+   * The block above used to carry these assertions too, and it had been failing
+   * since the hero callouts shipped -- for a good reason that was not the one
+   * it reported. `.evidence-code` started as `EvidenceCode`'s own class and was
+   * adopted by three call sites that stamp a SHORT identifier in a mono face:
+   * the hero's `PartCallout` plate, the system tiles in `#find-my-part`, the
+   * model years in `#shop-by-vehicle`. Those share the *typographic* contract
+   * -- one line, isolated, mono, tabular -- and cannot meet the rest of it:
+   * `SYS-02` is six characters, not the ">10" a clipped verification code has
+   * to keep in the DOM, and a Persian-digit year inside an RTL link is
+   * correctly `rtl`, not `ltr`.
    *
-   * So the class-wide assertions stay class-wide (and P14.S9 moved
-   * `tabular-nums` onto the class to make that true rather than to make the
-   * test pass), and the assertions that belong to a 45-character verification
-   * code are scoped to it. `[title]` is the discriminator because `title` is
-   * the thing only a truncated code needs.
+   * P15.S5 makes that split structural instead of a comment: `.bidi-code` is
+   * the shared half, `.evidence-code` is the truncation half and belongs to the
+   * token alone. So the class-wide assertions moved to the primitive's
+   * selector, and these stay on this one -- which now means what it says rather
+   * than being scoped by `[title]` after the fact.
    */
   test("keeps a truncated verification code whole in the DOM", async ({ page }) => {
     await page.goto("/");
     await page.locator("#authenticity").waitFor({ timeout: SECTION_RENDER });
-    const codes = page.locator("#authenticity .evidence-code[title]");
+    const codes = page.locator(".evidence-code");
     const count = await codes.count();
     expect(count, "no verification code rendered").toBeGreaterThan(0);
 
     for (let index = 0; index < count; index += 1) {
-      const info = await codes.nth(index).evaluate((el) => ({
-        direction: getComputedStyle(el).direction,
-        title: el.getAttribute("title"),
-        text: el.textContent,
-      }));
+      const info = await codes.nth(index).evaluate((el) => {
+        const style = getComputedStyle(el);
+        return {
+          direction: style.direction,
+          classes: [...el.classList],
+          whiteSpace: style.whiteSpace,
+          overflow: style.overflowX,
+          textOverflow: style.textOverflow,
+          clipped: el.scrollWidth > el.clientWidth,
+          title: el.getAttribute("title"),
+          text: el.textContent,
+        };
+      });
 
       expect(info.direction, `code ${index} direction`).toBe("ltr");
+      // The truncation contract, as the browser resolves it. All three or the
+      // ellipsis never appears -- `text-overflow` alone does nothing without a
+      // hidden overflow on a line that cannot wrap, which is exactly what a
+      // test of the stylesheet source cannot see.
+      expect(info.whiteSpace, `code ${index} can wrap`).toBe("nowrap");
+      expect(info.overflow, `code ${index} does not clip`).toBe("hidden");
+      expect(info.textOverflow, `code ${index} has no ellipsis`).toBe("ellipsis");
+      // The token extends the primitive; it does not replace it. Without this
+      // the split could drop isolation from the one code that most needs it.
+      expect(info.classes, `code ${index} lost the primitive`).toContain("bidi-code");
       // Truncation is visual only. The DOM keeps the whole code, so a screen
       // reader reads it and selecting it copies it; `title` shows it on hover.
       expect(info.title, `code ${index} lost its full value`).toBe(info.text);
       expect(info.text!.length, `code ${index} was shortened in the DOM`).toBeGreaterThan(10);
+      // Overflowing its box is what makes "clipped, not shortened" a claim with
+      // something behind it: the seeded token is 45 characters in a column that
+      // cannot hold them, so the DOM text is longer than the visible text.
+      if (info.clipped) {
+        expect(info.text!.length, `code ${index} is clipped but short`).toBeGreaterThan(30);
+      }
     }
   });
 });
@@ -379,6 +407,87 @@ test.describe("trust strip", () => {
       expect(detail.length, `claim ${index} has no supporting detail`).toBeGreaterThan(20);
     }
   });
+
+  /**
+   * P15.S5. The strip went four-across at `sm` (640px) and stayed there, so
+   * the whole tablet band gave each claim a 184px column -- narrower than the
+   * 358px a 390px phone gives it, because the phone stacks. Three of the four
+   * titles wrapped at 768px and the longest still wrapped at 1024px.
+   *
+   * `docs/voice.md`'s "~35 characters, one line" width rule never caught this
+   * because that rule is written against the phone, and for this component the
+   * phone is not the worst case. So the guard is a measurement at the widths
+   * that actually failed, not a character count.
+   *
+   * ## Why a Range and not `boundingBox()`
+   *
+   * The title is a flex item. `element.getClientRects()` returns its one
+   * border box however many lines the text inside takes, so every
+   * element-rect-based check of this passes on two wrapped lines. A Range over
+   * the text node returns one rect per line box, which is the thing being
+   * asserted.
+   *
+   * Row count is asserted alongside it on purpose: "no title wraps" alone
+   * could be satisfied by cutting the copy down, and voice.md rule 3 (verb
+   * first) is what these claims would lose at 20 characters. Pinning the
+   * column count pins the fix instead of the symptom.
+   */
+  const TRUST_STRIP_LAYOUT = [
+    // 1 column below 640px, 2 from 640 to 1279, 4 from 1280 up.
+    { width: 390, rows: 4 },
+    { width: 768, rows: 2 },
+    { width: 1024, rows: 2 },
+    { width: 1440, rows: 1 },
+  ];
+
+  for (const { width, rows } of TRUST_STRIP_LAYOUT) {
+    test(`no claim title wraps at ${width}px`, async ({ page }) => {
+      await page.setViewportSize({ width, height: 900 });
+      await page.goto("/");
+      await page.locator("#hero").waitFor();
+
+      const strip = page.locator("#trust-strip");
+      await expect(strip).toHaveCount(1);
+      // P15.S2 put `content-visibility: auto` on every section below the hero.
+      // Off screen, this one reports its `contain-intrinsic-size` placeholder
+      // and its text is not laid out at all -- the Range below would then
+      // measure an estimate rather than the strip.
+      await strip.scrollIntoViewIfNeeded();
+
+      const measured = await strip.evaluate(async (el) => {
+        // Measured against the fallback face, the widths are a different
+        // font's widths and the answer is the wrong one either way round.
+        if (document.fonts.status !== "loaded") await document.fonts.ready;
+
+        const items = [...el.querySelectorAll("li")];
+        return {
+          // Distinct block-start offsets = grid rows. Works in both writing
+          // directions, unlike anything keyed off x.
+          rows: new Set(items.map((li) => Math.round(li.getBoundingClientRect().top))).size,
+          titles: items.map((li) => {
+            // The claim title: second span of the first paragraph, after the
+            // mono ordinal.
+            const title = li.querySelector("p")!.querySelector("span:last-of-type")!;
+            const range = document.createRange();
+            range.selectNodeContents(title);
+            return {
+              text: title.textContent ?? "",
+              lines: [...range.getClientRects()].filter((rect) => rect.width > 0.5).length,
+            };
+          }),
+        };
+      });
+
+      expect(measured.titles).toHaveLength(4);
+      // The wrap first, the layout second: the defect is the wrap, and a
+      // failure should say so rather than report a column count and leave the
+      // reader to infer what it did to the text.
+      for (const { text, lines } of measured.titles) {
+        expect(lines, `"${text}" takes ${lines} lines at ${width}px`).toBe(1);
+      }
+      expect(measured.rows, `the strip should be ${rows} row(s) tall at ${width}px`).toBe(rows);
+    });
+  }
 });
 
 // One test per viewport rather than a loop: three full page loads in one

@@ -77,8 +77,7 @@ export default async function WishlistPage({ params, searchParams }: Props) {
     noPhoto: tCatalog("product.noPhoto"),
     wholesalePriceBadge: tCatalog("product.wholesalePriceBadge"),
     wishlist: {
-      add: tCatalog("product.wishlist.add"),
-      remove: tCatalog("product.wishlist.remove"),
+      name: tCatalog("product.wishlist.name"),
       error: tCatalog("product.wishlist.error"),
     },
     compare: {

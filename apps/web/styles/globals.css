@@ -964,25 +964,77 @@
     }
   }
 
-  /* ---- Evidence code (P12.S10) ----------------------------------------
+  /* ---- Codes in Persian copy: two classes, two contracts (P15.S5) ------
 
-     `dir="ltr"` sets the direction INSIDE the run; `unicode-bidi: isolate`
+     One class used to do both of these jobs, and P14.S9 is the record of it
+     going wrong: `tabular-nums` had to be pushed OUT of `EvidenceCode` and
+     DOWN into the shared class to reach three call sites that were never
+     verification codes at all. That is a class reporting that it is two
+     things. It is two things:
+
+       `.bidi-code`      a SHORT stamped identifier -- `SYS-10`, a model year,
+                         the hero callout's part code. 4-8 characters. Never
+                         truncates. Wants isolation and tabular figures and
+                         nothing else. Six call sites carry it; three carry
+                         only it.
+
+       `.evidence-code`  the 36-45 character VERIFICATION TOKEN, and only
+                         that. Adds the truncation contract on top of the
+                         primitive: one line, clipped with an ellipsis when it
+                         does not fit, and the whole value still in the DOM.
+                         Exactly one call site: `components/authenticity/
+                         EvidenceCode.tsx`, which emits `bidi-code
+                         evidence-code` together. Hand-writing this class
+                         anywhere else fails `EvidenceCode.contract.test.tsx`.
+
+     Both halves are asserted twice, on purpose:
+     `components/authenticity/EvidenceCode.contract.test.tsx` pins the source,
+     and `e2e/landing-sections.spec.ts` pins the computed style in a real
+     browser -- a stylesheet can say `text-overflow: ellipsis` and still clip
+     nothing if the element is not also `nowrap` and `overflow: hidden`, which
+     is the failure a source-only test cannot see. */
+
+  /* `dir="ltr"` sets the direction INSIDE the run; `unicode-bidi: isolate`
      is what stops the surrounding RTL paragraph from deciding where the run
      sits relative to the text around it. Tailwind has a utility for the
      first and none for the second, and only the pair together makes a Latin
-     code render the same way in Persian copy as it does on its own. */
-  .evidence-code {
+     code render the same way in Persian copy as it does on its own.
+
+     Tabular digits belong here rather than to one component (P14.S9): the
+     hero callout plate, the system tiles in `#find-my-part` and the model
+     years in `#shop-by-vehicle` all stamp an identifier in the same mono
+     face, and without this `SYS-02` sitting under `SYS-10` set at two
+     different widths. There is no call site that wants the other behaviour.
+
+     PRECEDENCE, corrected: this block sits AFTER `@tailwind utilities` in the
+     same layer, so at equal specificity it WINS over a utility rather than
+     losing to one -- the note this replaces claimed the opposite. Nothing
+     relies on that today (no call site passes a conflicting utility), but a
+     future one that needs to override a declaration here has to raise its
+     specificity, not just add a class. */
+  .bidi-code {
     unicode-bidi: isolate;
-    /* Tabular digits belong to the CLASS, not to one component (P14.S9).
-       `EvidenceCode` carried `tabular-nums` as a utility and the three other
-       places that stamp a code -- the hero callout plate, the system tiles in
-       `#find-my-part`, the model years in `#shop-by-vehicle` -- did not, so
-       `SYS-02` sitting under `SYS-10` in the same mono face set at two
-       different widths. A stamped identifier is exactly the case
-       `font-variant-numeric` exists for, and there is no call site that wants
-       the other behaviour. Utilities out-rank this, so a future one still
-       can. */
     font-variant-numeric: tabular-nums;
+  }
+
+  /* The truncation contract, and nothing the primitive already gives.
+     `.evidence-code` never appears without `.bidi-code` beside it -- keeping
+     the two disjoint is what stops the next reader from believing the short
+     identifiers have clipping machinery on them, which they did not, for
+     three phases, while the class name said otherwise.
+
+     These six declarations were four Tailwind utilities on the component
+     (`inline-block max-w-full truncate align-bottom`, where `truncate` is
+     three of them) plus a `tabular-nums` the class had already been given.
+     They are properties of the CONTRACT, not decoration a call site chooses,
+     so they belong where the contract is stated. */
+  .evidence-code {
+    display: inline-block;
+    max-width: 100%;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    vertical-align: bottom;
   }
 
   /* ---- Technical plate (P12.S9) ---------------------------------------

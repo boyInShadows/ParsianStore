@@ -80,7 +80,7 @@ export async function ShopByVehicle() {
                             two sections up said «۲۰۲۰», which is the same page
                             answering one question two ways. The href keeps the
                             Latin year: that is a route segment, not copy. */}
-                        <span className="evidence-code font-mono text-caption text-text-muted">
+                        <span className="bidi-code font-mono text-caption text-text-muted">
                           {toPersianDigits(String(newest.yearFrom))}
                         </span>
                       </a>

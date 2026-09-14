@@ -20,10 +20,10 @@ import { Disclosure } from "@/components/primitives/Disclosure";
  * `e2e/landing.spec.ts` is what keeps that honest.
  */
 const POLICY_LINKS = [
-  { label: "درباره ما", href: "/about" },
-  { label: "تماس با ما", href: "/contact" },
-  { label: "سوالات متداول", href: "/faq" },
-];
+  { key: "about", href: "/about" },
+  { key: "contactPage", href: "/contact" },
+  { key: "faq", href: "/faq" },
+] as const;
 
 /**
  * One footer column: a heading and its links.
@@ -85,15 +85,25 @@ function FooterColumn({
 // vehicle tree only ever had those two makes to begin with.
 export async function Footer() {
   const [brands, makes] = await Promise.all([fetchBrands(), fetchMakesSafe()]);
-  // Borrowed from the closing beat's namespace on purpose: the footer and that
-  // beat list the same channels, so sharing one set of labels as well as one
-  // source of values means the two can never disagree about how to reach the
-  // store.
-  const t = await getTranslations("Landing.beats.closing.support");
+  // Two namespaces, and the line between them is deliberate (P15.S5).
+  //
+  // `Footer` is new, and holds everything the footer says in its own voice --
+  // the wordmark, the tagline, the five column headings, the city. Those had no
+  // namespace at all: they were Persian string literals in this file, and the
+  // tagline had nowhere to go but a landing beat's namespace, which is how a
+  // component that renders on every route ends up owned by one page's copy.
+  //
+  // The three CHANNEL labels stay borrowed from the closing beat, unchanged.
+  // The footer and that beat list the same channels from the same source
+  // (`CONTACT_CHANNELS`), so one set of labels is what stops the two disagreeing
+  // about how to reach the store -- and three one-word labels copied into a
+  // second namespace is exactly the drift the sharing was set up to prevent.
+  const t = await getTranslations("Footer");
+  const tChannel = await getTranslations("Landing.beats.closing.support");
   const channelLabel: Record<ContactChannelKind, string> = {
-    phone: t("phone"),
-    telegram: t("telegram"),
-    whatsapp: t("whatsapp"),
+    phone: tChannel("phone"),
+    telegram: tChannel("telegram"),
+    whatsapp: tChannel("whatsapp"),
   };
 
   const categoryLinks = CATALOG_SYSTEMS.map((system) => ({
@@ -118,26 +128,26 @@ export async function Footer() {
       <div className="mx-auto grid max-w-container grid-cols-1 gap-2 px-4 py-8 sm:grid-cols-5 sm:gap-6">
         <FooterColumn
           id="footer-categories"
-          title="دسته‌بندی‌ها"
+          title={t("categories")}
           links={categoryLinks}
           className="border-t border-rule pt-2 sm:border-t-0 sm:pt-0"
         />
         <FooterColumn
           id="footer-vehicles"
-          title="برندهای خودرو"
+          title={t("vehicles")}
           links={vehicleLinks}
           className="border-t border-rule pt-2 sm:border-t-0 sm:pt-0"
         />
         <FooterColumn
           id="footer-brands"
-          title="برندهای قطعه"
+          title={t("partBrands")}
           links={brandLinks}
           className="border-t border-rule pt-2 sm:border-t-0 sm:pt-0"
         />
         <FooterColumn
           id="footer-policies"
-          title="راهنما"
-          links={POLICY_LINKS}
+          title={t("guide")}
+          links={POLICY_LINKS.map((link) => ({ label: t(link.key), href: link.href }))}
           className="border-t border-rule pt-2 sm:border-t-0 sm:pt-0"
         />
         {/* Last in the DOM, first on the screen below `sm`. It is the only
@@ -147,8 +157,8 @@ export async function Footer() {
             step. `order-first` moves it without moving it in the document, so
             the desktop column order is untouched. */}
         <div className="order-first flex flex-col gap-2 pb-4 sm:order-none sm:pb-0">
-          <h2 className="text-body-sm font-semibold text-text">ارتباط با ما</h2>
-          <p className="text-body-sm text-text-muted">تهران، ایران</p>
+          <h2 className="text-body-sm font-semibold text-text">{t("contact")}</h2>
+          <p className="text-body-sm text-text-muted">{t("location")}</p>
           {/* Every channel contact-info.ts exposes, so the footer cannot fall
               behind the closing beat. WhatsApp is absent from both for the same
               reason: no number exists yet (fableTasks §7 item 7). */}
@@ -180,13 +190,30 @@ export async function Footer() {
               for the same reason. */}
         </div>
       </div>
-      <div className="border-t border-border px-4 py-4 text-center text-body-sm text-text-muted">
-        {/* «·», not «--» (P14.S6 item 8): an em-dash-ish double hyphen between
-            a Persian name and a Latin one read as a stray mark at the seam of
-            the two scripts. The Latin half is isolated so the bidi algorithm
-            cannot reorder it against the year beside it. */}
-        © {toPersianDigits(String(new Date().getFullYear()))} پارسیان ·{" "}
-        <span dir="ltr">Ash Tech Group</span>
+      {/* The closing lockup (P15.S5). This row used to be one legal line, so a
+          five-column index of links ended on a copyright notice and the site
+          never signed its own name. The wordmark and the tagline are the
+          signature; the attribution keeps its own, quieter line underneath
+          rather than sharing one with a claim. The tagline is docs/voice.md's
+          own rewrite of the site descriptor -- «اصل، با کد فنی.» is checkable
+          on every product page, which is the only kind of claim this footer is
+          allowed to make. */}
+      <div className="border-t border-border px-4 py-6">
+        <div className="mx-auto flex max-w-container flex-col items-center gap-1 text-center">
+          <p className="font-display text-h3 font-bold text-text">{t("wordmark")}</p>
+          <p className="text-body-sm text-text-muted">{t("tagline")}</p>
+          {/* «·», not «--» (P14.S6 item 8): an em-dash-ish double hyphen between
+              a Persian name and a Latin one read as a stray mark at the seam of
+              the two scripts. The Latin half keeps its bare `dir` rather than
+              taking P15.S5's `bidi-code`: `dir` on an inline element already
+              carries `unicode-bidi: isolate` from the UA stylesheet, and a
+              company name is not a stamped code -- borrowing the class here
+              would blur the one distinction that step drew. */}
+          <p className="mt-2 text-caption text-text-muted">
+            © {toPersianDigits(String(new Date().getFullYear()))} {t("wordmark")} ·{" "}
+            <span dir="ltr">{t("attribution")}</span>
+          </p>
+        </div>
       </div>
     </footer>
   );

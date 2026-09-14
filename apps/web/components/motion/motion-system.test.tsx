@@ -101,8 +101,15 @@ describe("Marquee — the seam", () => {
     expect(globalsCss).toMatch(
       /\.motion-marquee-track \{[^}]*animation-play-state: paused;[^}]*\}/s,
     );
-    expect(globalsCss).toContain(
-      '.motion-marquee[data-inview="true"] .motion-marquee-track {\n    animation-play-state: running;',
+    // A literal `\n` here would only match an LF checkout. `core.autocrlf=true`
+    // (this repo has no .gitattributes) means any git checkout on Windows --
+    // clone, branch switch, stash pop -- rewrites this file to CRLF, so the
+    // byte between the selector and the declaration is `\r\n`, not `\n`.
+    // `\s*` absorbs either, and the regex still pins the exact selector and
+    // the exact declaration it must contain: rename the selector or drop the
+    // declaration and this goes red on any platform.
+    expect(globalsCss).toMatch(
+      /\.motion-marquee\[data-inview="true"\] \.motion-marquee-track \{\s*animation-play-state: running;/,
     );
   });
 
@@ -201,7 +208,22 @@ describe("Reveal", () => {
       globalsCss.indexOf("---- Marquee"),
     );
     const guard = section.slice(section.indexOf("@media (prefers-reduced-motion: reduce)"));
-    const body = guard.slice(0, guard.indexOf("\n  }\n"));
+    // The outer `@media` block closes on a line indented two spaces, one level
+    // less than the selector/declaration lines nested inside it (4 and 6
+    // spaces). `indexOf("\n  }\n")` on an LF checkout lands on exactly that
+    // line -- the 4-space inner closing brace has two more spaces before it,
+    // so the literal never matches there. But `core.autocrlf=true` with no
+    // .gitattributes means a Windows checkout rewrites this file to CRLF, so
+    // the byte before that closing brace is `\r`, not `\n`, and `indexOf`
+    // returns -1. `guard.slice(0, -1)` then silently keeps almost the entire
+    // rest of the reveal section as "the body", so the assertions below still
+    // pass -- against the wrong string -- even if the real `@media` block were
+    // broken. `\r?\n` matches the line break under either checkout, and
+    // asserting the match exists (rather than falling back to -1) turns a
+    // missed closing brace into a loud failure instead of a silent one.
+    const closingBrace = /\r?\n {2}\}\r?\n/.exec(guard);
+    expect(closingBrace).not.toBeNull();
+    const body = guard.slice(0, closingBrace!.index);
     expect(body).toContain(":root[data-reveal-armed] [data-reveal-stagger] > *");
     expect(body).toContain("opacity: 1;");
     expect(body).toContain("transition: none;");

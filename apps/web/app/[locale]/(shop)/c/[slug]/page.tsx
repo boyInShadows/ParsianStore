@@ -114,7 +114,7 @@ export default async function CategoryPage({ params, searchParams }: Props) {
       outOfStock: string;
       noPhoto: string;
       wholesalePriceBadge: string;
-      wishlist: { add: string; remove: string; error: string };
+      wishlist: { name: string; error: string };
       compare: { add: string; open: string; limit: string };
     };
   };

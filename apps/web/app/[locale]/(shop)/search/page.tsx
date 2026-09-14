@@ -79,8 +79,7 @@ export default async function SearchPage({ searchParams }: Props) {
     noPhoto: t("product.noPhoto"),
     wholesalePriceBadge: t("product.wholesalePriceBadge"),
     wishlist: {
-      add: t("product.wishlist.add"),
-      remove: t("product.wishlist.remove"),
+      name: t("product.wishlist.name"),
       error: t("product.wishlist.error"),
     },
     compare: {
