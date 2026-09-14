@@ -320,6 +320,35 @@ test.describe("best sellers rail (audit item 2)", () => {
   }
 
   /**
+   * P14.S9's real defect, re-measured at P15.S6: the seed creates
+   * `VARIANTS_PER_TEMPLATE = 4` products per part template, consecutively, so
+   * `sort=newest&limit=8` returned eight rows drawn from two templates and the
+   * grid showed the same part four times in a row. `fetchFeaturedProducts`
+   * (lib/fetchers/products.ts) fixed this by over-fetching and de-duplicating
+   * on `name.fa`; this is the only thing that watches the rendered grid rather
+   * than the fetcher in isolation -- a regression in the wiring between the two
+   * (wrong prop, name collapsed to the wrong field) would pass the unit test and
+   * still show a duplicate here.
+   */
+  test("shows no part twice (P14.S9 seed dedupe)", async ({ page }) => {
+    await page.goto("/");
+    await page.locator("#hero").waitFor();
+
+    const cards = page.locator("#best-sellers li");
+    const count = await cards.count();
+    test.skip(count === 0, "no featured products seeded");
+
+    // `.line-clamp-2` is the name span's own class; a bare `span` selector
+    // also matches the decorative top bar and, on an unphotographed card, the
+    // technical plate's SYS code and system-name spans.
+    const names = await page.locator("#best-sellers li .line-clamp-2").allTextContents();
+    expect(names, "a card rendered with no name").toHaveLength(count);
+    expect(new Set(names).size, `duplicate part in the grid: ${names.join(", ")}`).toBe(
+      names.length,
+    );
+  });
+
+  /**
    * P12.S9, recording defect 3. A part with no photograph used to render as a
    * dashed box reading «بدون تصویر»; four of them in a row read as a broken
    * grid. It is a technical plate now -- the system's line drawing, its SYS

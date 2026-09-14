@@ -2093,7 +2093,12 @@ A per-route total can never say *who* grew; these three layers can.
       taken through `pnpm build` inherits that risk; `cd apps/web &&
       ./node_modules/.bin/next build` is the honest path when the number
       matters. Worth settling before the next perf step trusts a cached build.
-- [ ] **P15.S6 — Phase 13's tail, folded in.** P13.S11's theme toggle — a real
+- [x] **P15.S6 — Phase 13's tail, folded in.** ✅ 2026-09-15.
+      **Every defect in this bullet was already fixed. The step's real work
+      was proving that, and turning three hand-checks into checks that can
+      fail.** Original text below, then the verification.
+
+      P13.S11's theme toggle — a real
       bug: page tokens painted inside a header that is `bg-graphite-950` in
       **both** themes, so light mode shows a 12.25:1 ring around a 3.38:1 glyph —
       plus its hardcoded **English** accessible name and missing `aria-pressed`.
@@ -2132,6 +2137,107 @@ A per-route total can never say *who* grew; these three layers can.
       **Still unverified, check when the tree is free:** the duplicate «پیشنهاد
       ما» names from `?sort=newest&limit=8` returning two templates, and the
       `SYS-10` tile name being narrower than its own contents.
+
+      **Verified, with numbers rather than a read-through.**
+      *The theme toggle is fixed*, and the fix is the inversion P14.S2 claimed.
+      Measured at 1440px on a production build: light — header
+      `rgba(255,255,255,.88)`, glyph **17.38:1** (was 3.38), ring **1.51:1**
+      (was 12.25); dark — header `rgba(26,34,42,.88)`, glyph 12.92:1, ring
+      1.54:1. `aria-pressed` flips false→true, the name «حالت تیره» is stable
+      across both states, the `<svg>` is `aria-hidden`. The header follows the
+      theme now, so page tokens finally describe the ground they sit on.
+      *The duplicate «پیشنهاد ما» names are real and already fixed.* The raw
+      query still returns what the defect described — `sort=newest&limit=8`
+      gives **2 distinct names across 8 rows** (گریس یاتاقان ×4, ضدیخ رادیاتور
+      ×4), because the seed makes 4 variants per template consecutively.
+      `fetchFeaturedProducts`'s over-fetch-and-dedupe (P14.S9) turns the real
+      64-row window — 16 distinct templates — into **8 distinct cards**.
+      *The `SYS-10` tile defect does NOT reproduce.* Every system tile measured
+      at 360/390/768/1024/1440, counting line boxes with a Range over the text
+      node: **nothing overflows at any width**, and SYS-10 («فیلتر و روغن», 68px
+      of text) has the **most** slack of the long names in a 123–231px box. Two
+      tiles take a second line at 360px — SYS-02 and SYS-07, the two *longest*
+      names, inside a card that accommodates it. The claim was misreported;
+      `docs/fable-next-phase-brief.md`'s note that screenshot audits of this repo come
+      back ~⅓ wrong holds.
+
+      **Three guards added, because two of these were protected by nothing but
+      a comment.** Each was proven to fail before it was kept:
+      · `apps/web/lib/fetchers/products.test.ts` (8 tests, stubbed `fetch`, no
+      database) — asserts the returned cards are distinct **and that the
+      requested `limit` exceeds the render limit**, because the over-fetch IS
+      the mechanism: shrinking the window to `limit` reintroduces the bug while
+      a naive uniqueness assertion still passes. That trap was demonstrated,
+      not theorised.
+      · `e2e/landing-sections.spec.ts` — the rendered grid shows no part twice.
+      Reintroducing the real defect failed it with the real symptom:
+      `گریس یاتاقان ×4, ضدیخ رادیاتور ×4`.
+      · `e2e/header-overlays.spec.ts` — the toggle's stable Persian name,
+      `aria-pressed`, `aria-hidden` icon, and **glyph-vs-header contrast ≥3:1**
+      computed from resolved colours through the repo's own `contrastRatio`, so
+      a token change is caught. The ring is deliberately NOT asserted, with the
+      reason written down — a future reader "fixing" the hairline would undo
+      P14.S2. Breaking the `--surface-translucent` token reproduced the original
+      bug exactly: light glyph 1.53:1.
+      · `e2e/landing-hero.spec.ts` — **P13.S13's attribute-write budget, which
+      had never been turned into a test.** A `MutationObserver` over `#hero`
+      filtered to `data-shown`/`data-active`/`data-checked`/`data-highlight`,
+      keyed per (element, attribute), played across the whole track via the
+      file's own `holdSamples()`. Budget is ≤12 per element per attribute —
+      `StageNarration.tsx` touches each element twice. Removing its
+      `shown.current === id` guard produced **187 writes to `data-shown` on one
+      element**. Carries a non-zero-total vacuity guard, because a renamed
+      attribute would otherwise pass at zero forever.
+
+      **The اینماد / نشان ملی conflict is CLOSED — owner ruled 2026-09-15: the
+      seals stay removed.** P14.S6's call stands over the 2026-09-08 one, which
+      was made without knowing the boxes were already gone. The stated goal —
+      the page must not claim what it cannot prove — is met more completely by
+      removal than by a «در حال ثبت» placeholder, and `e2e/landing-sections.spec
+      .ts` already pins their absence. Do not re-add them.
+
+      **P13.S13's gate: "which S0–S2 answer" was about 70% true.** Itemised, and
+      the rest closed here — full table appended to `docs/performance-landing.md`
+      as the Phase 13 closing measurement. Fresh five-run median, mobile
+      360×640 DPR2, `--throttling-method=devtools`: **perf 98, TBT 64ms
+      (gate ≤200), LCP 1.88s (≤2.0), CLS 0.0322 (≤0.05), a11y 100, SEO 100,
+      `motion` chunk 44.3 KB gz (≤45, 0.7 KB spare)**. TBT has fallen
+      261 → 120 (P15.S2) → **64**.
+      Two of S13's asks are **superseded rather than met**, and say so in the
+      doc: the ≤193 KB *route chunk* was never what the landing costs (S0's
+      three-layer split replaced it, and it is a failing check now), and
+      "preload only the base and the three station-1 sprites" predates the
+      docked-sprite hero — the page preloads **11 images** because the car at
+      beat 0 is composed from seven body sprites, every one of them in the first
+      painted frame.
+      **Measured on port 3000, not 3200, and that mattered:**
+      `NEXT_PUBLIC_SITE_URL` is baked at build time as `http://localhost:3000`,
+      so auditing on another port reports an SEO defect that does not exist in
+      production.
+
+      **P13.S14 is done here too:** `docs/landing-hero-sprite-brief.md` now
+      records that `anchor`, `labelSide` and `finale` are **derived, not
+      authored** — fableTasks v1.1 asked for thirty hand-written numbers
+      describing geometry the trim boxes already determine, and `heroScene.ts`
+      solves them instead ("a number that can be computed is computed"). The
+      brief tells a future batch not to request them. **Phase 13 is SHIPPED.**
+
+      **Found on the way, and logged rather than fixed:**
+      **`npx vitest run` from the repo root wipes the dev database.** It is not
+      scoped to `apps/web` — it runs `apps/api`'s integration tests, which call
+      `resetDb()` against the **same** Postgres on :5433 that backs the dev
+      server, the API and every Playwright run. There is no separate test DB.
+      It looks harmless because the seed is idempotent; the danger is anything
+      measured between the wipe and the reseed — a baseline, a Lighthouse run —
+      silently seeing a page with sections missing. **Give `apps/api` its own
+      database.** Its own step.
+      Also: `pnpm typecheck` never type-checks `e2e/*.ts` — both `tsc` projects
+      are scoped to `apps/web` and `apps/api`, so the Playwright suite is
+      checked by ESLint alone.
+
+      **Verified:** lint clean · `tsc` web + api clean · **787/787 unit** ·
+      **159 e2e across 9 suites** · `pnpm build` clean · budget unchanged at
+      199.9 kB / own 80.0.
 - [ ] **P15.S7 — Write the rules down.** `docs/engineering-standards.md` gains a
       **Performance budgets** section: the numbers, the three layers, the
       measurement recipe, "measure before *and* after any step that adds a client
@@ -2151,7 +2257,14 @@ A per-route total can never say *who* grew; these three layers can.
 - **Never relay a subagent's finding as confirmed without verifying it.**
   Phase 14 cost this twice.
 
-## Phase 13 — the Job Card: narrating the hero — ACTIVE, opened 2026-09-06
+## SHIPPED — Phase 13: the Job Card, narrating the hero — closed 2026-09-15
+
+Opened 2026-09-06. Closed at **P15.S6**, which folded in this phase's tail:
+S11's theme toggle and S12's content defects were verified already fixed,
+S13's performance gate is met in full (perf 98, TBT 64ms, LCP 1.88s, a11y
+100, SEO 100 — see `docs/performance-landing.md`), and S14's documentation
+is written. Two of S13's asks were superseded rather than met, and the doc
+says which and why.
 
 Step-level plan of record was **`fableTasks.md` v1.1** (external plan by Fable
 5, reconciled against the repo at `d43a391`). **That file was deleted on
@@ -2261,7 +2374,13 @@ Two decisions worth keeping:
       - Section numbering is already done (S10).
       - Accept: no repeated product name in «پیشنهاد ما»; no visible placeholder
         on `/` that is not labelled as pending.
-- [ ] **P13.S13 — Performance gate.** The point of the phase, and **not yet
+- [x] **P13.S13 — Performance gate.** ✅ 2026-09-15 at P15.S6 — **met in
+      full**, five-run median in `docs/performance-landing.md`: perf 98, TBT
+      **64ms** (was 261), LCP 1.88s, CLS 0.0322, a11y 100, SEO 100, `motion`
+      44.3 KB. The attribute-write budget is a test now
+      (`e2e/landing-hero.spec.ts`). The route-JS line and the preload ask
+      are **superseded**, not met — see the S6 entry and the doc.
+      Original text: the point of the phase, and **not yet
       re-measured.** Route JS is 197 KB against a ≤193 KB gate; TBT was 261ms
       against a ≤200ms gate, and S7's single-render manifest is the intended
       fix. Other gates, with the P12-close numbers: `motion` chunk ≤45 KB
@@ -2279,7 +2398,9 @@ Two decisions worth keeping:
       and measure `/` never `/fa`. If TBT is still over after S7, **say so with
       the attribution breakdown** — a regression that is measured and named is a
       finding; one quietly omitted is a defect the next phase inherits.
-- [ ] **P13.S14 — Close the phase.** Update
+- [x] **P13.S14 — Close the phase.** ✅ 2026-09-15 at P15.S6. The sprite
+      brief records the three derived fields; the closing measurement is
+      appended to `docs/performance-landing.md`. Original text: update
       `docs/landing-hero-sprite-brief.md` to record that `anchor`, `labelSide`
       and `finale` are **derived, not authored** — P13.S1 deliberately solved
       them rather than storing three hand-written fields per sprite

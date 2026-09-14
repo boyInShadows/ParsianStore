@@ -1133,3 +1133,70 @@ been tested this cheaply a phase ago and was written down as the leading
 explanation instead.
 
 **A trace tells you what invalidated. Only an A/B tells you what it costs.**
+
+---
+
+# P13.S14 / P15.S6 — Phase 13 closing measurement
+
+Lighthouse 13.4.1, mobile 360x640 DPR 2, `--throttling-method=devtools`,
+against `next start` on a production build. **Five runs, median reported.**
+
+Measured on **port 3000, not 3200**, and that is not incidental:
+`NEXT_PUBLIC_SITE_URL` is baked at build time and this build carries
+`http://localhost:3000`. Audited on any other port, the canonical points
+somewhere the audit cannot reach and the SEO category reports a defect that
+does not exist in production. Measure `/`, never `/fa`.
+
+## Core Web Vitals
+
+| Metric | Budget | P12 close | **P13 close** | |
+|---|---|---|---|---|
+| LCP | ≤ 2.0s | 1.65s | **1.88s** | ✓ |
+| CLS | ≤ 0.05 | 0.034 | **0.0322** | ✓ |
+| TBT | ≤ 200ms | 261ms ✗ | **64ms** (56–83) | ✓ **fixed** |
+| Lighthouse perf | ≥ 90 | 94 | **98** | ✓ |
+| Lighthouse a11y | 100 | 100 | **100** | ✓ |
+| Lighthouse SEO | 100 | 100 | **100** | ✓ |
+| `motion` chunk | ≤ 45 KB | 39.9 KB | **44.3 KB** gz | ✓ 0.7 KB spare |
+
+## The TBT gate is met, and the fix was not the one the plan expected
+
+P12 closed **261ms against a 200ms gate**, and P13.S7's single-render
+manifest was the intended fix. It helped, but it was not the lever.
+**P15.S2's trace showed the cost was never the manifest or the hero's
+container-query sprite layers** — it was the whole ~10,100px document being
+laid out before first paint, plus the webfont swap relaying out every text
+node. `content-visibility: auto` with measured per-section
+`contain-intrinsic-size` took Style + Layout from 529ms to 292ms. See that
+step's entry in `tasks.md`; the standing lesson is **trace before you
+optimise** — 692ms of layout was nearly answered by shaving 4 KB of
+JavaScript.
+
+TBT has kept falling since: 261 → 120 (P15.S2) → **64** here.
+
+## Route JS is measured differently now, and the old number was misleading
+
+P12 and earlier quoted a **route chunk** of ~193 KB against a 180 KB budget.
+That figure is Next's `Size` column — the page-specific chunk alone — and it
+is **not what the landing costs**. P15.S0 split the real number into three
+layers and made it a failing check (`pnpm check:budget`, wired into CI):
+
+| Layer | Now | Budget |
+|---|---|---|
+| First load (what a visitor pays) | **199.9 KB** | ≤ 200 hard, ≤ 190 warn |
+| The landing's own code | **80.0 KB** | ≤ 82 |
+| Framework floor (not ours) | 102.8 KB | ≤ 105 |
+| Shop chrome (all 23 routes) | 17.1 KB | ≤ 20 |
+
+The landing sits **74 bytes** under its hard fail. It is frozen, not
+comfortable: the next client leaf of any size on this route fails the gate.
+
+## Preloads: the P13.S13 requirement is superseded, deliberately
+
+S13 asked to "preload only the base and the three station-1 sprites". The
+page preloads **11 images**: the base, three part sprites, and seven body
+sprites. That requirement predates the docked-sprite hero — the car at beat 0
+is *composed* from those seven sprites, so every one of them is in the first
+painted frame. Preloading the LCP element's own pieces is correct; only the
+base carries `fetchPriority="high"`.
+

@@ -143,3 +143,29 @@ current files: keep `grille` and `bumper` as delivered, accept `headlight` at
 ~32° `rotateY`, and treat `hood`, `windshield`, `door` and `fender` as the four
 that will read as tilted photographs rather than fitted panels. That is a real
 quality ceiling, not a temporary one — worth one more generation round to avoid.
+
+## What a sprite does NOT have to carry (P13.S1, recorded at P13.S14)
+
+fableTasks v1.1 asked for three hand-written fields per sprite — `anchor`,
+`labelSide` and `finale` — and this brief inherited the ask. **They were never
+built, deliberately, and nothing should add them.**
+
+All three are fully determined by things the batch already provides: the trim
+boxes and the undock vectors. Thirty hand-typed numbers describing geometry
+that is already known would each go stale the next time a sprite is re-cut,
+silently — and this repo has paid that bill once already. `HERO_BAY` was
+derived from a hood that turned out to be a catalogue product shot, and every
+engine part was then sized against the fiction.
+
+So `heroScene.ts` solves them instead, and its header states the rule plainly:
+**a number that can be computed is computed.**
+
+What stayed authored, in `heroLayout.ts`, is the part that is not derivable —
+which band a part parks in, how big it is there, and where the camera looks.
+Those are judgements, and they read like judgements.
+
+**For anyone preparing a future batch:** do not send Fable a request for
+anchor points, label sides or finale positions. Send the cut, the trim box and
+the registration, which is what the rest of this document specifies. The
+geometry follows from those.
+

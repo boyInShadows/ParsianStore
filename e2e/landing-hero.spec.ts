@@ -1396,3 +1396,158 @@ test.describe("the arrival sweep", () => {
     await expect(page.locator(".hero-sweep[data-arrive]")).toHaveCount(1);
   });
 });
+
+/**
+ * P13.S13's attribute-write budget, finally turned into a test.
+ *
+ * `StageNarration`, `ManifestCheckIn` and `HeroScrollProvider` all narrate the
+ * scroll by writing `data-shown` / `data-active` / `data-checked` /
+ * `data-highlight` straight to the DOM instead of through React state -- see
+ * `StageNarration.tsx`'s own "## Cost" section, which is where the number 12
+ * comes from. The budget in that comment is **per element**, not a page total:
+ * it reasons about one plate seeing `data-shown` "at most twice per slot", not
+ * about how many plates exist. A rewrite that fires on every scroll frame
+ * instead of only when the subject changes would still average out to a small
+ * number *divided across ten plates*, so a total-writes assertion would not
+ * catch it -- it has to be the worst single element, which is what this test
+ * measures.
+ *
+ * This is also the regression P12.S6's TBT hit (130ms → 261ms) took the shape
+ * of before it had a name: an effect that re-touches the DOM every frame
+ * instead of on the frame something actually changed.
+ */
+const BUDGETED_ATTRIBUTES = [
+  "data-shown",
+  "data-active",
+  "data-checked",
+  "data-highlight",
+] as const;
+
+/**
+ * No single element may be written to more than this many times, for a given
+ * budgeted attribute, across one full scroll of the hero track.
+ *
+ * `StageNarration.tsx` computes it as "changes at most twice per slot (on and
+ * off)" -- so a plate that starts and ends its life inside one scroll should
+ * see two writes, not twelve. Twelve is the budget's ceiling, not its target;
+ * this test exists to catch an implementation that is rewriting the attribute
+ * on every progress tick rather than one that is merely a little wasteful.
+ */
+const MAX_ATTRIBUTE_WRITES_PER_ELEMENT = 12;
+
+/**
+ * Count writes to the budgeted attributes inside `#hero`, keyed by
+ * (element, attribute name), across whatever `play` does.
+ *
+ * Elements here carry no ids, so `outerHTML` or a querySelectorAll index would
+ * both misidentify an element the moment its own attributes change (that is
+ * the exact thing being counted) or the moment sibling markup shifts. Instead
+ * each element is tagged with its own private marker attribute the first time
+ * the observer sees it -- read only by this function, and outside
+ * `attributeFilter`, so tagging an element is not itself a write this test
+ * would count.
+ */
+async function attributeWriteCounts(page: Page, play: () => Promise<void>) {
+  await page.evaluate((attrs) => {
+    const root = document.getElementById("hero");
+    if (!root) throw new Error("attributeWriteCounts: #hero is missing");
+
+    const MARKER = "data-e2e-write-marker";
+    let nextId = 0;
+    const counts = new Map<string, number>();
+    const labels = new Map<string, string>();
+
+    const identify = (target: Node) => {
+      if (!(target instanceof Element)) return null;
+      let id = target.getAttribute(MARKER);
+      if (id === null) {
+        id = String(nextId++);
+        target.setAttribute(MARKER, id);
+        // A readable label for the failure message only -- whichever of the
+        // element's own identifiers it happens to carry, since none of these
+        // elements share one naming scheme.
+        const named =
+          target.getAttribute("data-part") ??
+          target.getAttribute("data-callout") ??
+          target.getAttribute("data-station") ??
+          target.getAttribute("data-check-in");
+        labels.set(id, `<${target.tagName.toLowerCase()}${named ? ` ${named}` : ""}>`);
+      }
+      return id;
+    };
+
+    const observer = new MutationObserver((records) => {
+      for (const record of records) {
+        const id = identify(record.target);
+        if (id === null || record.attributeName === null) continue;
+        const key = `${id} ${record.attributeName}`;
+        counts.set(key, (counts.get(key) ?? 0) + 1);
+      }
+    });
+    observer.observe(root, { attributes: true, subtree: true, attributeFilter: [...attrs] });
+
+    Object.assign(window, { __heroAttrWrites: { observer, counts, labels } });
+  }, BUDGETED_ATTRIBUTES);
+
+  await play();
+
+  return page.evaluate(() => {
+    const state = (
+      window as unknown as {
+        __heroAttrWrites: {
+          observer: MutationObserver;
+          counts: Map<string, number>;
+          labels: Map<string, string>;
+        };
+      }
+    ).__heroAttrWrites;
+    state.observer.disconnect();
+
+    let total = 0;
+    let worstCount = 0;
+    let worstKey = "";
+    for (const [key, count] of state.counts) {
+      total += count;
+      if (count > worstCount) {
+        worstCount = count;
+        worstKey = key;
+      }
+    }
+    const [id, attribute] = worstKey.split(" ");
+    return {
+      total,
+      worstCount,
+      worstAttribute: attribute ?? "",
+      worstLabel: id ? (state.labels.get(id) ?? id) : "",
+    };
+  });
+}
+
+test("the hero's attribute writes stay inside the P13.S13 per-element budget", async ({ page }) => {
+  await gotoHero(page);
+
+  const result = await attributeWriteCounts(page, async () => {
+    await scrollHeroTo(page, 0);
+    // `holdSamples()` already lands on every slot's hold, every cover and
+    // every rest beat in order (§ "plays one part at a time" above), so
+    // walking it top to bottom plays every chapter for real rather than
+    // guessing at a step count.
+    for (const step of holdSamples()) {
+      await scrollHeroTo(page, step.at);
+    }
+  });
+
+  // The vacuity guard: a renamed attribute or a scroll that never reaches a
+  // chapter would settle on zero writes and pass a ≤12 budget forever. Seeing
+  // this fail alongside the real assertion is what tells the two apart.
+  expect(
+    result.total,
+    "the observer saw zero attribute writes across the whole track -- it is not measuring the hero",
+  ).toBeGreaterThan(0);
+
+  expect(
+    result.worstCount,
+    `${result.worstLabel} received ${result.worstCount} writes to ${result.worstAttribute} ` +
+      `across the track (budget: ${MAX_ATTRIBUTE_WRITES_PER_ELEMENT} per element)`,
+  ).toBeLessThanOrEqual(MAX_ATTRIBUTE_WRITES_PER_ELEMENT);
+});
