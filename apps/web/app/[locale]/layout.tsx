@@ -4,7 +4,6 @@ import { hasLocale, NextIntlClientProvider } from "next-intl";
 import { notFound } from "next/navigation";
 import { ThemeProvider } from "next-themes";
 import "../../styles/globals.css";
-import { bodyFont, monoFont } from "@/lib/fonts";
 import { routing } from "@/i18n/routing";
 import { siteUrl } from "@/lib/seo";
 import { readThemeColors } from "@/lib/design-tokens";
@@ -73,11 +72,37 @@ export default async function LocaleLayout({ children, params }: Props) {
       lang={locale}
       dir={dir}
       suppressHydrationWarning
-      // No `displayFont.variable` -- there is no display family any more
-      // (P14.S2). `--font-display` is defined in tokens.css as an alias of
-      // `--font-body`, so every `font-display` utility still resolves.
-      className={`${bodyFont.variable} ${monoFont.variable}`}
+      // No font className any more (P15.S9). `--font-body`/`--font-mono` are
+      // plain :root declarations in tokens.css naming the hand-written
+      // @font-face families in styles/fonts.css -- a static family name has
+      // no per-build hash to scope, so <html> needs nothing attached for
+      // typography to resolve. `--font-display` keeps aliasing --font-body
+      // (P14.S1) the same way it always has.
     >
+      {/* A real, parser-visible font preload (P15.S9) -- next/font's
+          ReactDOM.preload() call never reached <head> at all; it landed in
+          the RSC Flight payload as a `:HL[...]` instruction inside an inline
+          script instead of a `<link>` (verified on a production build of
+          `/`: 18 `<link>` elements, none of them the font -- see
+          styles/fonts.css and tasks.md P15.S9/S3c). This is a JSX `<link>`,
+          so it is real markup the parser sees before any script runs.
+          Vazirmatn only: it is the sole above-the-fold family, and the one
+          `display: "optional"` needs to win its block window. JetBrains
+          Mono carries codes/SKUs, is never an LCP candidate, and is
+          deliberately NOT preloaded. `crossOrigin` is mandatory, not
+          decoration: the font spec fetches @font-face resources in CORS
+          mode regardless of this attribute, so a preload without a matching
+          `crossorigin` is treated as a different request and the font is
+          fetched twice. */}
+      <head>
+        <link
+          rel="preload"
+          href="/fonts/vazirmatn/Vazirmatn-Variable.woff2"
+          as="font"
+          type="font/woff2"
+          crossOrigin="anonymous"
+        />
+      </head>
       {/* `suppressHydrationWarning` here is NOT for anything this app renders
           -- it is for what browser extensions add. ColorZilla writes
           `cz-shortcut-listen="true"` on <body> before React hydrates, and

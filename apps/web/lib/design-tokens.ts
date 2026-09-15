@@ -494,10 +494,11 @@ function readTypeScale(vars: Record<string, string>): TypeStep[] {
 }
 
 /**
- * Self-hosted via next/font/local (lib/fonts.ts) -- no CDN, WOFF2 only,
- * subset to Basic Latin + Arabic. Described here rather than derived
- * because the loader's return value is a hashed class name at build time,
- * not a readable family name.
+ * Self-hosted via hand-written @font-face (styles/fonts.css, P15.S9) -- no
+ * CDN, WOFF2 only, subset to Basic Latin + Arabic. Described here rather
+ * than derived because nothing in this repo exports the family name as a
+ * value; styles/fonts.css and tokens.css's `--font-body`/`--font-mono` own
+ * that string.
  */
 const FONTS: FontFamily[] = [
   {

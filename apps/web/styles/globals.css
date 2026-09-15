@@ -17,6 +17,11 @@
    all on a page that never mounts it. */
 @layer tailwind, mui;
 
+/* @font-face declarations (P15.S9) -- unlayered like tokens.css, so they are
+   never subject to the tailwind/mui layer order above. Imported before
+   tokens.css purely for reading order: tokens.css's --font-body/--font-mono
+   name these families, so the face that answers to that name reads first. */
+@import "./fonts.css";
 @import "./tokens.css";
 
 @layer tailwind {
