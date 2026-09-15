@@ -32,7 +32,7 @@ locale; `en` routing stays in place but is not maintained.
 ## Stack
 
 TypeScript (strict) + Zod · Next.js 15 (App Router) · Express 5 ·
-MongoDB/Mongoose · Tailwind CSS 3.4 (storefront) · MUI 7 (admin) · pnpm
+PostgreSQL 18 + Prisma 7 · Tailwind CSS 3.4 (storefront) · MUI 7 (admin) · pnpm
 workspaces + Turborepo. See `masterPlan.md` §2 for the full locked stack and
 §4 for the exact dependency manifest — do not add a dependency outside it
 without asking.
@@ -62,17 +62,36 @@ write to your Node install location).
 pnpm install
 cp .env.example apps/web/.env.local   # fill in what you need, mock providers work out of the box
 cp .env.example apps/api/.env
-pnpm dev     # starts MongoDB, then every app in the workspace via Turborepo
+pnpm dev     # starts PostgreSQL, then every app in the workspace via Turborepo
 ```
 
-`pnpm dev` starts the project-scoped MongoDB container on port `27018` and
-waits for it to become healthy before starting the API and web development
-servers. MongoDB data persists in a Docker volume between sessions. Run
-`pnpm dev:stop` when you want to stop the container. The normal Ctrl+C only
-stops the web/API processes, allowing faster starts the next time.
+`pnpm dev` runs `scripts/dev-db.mjs` first: it checks port `5433` and only
+reaches for `docker compose` if nothing is already answering, then waits for
+the database to become healthy before starting the API and web development
+servers. The host port is `5433` rather than `5432` because a native
+PostgreSQL install commonly holds the default. Data persists in the
+`parsianstore-postgres` Docker volume between sessions. Run `pnpm dev:stop`
+to stop the container; a normal Ctrl+C only stops the web/API processes,
+which makes the next start faster.
+
+**This project ran on MongoDB/Mongoose until 2026-08-28 and no longer does.**
+The migration is complete — there is no Mongoose, no `models/` directory and
+no `MONGODB_URI`. Source comments still compare the two databases on purpose,
+because most of those differences are things one engine can do and the other
+cannot, and the reasoning is worth keeping. If you find a Mongo *container or
+Docker volume* on a machine, it is a leftover: `docker compose down` never
+removes named volumes. See `docs/deployment.md` §10 for how to check and
+remove it.
 
 Other workspace-wide scripts: `pnpm lint`, `pnpm test`, `pnpm build`, and
 `pnpm e2e`.
+
+### Deploying
+
+`compose.yaml` is **development infrastructure only** — it hardcodes a
+development database password and is started by `pnpm dev`. Never deploy with
+it. Production has its own path: `compose.prod.yaml`, the two `Dockerfile`s,
+`.env.production.example`, and the runbook in **`docs/deployment.md`**.
 
 ### Optional local tooling
 

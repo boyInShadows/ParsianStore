@@ -10,8 +10,9 @@ import { defineConfig } from "prisma/config";
  * client itself takes a driver adapter instead of a URL string
  * (https://pris.ly/d/config-datasource).
  *
- * `DATABASE_URL` comes from `apps/api/.env`, which is git-ignored — the same
- * place `MONGODB_URI` lives while both databases coexist through phase 2.
+ * `DATABASE_URL` comes from `apps/api/.env`, which is git-ignored. It is the
+ * only database URL this project has; the Mongo migration finished 2026-08-28
+ * and `MONGODB_URI` is gone.
  */
 export default defineConfig({
   schema: path.join("prisma", "schema.prisma"),

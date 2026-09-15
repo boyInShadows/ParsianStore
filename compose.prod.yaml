@@ -1,0 +1,215 @@
+# Production infrastructure. The runbook is docs/deployment.md.
+#
+# THIS FILE IS NEVER USED BY `pnpm dev`. Development is compose.yaml, which
+# `scripts/dev-db.mjs` starts on 127.0.0.1:5433 with a hardcoded local
+# password. The two stacks are deliberately separate down to the compose
+# project name below, so they can never share a container name, a network, or
+# — the one that actually matters — a volume.
+#
+#   docker compose --env-file .env.production -f compose.prod.yaml up -d
+#
+# THE `--env-file` IS MANDATORY, NOT A CONVENIENCE. Compose interpolates
+# `${VAR}` from its own environment plus that file only; a service-level
+# `env_file:` would be read too late to expand anything here. Every secret
+# below is written `${VAR:?message}`, which makes compose refuse to do
+# anything at all — not start halfway — when a variable is unset or empty.
+# There is no fallback value for any credential in this file, on purpose: a
+# default password is a password everybody has.
+
+name: parsianstore-prod
+
+# Everything the API process reads from its environment. Shared by the `api`
+# service and by the one-shot `ops` container that applies migrations and runs
+# the seeds: both talk to the same database as the same user, and a copy-paste
+# pair that can drift is exactly how a seed ends up writing somewhere else.
+# The seeds import apps/api/src/config/env.ts like the server does, so they
+# need the JWT secrets present even though they never mint a token.
+x-api-environment: &api-environment
+  # NODE_ENV=production is load-bearing beyond the usual reasons:
+  # apps/api/src/config/prisma.ts's resolveDatabaseUrl() appends `_test`
+  # to the database name when and only when NODE_ENV is "test". Pinned
+  # here so no inherited shell variable can ever make this process create
+  # or talk to a second database. TEST_DATABASE_URL is likewise never set.
+  NODE_ENV: production
+  PORT: 4000
+  DATABASE_URL: ${DATABASE_URL:?DATABASE_URL is required}
+  JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:?JWT_ACCESS_SECRET is required - at least 32 characters, see .env.production.example}
+  JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:?JWT_REFRESH_SECRET is required - at least 32 characters and different from JWT_ACCESS_SECRET}
+  JWT_ACCESS_TTL: ${JWT_ACCESS_TTL:-15m}
+  JWT_REFRESH_TTL: ${JWT_REFRESH_TTL:-30d}
+  # The browser origin(s) allowed to call this API with credentials.
+  # checkout.service.ts reads the FIRST entry as "the storefront's own
+  # origin" when it builds the post-payment redirect, so the public site
+  # URL must come first here.
+  CORS_ORIGINS: ${CORS_ORIGINS:?CORS_ORIGINS is required - the storefront origin first, e.g. https://example.ir}
+  # The origin this API is reachable on from a browser. It is what
+  # LocalDiskStorageProvider prefixes onto every uploaded image URL, so a
+  # wrong value here shows up as broken product photos, not as an error.
+  PUBLIC_URL: ${PUBLIC_URL:?PUBLIC_URL is required - the public origin of this API, e.g. https://api.example.ir}
+  LOG_LEVEL: ${LOG_LEVEL:-info}
+  SMS_PROVIDER: ${SMS_PROVIDER:-mock}
+  KAVENEGAR_API_KEY: ${KAVENEGAR_API_KEY:-}
+  OTP_TEMPLATE: ${OTP_TEMPLATE:-}
+  PAYMENT_PROVIDER: ${PAYMENT_PROVIDER:-mock}
+  ZARINPAL_MERCHANT_ID: ${ZARINPAL_MERCHANT_ID:-}
+  ZARINPAL_SANDBOX: ${ZARINPAL_SANDBOX:-true}
+  STORAGE_DRIVER: ${STORAGE_DRIVER:-local}
+  SEARCH_DRIVER: ${SEARCH_DRIVER:-postgres}
+  ADMIN_SEED_PHONE: ${ADMIN_SEED_PHONE:-}
+  # Never true here. The 100/min/IP cap is the only thing in front of the
+  # OTP endpoint; the flag exists for the Playwright run and nothing else.
+  RATE_LIMIT_DISABLED: "false"
+
+services:
+  # ------------------------------------------------------------ database ---
+  postgres:
+    image: postgres:18
+    restart: unless-stopped
+    # NO `ports:`, DELIBERATELY. Not even on loopback. The api reaches this
+    # over the compose network as `postgres:5432`, which is the only access
+    # anything needs. Publishing a database port on a VPS means one careless
+    # firewall rule, one `0.0.0.0` typo or one other container on a shared
+    # host away from an exposed database. To run psql against it, exec into
+    # the container (see docs/deployment.md) — that needs no published port.
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:?POSTGRES_DB is required (e.g. parsian_store)}
+      POSTGRES_USER: ${POSTGRES_USER:?POSTGRES_USER is required (e.g. parsianstore)}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required - generate one, never reuse the development password}
+      # Initialise the cluster with data checksums so silent corruption is
+      # detected on read rather than discovered in a backup restore.
+      POSTGRES_INITDB_ARGS: "--data-checksums"
+    volumes:
+      # Mounted at /var/lib/postgresql, NOT /var/lib/postgresql/data — the
+      # same rule compose.yaml explains at length. The 18+ images keep the
+      # cluster in a major-version subdirectory (/var/lib/postgresql/18/docker)
+      # so `pg_upgrade --link` can work across one mount point; mounting the
+      # 17-and-earlier path makes the container refuse to start.
+      # https://github.com/docker-library/postgres/pull/1259
+      - postgres-data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+  # ----------------------------------------------------------- migrations --
+  # One-shot. Runs `prisma migrate deploy` to completion and exits; the api
+  # will not start until it has (see its depends_on). This is a separate
+  # service and a separate image target because applying migrations needs the
+  # Prisma CLI and its platform schema-engine binary, and neither belongs in
+  # the image that serves traffic.
+  #
+  # `migrate deploy` only — never `db push` (it rewrites the schema to match
+  # the model file and can drop columns without a migration) and never a seed.
+  # Seeding production is a deliberate, manual act: the same `ops` image runs
+  # the seeds, but only when an operator invokes one by hand with
+  # `docker compose run --rm migrate pnpm ...`. See docs/deployment.md.
+  migrate:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+      target: ops
+    image: parsianstore/api-ops:${IMAGE_TAG:-latest}
+    restart: "no"
+    environment:
+      <<: *api-environment
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  # ------------------------------------------------------------------ api --
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+      target: runner
+    image: parsianstore/api:${IMAGE_TAG:-latest}
+    restart: unless-stopped
+    environment:
+      <<: *api-environment
+    volumes:
+      # LocalDiskStorageProvider writes uploaded and resized product imagery
+      # here (/app/uploads inside the image). Without this volume every
+      # uploaded photo is lost on the next `docker compose up --build`.
+      - api-uploads:/app/uploads
+    ports:
+      # Bound to loopback by default so a reverse proxy on the host (nginx,
+      # Caddy, Traefik) terminates TLS in front of it. Set API_BIND=0.0.0.0
+      # only if something else is doing that job.
+      - "${API_BIND:-127.0.0.1}:${API_PORT:-4000}:4000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      # The image is Debian slim with no curl and no wget. Node 22 has a
+      # global fetch, which is a dependency that is guaranteed to be present.
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:4000/api/v1/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  # ------------------------------------------------------------------ web --
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+      target: runner
+      # NEXT_PUBLIC_* are compiled INTO the client bundle. They are build
+      # arguments and cannot be environment variables: changing them means
+      # rebuilding this image, not restarting this container.
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:?NEXT_PUBLIC_API_URL is required at BUILD time - the public origin of the API}
+        NEXT_PUBLIC_SITE_URL: ${NEXT_PUBLIC_SITE_URL:?NEXT_PUBLIC_SITE_URL is required at BUILD time - the public origin of the storefront}
+        NEXT_PUBLIC_DEFAULT_LOCALE: ${NEXT_PUBLIC_DEFAULT_LOCALE:-fa}
+        NEXT_PUBLIC_ENAMAD_ID: ${NEXT_PUBLIC_ENAMAD_ID:-}
+    image: parsianstore/web:${IMAGE_TAG:-latest}
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      HOSTNAME: 0.0.0.0
+      # Read by Server Components at request time (unlike the NEXT_PUBLIC_*
+      # build args above). Inside the compose network the api is `api:4000`;
+      # going out to the public URL and back in would be a pointless round
+      # trip through the reverse proxy.
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:?NEXT_PUBLIC_API_URL is required}
+      NEXT_PUBLIC_SITE_URL: ${NEXT_PUBLIC_SITE_URL:?NEXT_PUBLIC_SITE_URL is required}
+      REVALIDATE_SECRET: ${REVALIDATE_SECRET:-}
+    ports:
+      - "${WEB_BIND:-127.0.0.1}:${WEB_PORT:-3000}:3000"
+    depends_on:
+      api:
+        condition: service_healthy
+    healthcheck:
+      # `/` redirects to the default locale, so a 3xx is a healthy answer
+      # here. Anything below 500 means the server is up and routing.
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:3000/',{redirect:'manual'}).then(r=>process.exit(r.status<500?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+volumes:
+  # Named with the compose project prefix `parsianstore-prod_`, which is what
+  # keeps them distinct from development's `parsian-store_parsianstore-postgres`.
+  # `docker compose down` never removes a named volume — that is the whole
+  # reason a Mongo volume outlived the database itself. See the "leftovers
+  # from the Mongo era" section of docs/deployment.md.
+  postgres-data:
+  api-uploads:

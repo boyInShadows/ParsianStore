@@ -1,0 +1,71 @@
+# Build context exclusions for `docker build -f apps/<app>/Dockerfile .`
+#
+# Both images are built from the REPOSITORY ROOT, not from the app directory:
+# this is a pnpm workspace and `packages/schemas` is a real dependency of both
+# apps, so the context has to contain the whole workspace. Everything below is
+# what must NOT travel with it.
+
+# ---- never, under any circumstance ----
+# Secrets. The images read their configuration from the environment at run
+# time (compose.prod.yaml + the operator's .env.production); a .env baked into
+# a layer is a secret published to everyone who can pull the image.
+.env
+.env.*
+!.env.example
+!.env.production.example
+apps/*/.env
+apps/*/.env.*
+packages/*/.env
+
+# ---- host build output; the image builds its own ----
+# Copying these in is not just waste: a Windows-built node_modules carries
+# win32 native binaries (argon2, sharp, @img/sharp-win32-x64) that would
+# shadow the linux ones the image installs.
+node_modules
+**/node_modules
+.next
+**/.next
+dist
+**/dist
+build
+**/build
+.turbo
+**/.turbo
+*.tsbuildinfo
+**/*.tsbuildinfo
+
+# ---- test, audit and asset artefacts ----
+test-results
+playwright-report
+screenshots
+coverage
+e2e
+docs/shots
+tmp
+
+# ---- reference-only prototype (CLAUDE.md §13) ----
+# Not part of the pnpm workspace and never imported by apps/* or packages/*.
+legacy
+
+# ---- 113 MB of render masters that feed scripts/optimize-landing.mjs ----
+# Only its committed output under apps/web/public/landing/ ships.
+landing-src
+
+# ---- repo prose; nothing in either build reads it ----
+*.md
+!apps/**/*.md
+docs
+
+# ---- local tooling and VCS ----
+.git
+.github
+.husky
+.claude
+.vscode
+.idea
+playwright.config.ts
+compose.yaml
+compose.prod.yaml
+Dockerfile
+**/Dockerfile
+.dockerignore
