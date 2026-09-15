@@ -1,7 +1,6 @@
 import { execFileSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { Client } from "pg";
-import { env } from "./env.js";
 import { resolveDatabaseUrl } from "./prisma.js";
 
 /**
@@ -25,7 +24,24 @@ export async function setup(): Promise<void> {
   // A safety rail rather than politeness: everything downstream truncates
   // every table, so pointing this at the wrong database destroys real data.
   // The suite refuses to run rather than trusting the environment.
-  if (!databaseName.endsWith("_test") && !env.TEST_DATABASE_URL) {
+  //
+  // This check used to read `!databaseName.endsWith("_test") &&
+  // !env.TEST_DATABASE_URL` -- that is, setting `TEST_DATABASE_URL` skipped it
+  // entirely, whatever it pointed at, including the development database.
+  // A rail an environment variable can switch off is not a rail. The variable
+  // still does its real job of *choosing the connection* (another host, port,
+  // or credential for a CI service that provides the database); it no longer
+  // excuses the name.
+  //
+  // The same rule now lives in `resetDb()` itself, where the TRUNCATE actually
+  // happens (P15.S13), and the two deliberately agree rather than one being
+  // laxer. A laxer check here would not permit anything extra -- `resetDb()`
+  // would refuse anyway -- it would only trade one clear refusal at startup for
+  // 58 confusing mid-suite failures. If a service ever genuinely cannot name
+  // its database with a `_test` suffix, both places have to be loosened
+  // together, and the one guarding the destructive statement is the one that
+  // needs the argument.
+  if (!databaseName.endsWith("_test")) {
     throw new Error(
       `Refusing to run tests against "${databaseName}": the test database name must end in _test`,
     );

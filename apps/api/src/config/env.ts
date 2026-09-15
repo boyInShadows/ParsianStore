@@ -50,7 +50,10 @@ const envSchema = z.object({
 
   // Only read when NODE_ENV=test, and optional even then: config/prisma.ts
   // derives `<database>_test` from DATABASE_URL when this is unset. It exists
-  // for a CI service whose database is not named that way.
+  // for a CI service that serves the test database from another host, port or
+  // credential -- it picks the connection, not the name. Whatever it points at
+  // must still end in `_test`, because resetDb() truncates every table in it
+  // and refuses anything else (P15.S13).
   TEST_DATABASE_URL: z.string().optional(),
 
   // P2.S4 — auth. Secrets get NO default: a hardcoded fallback secret in

@@ -100,7 +100,12 @@ function softDeleteExtension(client: PrismaClient) {
  * the e2e suite straight after `pnpm test` and getting an empty storefront.
  *
  * `<name>_test` by default, overridable with `TEST_DATABASE_URL` for a CI
- * service that names its database something else.
+ * service that serves the test database from another host, port or credential.
+ * That override chooses the *connection*, not the naming rule: the database it
+ * points at must still be named with a `_test` suffix, which `testDbSetup.ts`
+ * and `resetDb()` both enforce. It used to switch the name check off instead,
+ * which meant one environment variable could aim a TRUNCATE-everything at this
+ * very database (P15.S13).
  */
 export function resolveDatabaseUrl(): string {
   if (env.NODE_ENV !== "test") return env.DATABASE_URL;
