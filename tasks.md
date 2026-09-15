@@ -2323,12 +2323,62 @@ A per-route total can never say *who* grew; these three layers can.
       exist. `masterPlan.md` §10 needed no change — P15.S1 already pointed its
       table at the gate.
 
-- [ ] **P15.S8 — Recover the landing's bytes.** Owner decision 2026-09-15.
-      The route is at 199.926 / 200 — **76 bytes** — so S9 and S10 both queue
-      behind it. Target is the ~36 KB of landing code S0 could not attribute to
-      a named import. Measure the three layers before and after; the win has to
-      show in **own chunks** (82 budget, 80.0 today), not only in the total.
-      Nothing ships here that changes what the page looks like.
+- [~] **P15.S8 — Recover the landing's bytes. ATTEMPTED TWICE, 0 BYTES
+      RECOVERED — but the attribution is now complete and the cause is known.**
+      Two agents, two disproved hypotheses, `2a8bb69`. The landing is still
+      **199.9 kB / 80.0 kB own**, byte-identical, same chunk hashes.
+      **The full attribution, which nobody had before** (fingerprinted by
+      module content, not guessed): `motion` 45.2 · **`zod` 14.0** · the hero's
+      own page chunk 16.8 · `zustand` + persist 2.6 · reveal bootstrap +
+      `CountUp` 1.4 = 80.0. That closes S0's "~36 kB unattributed" for good.
+      **Hypothesis 1 (the first agent): a barrel-import leak, fixable per
+      leaf.** Disproved — but its experiment was also flawed: it converted one
+      leaf at a time, measured zero twice, and generalised to "a webpack
+      chunk-bucketing artifact, not a bad import."
+      **Hypothesis 2 (the CTO's, correcting it): the same leak, but it needs
+      every client-graph entry point converted in ONE build** — `Header.tsx`
+      (which is chrome, so it would have paid on all 23 shop routes) and
+      `manifestData.ts` together. Built exactly that. **Also disproved, and the
+      premise behind it was simply false.**
+      **What the evidence shows.** Chunk 536 holds five modules and all five
+      are zod's own internals — no application schema code, none of
+      `vehicleKeySchema`'s Persian strings, none of the cart/auth endpoint
+      strings. **The landing genuinely executes zod.** The shop layout mounts
+      two renderless client components on every route: `AuthSession` →
+      `fetchMe()` → `meResponseSchema.safeParse()`, and `CartSession` →
+      `cartStore.load()` → `cartResponseSchema.safeParse()`. Load-bearing
+      client-side validation of our own API responses. The 14 kB is the price
+      of an architectural choice, not a stray import — **so it is an owner
+      decision, raised as P15.S8b**, not something a cleanup step can take.
+      **The method lesson, and it is the expensive one.** Both hypotheses were
+      reasoned from an import graph and neither was checked against chunk
+      *contents* until after the second rebuild. One `grep` for zod's error
+      strings inside chunk 536, against a build that already existed, would
+      have answered it before either attempt. **Fingerprint the artifact before
+      theorising about what put it there.**
+      Kept from the two attempts, as hygiene and one real fix — see `2a8bb69`:
+      a `./catalog-systems` subpath, three components moved onto narrow
+      subpaths, and **`apps/web/vitest.config.ts`'s alias, which was broken**:
+      Vite matches a string `find` as a *prefix*, so `schemas/fa-text` hit the
+      bare `schemas` entry and had its subpath appended to a replacement ending
+      in `index.ts` — a file — resolving nowhere. Every `schemas/<subpath>`
+      import was unresolvable under vitest, including ones shipping today in
+      `Pagination.tsx` and `PriceTag.tsx`. Never noticed because no test
+      imported one.
+      **Still open:** the 16.8 kB hero page chunk is the one part of the
+      attribution nobody has examined, and it is the only remaining target that
+      does not require an owner decision.
+
+- [ ] **P15.S8b — OWNER CALL: is client-side zod re-validation of `/auth/me`
+      and `/cart` worth 14.0 kB on every route?** `AuthSession` and
+      `CartSession` mount unconditionally in the shop layout and `safeParse()`
+      our own API's responses in the browser. That pulls the whole zod runtime
+      into the shop chrome. Dropping to a narrow hand-written shape guard for
+      those two responses recovers ~14 kB and would take the landing to roughly
+      186 kB — enough room for S9 and S10 with margin. The cost is losing a
+      defensive check on two endpoints we control. **CLAUDE.md §11's
+      "every API input is Zod-validated" governs the server's inputs and is not
+      in tension with this**, but it is still a real boundary decision.
 
 - [ ] **P15.S9 — A real font preload, and `display: "optional"` with it.**
       Owner decision 2026-09-15. Replace `next/font/local` with a hand-written
