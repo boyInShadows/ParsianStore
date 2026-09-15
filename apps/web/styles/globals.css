@@ -1371,13 +1371,27 @@
      card -- "it only ever hides rows that it can bring back" -- and this is the
      same rule for the rest of the page. The reveal is a nicety; the content is
      the product. */
+  /* LONGHANDS, and that is the whole of P15.S11. `transition` is a shorthand:
+     it sets `transition-delay` too, to `0s`, whether or not a delay is written
+     in it. This rule is (0,3,0) for a staggered child and the `:nth-child`
+     delay rules below are (0,2,0), so the shorthand's implicit `0s` won every
+     per-property cascade and every staggered section on the landing arrived as
+     one block -- from the day the rule was written until 2026-09-16. Source
+     order never entered into it; the cascade resolves shorthands per longhand,
+     and the more specific declaration wins per longhand.
+
+     Raising the `:nth-child` rules' specificity would also have worked and is
+     the worse fix: it leaves a shorthand quietly resetting a property that
+     another rule owns, so the next declaration added here re-breaks it. Naming
+     the three longhands this rule actually needs means `transition-delay` has
+     exactly one owner. Do not collapse these back into the shorthand. */
   :root[data-reveal-armed] [data-reveal]:not([data-reveal-stagger]),
   :root[data-reveal-armed] [data-reveal-stagger] > * {
     opacity: 0;
     transform: translate3d(0, var(--reveal-travel), 0);
-    transition:
-      opacity var(--duration-slow) var(--ease-out),
-      transform var(--duration-slow) var(--ease-out);
+    transition-property: opacity, transform;
+    transition-duration: var(--duration-slow);
+    transition-timing-function: var(--ease-out);
   }
 
   :root[data-reveal-armed] [data-reveal="in"]:not([data-reveal-stagger]),
@@ -1438,7 +1452,15 @@
 
      Carries the `:root[data-reveal-armed]` prefix so it matches the specificity
      of the rules it overrides and wins on source order. Without the prefix it
-     is two attribute selectors against four and would silently lose. */
+     is two attribute selectors against four and would silently lose.
+
+     The `transition` SHORTHAND is correct *here* and nowhere else in this
+     block: this rule wants every transition longhand cleared, `transition-delay`
+     included, and at (0,3,0) it out-specifies the (0,2,0) `:nth-child` delays
+     above it. `transition-delay: 0s` after it is redundant belt-and-braces and
+     is kept as a statement of intent -- it says the delay reset is wanted, not
+     an accident of the shorthand. That is exactly the distinction the rule at
+     the top of this block got wrong for a whole phase. */
   @media (prefers-reduced-motion: reduce) {
     :root[data-reveal-armed] [data-reveal]:not([data-reveal-stagger]),
     :root[data-reveal-armed] [data-reveal-stagger] > * {

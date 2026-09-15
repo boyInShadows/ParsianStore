@@ -15,6 +15,28 @@ const read = (...segments: string[]) => readFileSync(path.join(WEB_ROOT, ...segm
 const globalsCss = read("styles", "globals.css");
 const tokensCss = read("styles", "tokens.css");
 
+/**
+ * The declaration block of the reveal's *hidden* state — the first rule
+ * carrying this selector pair. The pair appears twice in `globals.css`: here,
+ * and ~80 lines later inside `@media (prefers-reduced-motion: reduce)`, which
+ * has the opposite job. `indexOf` finds the first, and the slice stops at the
+ * rule's own closing brace, so the reduced-motion copy can never be read as
+ * this one. No `\n` literals: `core.autocrlf=true` with no `.gitattributes`
+ * means a Windows checkout of this file is CRLF (P15.S5's Windows-only test
+ * defect), and `{`/`}` are line-ending agnostic.
+ */
+const armedHiddenRuleBody = () => {
+  const start = globalsCss.indexOf(
+    ":root[data-reveal-armed] [data-reveal]:not([data-reveal-stagger])",
+  );
+  expect(start).toBeGreaterThan(-1);
+  const open = globalsCss.indexOf("{", start);
+  const close = globalsCss.indexOf("}", open);
+  expect(open).toBeGreaterThan(-1);
+  expect(close).toBeGreaterThan(open);
+  return globalsCss.slice(open + 1, close);
+};
+
 const BRANDS = ["بوش", "والئو", "NGK", "دنسو", "ساچمی"];
 const RUN_OPEN = '<div class="motion-marquee-run flex w-max shrink-0 items-center"';
 
@@ -173,14 +195,36 @@ describe("Reveal", () => {
     const travel = /--reveal-travel:\s*(\d+)px;/.exec(tokensCss);
     expect(travel).not.toBeNull();
     expect(Number(travel?.[1])).toBeLessThanOrEqual(24);
-    expect(globalsCss).toContain("opacity var(--duration-slow) var(--ease-out)");
+    const hidden = armedHiddenRuleBody();
+    expect(hidden).toContain("transition-duration: var(--duration-slow);");
+    expect(hidden).toContain("transition-timing-function: var(--ease-out);");
     expect(tokensCss).toMatch(/--duration-slow:\s*400ms;/);
   });
 
   it("staggers children 60ms apart without stamping an index onto each child", () => {
-    expect(tokensCss).toMatch(/--reveal-stagger-step:\s*60ms;/);
+    expect(tokensCss).toMatch(/--reveal-stagger-step:\s*60ms/);
     expect(globalsCss).toContain("[data-reveal-stagger] > :nth-child(2)");
     expect(globalsCss).toContain("[data-reveal-stagger] > :nth-child(n + 8)");
+  });
+
+  it("never sets the `transition` shorthand on the hidden state, or the stagger goes inert", () => {
+    // P15.S11. `transition` is a shorthand and resets `transition-delay` to
+    // `0s`. The hidden rule is (0,3,0) for a staggered child; the `:nth-child`
+    // delay rules are (0,2,0) and lose the per-longhand cascade, so every
+    // staggered section on the landing arrived as one block for a whole phase
+    // while the stylesheet's own comment claimed the delays worked. Nothing in
+    // the DOM shows it -- only a computed `transition-delay` of `0s` on a child
+    // that has a delay rule written for it.
+    //
+    // Longhands only here. The shorthand is correct inside the reduced-motion
+    // query, which genuinely wants every longhand cleared, and that rule is a
+    // different one -- sliced past by `armedHiddenRuleBody`.
+    const hidden = armedHiddenRuleBody();
+    expect(hidden).toContain("transition-property: opacity, transform;");
+    expect(hidden).not.toMatch(/(^|[\s;])transition\s*:/);
+    // And the rule must not own a delay either: `transition-delay` has exactly
+    // one owner on this page, and it is the `:nth-child` block.
+    expect(hidden).not.toContain("transition-delay");
   });
 
   it("stays off `motion`, so it adds nothing to a route already over its JS gate", () => {
