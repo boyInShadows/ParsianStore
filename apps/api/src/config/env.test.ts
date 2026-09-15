@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
 
@@ -11,7 +13,7 @@ const envSchema = z.object({
   CORS_ORIGINS: z
     .string()
     .min(1, "CORS_ORIGINS must list at least one allowed origin")
-    .default("http://localhost:3000")
+    .default("http://localhost:3000,http://localhost:3200")
     .transform((value) => value.split(",").map((origin) => origin.trim())),
   LOG_LEVEL: z.enum(["trace", "debug", "info", "warn", "error", "fatal", "silent"]).default("info"),
 });
@@ -31,9 +33,20 @@ describe("envSchema", () => {
     expect(result.CORS_ORIGINS).toEqual(["http://localhost:3000", "https://parsianstore.ir"]);
   });
 
-  it("falls back to the local web app's origin when CORS_ORIGINS is absent", () => {
+  it("falls back to both local web origins when CORS_ORIGINS is absent", () => {
     const result = envSchema.parse({});
-    expect(result.CORS_ORIGINS).toEqual(["http://localhost:3000"]);
+    // `:3000` is `next dev`; `:3200` is the port every local harness serves the
+    // production build on (Lighthouse recipe, shots/axe scripts, E2E_PORT).
+    // Without the second one the garage vehicle selector's client-side fetch
+    // fails CORS on the harness port and all three selects stay disabled.
+    expect(result.CORS_ORIGINS).toEqual(["http://localhost:3000", "http://localhost:3200"]);
+  });
+
+  it("keeps :3000 first, because checkout builds its redirect from CORS_ORIGINS[0]", () => {
+    // checkout.service.ts's buildPaymentResultUrl reuses the first entry as
+    // "the web app's own primary origin". Appending to this list is safe;
+    // prepending silently re-points every post-payment redirect.
+    expect(envSchema.parse({}).CORS_ORIGINS[0]).toBe("http://localhost:3000");
   });
 
   it("rejects an explicitly empty CORS_ORIGINS", () => {
@@ -49,5 +62,23 @@ describe("envSchema", () => {
   it("coerces a numeric-string PORT from the environment", () => {
     const result = envSchema.parse({ CORS_ORIGINS: "http://localhost:3000", PORT: "5000" });
     expect(result.PORT).toBe(5000);
+  });
+});
+
+/**
+ * The schema above is a *copy*. That keeps the unit tests off `process.env`
+ * (see the note at the top), but it also means every assertion in this file
+ * can stay green while `env.ts` says something else entirely -- a test that
+ * cannot fail for the thing it appears to be testing.
+ *
+ * So the one default whose value has behavioural consequences is pinned
+ * against the real source text as well. Source-level rather than by import,
+ * because importing `env.ts` parses `process.env` and throws.
+ */
+describe("env.ts source", () => {
+  const source = readFileSync(fileURLToPath(new URL("./env.ts", import.meta.url)), "utf8");
+
+  it("declares the same CORS_ORIGINS default this file asserts on", () => {
+    expect(source).toContain('.default("http://localhost:3000,http://localhost:3200")');
   });
 });
