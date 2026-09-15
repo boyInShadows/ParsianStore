@@ -193,15 +193,19 @@ is a summary and the file wins if they disagree):
 
 | Route | First load, hard | warn | Own chunks |
 |---|---|---|---|
-| Landing | 200 | 190 | 82 |
+| Landing | 190 | 188 | 70 |
 | PLP (category, brand) | 160 | 157 | 38 |
 | PDP | 170 | 165 | 44 |
 | Every other shop route | 180 | 175 | 48 |
 | Framework floor (shared) | 105 | — | — |
 | Shop chrome (shared) | 20 | — | — |
 
-The landing's 200 is a **freeze, not headroom** — it measures 199.9, so the
-warn line at 190 exists to make recovery the default direction. The owner
+The landing's 190 is a **freeze, not headroom** — it measures 186.8, so the
+warn line at 188 exists to make recovery the default direction. It was 200/190
+until P15.S8b recovered 13.1 kB by taking zod out of the client graph, and the
+ceiling came down in the same commit. **Ratchet the budget down after every
+recovery.** A ceiling left at the old number silently re-authorises the bytes
+you just removed, and that is exactly how 180 became 200. The owner
 authorised the raise with "don't open it for like 600kb". The reason the
 ceiling matters at all is roughly 1 ms of parse-and-compile per KB on a
 mid-tier phone: this shop's customer is on a mid-tier Android over an Iranian

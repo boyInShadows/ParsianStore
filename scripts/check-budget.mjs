@@ -63,10 +63,10 @@ const NEXT_DIR = path.join(WEB_ROOT, ".next");
 const BUDGETS = {
   "/[locale]/(shop)": {
     label: "landing",
-    firstLoad: 200,
-    warnAt: 190,
-    ownChunks: 82,
-    why: "P15.S1. Raised from the long-breached 180 with owner sign-off; 199.7 is the measured value, so 200 is a freeze, not headroom.",
+    firstLoad: 190,
+    warnAt: 188,
+    ownChunks: 70,
+    why: "P15.S8b RATCHET. Was 200/190/82, set when the route measured 199.9 with 76 bytes of room. Removing zod from the client graph took it to 186.8/66.9, so the ceiling comes down with it -- a budget left at the old number would silently re-authorise the 13 kB we just recovered. 190 leaves ~3 kB for S9's font work and S10's loading leaf and not a byte more. Ratchet down after every recovery; that is what stops the 180 -> 200 drift from happening again.",
   },
   // PLP and PDP keep the §10 numbers they have always had. Both measure well
   // under them (155.0 and 161.0 on 2026-09-08), so there is nothing to raise --

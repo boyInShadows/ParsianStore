@@ -2369,7 +2369,50 @@ A per-route total can never say *who* grew; these three layers can.
       attribution nobody has examined, and it is the only remaining target that
       does not require an owner decision.
 
-- [ ] **P15.S8b — OWNER CALL: is client-side zod re-validation of `/auth/me`
+- [x] **P15.S8b — SHIPPED 2026-09-16, `8d48d1e`. 13.1 kB off every shop route.**
+      Landing first load **199.9 → 186.8 kB**, own **80.0 → 66.9**.
+      `check:budget` exits 0 with **no WARN for the first time since the gate
+      was built**. Not a landing fix: PLP 155.1 → 142.4, garage 151.8 → 139.1,
+      cart 151.0 → 137.9, login 151.7 → 138.8 — every route whose client graph
+      reached vehicle-key parsing. Floor and chrome unchanged.
+      **Zod arrived by TWO independent paths, and neither alone could be
+      removed** — which is the whole reason S8 came back empty twice:
+      (1) `AuthSession`/`CartSession` → `fetchMe()` / `cartStore.load()`
+      `safeParse()`ing our own API responses, plus wishlist, which
+      `use-auth-session` imports eagerly at top level; and
+      (2) `GarageUrlSync`/`garage-store` → `buildVehicleKey`/`parseVehicleKey`,
+      sharing a module with `vehicleKeySchema`, whose `isId()` was
+      `idSchema.safeParse()` — **the garage path's entire zod dependency was the
+      question "is this a UUID".**
+      Path 2 was found only when guessing was replaced by **enumeration**: a
+      static reachability walk of the shop layout and landing page, 111 files,
+      tracking `'use client'` inheritance and skipping type-only imports,
+      returned exactly three remaining modules. Two of the three were free —
+      `normalizePhone`, `toEnglishDigits` and `toPersianDigits` already live in
+      the zod-free `faText.ts`.
+      **Correctness was proven, not asserted.** `isUuid()` copies zod v3's own
+      `uuidRegex` verbatim from `node_modules` rather than deriving a pattern,
+      and `packages/schemas/src/id.test.ts` puts 17 corpus cases — v1/v4/v7,
+      nil, case variants, length and separator damage, whitespace, braces —
+      through both `idSchema.safeParse()` and `isUuid()` and asserts agreement.
+      `id.ts`'s own comment records that pinning the version nibble once
+      rejected every id this database generates, so it stays version-agnostic.
+      **The client no longer re-validates our own API's responses with zod; the
+      server still validates every input it receives**, so CLAUDE.md §11 is
+      untouched. `no-zod-in-session-path.test.ts` fails if any converted file
+      reimports zod — same guard technique `lib/cx.test.ts` uses for
+      tailwind-merge, so the recovery cannot be silently undone.
+      **Budget ratcheted in the same breath: landing 200/190/82 → 190/188/70.**
+      Leaving the ceiling at 200 would have silently re-authorised the 13 kB
+      just recovered. 190 leaves ~3 kB for S9 and S10 and nothing more.
+      Mutation-checked: 185 exits 1, 190 exits 0. **Ratchet down after every
+      recovery — that is what stops a 180 → 200 drift from happening twice.**
+      Verified: lint · typecheck · 291 apps/web · 72 packages/schemas ·
+      514 apps/api · 114 landing e2e, 9 visual baselines unmodified, 0 axe
+      violations · garage `?v=` round-trip, cart add and OTP login confirmed in
+      a real browser against a real API and seeded database.
+
+- [x] ~~**P15.S8b — OWNER CALL: is client-side zod re-validation of `/auth/me`
       and `/cart` worth 14.0 kB on every route?** `AuthSession` and
       `CartSession` mount unconditionally in the shop layout and `safeParse()`
       our own API's responses in the browser. That pulls the whole zod runtime
@@ -2378,7 +2421,8 @@ A per-route total can never say *who* grew; these three layers can.
       186 kB — enough room for S9 and S10 with margin. The cost is losing a
       defensive check on two endpoints we control. **CLAUDE.md §11's
       "every API input is Zod-validated" governs the server's inputs and is not
-      in tension with this**, but it is still a real boundary decision.
+      in tension with this**, but it is still a real boundary decision.~~
+      **Decided 2026-09-15: swap for a narrow shape guard. Shipped above.**
 
 - [ ] **P15.S9 — A real font preload, and `display: "optional"` with it.**
       Owner decision 2026-09-15. Replace `next/font/local` with a hand-written
