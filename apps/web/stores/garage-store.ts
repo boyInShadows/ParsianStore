@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import { createJSONStorage, persist, type StateStorage } from "zustand/middleware";
-import { buildVehicleKey, type VehicleKeyParts } from "schemas";
+import { buildVehicleKey, type VehicleKeyParts } from "schemas/vehicle-key";
 import { getCookie, removeCookie, setCookie } from "@/lib/cookie";
 
 // masterPlan.md §3.2/§3.4: the Garage stores the same

@@ -1,6 +1,75 @@
-import { cartResponseSchema, type CartDto } from "schemas";
+import type { CartDto, CartItemDto } from "schemas";
+import { guardProductListItem } from "@/lib/fetchers/product-guard";
+import {
+  isArrayOf,
+  isBoolean,
+  isNumber,
+  isOptionalString,
+  isPlainObject,
+  isString,
+} from "@/lib/shape-guard";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000";
+
+// P15.S8b: hand-written shape guard replacing zod's safeParse -- see
+// lib/shape-guard.ts's own comment for why. `CartSession` mounts on every
+// shop route (as does the header's item-count badge), so this module's
+// zod cost was paid on every route.
+function guardCartItem(value: unknown): value is CartItemDto {
+  if (!isPlainObject(value)) return false;
+  const variant = value.variant;
+  const variantOk =
+    variant === undefined ||
+    (isPlainObject(variant) &&
+      isPlainObject(variant.name) &&
+      isString(variant.name.fa) &&
+      isString(variant.name.en) &&
+      isString(variant.sku));
+  return (
+    isString(value.id) &&
+    isString(value.productId) &&
+    isOptionalString(value.variantId) &&
+    variantOk &&
+    isNumber(value.qty) &&
+    isNumber(value.priceRialSnapshot) &&
+    guardProductListItem(value.product) &&
+    isNumber(value.availableQty) &&
+    isBoolean(value.stockOk) &&
+    isBoolean(value.priceChanged) &&
+    isNumber(value.lineTotalRial)
+  );
+}
+
+// Mirrors packages/schemas/src/cart.ts's cartResponseSchema.
+function guardCartResponse(json: unknown): { success: true; data: CartDto } | { success: false } {
+  if (!isPlainObject(json) || json.ok !== true || !isPlainObject(json.data)) {
+    return { success: false };
+  }
+  const data = json.data;
+  if (
+    isString(data.id) &&
+    isArrayOf(data.items, guardCartItem) &&
+    isNumber(data.subtotalRial) &&
+    isNumber(data.discountRial) &&
+    isOptionalString(data.couponCode) &&
+    isOptionalString(data.couponIssue) &&
+    isNumber(data.totalRial)
+  ) {
+    return {
+      success: true,
+      data: {
+        id: data.id,
+        items: data.items,
+        subtotalRial: data.subtotalRial,
+        discountRial: data.discountRial,
+        couponCode: data.couponCode,
+        couponIssue: data.couponIssue,
+        totalRial: data.totalRial,
+      },
+    };
+  }
+  return { success: false };
+}
 
 // Client-side only, all credentials:"include" -- the server-set anonId
 // cookie (guest identity) and accessToken cookie (when signed in) both
@@ -9,8 +78,8 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000";
 async function parseCart(res: Response): Promise<CartDto | null> {
   if (!res.ok) return null;
   const json = await res.json();
-  const parsed = cartResponseSchema.safeParse(json);
-  return parsed.success ? parsed.data.data : null;
+  const parsed = guardCartResponse(json);
+  return parsed.success ? parsed.data : null;
 }
 
 export type CouponActionResult = { ok: true; data: CartDto } | { ok: false; message: string };
@@ -95,10 +164,8 @@ export async function applyCartCoupon(code: string): Promise<CouponActionResult>
     });
     if (!res.ok) return { ok: false, message: await readErrorMessage(res) };
     const json = await res.json();
-    const parsed = cartResponseSchema.safeParse(json);
-    return parsed.success
-      ? { ok: true, data: parsed.data.data }
-      : { ok: false, message: GENERIC_ERROR };
+    const parsed = guardCartResponse(json);
+    return parsed.success ? { ok: true, data: parsed.data } : { ok: false, message: GENERIC_ERROR };
   } catch {
     return { ok: false, message: GENERIC_ERROR };
   }

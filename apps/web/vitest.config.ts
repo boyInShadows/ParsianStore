@@ -31,6 +31,11 @@ export default defineConfig({
       "schemas/catalog-systems": fileURLToPath(
         new URL("../../packages/schemas/src/catalogSystems.ts", import.meta.url),
       ),
+      // P15.S8b: same ordering rule as the entries above -- must precede the
+      // bare `schemas` entry or the prefix match swallows it.
+      "schemas/vehicle-key": fileURLToPath(
+        new URL("../../packages/schemas/src/vehicleKeyCore.ts", import.meta.url),
+      ),
       schemas: fileURLToPath(new URL("../../packages/schemas/src/index.ts", import.meta.url)),
       // `@/` is the app's own path alias (tsconfig.json "paths"), and until
       // P13.S1 every tested module here happened to avoid it -- so a module

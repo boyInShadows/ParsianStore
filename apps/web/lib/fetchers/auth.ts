@@ -1,13 +1,51 @@
-import {
-  meResponseSchema,
-  otpRequestResponseSchema,
-  otpVerifyResponseSchema,
-  updateProfileResponseSchema,
-  type MeDto,
-  type UpdateProfileInput,
-} from "schemas";
+import type { MeDto, UpdateProfileInput } from "schemas";
+import { isOneOf, isOptionalString, isPlainObject, isString } from "@/lib/shape-guard";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000";
+
+// P15.S8b: hand-written shape guards replacing zod's safeParse -- see
+// lib/shape-guard.ts's own comment for why. `AuthSession` mounts on every
+// shop route, so this module's zod cost (meResponseSchema and friends)
+// was paid on every route, not just the login/account flows that use
+// requestOtp/verifyOtp/updateProfile.
+const ROLES = ["customer", "support", "operator", "admin", "superadmin"] as const;
+const ACCOUNT_TYPES = ["retail", "wholesale"] as const;
+
+function guardMe(value: unknown): value is MeDto {
+  return (
+    isPlainObject(value) &&
+    isString(value.id) &&
+    isString(value.phone) &&
+    isString(value.name) &&
+    isOptionalString(value.email) &&
+    isOneOf(value.role, ROLES) &&
+    isOneOf(value.accountType, ACCOUNT_TYPES)
+  );
+}
+
+// Mirrors meResponseSchema/otpVerifyResponseSchema/updateProfileResponseSchema
+// (all three are the same `{ ok: true, data: MeDto }` envelope in
+// packages/schemas/src/auth.ts).
+function guardMeResponse(json: unknown): { success: true; data: MeDto } | { success: false } {
+  if (isPlainObject(json) && json.ok === true && guardMe(json.data)) {
+    return { success: true, data: json.data };
+  }
+  return { success: false };
+}
+
+function guardOtpRequestResponse(
+  json: unknown,
+): { success: true; data: { message: string } } | { success: false } {
+  if (
+    isPlainObject(json) &&
+    json.ok === true &&
+    isPlainObject(json.data) &&
+    isString(json.data.message)
+  ) {
+    return { success: true, data: { message: json.data.message } };
+  }
+  return { success: false };
+}
 
 export type AuthActionResult<T> = { ok: true; data: T } | { ok: false; message: string };
 
@@ -33,8 +71,8 @@ export async function fetchMe(): Promise<MeDto | null> {
     const res = await fetch(`${API_URL}/api/v1/auth/me`, { credentials: "include" });
     if (!res.ok) return null;
     const json = await res.json();
-    const parsed = meResponseSchema.safeParse(json);
-    return parsed.success ? parsed.data.data : null;
+    const parsed = guardMeResponse(json);
+    return parsed.success ? parsed.data : null;
   } catch {
     return null;
   }
@@ -52,8 +90,8 @@ export async function fetchMeServer(cookieHeader: string): Promise<MeDto | null>
     });
     if (!res.ok) return null;
     const json = await res.json();
-    const parsed = meResponseSchema.safeParse(json);
-    return parsed.success ? parsed.data.data : null;
+    const parsed = guardMeResponse(json);
+    return parsed.success ? parsed.data : null;
   } catch {
     return null;
   }
@@ -69,10 +107,8 @@ export async function requestOtp(phone: string): Promise<AuthActionResult<{ mess
     });
     if (!res.ok) return { ok: false, message: await readErrorMessage(res) };
     const json = await res.json();
-    const parsed = otpRequestResponseSchema.safeParse(json);
-    return parsed.success
-      ? { ok: true, data: parsed.data.data }
-      : { ok: false, message: GENERIC_ERROR };
+    const parsed = guardOtpRequestResponse(json);
+    return parsed.success ? { ok: true, data: parsed.data } : { ok: false, message: GENERIC_ERROR };
   } catch {
     return { ok: false, message: GENERIC_ERROR };
   }
@@ -88,10 +124,8 @@ export async function verifyOtp(phone: string, code: string): Promise<AuthAction
     });
     if (!res.ok) return { ok: false, message: await readErrorMessage(res) };
     const json = await res.json();
-    const parsed = otpVerifyResponseSchema.safeParse(json);
-    return parsed.success
-      ? { ok: true, data: parsed.data.data }
-      : { ok: false, message: GENERIC_ERROR };
+    const parsed = guardMeResponse(json);
+    return parsed.success ? { ok: true, data: parsed.data } : { ok: false, message: GENERIC_ERROR };
   } catch {
     return { ok: false, message: GENERIC_ERROR };
   }
@@ -116,10 +150,8 @@ export async function updateProfile(input: UpdateProfileInput): Promise<AuthActi
       body: JSON.stringify(input),
     });
     if (!res.ok) return { ok: false, message: await readErrorMessage(res) };
-    const parsed = updateProfileResponseSchema.safeParse(await res.json());
-    return parsed.success
-      ? { ok: true, data: parsed.data.data }
-      : { ok: false, message: GENERIC_ERROR };
+    const parsed = guardMeResponse(await res.json());
+    return parsed.success ? { ok: true, data: parsed.data } : { ok: false, message: GENERIC_ERROR };
   } catch {
     return { ok: false, message: GENERIC_ERROR };
   }

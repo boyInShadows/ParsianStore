@@ -2,7 +2,8 @@
 
 import { useEffect, useRef } from "react";
 import { useSearchParams } from "next/navigation";
-import { buildVehicleKey, parseVehicleKey, toPersianDigits, type VehicleKeyParts } from "schemas";
+import { buildVehicleKey, parseVehicleKey, type VehicleKeyParts } from "schemas/vehicle-key";
+import { toPersianDigits } from "schemas/fa-text";
 import { usePathname, useRouter } from "@/i18n/navigation";
 import { useGarageStore } from "@/stores/garage-store";
 
