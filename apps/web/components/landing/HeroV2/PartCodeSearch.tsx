@@ -1,7 +1,10 @@
 "use client"; // controlled input + client-side navigation on submit
 
 import { useId, useState } from "react";
-import { toEnglishDigits } from "schemas";
+// "schemas/fa-text" avoids the root barrel's zod schemas and fa.ts's dayjs +
+// jalaliday stack (see packages/schemas/src/faText.ts) -- this component only
+// needs one string helper, not the whole validation graph.
+import { toEnglishDigits } from "schemas/fa-text";
 import { useRouter } from "@/i18n/navigation";
 
 type Props = {

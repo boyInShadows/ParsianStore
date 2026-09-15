@@ -3,7 +3,11 @@
 import { useEffect, useReducer, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "@/i18n/navigation";
-import { CATALOG_SYSTEMS } from "schemas";
+// "schemas/catalog-systems" avoids the root barrel's zod-bearing schemas
+// (packages/schemas/src/index.ts) -- Header is a Client Component in every
+// (shop) route's chrome (P15.S8), so a barrel import here charges the whole
+// validation graph to all 23 routes for one data table with zero zod in it.
+import { CATALOG_SYSTEMS } from "schemas/catalog-systems";
 import { initOverlays, overlaysReducer } from "./header-overlays";
 import { Drawer, Modal } from "@/components/primitives";
 import { ThemeToggle } from "@/components/theme/theme-toggle";
@@ -280,7 +284,7 @@ export function Header({ messages }: Props) {
             onClick={() => setMobileMenuOpen(true)}
             aria-label="باز کردن منو"
             aria-expanded={mobileMenuOpen}
-            className="w-tap inline-flex h-tap shrink-0 items-center justify-center border border-border text-text focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus md:hidden"
+            className="inline-flex h-tap w-tap shrink-0 items-center justify-center border border-border text-text focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus md:hidden"
           >
             <MenuIcon />
           </button>
@@ -332,7 +336,7 @@ export function Header({ messages }: Props) {
             <Link
               href="/cart"
               aria-label={cartItemCount > 0 ? `سبد خرید، ${cartItemCount} قلم` : "سبد خرید"}
-              className="w-tap relative inline-flex h-tap items-center justify-center text-text hover:bg-surface-raised focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
+              className="relative inline-flex h-tap w-tap items-center justify-center text-text hover:bg-surface-raised focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
             >
               <CartIcon />
               {cartItemCount > 0 ? (
@@ -354,7 +358,7 @@ export function Header({ messages }: Props) {
                     authUser ? `${messages.signedInAria} ${authUser.phone}` : messages.signedInAria
                   }
                   title={authUser?.phone}
-                  className="w-tap inline-flex h-tap items-center justify-center text-brand hover:bg-surface-raised focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
+                  className="inline-flex h-tap w-tap items-center justify-center text-brand hover:bg-surface-raised focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
                 >
                   <AccountIcon />
                 </Link>
@@ -364,7 +368,7 @@ export function Header({ messages }: Props) {
                   type="button"
                   onClick={() => void handleSignOut()}
                   aria-label={messages.signOutAria}
-                  className="w-tap hidden h-tap items-center justify-center text-text hover:bg-surface-raised focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus md:inline-flex"
+                  className="hidden h-tap w-tap items-center justify-center text-text hover:bg-surface-raised focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus md:inline-flex"
                 >
                   <SignOutIcon />
                 </button>
@@ -373,7 +377,7 @@ export function Header({ messages }: Props) {
               <Link
                 href="/auth/login"
                 aria-label={messages.signInAria}
-                className="w-tap inline-flex h-tap items-center justify-center text-text hover:bg-surface-raised focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
+                className="inline-flex h-tap w-tap items-center justify-center text-text hover:bg-surface-raised focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
               >
                 <AccountIcon />
               </Link>

@@ -19,6 +19,10 @@
       "types": "./dist/faText.d.ts",
       "default": "./dist/faText.js"
     },
+    "./catalog-systems": {
+      "types": "./dist/catalogSystems.d.ts",
+      "default": "./dist/catalogSystems.js"
+    },
     "./package.json": "./package.json"
   },
   "files": [
