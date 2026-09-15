@@ -1719,6 +1719,38 @@ enforces.**
 - **Phase 11's S4–S6 come after Phase 15**, not interleaved: retrofitting 122
   components would invalidate every number this phase measures.
 
+### Owner decisions — settled 2026-09-15, closing the four open calls
+
+All four taken at the CTO's recommendation, in one sitting. They chain: the
+byte recovery gates the other two, so it runs first.
+
+- **S4b(a) — recover bytes, do not freeze and do not raise again.** The landing
+  is 199.926 against a 200 hard fail: **76 bytes of room.** Freezing the route
+  would block the loading bar and the font work behind a policy rather than a
+  measurement, and raising the ceiling a second time inside the phase that
+  built the gate is the drift the gate exists to stop. S0's ~36 KB of
+  unattributed landing code is the place to look. **This becomes P15.S8 and
+  every other landing step queues behind it.**
+- **S3d — hand-write the `@font-face` and preload it.** Chosen over rendering a
+  `<link>` for `next/font`'s hashed URL (brittle) and over waiting on upstream.
+  The stated cost — losing `next/font`'s metric-matched fallback — **is not a
+  real cost on this page**: S3c established that the fallback is
+  `local("Arial")`, which cannot render Persian, so the `size-adjust` has never
+  applied to a single glyph the visitor sees. **P15.S9**, and it carries
+  `display: "optional"` with it, which S3c measured at **CLS 0.0322 → 0.0000**
+  and held only for the missing preload.
+- **S3b — move the not-found/redirect decision ahead of the flush.** Chosen over
+  a client leaf in the chrome, which would have to be paid for out of the 76
+  bytes. Five pages plus the auth redirect, and it fixes the soft-404 class
+  permanently rather than working around it. **P15.S10.**
+- **S5(a) — fix the inert reveal stagger.** `:root[data-reveal-armed]
+  [data-reveal-stagger] > *` (0,3,0) sets the `transition` *shorthand*, which
+  resets `transition-delay`; the nth-child delay rules are (0,2,0) and lose
+  regardless of source order, so all four delays read `0s` and every section's
+  children arrive together. **The owner has been reviewing the landing with the
+  stagger broken**, so this changes the page's feel — it ships with before/after
+  evidence and the owner looks at it after.
+
 ### The three-layer attribution — measured at S0, and it reorders the work
 
 The landing's 199.7 KB is not one number, it is three, and only the third is
@@ -1955,12 +1987,28 @@ A per-route total can never say *who* grew; these three layers can.
       beside a Persian car name, and CLAUDE.md §9 says dates display through
       `formatJalali`. Pre-existing (the header chip says the same), but the new
       sentence makes it conspicuous where a chip did not.
-      **(c) `CORS_ORIGINS` defaults to `http://localhost:3000` only**
+      **(c) ✅ FIXED 2026-09-15 (`eed6b64`).** `CORS_ORIGINS` defaulted to
+      `http://localhost:3000` only
       (`apps/api/src/config/env.ts:22`). Served on **:3200** — the port
       `E2E_PORT` and the Lighthouse recipe both use — every client-side vehicle
       fetch fails CORS and all three selects stay disabled. **The vehicle
       selector has no live local coverage on the port the harness runs on.**
       That is a hole in the test environment, not in the product.
+      Fixed by appending `:3200`, **never prepending** —
+      `checkout.service.ts` reads `CORS_ORIGINS[0]` as the web app's own primary
+      origin to build the post-payment redirect, so reordering the list silently
+      re-points every payment return; a test pins the ordering. Verified by real
+      preflight against the booted app: `:3000` and `:3200` get an allow-origin
+      header, `evil.example.com` still gets none. Production never reaches the
+      default. **Correction to this entry's own premise:** `playwright.config.ts`
+      defaults `E2E_PORT` to **3000**, not 3200 — 3200 is the *Lighthouse and
+      shots-script* port (`mobile-shots`, `mobile-axe`, `hero-shots`,
+      `og-image`), reached via an explicit `E2E_PORT=3200`. The fix covers both.
+      **Still open:** `:3000` belongs to a different project on this machine and
+      `playwright.config.ts` warns `reuseExistingServer` will happily test the
+      neighbour's site. Moving our dev server off 3000 is the better fix, but it
+      changes `CORS_ORIGINS[0]` and therefore the payment redirect — owner's
+      call, as its own deliberate step.
       **(d) Header chip CLS 0.0007** — a `min-w-` floor sized to the longest
       plausible label would close it.
 
@@ -2223,14 +2271,25 @@ A per-route total can never say *who* grew; these three layers can.
       brief tells a future batch not to request them. **Phase 13 is SHIPPED.**
 
       **Found on the way, and logged rather than fixed:**
-      **`npx vitest run` from the repo root wipes the dev database.** It is not
-      scoped to `apps/web` — it runs `apps/api`'s integration tests, which call
-      `resetDb()` against the **same** Postgres on :5433 that backs the dev
-      server, the API and every Playwright run. There is no separate test DB.
-      It looks harmless because the seed is idempotent; the danger is anything
-      measured between the wipe and the reseed — a baseline, a Lighthouse run —
-      silently seeing a page with sections missing. **Give `apps/api` its own
-      database.** Its own step.
+      ~~**`npx vitest run` from the repo root wipes the dev database.**~~
+      **RETRACTED 2026-09-15 — this finding was wrong.** It claimed "there is
+      no separate test DB" about a repo that had had one since **2026-08-28**
+      (`7b38587`): `resolveDatabaseUrl()` derives `<name>_test` whenever
+      `NODE_ENV === "test"`, and `testDbSetup.ts` creates and migrates it as
+      vitest `globalSetup`. Disproved three ways — a sentinel row plus a
+      33-table row-count snapshot came back byte-identical across a full root
+      `pnpm test` (787 passing); `TEST_DATABASE_URL` pointed at a nonexistent
+      database built and migrated it from nothing while the dev DB was
+      untouched; and `NODE_ENV=development` in `apps/api/.env` does not break
+      isolation, because dotenv will not override a var vitest already set.
+      **The claim was inherited from a session memory note and written into
+      this file without being checked against the repo** — the one thing the
+      phase's own standing rules say never to do.
+      **What is real, and is now P15.S13:** `resetDb()`'s `TRUNCATE` carries no
+      guard of its own. The `_test` name check lives in a sibling file that
+      runs as `globalSetup`, and it is skipped outright when
+      `TEST_DATABASE_URL` is set — so pointing that at the development database
+      truncates it silently. A safety rail belongs at the point of damage.
       Also: `pnpm typecheck` never type-checks `e2e/*.ts` — both `tsc` projects
       are scoped to `apps/web` and `apps/api`, so the Playwright suite is
       checked by ESLint alone.
@@ -2238,10 +2297,78 @@ A per-route total can never say *who* grew; these three layers can.
       **Verified:** lint clean · `tsc` web + api clean · **787/787 unit** ·
       **159 e2e across 9 suites** · `pnpm build` clean · budget unchanged at
       199.9 kB / own 80.0.
-- [ ] **P15.S7 — Write the rules down.** `docs/engineering-standards.md` gains a
-      **Performance budgets** section: the numbers, the three layers, the
-      measurement recipe, "measure before *and* after any step that adds a client
-      leaf", and **a budget that is not a failing check is not a budget**.
+- [x] **P15.S7 — Write the rules down.** ✅ 2026-09-15.
+      `docs/engineering-standards.md` gains a **Performance budgets** section:
+      the three-layer attribution with the landing's real split (floor 102.9 /
+      chrome 17.0 / own 79.8), the full budget table with the landing's 200 as
+      a *freeze rather than headroom*, the measurement recipe, and the five
+      standing rules — measure before *and* after any client leaf, trace before
+      you optimise, a trace says what invalidated but only an A/B says what it
+      cost, a plausible wrong number is worse than an error, and **a budget
+      that is not a failing check is not a budget**.
+      **It was also a correction, not only an addition.** The section it
+      replaced was stale in three ways at once: it quoted **TBT 130ms** (now
+      64), it quoted **"route JS 190KB against a 180KB budget"** — which is
+      Next's *Size* column, the page-specific chunk, and never what the landing
+      cost — and it described the budget as a table the project "holds itself
+      to" when S0 had already made it a failing check. A standards doc carrying
+      a number that is wrong by half is worse than one that carries none,
+      because it is cited.
+      The recipe writes down the four environment traps that have each cost a
+      session: clear the ports **before** the first build, `rm -rf
+      apps/web/.next` because turbo has served another tree's build, never
+      scrape the build log (`tail` clips the landing row — `/[locale]` sorts
+      first), and audit on **port 3000** because `NEXT_PUBLIC_SITE_URL` is baked
+      at build time and any other port reports an SEO defect that does not
+      exist. `masterPlan.md` §10 needed no change — P15.S1 already pointed its
+      table at the gate.
+
+- [ ] **P15.S8 — Recover the landing's bytes.** Owner decision 2026-09-15.
+      The route is at 199.926 / 200 — **76 bytes** — so S9 and S10 both queue
+      behind it. Target is the ~36 KB of landing code S0 could not attribute to
+      a named import. Measure the three layers before and after; the win has to
+      show in **own chunks** (82 budget, 80.0 today), not only in the total.
+      Nothing ships here that changes what the page looks like.
+
+- [ ] **P15.S9 — A real font preload, and `display: "optional"` with it.**
+      Owner decision 2026-09-15. Replace `next/font/local` with a hand-written
+      `@font-face` plus a parser-visible `<link rel="preload" as="font"
+      crossorigin>` in the layout head. S3c proved the hint never reaches
+      `<head>` today — React's Float API emits it into the RSC Flight payload as
+      a `:HL[...]` instruction, so it does not exist until the JS bundle loads.
+      18 `<link>` elements on a production `/`, none of them the font.
+      Then re-land `display: "optional"` (reverted at S3c) and re-measure: the
+      prize is **CLS 0.0322 → 0.0000** and swap ~50ms → ~10ms. **The acceptance
+      test is S3c's own failure mode** — 6 captures, and the face must win its
+      block window in more than 4 of them, or `optional` comes back out again.
+      Also delete `patches/next.patch` if the manifest bug stops mattering once
+      we own the tag.
+
+- [ ] **P15.S10 — Move not-found ahead of the flush, then land the loading bar.**
+      Owner decision 2026-09-15, closing S3b. `generateMetadata` resolves before
+      Next streams, so a `loading.tsx` boundary below a page that decides
+      not-found/redirect after the flush never shows. Hoist that decision on the
+      five pages plus the auth redirect. Fixes the soft-404 class permanently as
+      a side effect, which is why it beat the client-leaf route — that one also
+      had to be paid for out of 76 bytes.
+
+- [ ] **P15.S11 — Fix the inert reveal stagger.** Owner decision 2026-09-15,
+      closing S5(a). One declaration, but it restores 60ms of cascade to every
+      staggered section on the landing, and the owner has only ever seen the page
+      without it. Ships with before/after evidence for the owner to judge.
+
+- [ ] **P15.S12 — `.gitattributes`.** Closing S5(b). Behind the CRLF class of
+      bug S5 found, one of which **passed while asserting against the wrong
+      string**. Adding one renormalises every file in the repo, so it is its own
+      commit with nothing else in it.
+
+- [ ] **P15.S13 — Put the safety rail on the TRUNCATE itself.** `resetDb()` in
+      `apps/api/src/config/testDb.ts` truncates every table Prisma knows about
+      with no assertion of its own; the only `_test` name check is in
+      `testDbSetup.ts`, and it is bypassed entirely when `TEST_DATABASE_URL` is
+      set (`!endsWith("_test") && !env.TEST_DATABASE_URL`). Point that variable
+      at the dev database and it is wiped with no error. Assert in `resetDb()`,
+      where the damage happens, rather than trusting a sibling file to have run.
 
 ### Standing rules this phase adds
 
