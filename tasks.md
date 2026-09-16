@@ -1899,7 +1899,11 @@ A per-route total can never say *who* grew; these three layers can.
       The HiggsField seam is `WorkshopLoader.tsx` + the `--loader-*` token
       block: one component, one token set, as the decision asks.
 
-- [ ] **P15.S3b — Unblock the loading boundary.** OWNER CALL, two routes open:
+- [x] **P15.S3b — SUPERSEDED by P15.S10** (`b1187a6`, 2026-09-16). Route (1)
+      was chosen and then **disproved by measurement** — `generateMetadata` does
+      not resolve before the flush on Next 15.5.21. The loading boundary is
+      unblocked by a segment `layout.tsx` instead. Original options follow.
+      ~~OWNER CALL, two routes open:
       **(1)** move the not-found/redirect decision ahead of the flush
       (`generateMetadata` resolves before Next streams) — five pages plus the
       auth redirect, its own step, and it fixes the soft-404 class permanently.
@@ -1947,7 +1951,10 @@ A per-route total can never say *who* grew; these three layers can.
       chains now name Persian-capable system faces (Segoe UI, Noto Naskh/Sans
       Arabic, Geeza Pro) rather than ending at bare `sans-serif` — zero bytes.
 
-- [ ] **P15.S3d — Get a real `<link rel="preload" as="font">` into `<head>`.**
+- [x] **P15.S3d — DONE in P15.S9** (`b904716`, 2026-09-16). The hand-written
+      `@font-face` option was chosen and shipped; the preload is now a real
+      `<link>` in `<head>`, verified from served HTML, and `optional` landed
+      with it. ~~Get a real `<link rel="preload" as="font">` into `<head>`.**
       OWNER CALL. Unblocks `optional` and its CLS 0.0322 → 0.0000. Options not
       yet costed: a JSX `<link>` rendered in the layout head (needs the hashed
       font URL, which `next/font` does not expose — brittle); moving off
@@ -1975,7 +1982,17 @@ A per-route total can never say *who* grew; these three layers can.
       rehydration (`SPAN.truncate`, 74.6 → 82.7px at t≈2850ms), pre-existing for
       returning visitors. The hero subheadline was deliberately not attempted.
 
-- [ ] **P15.S4b — Three findings from S4, none of them S4's fault.** Owner's
+- [~] **P15.S4b — (a) and (c) CLOSED; (b) and (d) still open.**
+      **(a) the 76-byte ceiling** — gone: P15.S8b recovered 13.1 kB and the
+      landing sits at 186.8 against a ratcheted 190.
+      **(c) `CORS_ORIGINS`** — fixed in `eed6b64`.
+      **(b) the Gregorian year in the garage label is NOT a mechanical fix** —
+      `year` is a model year matched against `gen.yearFrom`/`yearTo`, so running
+      it through `formatJalali` would break generation matching. It is a product
+      decision about what «۲۰۲۰» should read as beside a Persian car name.
+      **OPEN, owner's call.**
+      **(d) Header chip CLS 0.0007** — still open, a `min-w-` floor would close
+      it. Original text follows. ~~Owner's
       call which are worth a step:
       **(a) THE LANDING CEILING IS 76 BYTES.** First load 199.926 KB against a
       200 KB hard fail. The next client leaf of any size on this route fails the
@@ -2424,7 +2441,15 @@ A per-route total can never say *who* grew; these three layers can.
       in tension with this**, but it is still a real boundary decision.~~
       **Decided 2026-09-15: swap for a narrow shape guard. Shipped above.**
 
-- [ ] **P15.S9 — A real font preload, and `display: "optional"` with it.**
+- [x] **P15.S9 — SHIPPED 2026-09-16 (`b904716`). CLS 0.0322 → 0.0000**, LCP
+      1930→1857ms, TBT 92→68ms. Hand-written `@font-face` + a real parser-visible
+      `<link rel="preload" as="font" crossorigin>`, proven from served HTML.
+      `display: "optional"` holds: S3c's own acceptance test passed **6/6**
+      against a ">4 of 6" bar, 9/9 baselines unmodified. `patches/next.patch`
+      deleted as *provably* dead (zero `next/font` call sites remain).
+      **No JS byte win** — `next/font/local` is a build-time pipeline, not a
+      runtime import; ~0.1 kB is rounding. Original plan text follows.
+      ~~A real font preload, and `display: "optional"` with it.**
       Owner decision 2026-09-15. Replace `next/font/local` with a hand-written
       `@font-face` plus a parser-visible `<link rel="preload" as="font"
       crossorigin>` in the layout head. S3c proved the hint never reaches
@@ -2438,7 +2463,24 @@ A per-route total can never say *who* grew; these three layers can.
       Also delete `patches/next.patch` if the manifest bug stops mattering once
       we own the tag.
 
-- [ ] **P15.S10 — Move not-found ahead of the flush, then land the loading bar.**
+- [x] **P15.S10 — SHIPPED 2026-09-16 (`b1187a6`), but NOT by the specified
+      mechanism.** `generateMetadata` does **not** resolve before the flush on
+      Next 15.5.21 — 15.2 made metadata streaming, so hoisting `notFound()`
+      there leaves a bad slug at **200** and drops the visitor on Next's
+      built-in **English LTR** 404. Measured, including Googlebot/Twitterbot.
+      What works: resolve in a segment `layout.tsx`, which sits outside the
+      `loading.tsx` Suspense boundary. All five routes now 404 correctly with
+      localised RTL copy, and the API-down distinction holds (200 +
+      `EmptyState`, never a 404).
+      **New invariant, measured by building the wrong variant on purpose:** a
+      `loading.tsx` must sit AT the deciding segment, never above it — a loader
+      on `vehicle/[make]` made the `[model]/[gen]` route answer 200 with a 404
+      body. Now a test assertion.
+      Shared `(shop)/not-found.tsx` added (gives `/vehicle/*` a localised 404 it
+      never had); the three specific boundaries moved up one segment so
+      «کالا یافت نشد» survives. **The redirect half needed nothing** — probed,
+      all six already 307 correctly. Original plan text follows.
+      ~~Move not-found ahead of the flush, then land the loading bar.**
       Owner decision 2026-09-15, closing S3b. `generateMetadata` resolves before
       Next streams, so a `loading.tsx` boundary below a page that decides
       not-found/redirect after the flush never shows. Hoist that decision on the
@@ -2446,17 +2488,43 @@ A per-route total can never say *who* grew; these three layers can.
       a side effect, which is why it beat the client-leaf route — that one also
       had to be paid for out of 76 bytes.
 
-- [ ] **P15.S11 — Fix the inert reveal stagger.** Owner decision 2026-09-15,
+- [x] **P15.S11 — SHIPPED 2026-09-16 (`9489313`).** Measured on two real
+      production builds: delays went `0s,0s,0s,0s` → `0s,.06s,.12s,.18s`.
+      The `transition` shorthand at (0,3,0) was resetting `transition-delay`,
+      and the `:nth-child` rules at (0,2,0) lost per-longhand — source order
+      never entered into it. Fixed with longhands so `transition-delay` has one
+      owner. Six landing groups now stagger. Reduced motion unchanged (its
+      shorthand IS correct). A guard test fails if the shorthand returns, proven
+      non-vacuous. Zero bytes. Original plan text follows.
+      ~~Fix the inert reveal stagger.** Owner decision 2026-09-15,
       closing S5(a). One declaration, but it restores 60ms of cascade to every
       staggered section on the landing, and the owner has only ever seen the page
       without it. Ships with before/after evidence for the owner to judge.
 
-- [ ] **P15.S12 — `.gitattributes`.** Closing S5(b). Behind the CRLF class of
+- [x] **P15.S12 — SHIPPED 2026-09-16 (`c2da3bf`).** `* text=auto eol=lf`, with
+      `.bat/.cmd/.ps1` kept CRLF and `.sh`/`.husky/*` pinned LF. Binaries
+      declared explicitly rather than left to git's heuristic — the ten PNGs are
+      the visual baselines, where one translated byte turns all nine tests red
+      with nothing in the diff. **Proven safe:** every tracked binary sha256'd
+      before and after `--renormalize`, combined digest identical, zero binaries
+      in the staged set. The pass staged exactly one file — its own — because
+      the committed bytes were already LF; what changes is that they no longer
+      depend on local config. Working tree refreshed to LF; 294 web + 521 api
+      tests green after. Original plan text follows.
+      ~~`.gitattributes`.** Closing S5(b). Behind the CRLF class of
       bug S5 found, one of which **passed while asserting against the wrong
       string**. Adding one renormalises every file in the repo, so it is its own
       commit with nothing else in it.
 
-- [ ] **P15.S13 — Put the safety rail on the TRUNCATE itself.** `resetDb()` in
+- [x] **P15.S13 — SHIPPED 2026-09-16 (`03235ba`).** `assertTruncatable()` is now
+      the first statement of `resetDb()`, with **no escape hatch**; the
+      `!env.TEST_DATABASE_URL` clause is gone from `testDbSetup.ts` too.
+      **Proven by pointing `TEST_DATABASE_URL` at the DEV database** and calling
+      the real `resetDb()`: 320 products before, refusal, 320 after. Tests proven
+      non-vacuous (neutralise the guard → 6 of 7 fail), and every refusal test
+      asserts `$executeRawUnsafe` was **never called**, not merely that it threw.
+      Original plan text follows.
+      ~~Put the safety rail on the TRUNCATE itself.** `resetDb()` in
       `apps/api/src/config/testDb.ts` truncates every table Prisma knows about
       with no assertion of its own; the only `_test` name check is in
       `testDbSetup.ts`, and it is bypassed entirely when `TEST_DATABASE_URL` is
