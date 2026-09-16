@@ -750,6 +750,45 @@ complete; do not silently reorder the roadmap around a failing gate.
       checkout use ruled commerce surfaces, stronger price hierarchy, selected
       state treatments, responsive composition, and a sticky desktop summary.
 
+## The Garage share link — two questions, one decision — opened 2026-09-16
+
+`815df0a` scoped `?v=` (the Garage active-vehicle key) to the routes that use
+it: written on `/c/*`, `/brand/*`, `/p/*`, stripped everywhere else, still
+**read** on every shop route so links already shared keep working. `/c/*` is
+the load-bearing one — `c/[slug]/page.tsx` reads `searchParams.v` server-side
+and feeds the SSR catalog fetch. Rules and their 46 tests live in
+`apps/web/lib/garage-url-sync.ts`.
+
+Two things were deliberately **not** fixed there, because they are one
+product decision and the owner's, not an agent's. Both are unreachable today
+— nothing in the app links to a `?v=` URL — and both become live the moment a
+"share my vehicle" feature exists. Decide them together:
+
+- [ ] **Opening someone else's `?v=` link permanently saves their car into
+      your garage.** `restoreVehicleFromUrl` calls `addVehicle`. Options:
+      keep it, show the vehicle active-but-unsaved, or prompt before saving.
+- [ ] **The restore runs once per tab session, not once per navigation.**
+      `GarageUrlSync` is mounted in the `(shop)` layout and Next.js does not
+      remount a layout across client-side soft navigations, so a `?v=` that
+      first appears via an in-app link is never restored — and on a
+      non-allowlisted route it is then stripped. **Pre-existing**, verified
+      against the pre-`815df0a` code, which behaved identically. Re-arming it
+      is what makes question 1 fire repeatedly, which is why they are one
+      decision.
+
+Also noted, unrelated to the above and not fixed: **`/brand/[slug]` renders
+FilterBar's "fits my vehicle" toggle but never passes `vehicle` to its
+catalog fetch**, so the toggle likely does nothing on that route. Separate
+bug, needs its own look.
+
+A third, larger option the owner has seen but not approved: re-encode the key
+from three UUIDs to slugs (`?v=saipa.pride-111.2011.2020`, ~25 chars instead
+of 115). `VehicleMake.slug` and `VehicleModel.slug` already exist and
+`fetchVehicleRoute()` already resolves slug→id, but it is a wire-format change
+shared with `apps/api` (`vehicleKeySchema`, `/fitment/check`,
+`/catalog/products?vehicle=`) and needs a back-compat path for links in the
+wild. Not scheduled.
+
 ## Cross-agent handoff — 2026-08-06
 
 Codex completed the first dedicated design-quality slice from Claude's staged
