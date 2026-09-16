@@ -1,0 +1,63 @@
+/**
+ * Self-hosted @font-face -- replaces next/font/local (P15.S9, closing S3d).
+ *
+ * S3c proved next/font never gets a parser-visible preload into <head>: with
+ * the Windows manifest bug patched (`patches/next.patch`), Next still calls
+ * `ReactDOM.preload(href, {as:"font"})`, which lands in the RSC Flight
+ * payload as a `:HL[...]` instruction inside an inline script, not a
+ * `<link>` -- verified on a production `/`, 18 `<link>` elements, none of
+ * them the font. Without a real hint, `display: "optional"`'s ~100ms block
+ * window is usually lost, which is why it was reverted at S3c. The owner's
+ * fix (2026-09-15) is this file plus a hand-written `<link rel="preload"
+ * as="font" crossorigin>` in the root layout's <head> (see layout.tsx) --
+ * full control over both halves instead of trusting React Float internals.
+ *
+ * Two families, matching lib/fonts.ts's old next/font wiring:
+ *
+ * - Vazirmatn: the variable face, every weight 100-900, the ONLY
+ *   above-the-fold family and the only one preloaded. `font-display:
+ *   optional` re-lands here now that the preload is real -- S3c measured
+ *   CLS 0.0322 -> 0.0000 and swap cost ~50ms -> ~10ms, held back only by the
+ *   missing hint. If a fresh 6-capture run of `e2e/landing.spec.ts`'s visual
+ *   baselines shows the face losing its block window again, this becomes
+ *   "swap" and the acceptance test result is reported instead of hidden.
+ * - JetBrains Mono: a single static weight (500) for codes, SKUs and order
+ *   numbers -- never an LCP candidate, so never preloaded, and left on
+ *   "swap" (a block window bought for a font nothing above the fold uses
+ *   would be pure cost).
+ *
+ * `unicode-range` is intentionally absent: both WOFF2 files are already
+ * subset at build time (Basic Latin + Arabic + ZWNJ/ZWJ + Persian UI
+ * punctuation -- masterPlan.md §6.5), so there is nothing left to range out.
+ *
+ * No metric-matched fallback descriptor (`size-adjust`/`ascent-override`) is
+ * declared here. next/font's `adjustFontFallback` only accepts Arial or
+ * Times New Roman as the reference face, computed `size-adjust: 101%`
+ * against Arial's *Latin* advance widths, and this page's text is Persian --
+ * the adjustment never applied to a glyph a visitor saw (lib/fonts.ts's old
+ * comment block has the full measurement). The real Persian-capable fallback
+ * chain (Tahoma, Segoe UI, Noto Naskh/Sans Arabic, Geeza Pro) already lives
+ * in tailwind.config.js's `fontFamily.body`/`fontFamily.display`, appended
+ * after `var(--font-body)` -- that is what actually renders during any
+ * `optional` block window or `swap` gap, not a synthetic metrics-only face.
+ *
+ * `--font-body` / `--font-mono` are set from these family names directly in
+ * tokens.css's `:root` (no per-route class needed -- a static family name
+ * has no hash to scope).
+ */
+
+@font-face {
+  font-family: "Vazirmatn";
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: optional;
+  src: url("/fonts/vazirmatn/Vazirmatn-Variable.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "JetBrains Mono";
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url("/fonts/jetbrains-mono/JetBrainsMono-Medium.woff2") format("woff2");
+}

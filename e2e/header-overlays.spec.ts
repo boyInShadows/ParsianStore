@@ -1,4 +1,5 @@
 import { test, expect, type Page } from "@playwright/test";
+import { contrastRatio } from "../apps/web/lib/design-tokens";
 
 /**
  * The header's two overlays must not reopen themselves on a browser FORWARD
@@ -151,4 +152,120 @@ test("the symptom expander still reveals the four hidden chips", async ({ page }
   await page.locator('#symptom-finder label[for="symptom-more"]').click();
   await expect(page.locator("#symptom-finder .symptom-list > li:visible")).toHaveCount(10);
   await expect(page.locator("#symptom-more")).toBeChecked();
+});
+
+/**
+ * The theme toggle's glyph must carry the control, not its ring (P13.S11,
+ * fixed at P14.S2).
+ *
+ * The old bug: the toggle painted page tokens inside a header that was
+ * `bg-graphite-950` in BOTH themes, so in light mode it was a 12.25:1 ring
+ * around a 3.38:1 glyph -- an empty-looking circle, because the outline was
+ * the only thing with real contrast. Nothing in the suite touched this
+ * control at all before this block.
+ *
+ * `next-themes` owns `data-theme` and reverts anything set on it by hand
+ * after load, so the theme has to be seeded via `localStorage` in an
+ * `addInitScript` BEFORE navigation (mirrors `e2e/landing.spec.ts`'s
+ * `openLanding`) -- setting the attribute directly measures the same theme
+ * twice and silently reports it as two different results.
+ */
+async function openWithTheme(page: Page, theme: "light" | "dark"): Promise<void> {
+  await page.addInitScript((value) => window.localStorage.setItem("theme", value), theme);
+  await page.emulateMedia({ colorScheme: theme });
+  await page.goto("/");
+  await expect(page.locator("html")).toHaveAttribute("data-theme", theme);
+  await page.locator("#hero").waitFor();
+}
+
+/**
+ * Resolves computed colours to `#rrggbb`, compositing translucent colours
+ * (the header's `--surface-translucent` is `#ffffffe0` / `#1a222ae0`, alpha
+ * ~0.88) over the page's own background -- the header is the first thing in
+ * flow at scroll position zero, so that background IS what shows through it.
+ * Returning hex lets the assertion reuse `contrastRatio`
+ * (lib/design-tokens.ts), the one WCAG relative-luminance formula in this
+ * repo, instead of a second copy living in a test file.
+ */
+function resolveHeaderContrastColours(): { headerHex: string; glyphHex: string } {
+  function toRgba(value: string): [number, number, number, number] {
+    const parts = value
+      .replace(/rgba?\(|\)/g, "")
+      .split(",")
+      .map((part) => parseFloat(part));
+    return [parts[0] ?? 0, parts[1] ?? 0, parts[2] ?? 0, parts.length > 3 ? (parts[3] ?? 1) : 1];
+  }
+  function toHex([r, g, b]: [number, number, number]): string {
+    const channel = (value: number) => Math.round(value).toString(16).padStart(2, "0");
+    return `#${channel(r)}${channel(g)}${channel(b)}`;
+  }
+  function composite(fg: [number, number, number, number], bg: [number, number, number]) {
+    const [fr, fgc, fb, fa] = fg;
+    const [br, bgc, bb] = bg;
+    return [fr * fa + br * (1 - fa), fgc * fa + bgc * (1 - fa), fb * fa + bb * (1 - fa)] as [
+      number,
+      number,
+      number,
+    ];
+  }
+
+  const header = document.querySelector("header");
+  const toggle = header?.querySelector("button[aria-pressed]");
+  if (!header || !toggle) throw new Error("header or theme toggle not found");
+
+  const headerBg = toRgba(getComputedStyle(header).backgroundColor);
+  const pageBg = toRgba(getComputedStyle(document.body).backgroundColor);
+  const glyph = toRgba(getComputedStyle(toggle).color);
+
+  return {
+    headerHex: toHex(composite(headerBg, [pageBg[0], pageBg[1], pageBg[2]])),
+    // `text-text` (the glyph colour) is a solid token with no alpha, so its
+    // computed style already IS the rendered colour -- nothing to composite.
+    glyphHex: toHex([glyph[0], glyph[1], glyph[2]]),
+  };
+}
+
+test.describe("theme toggle contrast and naming (P14.S2)", () => {
+  for (const theme of ["light", "dark"] as const) {
+    test(`names the feature, reports state via aria-pressed, and clears 3:1 against the header in ${theme} mode`, async ({
+      page,
+    }) => {
+      await openWithTheme(page, theme);
+
+      // Scoped to the real <header>, not the mobile drawer's copy of the same
+      // control (Header.tsx renders ThemeToggle twice) -- the drawer sits on
+      // its own surface, not the one this guard is about.
+      const toggle = page.locator("header").getByRole("button", { name: "حالت تیره" });
+      await expect(toggle).toHaveCount(1);
+
+      // The name is the feature ("dark theme"), never the next action. A name
+      // that flipped to "switch to light theme" while aria-pressed stayed true
+      // is the documented anti-pattern this control already shipped once --
+      // asserting the literal Persian string, not just "a name exists", is
+      // what would catch that regression coming back.
+      await expect(toggle).toHaveAccessibleName("حالت تیره");
+      await expect(toggle).toHaveAttribute("aria-pressed", theme === "dark" ? "true" : "false");
+
+      // The icon must not be able to contribute to the name computed above.
+      await expect(toggle.locator("svg")).toHaveAttribute("aria-hidden", "true");
+
+      const { headerHex, glyphHex } = await page.evaluate(resolveHeaderContrastColours);
+      const ratio = contrastRatio(glyphHex, headerHex);
+      // WCAG 1.4.11 (non-text contrast) floor for a UI control against its
+      // background. This is the assertion the P14.S2 fix earns: before it, the
+      // glyph measured 3.38:1 against a graphite-950 header in light mode --
+      // under the floor -- while the ring around it read at 12.25:1 and made
+      // the button LOOK fine in a cursory check.
+      //
+      // The ring itself is deliberately low-contrast (a hairline border, not
+      // the control) and is NOT asserted here on purpose: it is decoration,
+      // and a future reader who "fixes" it to be more visible would be
+      // undoing the P14.S2 read -- the glyph is what has to carry the button.
+      expect(ratio, `${theme}: glyph ${glyphHex} vs header ${headerHex}`).not.toBeNull();
+      expect(
+        ratio ?? 0,
+        `${theme}: glyph ${glyphHex} vs header ${headerHex}`,
+      ).toBeGreaterThanOrEqual(3);
+    });
+  }
 });

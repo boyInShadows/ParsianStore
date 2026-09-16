@@ -1,10 +1,15 @@
 // ParsianStore — PostgreSQL schema.
 //
-// Phase 1 of the Mongo → Postgres migration (tasks.md, owner decision
-// 2026-08-25). This file is the destination shape for all 22 Mongoose models in
-// `src/models/`. Nothing reads it yet: the app still runs on Mongoose, and
-// phase 2 swaps the data layer one module at a time with the suite green at
-// every step.
+// THE live schema. Written as phase 1 of the Mongo → Postgres migration
+// (tasks.md, owner decision 2026-08-25) as the destination shape for the 22
+// Mongoose models that used to live in `src/models/`; that migration COMPLETED
+// 2026-08-28 and `src/models/` no longer exists. Every read and write in the
+// app goes through this schema.
+//
+// The Mongo comparisons further down are kept deliberately. They are not
+// leftovers — most record something one engine can do and the other cannot
+// (TTL indexes, sparse unique indexes, silent-vs-loud soft deletes), which is
+// exactly what a future change needs to know.
 //
 // ## Decisions baked in here, all owner-confirmed 2026-08-26
 //

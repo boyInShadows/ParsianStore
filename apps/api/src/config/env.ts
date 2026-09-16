@@ -16,10 +16,28 @@ loadDotenv({ path: fileURLToPath(new URL("../../.env", import.meta.url)) });
 const envSchema = z.object({
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
   PORT: z.coerce.number().int().positive().default(4000),
+  // Non-secret config with a legitimate local-dev default (see the
+  // JWT_*_SECRET note below for the contrast). Production supplies this
+  // explicitly and must keep doing so -- nothing here loosens it, because a
+  // deploy that sets CORS_ORIGINS never reaches this default at all.
+  //
+  // Two origins, and the second one is the point: `:3000` is `next dev`, but
+  // every local *harness* serves the production build on `:3200` -- the
+  // Lighthouse recipe in docs/performance-landing.md, scripts/mobile-shots.mjs,
+  // scripts/mobile-axe.mjs, scripts/hero-shots.mjs and scripts/og-image.mjs all
+  // use it, as does `E2E_PORT=3200`. With only `:3000` allowed, every
+  // client-side vehicle fetch from a harness-served page fails CORS and all
+  // three selects in the garage vehicle selector stay disabled -- so the
+  // selector had no live local coverage on the port the harness actually runs
+  // on. That is a hole in the test environment, not in the product.
+  //
+  // Order is load-bearing: checkout.service.ts reads `CORS_ORIGINS[0]` as "the
+  // web app's own primary origin" to build the post-payment redirect, so
+  // `:3000` stays first and `:3200` is appended, never prepended.
   CORS_ORIGINS: z
     .string()
     .min(1, "CORS_ORIGINS must list at least one allowed origin")
-    .default("http://localhost:3000")
+    .default("http://localhost:3000,http://localhost:3200")
     .transform((value) => value.split(",").map((origin) => origin.trim())),
   LOG_LEVEL: z.enum(["trace", "debug", "info", "warn", "error", "fatal", "silent"]).default("info"),
 
@@ -32,7 +50,10 @@ const envSchema = z.object({
 
   // Only read when NODE_ENV=test, and optional even then: config/prisma.ts
   // derives `<database>_test` from DATABASE_URL when this is unset. It exists
-  // for a CI service whose database is not named that way.
+  // for a CI service that serves the test database from another host, port or
+  // credential -- it picks the connection, not the name. Whatever it points at
+  // must still end in `_test`, because resetDb() truncates every table in it
+  // and refuses anything else (P15.S13).
   TEST_DATABASE_URL: z.string().optional(),
 
   // P2.S4 — auth. Secrets get NO default: a hardcoded fallback secret in

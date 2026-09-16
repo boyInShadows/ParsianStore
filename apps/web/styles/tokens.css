@@ -413,6 +413,25 @@
   --breakpoint-lg: 1024px;
   --breakpoint-xl: 1280px;
   --breakpoint-2xl: 1536px;
+
+  /* ---- Type family (§6.5, P15.S9) ------------------------------------
+     The bare family name declared in styles/fonts.css's @font-face rules --
+     nothing more. `tailwind.config.js`'s `fontFamily.body`/`.display`/`.mono`
+     append the real fallback chain (Tahoma, Segoe UI, Noto Naskh/Sans
+     Arabic, Geeza Pro, sans-serif / ui-monospace, monospace) after
+     `var(--font-body)` / `var(--font-mono)`, so that chain lives there, not
+     here or in fonts.css.
+
+     Previously these two were emitted by next/font/local as a hashed class
+     (`.__variable_<hash>`) applied to <html> in layout.tsx, because a
+     next/font family name is generated per build and needs a scoped
+     selector to attach to. A hand-written @font-face has a real, static
+     family name -- "Vazirmatn" / "JetBrains Mono" never change build to
+     build -- so there is nothing left to scope; a plain :root declaration
+     is the whole mechanism now, and layout.tsx no longer needs a
+     font-carrying className on <html> at all. */
+  --font-body: "Vazirmatn";
+  --font-mono: "JetBrains Mono";
 }
 
 /* ---- Display family = body family (§6.5, P14.S1) ---------------------
@@ -424,12 +443,25 @@
    var(--font-display) directly, and `font-display` is a Tailwind utility on
    ~30 elements. They all keep working and all get the face that works.
 
-   `html:root`, not `:root`, and that is not decoration. next/font/local
-   emits its own `.__variable_<hash> { --font-display: ... }` rule onto the
-   same <html> element; a class selector and `:root` carry identical
-   specificity, so a bare `:root` here would win or lose purely on
-   stylesheet source order -- a bundler detail, not a decision. The element
-   selector makes this rule strictly more specific, so it is deterministic.
+   `html:root`, not `:root` -- kept from before P15.S9, no longer load-
+   bearing but still correct. Originally this had to out-specify
+   next/font/local's own `.__variable_<hash> { --font-body: ... }` class
+   rule on the same <html> element: a class selector and a bare `:root`
+   carry identical specificity, so a plain `:root` here would have won or
+   lost purely on stylesheet source order -- a bundler detail, not a
+   decision -- and `html:root`'s extra element selector made it strictly
+   more specific instead.
+
+   P15.S9 removed next/font entirely: `--font-body` is now a plain `:root`
+   declaration a few lines up in this same file (no class, no hash, nothing
+   to out-specify), so `html:root` here no longer has anything to beat --
+   `:root` would resolve identically. Left as `html:root` anyway rather than
+   simplified, because it costs nothing and there is no reason to touch a
+   selector that still does the right thing. Verified by reading the
+   cascade directly: `--font-body` has exactly one declaration in the
+   stylesheet (`:root` above), so `var(--font-body)` here can only ever
+   resolve to it -- there is no second rule left to lose a specificity
+   contest to.
 
    The Estedad files are GONE from lib/fonts.ts (P14.S2). The note here used
    to say removal waited "once no route still asks for `font-black` on the

@@ -87,7 +87,7 @@ export async function PartCallouts() {
               // `unicode-bidi: isolate` for where the run sits relative to the
               // text around it; Tailwind has a utility for the first and none
               // for the second.
-              <span className="evidence-code hero-callout-code font-mono text-caption" dir="ltr">
+              <span className="bidi-code hero-callout-code font-mono text-caption" dir="ltr">
                 {subject.system}
               </span>
             ) : null}

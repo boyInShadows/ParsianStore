@@ -19,6 +19,14 @@
       "types": "./dist/faText.d.ts",
       "default": "./dist/faText.js"
     },
+    "./catalog-systems": {
+      "types": "./dist/catalogSystems.d.ts",
+      "default": "./dist/catalogSystems.js"
+    },
+    "./vehicle-key": {
+      "types": "./dist/vehicleKeyCore.d.ts",
+      "default": "./dist/vehicleKeyCore.js"
+    },
     "./package.json": "./package.json"
   },
   "files": [

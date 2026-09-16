@@ -1,4 +1,8 @@
-import { CATALOG_SYSTEMS, type CatalogSystemCode } from "schemas";
+// "schemas/catalog-systems" avoids the root barrel's zod-bearing schemas
+// (packages/schemas/src/index.ts) -- this module has no "use client" of its
+// own, but HeroStage.tsx and StageNarration.tsx (both client leaves) import
+// it, which pulls it into the hero's client graph regardless (P15.S8).
+import { CATALOG_SYSTEMS, type CatalogSystemCode } from "schemas/catalog-systems";
 import {
   HERO_ENGINE_CHAPTER,
   HERO_ENGINE_PARTS,

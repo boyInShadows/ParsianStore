@@ -1,0 +1,64 @@
+# Line endings, settled once, for everyone.
+#
+# WHY THIS FILE EXISTS (P15.S12). This repo is developed on Windows with
+# `core.autocrlf=true` and built in CI on ubuntu-latest. Without a
+# `.gitattributes` the working tree's line endings depend on each clone's local
+# git config, which is a property of the machine rather than of the project --
+# so two developers can read the same committed bytes as different strings.
+#
+# That is not theoretical here. P15.S5 lost real time to it twice in one step:
+# a test asserted against a literal "\n" and failed on a Windows checkout that
+# had CRLF, and its sibling was worse and did NOT fail -- an `indexOf` returned
+# -1, `slice(0, -1)` handed it nearly the whole file as the "rule body", and the
+# assertions passed against the wrong string. A test that passes for the wrong
+# reason is more expensive than one that fails.
+#
+# `text=auto eol=lf` means: git decides what is text, normalises it to LF in the
+# repository, and checks it out as LF. Committed bytes stop depending on who
+# committed them. CI and production already saw LF; this makes the working tree
+# agree.
+
+* text=auto eol=lf
+
+# Files that must keep CRLF to work on Windows, regardless of the rule above.
+*.bat   text eol=crlf
+*.cmd   text eol=crlf
+*.ps1   text eol=crlf
+
+# Shell scripts and git hooks must be LF or they will not execute on Linux --
+# `#!/usr/bin/env sh\r` is not a program name.
+*.sh    text eol=lf
+.husky/* text eol=lf
+
+# BINARY. Declared explicitly rather than left to git's heuristic, because the
+# cost of a wrong guess is silent corruption, not a diff. The PNGs in
+# particular are the Playwright visual baselines: a single byte of EOL
+# translation in one of those turns all nine landing regression tests red with
+# no cause visible in the diff.
+*.png   binary
+*.jpg   binary
+*.jpeg  binary
+*.gif   binary
+*.ico   binary
+*.webp  binary
+*.avif  binary
+*.mp4   binary
+*.webm  binary
+*.woff  binary
+*.woff2 binary
+*.ttf   binary
+*.TTF   binary
+*.otf   binary
+*.OTF   binary
+*.eot   binary
+*.pdf   binary
+*.xlsx  binary
+*.zip   binary
+*.gz    binary
+
+# Lockfiles are generated: collapse them in diffs and never merge them by hand.
+pnpm-lock.yaml -diff linguist-generated
+
+# Keep the prototype out of language stats; CLAUDE.md §13 says it is
+# reference-only and is never migrated.
+legacy/** linguist-vendored

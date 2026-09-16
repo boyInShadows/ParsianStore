@@ -1,3 +1,5 @@
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import createNextIntlPlugin from "next-intl/plugin";
 
 const withNextIntl = createNextIntlPlugin("./i18n/request.ts");
@@ -57,8 +59,36 @@ const securityHeaders = [
     : []),
 ];
 
+/**
+ * WHY `output: "standalone"` IS BEHIND A FLAG AND NOT ALWAYS ON.
+ *
+ * The Docker image (`apps/web/Dockerfile`) needs it: standalone emits a
+ * self-contained `.next/standalone` with its own `server.js` and only the
+ * modules file-tracing proved are reachable, which is what keeps the runtime
+ * image free of the workspace's dev dependencies.
+ *
+ * Every other build must not change. `next build` normally leaves `.next` in
+ * the shape `scripts/check-budget.mjs`, the Playwright suite and the local
+ * Lighthouse/screenshot harnesses all read, and `pnpm build` runs through
+ * turbo with `.next/**` as its cache output. Turning standalone on globally
+ * would add an untested `.next/standalone` tree to every one of those for the
+ * sake of one consumer. So: opt-in, set only by the Dockerfile.
+ *
+ * `outputFileTracingRoot` travels with it. Tracing has to start at the
+ * monorepo root or it will not follow `schemas` out of `apps/web` into
+ * `packages/schemas/dist`, and the standalone server starts with a module it
+ * cannot resolve.
+ */
+const standalone = process.env.NEXT_OUTPUT_STANDALONE === "1";
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  ...(standalone
+    ? {
+        output: "standalone",
+        outputFileTracingRoot: path.join(path.dirname(fileURLToPath(import.meta.url)), "..", ".."),
+      }
+    : {}),
   transpilePackages: ["schemas", "config"],
   async headers() {
     // Every route, including the static assets under /landing and /_next.

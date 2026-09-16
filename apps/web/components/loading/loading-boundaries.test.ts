@@ -15,9 +15,28 @@ async function walk(dir: string): Promise<string[]> {
   return found;
 }
 
-async function shopLoadingFiles(): Promise<string[]> {
+async function shopFiles(basename: string): Promise<string[]> {
   const files = await walk(SHOP_ROOT);
-  return files.filter((file) => path.basename(file) === "loading.tsx");
+  return files.filter((file) => path.basename(file) === basename);
+}
+
+const shopLoadingFiles = () => shopFiles("loading.tsx");
+
+/** `.../(shop)/c/[slug]/loading.tsx` -> `c/[slug]`, in POSIX form. */
+function segmentOf(file: string): string {
+  return path.relative(SHOP_ROOT, path.dirname(file)).split(path.sep).join("/");
+}
+
+/**
+ * Does this layout resolve the route's not-found / redirect decision itself?
+ *
+ * Source-level, because whether an `await` lands above or below a Suspense
+ * boundary is a question about file placement, which is exactly what is
+ * knowable from the tree and exactly what gets broken by accident.
+ */
+async function decidesInLayout(layoutFile: string): Promise<boolean> {
+  const source = await readFile(layoutFile, "utf8").catch(() => "");
+  return /\bnotFound\s*\(\s*\)/.test(source) || /\bredirect\s*\(/.test(source);
 }
 
 describe("the loading surfaces cost no JavaScript", () => {
@@ -40,30 +59,37 @@ describe("the loading surfaces cost no JavaScript", () => {
 });
 
 /**
- * Three guards for the three things a `loading.tsx` breaks in this app, each of
- * which P15.S3 shipped, measured and then reverted. `ShopRouteLoader`'s comment
- * carries the numbers; this file is what stops any of them coming back quietly.
+ * What a `loading.tsx` may and may not do in this app.
  *
- * None of them is a style rule. A loading boundary makes Next flush a streaming
- * shell, and **once the shell is flushed the response is committed**: a
- * prerendered route becomes a curtain with its content in a `<div hidden>`, a
- * `notFound()` becomes HTTP 200, and a `redirect()` becomes a
- * `<meta http-equiv="refresh">` -- which is also a live axe violation
- * (WCAG 2.2.1).
+ * A loading boundary makes Next flush a streaming shell, and **once the shell
+ * is flushed the response is committed**: a prerendered route becomes a curtain
+ * with its content in a `<div hidden>`, a `notFound()` becomes HTTP 200, and a
+ * `redirect()` becomes a `<meta http-equiv="refresh">` -- which is also a live
+ * axe violation (WCAG 2.2.1). P15.S3 measured all three and shipped no loader
+ * at all as a result.
  *
- * The shop group has **no** `loading.tsx` today, because every dynamic route in
- * it does one of the last two after its await. These assertions therefore pass
- * vacuously right now, on purpose: they exist for the commit that adds the
- * first one back.
+ * **P15.S10 qualified four routes, and these assertions describe how.** The
+ * decision moved out of the page and into a sibling `layout.tsx`: a
+ * `loading.tsx` wraps only its segment's *page* in Suspense, so the segment's
+ * own layout sits above the boundary and its `await` still blocks the first
+ * flush. Measured on a production build: `/c/{unknown}` 404 with the localised
+ * body, `/c/engine` 200.
+ *
+ * **The rewritten assertion, and why the old one had to go.** This file used to
+ * fail any `loading.tsx` whose sibling `page.tsx` mentioned `notFound()` --
+ * which the correct design still does, because each page keeps its own check as
+ * a second line of defence and stays correct with or without the boundary. That
+ * test would have blocked the fix it was written to ask for. The invariant that
+ * actually matters is not "the page never decides", it is **"a deciding `await`
+ * is never inside the boundary"**, which is a question about where files sit.
  */
 describe("a loading boundary only goes where it costs nothing", () => {
   it("is scanning the real route tree", async () => {
-    // The anti-rot guard. It cannot be "there is at least one loading.tsx" --
-    // there are legitimately none -- so it asserts the scan reaches the pages
-    // instead. A moved or renamed route group would otherwise disarm the whole
-    // file silently.
+    // The anti-rot guard: a moved or renamed route group would otherwise
+    // disarm the whole file silently by finding nothing to check.
     const pages = (await walk(SHOP_ROOT)).filter((f) => path.basename(f) === "page.tsx");
     expect(pages.length).toBeGreaterThanOrEqual(20);
+    expect((await shopLoadingFiles()).length).toBeGreaterThanOrEqual(4);
   });
 
   it("never wraps a statically prerendered route", async () => {
@@ -85,32 +111,97 @@ describe("a loading boundary only goes where it costs nothing", () => {
     ).toEqual([]);
   });
 
-  it("never sits beside a page that answers with a status or a redirect", async () => {
-    // The half no reviewer would think to check, and the one that ended this
-    // deliverable. A/B'd on one build pipeline in one session:
+  it("resolves its route's not-found decision in a sibling layout", async () => {
+    // The half no reviewer would think to check, and the one that ended P15.S3.
+    // A/B'd on one build pipeline in one session:
     //
     //   /c/x /p/x /brand/x /vehicle/x   404 without a loading.tsx, 200 with one
     //   /orders/x (unauthenticated)     307 + Location without, 200 +
     //                                   <meta http-equiv="refresh"> with
     //
-    // Four soft 404s on the routes the catalogue's SEO depends on, and a
-    // meta refresh that axe reports as a WCAG 2.2.1 violation.
+    // Four soft 404s on the routes the catalogue's SEO depends on, and a meta
+    // refresh that axe reports as a WCAG 2.2.1 violation.
+    //
+    // A sibling `layout.tsx` is what fixes it, and the ONLY thing measured to:
+    // `loading.tsx` wraps the segment's page in Suspense, the layout sits above
+    // that boundary, so the layout's `await` still blocks the first flush.
+    //
+    // NOT `generateMetadata`, which this assertion's own failure message used to
+    // recommend as fact. Next 15.2 made metadata streaming: it renders inside a
+    // Suspense boundary of its own and no longer gates the shell, so a
+    // `notFound()` there answers 200 on 15.5.21 -- measured -- and drops the
+    // visitor on Next's built-in English, LTR 404.
     const offenders: string[] = [];
     for (const file of await shopLoadingFiles()) {
-      const page = path.join(path.dirname(file), "page.tsx");
-      const source = await readFile(page, "utf8").catch(() => "");
-      if (/\bnotFound\s*\(\s*\)/.test(source) || /\bredirect\s*\(/.test(source)) {
-        offenders.push(path.relative(SHOP_ROOT, file).split(path.sep).join("/"));
+      const layout = path.join(path.dirname(file), "layout.tsx");
+      if (!(await decidesInLayout(layout))) offenders.push(segmentOf(file));
+    }
+
+    expect(
+      offenders,
+      `These segments have a loading.tsx but no layout.tsx that resolves not-found:\n  ${offenders.join("\n  ")}\n` +
+        `The shell is flushed before the PAGE reaches its notFound()/redirect(), so the response ` +
+        `is already committed: the 404 goes soft and the redirect degrades to a meta refresh. ` +
+        `Add a layout.tsx in the same folder that awaits the fetcher and calls notFound() on ` +
+        `reason === "not-found" only -- an API outage must still render the page's EmptyState.`,
+    ).toEqual([]);
+  });
+
+  it("never sits above a deeper segment that makes its own decision", async () => {
+    // The trap the four-route rollout actually hit, measured rather than
+    // reasoned: a loading.tsx wraps EVERYTHING below its segment, nested layouts
+    // included. With one at `vehicle/[make]/`, the `[model]/[gen]` layout landed
+    // inside that boundary and `/vehicle/saipa/pride-111/1999` answered **200**
+    // with the 404 body -- a soft 404 that the assertion above cannot see,
+    // because that segment does have its own deciding layout.
+    //
+    // This is why `vehicle/[make]` has no loader. It loses nothing: its page's
+    // only fetch is the one its decision would already have made, so the loader
+    // would live for about zero milliseconds.
+    const loaderSegments = (await shopLoadingFiles()).map(segmentOf);
+    const offenders: string[] = [];
+
+    for (const layout of await shopFiles("layout.tsx")) {
+      if (!(await decidesInLayout(layout))) continue;
+      const segment = segmentOf(layout);
+      for (const loader of loaderSegments) {
+        if (segment !== loader && segment.startsWith(`${loader}/`)) {
+          offenders.push(`${loader}/loading.tsx  swallows  ${segment}/layout.tsx`);
+        }
       }
     }
 
     expect(
       offenders,
-      `These loading.tsx files sit beside a page that calls notFound() or redirect():\n  ${offenders.join("\n  ")}\n` +
-        `The shell is flushed before the page reaches that branch, so the response is already ` +
-        `committed: the 404 goes soft and the redirect degrades to a meta refresh. Move that ` +
-        `decision ahead of the flush -- generateMetadata is resolved before Next streams -- before ` +
-        `putting a loader on such a route.`,
+      `These loading.tsx files sit ABOVE a layout that decides not-found:\n  ${offenders.join("\n  ")}\n` +
+        `The deeper layout renders inside the higher Suspense boundary, so its await no longer ` +
+        `blocks the flush and its notFound() answers 200. Put the loader at the deciding segment, ` +
+        `not above it.`,
+    ).toEqual([]);
+  });
+
+  it("never leaves a not-found.tsx in the same segment as the layout that decides", async () => {
+    // The regression this step shipped once and the owner reversed. Moving the
+    // decision into `c/[slug]/layout.tsx` made `c/[slug]/not-found.tsx`
+    // unreachable -- React catches a layout's notFound() ABOVE that layout's own
+    // segment -- so «کالا یافت نشد» and «دسته‌بندی یافت نشد» silently stopped
+    // rendering and every catalogue 404 fell through to the group's generic
+    // copy. Nothing failed; the pages still 404'd, just with the wrong sentence.
+    //
+    // The three boundaries now sit one segment up (`c/`, `brand/`, `p/`), which
+    // is where they are eligible. This fails if one is moved back down.
+    const offenders: string[] = [];
+    for (const notFound of await shopFiles("not-found.tsx")) {
+      const layout = path.join(path.dirname(notFound), "layout.tsx");
+      if (await decidesInLayout(layout)) offenders.push(segmentOf(notFound));
+    }
+
+    expect(
+      offenders,
+      `These segments hold BOTH a deciding layout.tsx and a not-found.tsx:\n  ${offenders.join("\n  ")}\n` +
+        `A layout's notFound() is caught above its own segment, so that not-found.tsx can never ` +
+        `render and its specific copy is dead. Move it up one segment -- to the parent of the ` +
+        `[param] folder -- where it is the nearest eligible boundary.`,
     ).toEqual([]);
   });
 

@@ -2,7 +2,7 @@
 
 import { useState, type FormEvent } from "react";
 import { useSearchParams } from "next/navigation";
-import { normalizePhone, toEnglishDigits } from "schemas";
+import { normalizePhone, toEnglishDigits } from "schemas/fa-text";
 import { useRouter } from "@/i18n/navigation";
 import { Button, Input } from "@/components/primitives";
 import { requestOtp, verifyOtp } from "@/lib/fetchers/auth";

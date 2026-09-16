@@ -127,7 +127,14 @@ export async function ClosingBeat() {
                 ))}
               </ul>
 
-              <p className="text-caption text-stage-text-faint">{t("support.hoursPending")}</p>
+              {/* `ifWeDontHaveIt`, renamed at P15.S5. The key said
+              `hoursPending` and described a line that no longer exists -- a
+              "business hours coming soon" placeholder the owner cut. What sits
+              here now is the opposite of a pending promise: it is the limit
+              stated up front (docs/voice.md rule 6), and a key that names the
+              deleted line is how the next reader concludes the copy is still a
+              placeholder and rips out a real sentence. */}
+              <p className="text-caption text-stage-text-faint">{t("support.ifWeDontHaveIt")}</p>
 
               {/* Back to the vehicle selector rather than a generic "shop now":
               every route into the catalogue on this page begins by naming a

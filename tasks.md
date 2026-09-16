@@ -750,6 +750,45 @@ complete; do not silently reorder the roadmap around a failing gate.
       checkout use ruled commerce surfaces, stronger price hierarchy, selected
       state treatments, responsive composition, and a sticky desktop summary.
 
+## The Garage share link — two questions, one decision — opened 2026-09-16
+
+`815df0a` scoped `?v=` (the Garage active-vehicle key) to the routes that use
+it: written on `/c/*`, `/brand/*`, `/p/*`, stripped everywhere else, still
+**read** on every shop route so links already shared keep working. `/c/*` is
+the load-bearing one — `c/[slug]/page.tsx` reads `searchParams.v` server-side
+and feeds the SSR catalog fetch. Rules and their 46 tests live in
+`apps/web/lib/garage-url-sync.ts`.
+
+Two things were deliberately **not** fixed there, because they are one
+product decision and the owner's, not an agent's. Both are unreachable today
+— nothing in the app links to a `?v=` URL — and both become live the moment a
+"share my vehicle" feature exists. Decide them together:
+
+- [ ] **Opening someone else's `?v=` link permanently saves their car into
+      your garage.** `restoreVehicleFromUrl` calls `addVehicle`. Options:
+      keep it, show the vehicle active-but-unsaved, or prompt before saving.
+- [ ] **The restore runs once per tab session, not once per navigation.**
+      `GarageUrlSync` is mounted in the `(shop)` layout and Next.js does not
+      remount a layout across client-side soft navigations, so a `?v=` that
+      first appears via an in-app link is never restored — and on a
+      non-allowlisted route it is then stripped. **Pre-existing**, verified
+      against the pre-`815df0a` code, which behaved identically. Re-arming it
+      is what makes question 1 fire repeatedly, which is why they are one
+      decision.
+
+Also noted, unrelated to the above and not fixed: **`/brand/[slug]` renders
+FilterBar's "fits my vehicle" toggle but never passes `vehicle` to its
+catalog fetch**, so the toggle likely does nothing on that route. Separate
+bug, needs its own look.
+
+A third, larger option the owner has seen but not approved: re-encode the key
+from three UUIDs to slugs (`?v=saipa.pride-111.2011.2020`, ~25 chars instead
+of 115). `VehicleMake.slug` and `VehicleModel.slug` already exist and
+`fetchVehicleRoute()` already resolves slug→id, but it is a wire-format change
+shared with `apps/api` (`vehicleKeySchema`, `/fitment/check`,
+`/catalog/products?vehicle=`) and needs a back-compat path for links in the
+wild. Not scheduled.
+
 ## Cross-agent handoff — 2026-08-06
 
 Codex completed the first dedicated design-quality slice from Claude's staged
@@ -1719,6 +1758,38 @@ enforces.**
 - **Phase 11's S4–S6 come after Phase 15**, not interleaved: retrofitting 122
   components would invalidate every number this phase measures.
 
+### Owner decisions — settled 2026-09-15, closing the four open calls
+
+All four taken at the CTO's recommendation, in one sitting. They chain: the
+byte recovery gates the other two, so it runs first.
+
+- **S4b(a) — recover bytes, do not freeze and do not raise again.** The landing
+  is 199.926 against a 200 hard fail: **76 bytes of room.** Freezing the route
+  would block the loading bar and the font work behind a policy rather than a
+  measurement, and raising the ceiling a second time inside the phase that
+  built the gate is the drift the gate exists to stop. S0's ~36 KB of
+  unattributed landing code is the place to look. **This becomes P15.S8 and
+  every other landing step queues behind it.**
+- **S3d — hand-write the `@font-face` and preload it.** Chosen over rendering a
+  `<link>` for `next/font`'s hashed URL (brittle) and over waiting on upstream.
+  The stated cost — losing `next/font`'s metric-matched fallback — **is not a
+  real cost on this page**: S3c established that the fallback is
+  `local("Arial")`, which cannot render Persian, so the `size-adjust` has never
+  applied to a single glyph the visitor sees. **P15.S9**, and it carries
+  `display: "optional"` with it, which S3c measured at **CLS 0.0322 → 0.0000**
+  and held only for the missing preload.
+- **S3b — move the not-found/redirect decision ahead of the flush.** Chosen over
+  a client leaf in the chrome, which would have to be paid for out of the 76
+  bytes. Five pages plus the auth redirect, and it fixes the soft-404 class
+  permanently rather than working around it. **P15.S10.**
+- **S5(a) — fix the inert reveal stagger.** `:root[data-reveal-armed]
+  [data-reveal-stagger] > *` (0,3,0) sets the `transition` *shorthand*, which
+  resets `transition-delay`; the nth-child delay rules are (0,2,0) and lose
+  regardless of source order, so all four delays read `0s` and every section's
+  children arrive together. **The owner has been reviewing the landing with the
+  stagger broken**, so this changes the page's feel — it ships with before/after
+  evidence and the owner looks at it after.
+
 ### The three-layer attribution — measured at S0, and it reorders the work
 
 The landing's 199.7 KB is not one number, it is three, and only the third is
@@ -1867,7 +1938,11 @@ A per-route total can never say *who* grew; these three layers can.
       The HiggsField seam is `WorkshopLoader.tsx` + the `--loader-*` token
       block: one component, one token set, as the decision asks.
 
-- [ ] **P15.S3b — Unblock the loading boundary.** OWNER CALL, two routes open:
+- [x] **P15.S3b — SUPERSEDED by P15.S10** (`b1187a6`, 2026-09-16). Route (1)
+      was chosen and then **disproved by measurement** — `generateMetadata` does
+      not resolve before the flush on Next 15.5.21. The loading boundary is
+      unblocked by a segment `layout.tsx` instead. Original options follow.
+      ~~OWNER CALL, two routes open:
       **(1)** move the not-found/redirect decision ahead of the flush
       (`generateMetadata` resolves before Next streams) — five pages plus the
       auth redirect, its own step, and it fixes the soft-404 class permanently.
@@ -1915,7 +1990,10 @@ A per-route total can never say *who* grew; these three layers can.
       chains now name Persian-capable system faces (Segoe UI, Noto Naskh/Sans
       Arabic, Geeza Pro) rather than ending at bare `sans-serif` — zero bytes.
 
-- [ ] **P15.S3d — Get a real `<link rel="preload" as="font">` into `<head>`.**
+- [x] **P15.S3d — DONE in P15.S9** (`b904716`, 2026-09-16). The hand-written
+      `@font-face` option was chosen and shipped; the preload is now a real
+      `<link>` in `<head>`, verified from served HTML, and `optional` landed
+      with it. ~~Get a real `<link rel="preload" as="font">` into `<head>`.**
       OWNER CALL. Unblocks `optional` and its CLS 0.0322 → 0.0000. Options not
       yet costed: a JSX `<link>` rendered in the layout head (needs the hashed
       font URL, which `next/font` does not expose — brittle); moving off
@@ -1943,7 +2021,17 @@ A per-route total can never say *who* grew; these three layers can.
       rehydration (`SPAN.truncate`, 74.6 → 82.7px at t≈2850ms), pre-existing for
       returning visitors. The hero subheadline was deliberately not attempted.
 
-- [ ] **P15.S4b — Three findings from S4, none of them S4's fault.** Owner's
+- [~] **P15.S4b — (a) and (c) CLOSED; (b) and (d) still open.**
+      **(a) the 76-byte ceiling** — gone: P15.S8b recovered 13.1 kB and the
+      landing sits at 186.8 against a ratcheted 190.
+      **(c) `CORS_ORIGINS`** — fixed in `eed6b64`.
+      **(b) the Gregorian year in the garage label is NOT a mechanical fix** —
+      `year` is a model year matched against `gen.yearFrom`/`yearTo`, so running
+      it through `formatJalali` would break generation matching. It is a product
+      decision about what «۲۰۲۰» should read as beside a Persian car name.
+      **OPEN, owner's call.**
+      **(d) Header chip CLS 0.0007** — still open, a `min-w-` floor would close
+      it. Original text follows. ~~Owner's
       call which are worth a step:
       **(a) THE LANDING CEILING IS 76 BYTES.** First load 199.926 KB against a
       200 KB hard fail. The next client leaf of any size on this route fails the
@@ -1955,17 +2043,36 @@ A per-route total can never say *who* grew; these three layers can.
       beside a Persian car name, and CLAUDE.md §9 says dates display through
       `formatJalali`. Pre-existing (the header chip says the same), but the new
       sentence makes it conspicuous where a chip did not.
-      **(c) `CORS_ORIGINS` defaults to `http://localhost:3000` only**
+      **(c) ✅ FIXED 2026-09-15 (`eed6b64`).** `CORS_ORIGINS` defaulted to
+      `http://localhost:3000` only
       (`apps/api/src/config/env.ts:22`). Served on **:3200** — the port
       `E2E_PORT` and the Lighthouse recipe both use — every client-side vehicle
       fetch fails CORS and all three selects stay disabled. **The vehicle
       selector has no live local coverage on the port the harness runs on.**
       That is a hole in the test environment, not in the product.
+      Fixed by appending `:3200`, **never prepending** —
+      `checkout.service.ts` reads `CORS_ORIGINS[0]` as the web app's own primary
+      origin to build the post-payment redirect, so reordering the list silently
+      re-points every payment return; a test pins the ordering. Verified by real
+      preflight against the booted app: `:3000` and `:3200` get an allow-origin
+      header, `evil.example.com` still gets none. Production never reaches the
+      default. **Correction to this entry's own premise:** `playwright.config.ts`
+      defaults `E2E_PORT` to **3000**, not 3200 — 3200 is the *Lighthouse and
+      shots-script* port (`mobile-shots`, `mobile-axe`, `hero-shots`,
+      `og-image`), reached via an explicit `E2E_PORT=3200`. The fix covers both.
+      **Still open:** `:3000` belongs to a different project on this machine and
+      `playwright.config.ts` warns `reuseExistingServer` will happily test the
+      neighbour's site. Moving our dev server off 3000 is the better fix, but it
+      changes `CORS_ORIGINS[0]` and therefore the payment redirect — owner's
+      call, as its own deliberate step.
       **(d) Header chip CLS 0.0007** — a `min-w-` floor sized to the longest
       plausible label would close it.
 
-- [ ] **P15.S5 — `.evidence-code` is two contracts; split it.** `EvidenceCode`
-      (the component) is a 36–45 char verification token that must not wrap, must
+- [x] **P15.S5 — `.evidence-code` is two contracts; split it.** ✅ 2026-09-14.
+      **Shipped: the split, the three riders, and four defects none of the
+      riders described.** The original scope is kept below, then what it cost.
+
+      `EvidenceCode` (the component) is a 36–45 char verification token that must not wrap, must
       not bidi-reorder, must stay **whole in the DOM** and truncates only
       visually — 2 call sites. The bare `.evidence-code` class is a short stamped
       identifier (`SYS-10`, a model year, the hero callout part code), 4–8 chars,
@@ -1978,7 +2085,124 @@ A per-route total can never say *who* grew; these three layers can.
       now holds · a `Footer` namespace + wordmark so the tagline has somewhere to
       live · `WishlistButton`'s `aria-pressed`-with-a-flipping-label (ThemeToggle
       is the fixed precedent) · the two 32-char trust-strip titles that wrap.
-- [ ] **P15.S6 — Phase 13's tail, folded in.** P13.S11's theme toggle — a real
+
+      **What shipped.** `.bidi-code` is the primitive (isolation + tabular
+      figures); `.evidence-code` is the truncation contract and belongs to the
+      36–45 char token alone. The four utilities that used to spell truncation
+      out on the component (`inline-block max-w-full truncate align-bottom`) are
+      declarations in `globals.css` now, where the contract is stated.
+      `EvidenceCode.contract.test.tsx` is new — 9 source-level assertions that
+      fail if the classes merge back or a second call site hand-writes the token
+      class; `e2e/landing-sections.spec.ts` pins the same contracts as *computed
+      style* in a browser, because a stylesheet can say `text-overflow: ellipsis`
+      and clip nothing without `overflow: hidden` on a line that cannot wrap.
+      Neither test can replace the other.
+      Riders: `hoursPending` → `ifWeDontHaveIt` · a real `Footer` namespace plus
+      a wordmark/tagline lockup, so a five-column index of links no longer ends
+      on a copyright notice and the site signs its own name ·
+      **`WishlistButton`'s name is stable now** — `{add, remove}` collapsed to
+      one `name`, «علاقه‌مندی» singular. The plural is the account-nav *link* to
+      `/wishlist`; reusing it would make a toggle and a navigation
+      indistinguishable in a screen reader's control list. It had announced
+      «حذف از علاقه‌مندی‌ها، دکمه، فشرده» — "pressed" confirming the opposite of
+      the name. ThemeToggle's P14.S2 fix was the precedent, and the comment in
+      the file claiming ThemeToggle *lacked* `aria-pressed` was stale.
+      **Zero bytes:** landing first load **199.926 kB before and after**, to
+      three decimals — the Footer work is server-side, so twelve new `fa.json`
+      keys never reach the client. The 76-byte headroom is intact.
+
+      **The trust-strip rider was wrong in every particular, and measuring it
+      found a worse bug.** The note said "two 32-char titles will likely wrap on
+      the desktop four-column row". Measured on a production build, counting
+      *line boxes* with a Range over the text node: desktop is fine at every
+      width. **Three of four wrap at 768px and one at 1024px** — the strip goes
+      four-up at `sm` (640px), where a title gets 184px, **less than the 358px a
+      390px phone gives it**. Owner chose the layout fix over cutting copy:
+      1 col / 2 cols 640–1279 / 4 cols at 1280+.
+      *Worth a line in `docs/voice.md`:* its "~35 characters, one line" rule is
+      written against a 390px phone, so it could never have caught a component
+      whose worst case is a multi-column tablet row. The phone is not always the
+      narrowest column.
+      **The worse bug: `divide-x` is PHYSICAL.** It sets `border-left-width` on
+      `& > * + *`, and under `dir="rtl"` the first child is the *rightmost*.
+      Measured at 1440px, the three hairlines sat between claims 2|3 and 3|4 and
+      **hanging off the band's outer edge, with 1|2 unruled** — in the one
+      section whose whole visual identity is §5-02's "hairline-separated". The
+      file's own comment claimed `divide` "handles both writing directions". It
+      does not. Per-cell logical `border-s` / `border-t` now: one rule per
+      interior gap, none at a band edge. Four new e2e tests pin the line counts
+      at 390/768/1024/1440 **and** the row counts, because "no title wraps"
+      alone could be satisfied by cutting the copy. Proven to fail against the
+      pre-fix build first.
+
+      **The visual baselines were pinned to a transient — not stale, not
+      flaky.** Nine `landing.spec.ts` captures failed. The only region differing
+      above the footer was the hero, ~404,596 px at 1440 — and this step never
+      touched the hero. `settleForCapture` walks the page, scrolls back to 0 and
+      shoots *while the hero's scroll spring is still relaxing*, so the baseline
+      held beat «۱ از ۹» with a callout plate up, at a scroll position where a
+      visitor sees «۰ از ۹» and a whole car. S5's +82px footer changed the walk
+      and moved where the spring had got to. **Attributed rather than assumed:**
+      two runs produced byte-identical PNGs (deterministic, not flaky), and
+      stashing the work and building HEAD made the old baseline pass — so the
+      height change, not the hero, was the cause. The capture now waits on the
+      hero's own rest signal (`[data-station="0"][data-shown]` present, no
+      `.hero-callout[data-shown]`) and **fails loudly** if it never settles.
+      Any future change to the page's height would have flipped these nine the
+      same way, presenting every time as a hero regression.
+      **Also: `maxDiffPixelRatio: 0.01` on a ~15M-pixel full-page capture is
+      ~151k pixels of slack.** The trust-strip hairline move passed unnoticed
+      inside it, and `--update-snapshots` defaults to `changed` — it will NOT
+      rewrite a passing-but-different baseline. `--update-snapshots=all` is what
+      makes a baseline hold the truth rather than a near-miss.
+
+      **A Windows-only test defect, surfaced by this session's own tooling.**
+      `motion-system.test.tsx` asserted a literal `\n` between a selector and
+      its declaration. This repo has **`core.autocrlf=true` and no
+      `.gitattributes`**, so any git checkout on Windows — clone, branch switch,
+      stash pop — rewrites the working copy to CRLF and the literal stops
+      matching. CI is `ubuntu-latest`, so **CI has never seen it**; same shape as
+      the `next/font` Windows bug. A sibling in the same file was worse and did
+      not fail: `guard.indexOf("\n  }\n")` returns `-1` under CRLF, and
+      `slice(0, -1)` silently made "the rule body" almost the whole remaining
+      file, so its assertions passed against the wrong string. Both tolerate
+      `\r?\n` now, and the second asserts its match exists rather than falling
+      back to `-1`. Each was proven by breaking the CSS it describes and
+      watching it go red.
+
+      **Verified, all of it by running:** `pnpm lint` clean · `tsc` web + api
+      clean · **779/779 unit** · **155 e2e across 9 suites** (landing 18,
+      landing-sections 49, landing-hero 45, smoke/header-overlays/info-pages 18,
+      layout-shell-a11y/styleguide-a11y/vehicle-make 25) · `pnpm build` clean ·
+      `pnpm check:budget` landing 199.9 kB / own 80.0, floor 102.8, chrome 17.1,
+      no gate breached.
+
+      **Left open, deliberately, for the owner:**
+      **(a) The 60ms `Reveal` stagger is inert page-wide.** In `globals.css`,
+      `:root[data-reveal-armed] [data-reveal-stagger] > *` (specificity 0,3,0)
+      sets the `transition` **shorthand**, which resets `transition-delay` to
+      `0s`; the `nth-child` delay rules are only (0,2,0) and lose regardless of
+      source order. With the attribute present all four delays read `0s`; remove
+      it and they snap back to `0s / .06 / .12 / .18`. Affects **every**
+      staggered list on the page. Pre-existing, found while checking the stagger
+      survived the flex→grid switch. A one-line fix, but it changes motion
+      across the whole landing, so it is not being slipped into this step.
+      **(b) No `.gitattributes`.** The root cause behind the CRLF defect is
+      unfixed — the assertions were hardened, the repo's line-ending policy was
+      not. Adding one renormalises every file in the tree: its own step, its own
+      diff, not a rider.
+      **(c) `turbo`'s build cache served a build from a different working-tree
+      state.** With the work stashed at HEAD, `pnpm build` printed `FULL TURBO`
+      in 230ms and left a `.next` containing the stashed code. Every measurement
+      taken through `pnpm build` inherits that risk; `cd apps/web &&
+      ./node_modules/.bin/next build` is the honest path when the number
+      matters. Worth settling before the next perf step trusts a cached build.
+- [x] **P15.S6 — Phase 13's tail, folded in.** ✅ 2026-09-15.
+      **Every defect in this bullet was already fixed. The step's real work
+      was proving that, and turning three hand-checks into checks that can
+      fail.** Original text below, then the verification.
+
+      P13.S11's theme toggle — a real
       bug: page tokens painted inside a header that is `bg-graphite-950` in
       **both** themes, so light mode shows a 12.25:1 ring around a 3.38:1 glyph —
       plus its hardcoded **English** accessible name and missing `aria-pressed`.
@@ -2017,10 +2241,335 @@ A per-route total can never say *who* grew; these three layers can.
       **Still unverified, check when the tree is free:** the duplicate «پیشنهاد
       ما» names from `?sort=newest&limit=8` returning two templates, and the
       `SYS-10` tile name being narrower than its own contents.
-- [ ] **P15.S7 — Write the rules down.** `docs/engineering-standards.md` gains a
-      **Performance budgets** section: the numbers, the three layers, the
-      measurement recipe, "measure before *and* after any step that adds a client
-      leaf", and **a budget that is not a failing check is not a budget**.
+
+      **Verified, with numbers rather than a read-through.**
+      *The theme toggle is fixed*, and the fix is the inversion P14.S2 claimed.
+      Measured at 1440px on a production build: light — header
+      `rgba(255,255,255,.88)`, glyph **17.38:1** (was 3.38), ring **1.51:1**
+      (was 12.25); dark — header `rgba(26,34,42,.88)`, glyph 12.92:1, ring
+      1.54:1. `aria-pressed` flips false→true, the name «حالت تیره» is stable
+      across both states, the `<svg>` is `aria-hidden`. The header follows the
+      theme now, so page tokens finally describe the ground they sit on.
+      *The duplicate «پیشنهاد ما» names are real and already fixed.* The raw
+      query still returns what the defect described — `sort=newest&limit=8`
+      gives **2 distinct names across 8 rows** (گریس یاتاقان ×4, ضدیخ رادیاتور
+      ×4), because the seed makes 4 variants per template consecutively.
+      `fetchFeaturedProducts`'s over-fetch-and-dedupe (P14.S9) turns the real
+      64-row window — 16 distinct templates — into **8 distinct cards**.
+      *The `SYS-10` tile defect does NOT reproduce.* Every system tile measured
+      at 360/390/768/1024/1440, counting line boxes with a Range over the text
+      node: **nothing overflows at any width**, and SYS-10 («فیلتر و روغن», 68px
+      of text) has the **most** slack of the long names in a 123–231px box. Two
+      tiles take a second line at 360px — SYS-02 and SYS-07, the two *longest*
+      names, inside a card that accommodates it. The claim was misreported;
+      `docs/fable-next-phase-brief.md`'s note that screenshot audits of this repo come
+      back ~⅓ wrong holds.
+
+      **Three guards added, because two of these were protected by nothing but
+      a comment.** Each was proven to fail before it was kept:
+      · `apps/web/lib/fetchers/products.test.ts` (8 tests, stubbed `fetch`, no
+      database) — asserts the returned cards are distinct **and that the
+      requested `limit` exceeds the render limit**, because the over-fetch IS
+      the mechanism: shrinking the window to `limit` reintroduces the bug while
+      a naive uniqueness assertion still passes. That trap was demonstrated,
+      not theorised.
+      · `e2e/landing-sections.spec.ts` — the rendered grid shows no part twice.
+      Reintroducing the real defect failed it with the real symptom:
+      `گریس یاتاقان ×4, ضدیخ رادیاتور ×4`.
+      · `e2e/header-overlays.spec.ts` — the toggle's stable Persian name,
+      `aria-pressed`, `aria-hidden` icon, and **glyph-vs-header contrast ≥3:1**
+      computed from resolved colours through the repo's own `contrastRatio`, so
+      a token change is caught. The ring is deliberately NOT asserted, with the
+      reason written down — a future reader "fixing" the hairline would undo
+      P14.S2. Breaking the `--surface-translucent` token reproduced the original
+      bug exactly: light glyph 1.53:1.
+      · `e2e/landing-hero.spec.ts` — **P13.S13's attribute-write budget, which
+      had never been turned into a test.** A `MutationObserver` over `#hero`
+      filtered to `data-shown`/`data-active`/`data-checked`/`data-highlight`,
+      keyed per (element, attribute), played across the whole track via the
+      file's own `holdSamples()`. Budget is ≤12 per element per attribute —
+      `StageNarration.tsx` touches each element twice. Removing its
+      `shown.current === id` guard produced **187 writes to `data-shown` on one
+      element**. Carries a non-zero-total vacuity guard, because a renamed
+      attribute would otherwise pass at zero forever.
+
+      **The اینماد / نشان ملی conflict is CLOSED — owner ruled 2026-09-15: the
+      seals stay removed.** P14.S6's call stands over the 2026-09-08 one, which
+      was made without knowing the boxes were already gone. The stated goal —
+      the page must not claim what it cannot prove — is met more completely by
+      removal than by a «در حال ثبت» placeholder, and `e2e/landing-sections.spec
+      .ts` already pins their absence. Do not re-add them.
+
+      **P13.S13's gate: "which S0–S2 answer" was about 70% true.** Itemised, and
+      the rest closed here — full table appended to `docs/performance-landing.md`
+      as the Phase 13 closing measurement. Fresh five-run median, mobile
+      360×640 DPR2, `--throttling-method=devtools`: **perf 98, TBT 64ms
+      (gate ≤200), LCP 1.88s (≤2.0), CLS 0.0322 (≤0.05), a11y 100, SEO 100,
+      `motion` chunk 44.3 KB gz (≤45, 0.7 KB spare)**. TBT has fallen
+      261 → 120 (P15.S2) → **64**.
+      Two of S13's asks are **superseded rather than met**, and say so in the
+      doc: the ≤193 KB *route chunk* was never what the landing costs (S0's
+      three-layer split replaced it, and it is a failing check now), and
+      "preload only the base and the three station-1 sprites" predates the
+      docked-sprite hero — the page preloads **11 images** because the car at
+      beat 0 is composed from seven body sprites, every one of them in the first
+      painted frame.
+      **Measured on port 3000, not 3200, and that mattered:**
+      `NEXT_PUBLIC_SITE_URL` is baked at build time as `http://localhost:3000`,
+      so auditing on another port reports an SEO defect that does not exist in
+      production.
+
+      **P13.S14 is done here too:** `docs/landing-hero-sprite-brief.md` now
+      records that `anchor`, `labelSide` and `finale` are **derived, not
+      authored** — fableTasks v1.1 asked for thirty hand-written numbers
+      describing geometry the trim boxes already determine, and `heroScene.ts`
+      solves them instead ("a number that can be computed is computed"). The
+      brief tells a future batch not to request them. **Phase 13 is SHIPPED.**
+
+      **Found on the way, and logged rather than fixed:**
+      ~~**`npx vitest run` from the repo root wipes the dev database.**~~
+      **RETRACTED 2026-09-15 — this finding was wrong.** It claimed "there is
+      no separate test DB" about a repo that had had one since **2026-08-28**
+      (`7b38587`): `resolveDatabaseUrl()` derives `<name>_test` whenever
+      `NODE_ENV === "test"`, and `testDbSetup.ts` creates and migrates it as
+      vitest `globalSetup`. Disproved three ways — a sentinel row plus a
+      33-table row-count snapshot came back byte-identical across a full root
+      `pnpm test` (787 passing); `TEST_DATABASE_URL` pointed at a nonexistent
+      database built and migrated it from nothing while the dev DB was
+      untouched; and `NODE_ENV=development` in `apps/api/.env` does not break
+      isolation, because dotenv will not override a var vitest already set.
+      **The claim was inherited from a session memory note and written into
+      this file without being checked against the repo** — the one thing the
+      phase's own standing rules say never to do.
+      **What is real, and is now P15.S13:** `resetDb()`'s `TRUNCATE` carries no
+      guard of its own. The `_test` name check lives in a sibling file that
+      runs as `globalSetup`, and it is skipped outright when
+      `TEST_DATABASE_URL` is set — so pointing that at the development database
+      truncates it silently. A safety rail belongs at the point of damage.
+      Also: `pnpm typecheck` never type-checks `e2e/*.ts` — both `tsc` projects
+      are scoped to `apps/web` and `apps/api`, so the Playwright suite is
+      checked by ESLint alone.
+
+      **Verified:** lint clean · `tsc` web + api clean · **787/787 unit** ·
+      **159 e2e across 9 suites** · `pnpm build` clean · budget unchanged at
+      199.9 kB / own 80.0.
+- [x] **P15.S7 — Write the rules down.** ✅ 2026-09-15.
+      `docs/engineering-standards.md` gains a **Performance budgets** section:
+      the three-layer attribution with the landing's real split (floor 102.9 /
+      chrome 17.0 / own 79.8), the full budget table with the landing's 200 as
+      a *freeze rather than headroom*, the measurement recipe, and the five
+      standing rules — measure before *and* after any client leaf, trace before
+      you optimise, a trace says what invalidated but only an A/B says what it
+      cost, a plausible wrong number is worse than an error, and **a budget
+      that is not a failing check is not a budget**.
+      **It was also a correction, not only an addition.** The section it
+      replaced was stale in three ways at once: it quoted **TBT 130ms** (now
+      64), it quoted **"route JS 190KB against a 180KB budget"** — which is
+      Next's *Size* column, the page-specific chunk, and never what the landing
+      cost — and it described the budget as a table the project "holds itself
+      to" when S0 had already made it a failing check. A standards doc carrying
+      a number that is wrong by half is worse than one that carries none,
+      because it is cited.
+      The recipe writes down the four environment traps that have each cost a
+      session: clear the ports **before** the first build, `rm -rf
+      apps/web/.next` because turbo has served another tree's build, never
+      scrape the build log (`tail` clips the landing row — `/[locale]` sorts
+      first), and audit on **port 3000** because `NEXT_PUBLIC_SITE_URL` is baked
+      at build time and any other port reports an SEO defect that does not
+      exist. `masterPlan.md` §10 needed no change — P15.S1 already pointed its
+      table at the gate.
+
+- [~] **P15.S8 — Recover the landing's bytes. ATTEMPTED TWICE, 0 BYTES
+      RECOVERED — but the attribution is now complete and the cause is known.**
+      Two agents, two disproved hypotheses, `2a8bb69`. The landing is still
+      **199.9 kB / 80.0 kB own**, byte-identical, same chunk hashes.
+      **The full attribution, which nobody had before** (fingerprinted by
+      module content, not guessed): `motion` 45.2 · **`zod` 14.0** · the hero's
+      own page chunk 16.8 · `zustand` + persist 2.6 · reveal bootstrap +
+      `CountUp` 1.4 = 80.0. That closes S0's "~36 kB unattributed" for good.
+      **Hypothesis 1 (the first agent): a barrel-import leak, fixable per
+      leaf.** Disproved — but its experiment was also flawed: it converted one
+      leaf at a time, measured zero twice, and generalised to "a webpack
+      chunk-bucketing artifact, not a bad import."
+      **Hypothesis 2 (the CTO's, correcting it): the same leak, but it needs
+      every client-graph entry point converted in ONE build** — `Header.tsx`
+      (which is chrome, so it would have paid on all 23 shop routes) and
+      `manifestData.ts` together. Built exactly that. **Also disproved, and the
+      premise behind it was simply false.**
+      **What the evidence shows.** Chunk 536 holds five modules and all five
+      are zod's own internals — no application schema code, none of
+      `vehicleKeySchema`'s Persian strings, none of the cart/auth endpoint
+      strings. **The landing genuinely executes zod.** The shop layout mounts
+      two renderless client components on every route: `AuthSession` →
+      `fetchMe()` → `meResponseSchema.safeParse()`, and `CartSession` →
+      `cartStore.load()` → `cartResponseSchema.safeParse()`. Load-bearing
+      client-side validation of our own API responses. The 14 kB is the price
+      of an architectural choice, not a stray import — **so it is an owner
+      decision, raised as P15.S8b**, not something a cleanup step can take.
+      **The method lesson, and it is the expensive one.** Both hypotheses were
+      reasoned from an import graph and neither was checked against chunk
+      *contents* until after the second rebuild. One `grep` for zod's error
+      strings inside chunk 536, against a build that already existed, would
+      have answered it before either attempt. **Fingerprint the artifact before
+      theorising about what put it there.**
+      Kept from the two attempts, as hygiene and one real fix — see `2a8bb69`:
+      a `./catalog-systems` subpath, three components moved onto narrow
+      subpaths, and **`apps/web/vitest.config.ts`'s alias, which was broken**:
+      Vite matches a string `find` as a *prefix*, so `schemas/fa-text` hit the
+      bare `schemas` entry and had its subpath appended to a replacement ending
+      in `index.ts` — a file — resolving nowhere. Every `schemas/<subpath>`
+      import was unresolvable under vitest, including ones shipping today in
+      `Pagination.tsx` and `PriceTag.tsx`. Never noticed because no test
+      imported one.
+      **Still open:** the 16.8 kB hero page chunk is the one part of the
+      attribution nobody has examined, and it is the only remaining target that
+      does not require an owner decision.
+
+- [x] **P15.S8b — SHIPPED 2026-09-16, `8d48d1e`. 13.1 kB off every shop route.**
+      Landing first load **199.9 → 186.8 kB**, own **80.0 → 66.9**.
+      `check:budget` exits 0 with **no WARN for the first time since the gate
+      was built**. Not a landing fix: PLP 155.1 → 142.4, garage 151.8 → 139.1,
+      cart 151.0 → 137.9, login 151.7 → 138.8 — every route whose client graph
+      reached vehicle-key parsing. Floor and chrome unchanged.
+      **Zod arrived by TWO independent paths, and neither alone could be
+      removed** — which is the whole reason S8 came back empty twice:
+      (1) `AuthSession`/`CartSession` → `fetchMe()` / `cartStore.load()`
+      `safeParse()`ing our own API responses, plus wishlist, which
+      `use-auth-session` imports eagerly at top level; and
+      (2) `GarageUrlSync`/`garage-store` → `buildVehicleKey`/`parseVehicleKey`,
+      sharing a module with `vehicleKeySchema`, whose `isId()` was
+      `idSchema.safeParse()` — **the garage path's entire zod dependency was the
+      question "is this a UUID".**
+      Path 2 was found only when guessing was replaced by **enumeration**: a
+      static reachability walk of the shop layout and landing page, 111 files,
+      tracking `'use client'` inheritance and skipping type-only imports,
+      returned exactly three remaining modules. Two of the three were free —
+      `normalizePhone`, `toEnglishDigits` and `toPersianDigits` already live in
+      the zod-free `faText.ts`.
+      **Correctness was proven, not asserted.** `isUuid()` copies zod v3's own
+      `uuidRegex` verbatim from `node_modules` rather than deriving a pattern,
+      and `packages/schemas/src/id.test.ts` puts 17 corpus cases — v1/v4/v7,
+      nil, case variants, length and separator damage, whitespace, braces —
+      through both `idSchema.safeParse()` and `isUuid()` and asserts agreement.
+      `id.ts`'s own comment records that pinning the version nibble once
+      rejected every id this database generates, so it stays version-agnostic.
+      **The client no longer re-validates our own API's responses with zod; the
+      server still validates every input it receives**, so CLAUDE.md §11 is
+      untouched. `no-zod-in-session-path.test.ts` fails if any converted file
+      reimports zod — same guard technique `lib/cx.test.ts` uses for
+      tailwind-merge, so the recovery cannot be silently undone.
+      **Budget ratcheted in the same breath: landing 200/190/82 → 190/188/70.**
+      Leaving the ceiling at 200 would have silently re-authorised the 13 kB
+      just recovered. 190 leaves ~3 kB for S9 and S10 and nothing more.
+      Mutation-checked: 185 exits 1, 190 exits 0. **Ratchet down after every
+      recovery — that is what stops a 180 → 200 drift from happening twice.**
+      Verified: lint · typecheck · 291 apps/web · 72 packages/schemas ·
+      514 apps/api · 114 landing e2e, 9 visual baselines unmodified, 0 axe
+      violations · garage `?v=` round-trip, cart add and OTP login confirmed in
+      a real browser against a real API and seeded database.
+
+- [x] ~~**P15.S8b — OWNER CALL: is client-side zod re-validation of `/auth/me`
+      and `/cart` worth 14.0 kB on every route?** `AuthSession` and
+      `CartSession` mount unconditionally in the shop layout and `safeParse()`
+      our own API's responses in the browser. That pulls the whole zod runtime
+      into the shop chrome. Dropping to a narrow hand-written shape guard for
+      those two responses recovers ~14 kB and would take the landing to roughly
+      186 kB — enough room for S9 and S10 with margin. The cost is losing a
+      defensive check on two endpoints we control. **CLAUDE.md §11's
+      "every API input is Zod-validated" governs the server's inputs and is not
+      in tension with this**, but it is still a real boundary decision.~~
+      **Decided 2026-09-15: swap for a narrow shape guard. Shipped above.**
+
+- [x] **P15.S9 — SHIPPED 2026-09-16 (`b904716`). CLS 0.0322 → 0.0000**, LCP
+      1930→1857ms, TBT 92→68ms. Hand-written `@font-face` + a real parser-visible
+      `<link rel="preload" as="font" crossorigin>`, proven from served HTML.
+      `display: "optional"` holds: S3c's own acceptance test passed **6/6**
+      against a ">4 of 6" bar, 9/9 baselines unmodified. `patches/next.patch`
+      deleted as *provably* dead (zero `next/font` call sites remain).
+      **No JS byte win** — `next/font/local` is a build-time pipeline, not a
+      runtime import; ~0.1 kB is rounding. Original plan text follows.
+      ~~A real font preload, and `display: "optional"` with it.**
+      Owner decision 2026-09-15. Replace `next/font/local` with a hand-written
+      `@font-face` plus a parser-visible `<link rel="preload" as="font"
+      crossorigin>` in the layout head. S3c proved the hint never reaches
+      `<head>` today — React's Float API emits it into the RSC Flight payload as
+      a `:HL[...]` instruction, so it does not exist until the JS bundle loads.
+      18 `<link>` elements on a production `/`, none of them the font.
+      Then re-land `display: "optional"` (reverted at S3c) and re-measure: the
+      prize is **CLS 0.0322 → 0.0000** and swap ~50ms → ~10ms. **The acceptance
+      test is S3c's own failure mode** — 6 captures, and the face must win its
+      block window in more than 4 of them, or `optional` comes back out again.
+      Also delete `patches/next.patch` if the manifest bug stops mattering once
+      we own the tag.
+
+- [x] **P15.S10 — SHIPPED 2026-09-16 (`b1187a6`), but NOT by the specified
+      mechanism.** `generateMetadata` does **not** resolve before the flush on
+      Next 15.5.21 — 15.2 made metadata streaming, so hoisting `notFound()`
+      there leaves a bad slug at **200** and drops the visitor on Next's
+      built-in **English LTR** 404. Measured, including Googlebot/Twitterbot.
+      What works: resolve in a segment `layout.tsx`, which sits outside the
+      `loading.tsx` Suspense boundary. All five routes now 404 correctly with
+      localised RTL copy, and the API-down distinction holds (200 +
+      `EmptyState`, never a 404).
+      **New invariant, measured by building the wrong variant on purpose:** a
+      `loading.tsx` must sit AT the deciding segment, never above it — a loader
+      on `vehicle/[make]` made the `[model]/[gen]` route answer 200 with a 404
+      body. Now a test assertion.
+      Shared `(shop)/not-found.tsx` added (gives `/vehicle/*` a localised 404 it
+      never had); the three specific boundaries moved up one segment so
+      «کالا یافت نشد» survives. **The redirect half needed nothing** — probed,
+      all six already 307 correctly. Original plan text follows.
+      ~~Move not-found ahead of the flush, then land the loading bar.**
+      Owner decision 2026-09-15, closing S3b. `generateMetadata` resolves before
+      Next streams, so a `loading.tsx` boundary below a page that decides
+      not-found/redirect after the flush never shows. Hoist that decision on the
+      five pages plus the auth redirect. Fixes the soft-404 class permanently as
+      a side effect, which is why it beat the client-leaf route — that one also
+      had to be paid for out of 76 bytes.
+
+- [x] **P15.S11 — SHIPPED 2026-09-16 (`9489313`).** Measured on two real
+      production builds: delays went `0s,0s,0s,0s` → `0s,.06s,.12s,.18s`.
+      The `transition` shorthand at (0,3,0) was resetting `transition-delay`,
+      and the `:nth-child` rules at (0,2,0) lost per-longhand — source order
+      never entered into it. Fixed with longhands so `transition-delay` has one
+      owner. Six landing groups now stagger. Reduced motion unchanged (its
+      shorthand IS correct). A guard test fails if the shorthand returns, proven
+      non-vacuous. Zero bytes. Original plan text follows.
+      ~~Fix the inert reveal stagger.** Owner decision 2026-09-15,
+      closing S5(a). One declaration, but it restores 60ms of cascade to every
+      staggered section on the landing, and the owner has only ever seen the page
+      without it. Ships with before/after evidence for the owner to judge.
+
+- [x] **P15.S12 — SHIPPED 2026-09-16 (`c2da3bf`).** `* text=auto eol=lf`, with
+      `.bat/.cmd/.ps1` kept CRLF and `.sh`/`.husky/*` pinned LF. Binaries
+      declared explicitly rather than left to git's heuristic — the ten PNGs are
+      the visual baselines, where one translated byte turns all nine tests red
+      with nothing in the diff. **Proven safe:** every tracked binary sha256'd
+      before and after `--renormalize`, combined digest identical, zero binaries
+      in the staged set. The pass staged exactly one file — its own — because
+      the committed bytes were already LF; what changes is that they no longer
+      depend on local config. Working tree refreshed to LF; 294 web + 521 api
+      tests green after. Original plan text follows.
+      ~~`.gitattributes`.** Closing S5(b). Behind the CRLF class of
+      bug S5 found, one of which **passed while asserting against the wrong
+      string**. Adding one renormalises every file in the repo, so it is its own
+      commit with nothing else in it.
+
+- [x] **P15.S13 — SHIPPED 2026-09-16 (`03235ba`).** `assertTruncatable()` is now
+      the first statement of `resetDb()`, with **no escape hatch**; the
+      `!env.TEST_DATABASE_URL` clause is gone from `testDbSetup.ts` too.
+      **Proven by pointing `TEST_DATABASE_URL` at the DEV database** and calling
+      the real `resetDb()`: 320 products before, refusal, 320 after. Tests proven
+      non-vacuous (neutralise the guard → 6 of 7 fail), and every refusal test
+      asserts `$executeRawUnsafe` was **never called**, not merely that it threw.
+      Original plan text follows.
+      ~~Put the safety rail on the TRUNCATE itself.** `resetDb()` in
+      `apps/api/src/config/testDb.ts` truncates every table Prisma knows about
+      with no assertion of its own; the only `_test` name check is in
+      `testDbSetup.ts`, and it is bypassed entirely when `TEST_DATABASE_URL` is
+      set (`!endsWith("_test") && !env.TEST_DATABASE_URL`). Point that variable
+      at the dev database and it is wiped with no error. Assert in `resetDb()`,
+      where the damage happens, rather than trusting a sibling file to have run.
 
 ### Standing rules this phase adds
 
@@ -2036,7 +2585,14 @@ A per-route total can never say *who* grew; these three layers can.
 - **Never relay a subagent's finding as confirmed without verifying it.**
   Phase 14 cost this twice.
 
-## Phase 13 — the Job Card: narrating the hero — ACTIVE, opened 2026-09-06
+## SHIPPED — Phase 13: the Job Card, narrating the hero — closed 2026-09-15
+
+Opened 2026-09-06. Closed at **P15.S6**, which folded in this phase's tail:
+S11's theme toggle and S12's content defects were verified already fixed,
+S13's performance gate is met in full (perf 98, TBT 64ms, LCP 1.88s, a11y
+100, SEO 100 — see `docs/performance-landing.md`), and S14's documentation
+is written. Two of S13's asks were superseded rather than met, and the doc
+says which and why.
 
 Step-level plan of record was **`fableTasks.md` v1.1** (external plan by Fable
 5, reconciled against the repo at `d43a391`). **That file was deleted on
@@ -2146,7 +2702,13 @@ Two decisions worth keeping:
       - Section numbering is already done (S10).
       - Accept: no repeated product name in «پیشنهاد ما»; no visible placeholder
         on `/` that is not labelled as pending.
-- [ ] **P13.S13 — Performance gate.** The point of the phase, and **not yet
+- [x] **P13.S13 — Performance gate.** ✅ 2026-09-15 at P15.S6 — **met in
+      full**, five-run median in `docs/performance-landing.md`: perf 98, TBT
+      **64ms** (was 261), LCP 1.88s, CLS 0.0322, a11y 100, SEO 100, `motion`
+      44.3 KB. The attribute-write budget is a test now
+      (`e2e/landing-hero.spec.ts`). The route-JS line and the preload ask
+      are **superseded**, not met — see the S6 entry and the doc.
+      Original text: the point of the phase, and **not yet
       re-measured.** Route JS is 197 KB against a ≤193 KB gate; TBT was 261ms
       against a ≤200ms gate, and S7's single-render manifest is the intended
       fix. Other gates, with the P12-close numbers: `motion` chunk ≤45 KB
@@ -2164,7 +2726,9 @@ Two decisions worth keeping:
       and measure `/` never `/fa`. If TBT is still over after S7, **say so with
       the attribution breakdown** — a regression that is measured and named is a
       finding; one quietly omitted is a defect the next phase inherits.
-- [ ] **P13.S14 — Close the phase.** Update
+- [x] **P13.S14 — Close the phase.** ✅ 2026-09-15 at P15.S6. The sprite
+      brief records the three derived fields; the closing measurement is
+      appended to `docs/performance-landing.md`. Original text: update
       `docs/landing-hero-sprite-brief.md` to record that `anchor`, `labelSide`
       and `finale` are **derived, not authored** — P13.S1 deliberately solved
       them rather than storing three hand-written fields per sprite

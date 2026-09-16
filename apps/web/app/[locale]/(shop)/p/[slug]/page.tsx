@@ -45,7 +45,7 @@ interface CatalogMessages {
     outOfStock: string;
     noPhoto: string;
     wholesalePriceBadge: string;
-    wishlist: { add: string; remove: string; error: string };
+    wishlist: { name: string; error: string };
     compare: { add: string; open: string; limit: string };
     addToCart: {
       qtyLabel: string;

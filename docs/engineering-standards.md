@@ -148,11 +148,10 @@ INP replaced FID and is the one most sites fail: it measures the *worst*
 interaction, not the first. Long tasks on the main thread are what break it,
 which is another argument for rule 1.
 
-This project's own budgets (masterPlan §10) are tighter than the public
-thresholds and are enforced per route. The landing page's last measured numbers
-live in `docs/performance-landing.md` — **LCP 1.9s, CLS 0.032, TBT 130ms, route
-JS 190KB against a 180KB budget** (knowingly over; the gap is the hero's scroll
-stage).
+This project's own budgets are tighter than the public thresholds, and since
+P15.S0 they are a **failing check**, not a table. The landing's last measured
+numbers live in `docs/performance-landing.md` — **perf 98, LCP 1.88s, CLS
+0.0322, TBT 64ms**, five-run median, mobile 360×640 DPR2.
 
 Two rules that follow:
 
@@ -160,6 +159,100 @@ Two rules that follow:
   moves it says the old and new number in its commit body.
 - **Images and video never cause layout shift.** Explicit `width`/`height` on
   every image, no exceptions. This is most of CLS.
+
+### Performance budgets — the numbers, and why they are a check
+
+Read this before adding a `'use client'` leaf to any route.
+
+**A budget that is not a failing check is not a budget.** From 2026-08 to
+2026-09 the ≤180 KB figure existed only as a row in `masterPlan.md` §10. Nothing
+could fail on it. In that window P11.S2 added 8 KB and P12.S4 added 2 KB, the
+landing drifted 189 → 200 KB across four phases, and **every step believed it
+had held the line.** Raising a number without making it a check just edits a
+sentence nobody enforces. The gate is `scripts/check-budget.mjs`, run as
+`pnpm check:budget`, and it runs in CI after the build.
+
+#### A route's cost is three numbers, not one
+
+A per-route total can tell you that something grew. It can never tell you *who*.
+These three layers can, and they are what the gate reports:
+
+| Layer | Landing | Recoverable? |
+|---|---|---|
+| **Framework floor** — webpack runtime, react-dom, App Router client runtime, main-app | 102.9 KB | **No.** Not without leaving the App Router. Recorded as a boundary so nobody spends a step chasing it. |
+| **Shop chrome** — chunks common to all 23 `(shop)` routes: header, footer, providers | 17.0 KB | Yes. This is the layer P11.S2's regression landed in, and it is charged to *every* route. |
+| **The route's own code** | 79.8 KB | Yes. The number this repo actually argues with. |
+
+**This corrects an earlier record.** `docs/performance-landing.md` and the
+budget ledger both tracked a "route chunk" of 16.5 KB. That is Next's *Size*
+column — the page-specific chunk alone — and it is **not** what the landing
+costs. The landing's own code is 79.8 KB, roughly four times that figure.
+
+Current budgets (`scripts/check-budget.mjs` is the source of truth; this table
+is a summary and the file wins if they disagree):
+
+| Route | First load, hard | warn | Own chunks |
+|---|---|---|---|
+| Landing | 190 | 188 | 70 |
+| PLP (category, brand) | 160 | 157 | 38 |
+| PDP | 170 | 165 | 44 |
+| Every other shop route | 180 | 175 | 48 |
+| Framework floor (shared) | 105 | — | — |
+| Shop chrome (shared) | 20 | — | — |
+
+The landing's 190 is a **freeze, not headroom** — it measures 186.8, so the
+warn line at 188 exists to make recovery the default direction. It was 200/190
+until P15.S8b recovered 13.1 kB by taking zod out of the client graph, and the
+ceiling came down in the same commit. **Ratchet the budget down after every
+recovery.** A ceiling left at the old number silently re-authorises the bytes
+you just removed, and that is exactly how 180 became 200. The owner
+authorised the raise with "don't open it for like 600kb". The reason the
+ceiling matters at all is roughly 1 ms of parse-and-compile per KB on a
+mid-tier phone: this shop's customer is on a mid-tier Android over an Iranian
+mobile network, not a laptop.
+
+Note that PLP and PDP were **not** raised to match the landing. Raising a budget
+a route already meets is precisely the drift the gate exists to stop — and the
+first draft of `check-budget.mjs` quietly did exactly that, while being written
+to prevent it.
+
+#### The measurement recipe
+
+Numbers obtained any other way are not admissible in a commit body.
+
+1. **Clear the ports first, not after a failure.** A live `next dev` writing
+   `.next` poisons the build it is measured from. Both :3000 and :4000 have been
+   this project's own orphans.
+2. `rm -rf apps/web/.next && pnpm build` — a clean build, because turbo's cache
+   has served another tree's `.next` before now.
+3. `pnpm check:budget`. **Do not scrape the build log.** `tail -60` clips the
+   landing row: routes sort alphabetically and `/[locale]` is first.
+4. Lighthouse for the field metrics: port **3000**, not 3200 —
+   `NEXT_PUBLIC_SITE_URL` is baked at build time, so auditing on another port
+   reports an SEO defect that does not exist. Measure `/`, not `/fa`. Five-run
+   median, `--throttling-method=devtools`.
+
+#### Standing rules
+
+- **Measure before *and* after any step that adds a client leaf.** P11.S2's 8 KB
+  and P12.S4's 2 KB are the same omission twice.
+- **Trace before you optimise.** 692 ms of Style & Layout on the landing was
+  nearly answered by shaving 4 KB of JavaScript. A CDP trace showed the cost was
+  the whole ~10,100px document being laid out before first paint;
+  `content-visibility: auto` with measured per-section `contain-intrinsic-size`
+  took TBT 221 → 120 ms. The bytes were never the lever.
+- **A trace tells you what invalidated. Only an A/B tells you what it costs.**
+  `scripts/trace-hydration.mjs --inject-css` prices a candidate fix against a
+  real build in ~40s, instead of a 3-minute rebuild per idea.
+- **A tool that reports a plausible wrong number is worse than one that errors.**
+  Both bugs in the first `check-budget.mjs` printed confident, wrong totals —
+  one put every route ~15 KB over, the other reported **0.0 KB for a layer that
+  measures 17.0**. Cross-check any new measurement against a source that already
+  knows the answer; here that was Next's own printed table, which it now agrees
+  with to within 0.1 kB.
+- **A gate nobody has seen fail is not known to work.** `check-budget.mjs` was
+  mutation-checked before it was trusted: drop the landing budget to 150, it
+  exits 1; drop the chrome budget to 10, the chrome failure is the one raised.
 
 ### Accessibility — now a legal requirement, not a quality bar
 

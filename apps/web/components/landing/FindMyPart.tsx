@@ -141,7 +141,7 @@ export async function FindMyPart() {
                     ) : null}
                     {/* Its own line, isolated: a Latin code sharing a baseline
                         with Persian is what produced «۳۲ قطعهSYS-02». */}
-                    <span className="evidence-code font-mono text-data text-text-muted" dir="ltr">
+                    <span className="bidi-code font-mono text-data text-text-muted" dir="ltr">
                       {system.code}
                     </span>
                     <span className="text-body-sm">{system.name.fa}</span>

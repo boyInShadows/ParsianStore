@@ -107,6 +107,67 @@ async function settleForCapture(page: Page) {
   });
 
   await page.evaluate(() => window.scrollTo(0, 0));
+
+  /**
+   * Wait for the hero's scroll story to actually be at rest at beat 0, rather
+   * than a fixed delay guessing when it gets there.
+   *
+   * `HeroScrollProvider`'s spring (`SPRING` in that file) smooths the
+   * scrollbar toward wherever it is told to go; the `scrollTo(0, 0)` above
+   * only sets the raw scroll position, and the spring is still relaxing
+   * toward it from wherever the walk above left it. A screenshot taken
+   * mid-relax bakes in whichever beat the spring is passing through on its
+   * way down -- the counter reads "1 از 9" with a callout plate up instead of
+   * "0 از 9" with the whole car, and it is bit-for-bit reproducible because
+   * the relax always starts from the same place.
+   *
+   * `StageNarration` already writes the settled state to the DOM for its own
+   * reasons (the `aria-live` station line and the callout plates): it puts
+   * `data-shown` on `.hero-station[data-station="0"]` and takes `data-shown`
+   * off every part's `.hero-callout` the instant its `progress` motion value
+   * drops below `CHAPTER_RANGE[1][0]` (0.02 in `heroLayout.ts`) -- the
+   * boundary that file's own comment calls "keeps the very first frame docked
+   * so the hero does not appear mid-motion". Polling those two is polling the
+   * spring itself, through the place it already reports its own rest state,
+   * rather than adding a new signal the hero does not otherwise need.
+   *
+   * `.hero-callout` on purpose, not the broader `[data-callout]`: the beat-0
+   * hint text (`.hero-lead` / `.hero-hint`) carries `data-callout="__hint"`
+   * and is CORRECTLY `data-shown` at rest -- it is the caption for beat 0, not
+   * a part's plate -- so gating on every `[data-callout]` made this wait
+   * timeout permanently, chasing a flag that is never supposed to clear.
+   * `.hero-callout` is the class `PartCallout.tsx` puts only on a part's own
+   * plate, which is the thing the stale baseline had on screen at a scroll
+   * position where a visitor sees none.
+   *
+   * For the record, because the symptom points the wrong way: P15.S5 did not
+   * move the hero. It made the footer 82px taller, which changed the length of
+   * the walk above and so where the spring had got to when the shutter opened.
+   * Verified by stashing that work, building HEAD and re-running -- the old
+   * baseline passed. Any future change to the page's height would have flipped
+   * these nine captures the same way, presenting every time as a hero
+   * regression in a step that never touched the hero.
+   *
+   * It holds under `prefers-reduced-motion` too, for the opposite reason:
+   * `StageNarration` never touches either attribute in that mode (`show(null)`
+   * on mount, no scroll listener armed), so the server's own beat-0 markup --
+   * `data-shown` on station "0", no `.hero-callout` ever marked -- simply
+   * stands, and the wait below resolves on its first check.
+   *
+   * No silent timeout: a hero that never reports beat 0 fails the run loudly,
+   * same contract as the `unrevealed` backstop above -- a capture taken
+   * anyway would be exactly the bug this step exists to fix.
+   */
+  await page.waitForFunction(
+    () => {
+      const restingStation = document.querySelector('[data-station="0"][data-shown]');
+      const openPartCallout = document.querySelector(".hero-callout[data-shown]");
+      return Boolean(restingStation) && !openPartCallout;
+    },
+    undefined,
+    { timeout: 5_000 },
+  );
+
   await page.evaluate(() => document.fonts.ready.then(() => undefined));
   // Bounded on purpose. Awaiting each pending image's own load event hung the
   // reduced-motion tests outright: a `loading="lazy"` image that never enters
