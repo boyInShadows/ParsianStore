@@ -6,6 +6,14 @@ import { EmptyState } from "@/components/primitives";
 // without a file here -- a real, reachable state for `/c/[slug]` (any
 // unknown or removed category slug), so it needs the same locale/RTL
 // treatment as every other shipped page (CLAUDE.md rule 4).
+//
+// **It sits at `c/`, not at `c/[slug]/`, and moving it back down would silently
+// retire it** (P15.S10). The not-found decision is made in
+// `c/[slug]/layout.tsx` -- it has to be, to keep the 404 status ahead of the
+// streaming flush -- and React catches a layout's `notFound()` *above* that
+// layout's own segment. One segment up is the nearest boundary that is
+// eligible; from inside `[slug]` this file would never render again and every
+// missing category would fall through to the group's generic 404.
 export default async function CategoryNotFound() {
   const t = await getTranslations("Catalog.notFound");
 
@@ -16,7 +24,10 @@ export default async function CategoryNotFound() {
         title={t("title")}
         description={t("description")}
         action={
-          <Link href="/" className="text-body-sm text-brand hover:underline">
+          <Link
+            href="/"
+            className="inline-flex text-body-sm text-brand hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
+          >
             {t("backHome")}
           </Link>
         }

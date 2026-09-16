@@ -7,9 +7,10 @@ import { WorkshopLoader } from "./WorkshopLoader";
  * The route-transition loader and the route progress bar in one, because both
  * want exactly the same lifetime: a `loading.tsx` default export.
  *
- * **It is wired to no route today.** Read "So this component is finished and
- * currently rendered by nothing" below before adding one — the reason is three
- * measurements, not an oversight.
+ * **It renders on four routes, and a route qualifies for it only by resolving
+ * its not-found decision in a sibling `layout.tsx`.** Read "How four routes
+ * were qualified" below before wiring a fifth — the constraint is measured, and
+ * the mechanism is not the one this file originally named.
  *
  * ## Why the progress bar needs no client JavaScript
  *
@@ -22,9 +23,10 @@ import { WorkshopLoader } from "./WorkshopLoader";
  *
  * That was not merely the tidier option, it was the only affordable one. A
  * client leaf here would land in the shop chrome, which every shop route pays
- * for — including the landing, which measures 199.8 kB against a 200 kB hard
- * fail. The real headroom was 0.2 kB, not the 3 kB the chrome layer's own
- * budget suggests.
+ * for — including the landing, which at S3 measured 199.8 kB against a 200 kB
+ * hard fail. The real headroom was 0.2 kB, not the 3 kB the chrome layer's own
+ * budget suggests. (P15.S8b has since recovered bytes and ratcheted the ceiling
+ * down with them — `pnpm check:budget` is the current number, never this line.)
  *
  * ## What a loading boundary costs here, measured rather than assumed
  *
@@ -59,24 +61,49 @@ import { WorkshopLoader } from "./WorkshopLoader";
  * "axe 0 violations" gate. `e2e/vehicle-make.spec.ts:41` caught the first half
  * — «an unknown make is a 404, not a degraded page».
  *
- * ## So this component is finished and currently rendered by nothing
+ * ## How four routes were qualified — P15.S10, and the fix is not the one
+ * that was planned
  *
- * **Every** dynamic route in the shop group does one of those two after its
- * await, and every static one pays cost 1, so there is no placement in the
- * group today that is free. Wiring it up is one file
- * (`export { ShopRouteLoader as default } from "@/components/loading";`) once
- * a route qualifies, and `loading-boundaries.test.ts` fails the moment one is
- * added to a route that does not.
+ * S3 left two proposed routes out of this. **The first one was wrong**, and it
+ * is corrected here rather than deleted, because the wrong version was written
+ * as fact and would send the next reader down it again:
  *
- * Two ways to qualify a route, for whoever picks this up:
+ * > ~~Move the decision into `generateMetadata`. Next resolves it before it
+ * > streams, so a `notFound()` there keeps the 404.~~
  *
- * 1. Move the not-found / redirect decision ahead of the flush. Next resolves
- *    `generateMetadata` before it streams, so a `notFound()` there keeps the
- *    404. That is a change to five pages plus the auth redirect, and a step of
- *    its own.
- * 2. Give the progress bar a client leaf in the shop chrome instead, and stop
- *    depending on a Suspense boundary at all. That needs bytes the landing
- *    does not have today: 199.8 kB against a 200 kB hard fail.
+ * **It does not, on 15.5.21.** Next 15.2 introduced streaming metadata:
+ * `generateMetadata` renders inside a Suspense boundary of its own and is
+ * streamed with the page, so it stopped gating the shell. Measured on a
+ * production build, a `notFound()` there leaves the route answering **200** —
+ * and leaves the visitor on Next's built-in English, LTR 404 rather than a
+ * localised one, so it is worse than doing nothing. Googlebot and Twitterbot
+ * get the 200 too; the `htmlLimitedBots` blocking-metadata path does not
+ * rescue it.
+ *
+ * **A segment `layout.tsx` does gate it.** `loading.tsx` wraps only its
+ * segment's *page* in Suspense; the segment's own layout sits above that
+ * boundary, so an `await` there still blocks the first flush and the status is
+ * still the page's to set. Measured with `loading.tsx` present:
+ * `/c/{unknown}` → **404**, localised and RTL; `/c/engine` → **200**.
+ *
+ * So four routes now render this component, each with a sibling `layout.tsx`
+ * that resolves not-found ahead of the flush: `c/[slug]`, `brand/[slug]`,
+ * `p/[slug]`, `vehicle/[make]/[model]/[gen]`. Wiring a fifth is one file
+ * (`export { ShopRouteLoader as default } from "@/components/loading";`) plus
+ * that layout, and `loading-boundaries.test.ts` fails the moment the loader is
+ * added without it.
+ *
+ * **The boundary must be at the deciding segment, not above it.** A
+ * `loading.tsx` at `vehicle/[make]/` puts the `[model]/[gen]` layout *inside*
+ * its Suspense boundary; measured, `/vehicle/saipa/pride-111/1999` then
+ * answered **200** with the 404 body. That is why `vehicle/[make]` has no
+ * loader of its own — and it loses nothing, because its page's only fetch is
+ * the one its decision would already have made, so the loader would live for
+ * about zero milliseconds.
+ *
+ * The second of S3's routes — a client leaf in the shop chrome — was not
+ * needed and was not built. It would still cost bytes the landing does not
+ * have.
  *
  * ## Voice and shape
  *
