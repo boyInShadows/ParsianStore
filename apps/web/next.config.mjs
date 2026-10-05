@@ -89,13 +89,13 @@ const nextConfig = {
         outputFileTracingRoot: path.join(path.dirname(fileURLToPath(import.meta.url)), "..", ".."),
       }
     : {}),
-  transpilePackages: ["schemas", "config"],
+  transpilePackages: ["schemas"],
   async headers() {
     // Every route, including the static assets under /landing and /_next.
     return [{ source: "/:path*", headers: securityHeaders }];
   },
-  // Internal workspace packages (packages/schemas, packages/config) are consumed
-  // as TypeScript source with no build step. Their own relative imports use the
+  // Internal workspace package (packages/schemas) is consumed
+  // as TypeScript source with no build step. Its own relative imports use the
   // explicit ".js" extension required by TS's NodeNext resolution (see
   // docs/decisions/0001-typescript-over-plain-js.md), which webpack does not
   // resolve to ".ts" by default -- this alias bridges that gap.

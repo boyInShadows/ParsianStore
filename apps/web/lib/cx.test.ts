@@ -37,20 +37,6 @@ const MIGRATED_SITES: ReadonlyArray<readonly [string, readonly unknown[]]> = [
       "end-0 start-auto",
     ],
   ],
-  [
-    "Tabs trigger (selected)",
-    [
-      "border-b-2 px-4 py-2 text-body-sm font-medium transition-colors duration-fast focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus motion-reduce:transition-none",
-      "border-brand-solid text-text",
-    ],
-  ],
-  [
-    "Tabs trigger (idle)",
-    [
-      "border-b-2 px-4 py-2 text-body-sm font-medium transition-colors duration-fast focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus motion-reduce:transition-none",
-      "border-transparent text-text-muted hover:text-text",
-    ],
-  ],
   ...(["neutral", "success", "warning", "danger"] as const).map(
     (tone) =>
       [
@@ -95,12 +81,7 @@ describe("cx", () => {
  * browser bundle, so this list is the budget's only guard -- growing it is a
  * deliberate act with a measurable cost, not an import someone adds by habit.
  */
-const CN_CLIENT_ALLOWLIST: Readonly<Record<string, string>> = {
-  "components/primitives/SearchField.tsx":
-    "takes a caller `className` on its input, so the merge is load-bearing: " +
-    "without it the caller's utility loses to the base. Not on the landing " +
-    "route's client graph -- removing it there saved nothing.",
-};
+const CN_CLIENT_ALLOWLIST: Readonly<Record<string, string>> = {};
 
 async function walk(dir: string): Promise<string[]> {
   const found: string[] = [];

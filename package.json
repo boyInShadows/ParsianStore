@@ -11,7 +11,6 @@
     "dev": "turbo run dev",
     "dev:infra": "docker compose up -d --wait postgres",
     "dev:stop": "docker compose down",
-    "db:setup": "node scripts/setup-postgres.mjs",
     "dev:api": "turbo run dev --filter=api",
     "dev:web": "turbo run dev --filter=web",
     "build": "turbo run build",
@@ -25,8 +24,6 @@
     "check:budget": "node scripts/check-budget.mjs",
     "check:hero": "node scripts/check-hero-registration.mjs",
     "shots:hero": "node scripts/hero-shots.mjs",
-    "shots:mobile": "node scripts/mobile-shots.mjs",
-    "check:mobile-a11y": "node scripts/mobile-axe.mjs",
     "og:landing": "node scripts/og-image.mjs"
   },
   "devDependencies": {
@@ -39,7 +36,6 @@
     "eslint": "9.39.5",
     "eslint-plugin-react": "7.37.5",
     "eslint-plugin-react-hooks": "7.1.1",
-    "eslint-plugin-tailwindcss": "4.2.0",
     "husky": "9.1.7",
     "lint-staged": "17.2.0",
     "prettier": "3.9.6",

@@ -13,29 +13,22 @@ import {
   EmptyState,
   Input,
   Modal,
-  Pagination,
   Radio,
   Select,
   Skeleton,
   Spinner,
-  Tabs,
   Textarea,
   Toaster,
-  Tooltip,
 } from "@/components/primitives";
 // By file path, not the barrel -- see the note in primitives/index.ts: these
 // six cost every client-tree consumer of the barrel +8KB if exported there.
-// P11.S3: by file path, same barrel rule -- see primitives/index.ts.
-import { RadioGroup } from "@/components/primitives/RadioGroup";
-import { SearchField } from "@/components/primitives/SearchField";
-import { Switch } from "@/components/primitives/Switch";
 import { PageHeader } from "@/components/primitives/PageHeader";
 import { Sheet } from "@/components/primitives/Sheet";
 import { Receipt } from "@/components/primitives/Receipt";
 import { PriceTag } from "@/components/primitives/PriceTag";
 import { LinkPagination } from "@/components/primitives/LinkPagination";
 import { OrderStatusRail } from "@/components/account/OrderStatus";
-import { CountUp, Marquee, Reveal, Stagger } from "@/components/motion";
+import { Marquee, Reveal, Stagger } from "@/components/motion";
 import { useToastStore } from "@/stores/toast-store";
 
 // P1.S7 proof-of-wiring page: every primitive, real Persian copy (not
@@ -44,9 +37,6 @@ import { useToastStore } from "@/stores/toast-store";
 export default function StyleguidePage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const [page, setPage] = useState(1);
-  const [shipping, setShipping] = useState("courier");
-  const [searching, setSearching] = useState(false);
   const showToast = useToastStore((state) => state.show);
 
   return (
@@ -90,59 +80,6 @@ export default function StyleguidePage() {
       <Card className="gap-5 flex flex-col">
         <h2 className="text-h3 font-semibold text-text">اجزای فرم</h2>
 
-        <SearchField
-          label="جستجوی قطعه با کد فنی"
-          placeholder="مثلاً 0K9A03328Z"
-          loading={searching}
-          onClear={() => showToast("جستجو پاک شد", "neutral")}
-        />
-        <Button variant="ghost" size="sm" onClick={() => setSearching((busy) => !busy)}>
-          {searching ? "پایان حالت جستجو" : "نمایش حالت جستجو"}
-        </Button>
-
-        <RadioGroup
-          name="shipping-demo"
-          legend="روش ارسال"
-          value={shipping}
-          onChange={setShipping}
-          required
-          options={[
-            {
-              value: "courier",
-              label: "پیک درون‌شهری",
-              description: "تحویل تا ۳ ساعت — ۱۵۰٬۰۰۰ ریال",
-            },
-            {
-              value: "post",
-              label: "پست پیشتاز",
-              description: "تحویل ۲ تا ۴ روز کاری — ۲۵۰٬۰۰۰ ریال",
-            },
-            { value: "pickup", label: "تحویل حضوری", description: "انبار مرکزی، تهران" },
-          ]}
-        />
-
-        <RadioGroup
-          name="warranty-demo"
-          legend="نوع ضمانت"
-          orientation="horizontal"
-          defaultValue="seller"
-          error="برای ادامه، یک گزینه را انتخاب کنید."
-          options={[
-            { value: "seller", label: "ضمانت فروشنده" },
-            { value: "manufacturer", label: "ضمانت کارخانه" },
-          ]}
-        />
-
-        <div className="flex flex-col gap-3">
-          <Switch
-            label="اطلاع‌رسانی پیامکی"
-            helperText="برای تغییر وضعیت سفارش پیامک دریافت کنید."
-            defaultChecked
-          />
-          <Switch label="نمایش قیمت عمده" />
-          <Switch label="حالت غیرفعال" disabled />
-        </div>
-
         <div className="flex flex-wrap items-center gap-3">
           <Button variant="cta" loading>
             در حال ثبت سفارش…
@@ -162,28 +99,12 @@ export default function StyleguidePage() {
         <Badge tone="danger">ناموجود</Badge>
         <Badge tone="info">جدید</Badge>
         <Chip onRemove={() => showToast("فیلتر حذف شد", "neutral")}>برند: بوش</Chip>
-        <Tooltip label="ضمانت اصالت کالا">
-          <Button variant="ghost">نشان اصالت</Button>
-        </Tooltip>
       </Card>
 
       <Card className="flex flex-col gap-3">
         <Skeleton className="h-6 w-1/3" />
         <Skeleton className="h-4 w-full" />
         <Skeleton className="h-4 w-2/3" />
-      </Card>
-
-      <Card>
-        <Tabs defaultValue="fitment">
-          <Tabs.List>
-            <Tabs.Trigger value="fitment">سازگاری</Tabs.Trigger>
-            <Tabs.Trigger value="specs">مشخصات</Tabs.Trigger>
-            <Tabs.Trigger value="reviews">نظرات</Tabs.Trigger>
-          </Tabs.List>
-          <Tabs.Panel value="fitment">این قطعه با پراید ۱۳۱ سازگار است.</Tabs.Panel>
-          <Tabs.Panel value="specs">جنس: سرامیکی — وزن: ۴۲۰ گرم</Tabs.Panel>
-          <Tabs.Panel value="reviews">هنوز نظری ثبت نشده است.</Tabs.Panel>
-        </Tabs>
       </Card>
 
       <Card className="flex flex-wrap gap-3">
@@ -197,8 +118,6 @@ export default function StyleguidePage() {
           نمایش اعلان
         </Button>
       </Card>
-
-      <Pagination page={page} pageCount={5} onPageChange={setPage} />
 
       <EmptyState
         title="هیچ قطعه‌ای یافت نشد"
@@ -241,11 +160,6 @@ export default function StyleguidePage() {
           <Card>برقی</Card>
         </Stagger.Item>
       </Stagger>
-
-      <Card className="flex items-center gap-2">
-        <CountUp value={12000} className="font-display text-h1 text-brand" />
-        <span className="text-body text-text-muted">قطعه در انبار</span>
-      </Card>
 
       <Marquee
         separator={<span className="text-caption text-border">◆</span>}
