@@ -1,4 +1,4 @@
-import type { NextFunction, Request, Response } from "express";
+import type { Request, Response } from "express";
 import * as service from "./feedback.admin.service.js";
 import type {
   AdminFeedbackId,
@@ -12,48 +12,32 @@ import type {
 function dto<T extends { id: string }>(item: T): T {
   return item;
 }
-export async function reviews(req: Request, res: Response, next: NextFunction) {
-  try {
-    const { status, ...page } = req.validatedQuery as AdminFeedbackListQuery;
-    const result = await service.listAdminReviews(page, status);
-    res.json({ ok: true, data: result.data.map(dto), meta: result.meta });
-  } catch (e) {
-    next(e);
-  }
+export async function reviews(req: Request, res: Response) {
+  const { status, ...page } = req.validatedQuery as AdminFeedbackListQuery;
+  const result = await service.listAdminReviews(page, status);
+  res.json({ ok: true, data: result.data.map(dto), meta: result.meta });
 }
-export async function questions(req: Request, res: Response, next: NextFunction) {
-  try {
-    const { status, ...page } = req.validatedQuery as AdminFeedbackListQuery;
-    const result = await service.listAdminQuestions(page, status);
-    res.json({ ok: true, data: result.data.map(dto), meta: result.meta });
-  } catch (e) {
-    next(e);
-  }
+export async function questions(req: Request, res: Response) {
+  const { status, ...page } = req.validatedQuery as AdminFeedbackListQuery;
+  const result = await service.listAdminQuestions(page, status);
+  res.json({ ok: true, data: result.data.map(dto), meta: result.meta });
 }
-export async function review(req: Request, res: Response, next: NextFunction) {
-  try {
-    const input = req.body as ModerateFeedbackInput;
-    const item = await service.moderateReview(
-      (req.params as unknown as AdminFeedbackId).id,
-      req.user!.sub,
-      input.status,
-    );
-    res.json({ ok: true, data: dto(item) });
-  } catch (e) {
-    next(e);
-  }
+export async function review(req: Request, res: Response) {
+  const input = req.body as ModerateFeedbackInput;
+  const item = await service.moderateReview(
+    (req.params as unknown as AdminFeedbackId).id,
+    req.user!.sub,
+    input.status,
+  );
+  res.json({ ok: true, data: dto(item) });
 }
-export async function question(req: Request, res: Response, next: NextFunction) {
-  try {
-    const input = req.body as ModerateFeedbackInput;
-    const item = await service.moderateQuestion(
-      (req.params as unknown as AdminFeedbackId).id,
-      req.user!.sub,
-      input.status,
-      input.answer,
-    );
-    res.json({ ok: true, data: dto(item) });
-  } catch (e) {
-    next(e);
-  }
+export async function question(req: Request, res: Response) {
+  const input = req.body as ModerateFeedbackInput;
+  const item = await service.moderateQuestion(
+    (req.params as unknown as AdminFeedbackId).id,
+    req.user!.sub,
+    input.status,
+    input.answer,
+  );
+  res.json({ ok: true, data: dto(item) });
 }

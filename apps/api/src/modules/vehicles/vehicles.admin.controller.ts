@@ -1,4 +1,4 @@
-import type { NextFunction, Request, Response } from "express";
+import type { Request, Response } from "express";
 import * as service from "./vehicles.admin.service.js";
 import type { PaginationQuery } from "../../utils/pagination.js";
 
@@ -17,47 +17,27 @@ interface EntityHandlers<TList, TCreate, TUpdate> {
 
 function makeHandlers<TList, TCreate, TUpdate>(entity: EntityHandlers<TList, TCreate, TUpdate>) {
   return {
-    async list(req: Request, res: Response, next: NextFunction): Promise<void> {
-      try {
-        const { page, limit, sort, ...filters } = req.validatedQuery as PaginationQuery &
-          Record<string, unknown>;
-        const { data, meta } = await entity.list({ page, limit, sort }, filters as TList);
-        res.json({ ok: true, data, meta });
-      } catch (err) {
-        next(err);
-      }
+    async list(req: Request, res: Response): Promise<void> {
+      const { page, limit, sort, ...filters } = req.validatedQuery as PaginationQuery &
+        Record<string, unknown>;
+      const { data, meta } = await entity.list({ page, limit, sort }, filters as TList);
+      res.json({ ok: true, data, meta });
     },
-    async create(req: Request, res: Response, next: NextFunction): Promise<void> {
-      try {
-        const data = await entity.create(req.body as TCreate);
-        res.status(201).json({ ok: true, data });
-      } catch (err) {
-        next(err);
-      }
+    async create(req: Request, res: Response): Promise<void> {
+      const data = await entity.create(req.body as TCreate);
+      res.status(201).json({ ok: true, data });
     },
-    async update(req: Request, res: Response, next: NextFunction): Promise<void> {
-      try {
-        const data = await entity.update(req.params.id as string, req.body as TUpdate);
-        res.json({ ok: true, data });
-      } catch (err) {
-        next(err);
-      }
+    async update(req: Request, res: Response): Promise<void> {
+      const data = await entity.update(req.params.id as string, req.body as TUpdate);
+      res.json({ ok: true, data });
     },
-    async remove(req: Request, res: Response, next: NextFunction): Promise<void> {
-      try {
-        await entity.remove(req.params.id as string);
-        res.json({ ok: true, data: null });
-      } catch (err) {
-        next(err);
-      }
+    async remove(req: Request, res: Response): Promise<void> {
+      await entity.remove(req.params.id as string);
+      res.json({ ok: true, data: null });
     },
-    async restore(req: Request, res: Response, next: NextFunction): Promise<void> {
-      try {
-        const data = await entity.restore(req.params.id as string);
-        res.json({ ok: true, data });
-      } catch (err) {
-        next(err);
-      }
+    async restore(req: Request, res: Response): Promise<void> {
+      const data = await entity.restore(req.params.id as string);
+      res.json({ ok: true, data });
     },
   };
 }

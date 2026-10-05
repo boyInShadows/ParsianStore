@@ -1,13 +1,19 @@
-import { config as loadDotenv } from "dotenv";
 import { fileURLToPath } from "node:url";
 import { z } from "zod";
 
-// `dotenv/config` resolves `.env` relative to `process.cwd()`, which is
-// only apps/api when run via `pnpm --filter api ...` — a root-level `pnpm
-// test`/`pnpm build` runs with the repo root as cwd instead and would
-// silently miss this file. Resolving relative to this module's own path
-// works regardless of which directory the process was launched from.
-loadDotenv({ path: fileURLToPath(new URL("../../.env", import.meta.url)) });
+// A bare `process.loadEnvFile()` resolves `.env` relative to
+// `process.cwd()`, which is only apps/api when run via `pnpm --filter api
+// ...` — a root-level `pnpm test`/`pnpm build` runs with the repo root as cwd
+// instead and would silently miss this file. Resolving relative to this
+// module's own path works regardless of which directory the process was
+// launched from. Variables already in the environment win, as with dotenv.
+// A missing file is fine (CI and production have none); anything else
+// (unreadable, malformed) is a real error and still throws.
+try {
+  process.loadEnvFile(fileURLToPath(new URL("../../.env", import.meta.url)));
+} catch (err) {
+  if ((err as NodeJS.ErrnoException).code !== "ENOENT") throw err;
+}
 
 // Only the variables the code written so far actually reads. Later P2
 // steps (storage, search) add their own vars to this schema when the code
@@ -23,9 +29,9 @@ const envSchema = z.object({
   //
   // Two origins, and the second one is the point: `:3000` is `next dev`, but
   // every local *harness* serves the production build on `:3200` -- the
-  // Lighthouse recipe in docs/performance-landing.md, scripts/mobile-shots.mjs,
-  // scripts/mobile-axe.mjs, scripts/hero-shots.mjs and scripts/og-image.mjs all
-  // use it, as does `E2E_PORT=3200`. With only `:3000` allowed, every
+  // Lighthouse recipe in docs/performance-landing.md, scripts/hero-shots.mjs
+  // and scripts/og-image.mjs both use it, as does `E2E_PORT=3200`. With only
+  // `:3000` allowed, every
   // client-side vehicle fetch from a harness-served page fails CORS and all
   // three selects in the garage vehicle selector stay disabled -- so the
   // selector had no live local coverage on the port the harness actually runs

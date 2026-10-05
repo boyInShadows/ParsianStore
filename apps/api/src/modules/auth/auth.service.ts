@@ -1,5 +1,5 @@
 import argon2 from "argon2";
-import { nanoid } from "nanoid";
+import { randomBytes } from "node:crypto";
 import { normalizePhone } from "schemas";
 import type { MeDto } from "schemas";
 import { env } from "../../config/env.js";
@@ -94,7 +94,7 @@ async function issueSession(
     accountType: user.accountType,
   });
 
-  const rawRefreshToken = nanoid(48);
+  const rawRefreshToken = randomBytes(36).toString("base64url");
   await prisma.refreshToken.create({
     data: {
       userId: user.id,

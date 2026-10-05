@@ -1,5 +1,5 @@
-import type { NextFunction, Request, Response } from "express";
-import { nanoid } from "nanoid";
+import type { Request, Response } from "express";
+import { randomBytes } from "node:crypto";
 import { env } from "../../config/env.js";
 import * as shippingService from "../shipping/shipping.service.js";
 import * as cartService from "./cart.service.js";
@@ -27,7 +27,7 @@ function resolveIdentity(req: Request, res: Response): cartService.CartIdentity 
   }
   let anonId = req.cookies?.anonId as string | undefined;
   if (!anonId) {
-    anonId = nanoid();
+    anonId = randomBytes(16).toString("base64url");
     res.cookie("anonId", anonId, {
       httpOnly: true,
       sameSite: "lax",
@@ -38,77 +38,45 @@ function resolveIdentity(req: Request, res: Response): cartService.CartIdentity 
   return { anonId };
 }
 
-export async function getCartHandler(
-  req: Request,
-  res: Response,
-  next: NextFunction,
-): Promise<void> {
-  try {
-    // Guest -> auth merge happens here, lazily, on the first GET /cart
-    // after login -- LoginForm.tsx force-reloads the cart right after
-    // verifyOtp succeeds, so this is always reached promptly. Doing it
-    // here (not in auth.controller.ts) keeps modules/auth entirely
-    // ignorant that modules/cart exists.
-    const anonId = req.cookies?.anonId as string | undefined;
-    if (req.user && anonId) {
-      await cartService.mergeGuestCartIntoUser(anonId, req.user.sub);
-      res.clearCookie("anonId");
-    }
-    const identity = resolveIdentity(req, res);
-    const cart = await cartService.getCart(identity, req.user?.accountType);
-    res.json({ ok: true, data: cart });
-  } catch (err) {
-    next(err);
+export async function getCartHandler(req: Request, res: Response): Promise<void> {
+  // Guest -> auth merge happens here, lazily, on the first GET /cart
+  // after login -- LoginForm.tsx force-reloads the cart right after
+  // verifyOtp succeeds, so this is always reached promptly. Doing it
+  // here (not in auth.controller.ts) keeps modules/auth entirely
+  // ignorant that modules/cart exists.
+  const anonId = req.cookies?.anonId as string | undefined;
+  if (req.user && anonId) {
+    await cartService.mergeGuestCartIntoUser(anonId, req.user.sub);
+    res.clearCookie("anonId");
   }
+  const identity = resolveIdentity(req, res);
+  const cart = await cartService.getCart(identity, req.user?.accountType);
+  res.json({ ok: true, data: cart });
 }
 
-export async function addItemHandler(
-  req: Request,
-  res: Response,
-  next: NextFunction,
-): Promise<void> {
-  try {
-    const identity = resolveIdentity(req, res);
-    const { productId, variantId, qty } = req.body as AddItemInput;
-    await cartService.addItem(identity, productId, qty, req.user?.accountType, variantId);
-    const cart = await cartService.getCart(identity, req.user?.accountType);
-    res.json({ ok: true, data: cart });
-  } catch (err) {
-    next(err);
-  }
+export async function addItemHandler(req: Request, res: Response): Promise<void> {
+  const identity = resolveIdentity(req, res);
+  const { productId, variantId, qty } = req.body as AddItemInput;
+  await cartService.addItem(identity, productId, qty, req.user?.accountType, variantId);
+  const cart = await cartService.getCart(identity, req.user?.accountType);
+  res.json({ ok: true, data: cart });
 }
 
-export async function updateItemHandler(
-  req: Request,
-  res: Response,
-  next: NextFunction,
-): Promise<void> {
-  try {
-    const identity = resolveIdentity(req, res);
-    const { id } = req.params as unknown as CartItemIdParam;
-    const { qty } = req.body as UpdateItemInput;
-    await cartService.updateItemQty(identity, id, qty);
-    const cart = await cartService.getCart(identity, req.user?.accountType);
-    res.json({ ok: true, data: cart });
-  } catch (err) {
-    next(err);
-  }
+export async function updateItemHandler(req: Request, res: Response): Promise<void> {
+  const identity = resolveIdentity(req, res);
+  const { id } = req.params as unknown as CartItemIdParam;
+  const { qty } = req.body as UpdateItemInput;
+  await cartService.updateItemQty(identity, id, qty);
+  const cart = await cartService.getCart(identity, req.user?.accountType);
+  res.json({ ok: true, data: cart });
 }
 
-export async function removeItemHandler(
-  req: Request,
-  res: Response,
-  next: NextFunction,
-): Promise<void> {
-  try {
-    const identity = resolveIdentity(req, res);
-    const { id } = req.params as unknown as CartItemIdParam;
-    await cartService.removeItem(identity, id);
-    const cart = await cartService.getCart(identity, req.user?.accountType);
-    res.json({ ok: true, data: cart });
-  } catch (err) {
-    next(err);
-  }
+export async function removeItemHandler(req: Request, res: Response): Promise<void> {
+  const identity = resolveIdentity(req, res);
+  const { id } = req.params as unknown as CartItemIdParam;
+  await cartService.removeItem(identity, id);
+  const cart = await cartService.getCart(identity, req.user?.accountType);
+  res.json({ ok: true, data: cart });
 }
 
 // P6.S7. optionalAuth is enough here (matches every other cart handler)
@@ -116,52 +84,28 @@ export async function removeItemHandler(
 // (coupon.service.ts's validateCoupon only checks it when a userId is
 // present), it's re-validated authoritatively at checkout initiation
 // once the shopper is definitely signed in anyway.
-export async function applyCouponHandler(
-  req: Request,
-  res: Response,
-  next: NextFunction,
-): Promise<void> {
-  try {
-    const identity = resolveIdentity(req, res);
-    const { code } = req.body as ApplyCouponInput;
-    const cart = await cartService.applyCoupon(identity, code, req.user?.accountType);
-    res.json({ ok: true, data: cart });
-  } catch (err) {
-    next(err);
-  }
+export async function applyCouponHandler(req: Request, res: Response): Promise<void> {
+  const identity = resolveIdentity(req, res);
+  const { code } = req.body as ApplyCouponInput;
+  const cart = await cartService.applyCoupon(identity, code, req.user?.accountType);
+  res.json({ ok: true, data: cart });
 }
 
-export async function removeCouponHandler(
-  req: Request,
-  res: Response,
-  next: NextFunction,
-): Promise<void> {
-  try {
-    const identity = resolveIdentity(req, res);
-    const cart = await cartService.removeCoupon(identity, req.user?.accountType);
-    res.json({ ok: true, data: cart });
-  } catch (err) {
-    next(err);
-  }
+export async function removeCouponHandler(req: Request, res: Response): Promise<void> {
+  const identity = resolveIdentity(req, res);
+  const cart = await cartService.removeCoupon(identity, req.user?.accountType);
+  res.json({ ok: true, data: cart });
 }
 
 // P6.S4 -- requireAuth is applied on this one route specifically (see
 // cart.routes.ts), so req.user is always populated here, unlike every
 // other handler in this file.
-export async function estimateShippingHandler(
-  req: Request,
-  res: Response,
-  next: NextFunction,
-): Promise<void> {
-  try {
-    const { addressId } = req.body as EstimateShippingInput;
-    const data = await shippingService.estimateShipping(
-      req.user!.sub,
-      addressId,
-      req.user!.accountType,
-    );
-    res.json({ ok: true, data });
-  } catch (err) {
-    next(err);
-  }
+export async function estimateShippingHandler(req: Request, res: Response): Promise<void> {
+  const { addressId } = req.body as EstimateShippingInput;
+  const data = await shippingService.estimateShipping(
+    req.user!.sub,
+    addressId,
+    req.user!.accountType,
+  );
+  res.json({ ok: true, data });
 }
