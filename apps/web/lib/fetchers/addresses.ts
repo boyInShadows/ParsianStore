@@ -1,20 +1,7 @@
 import { addressListResponseSchema, addressResponseSchema, type AddressDto } from "schemas";
+import { API_URL, apiAction, apiFetch, jsonBody, type ActionResult } from "@/lib/api-fetch";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000";
-
-export type AddressActionResult<T> = { ok: true; data: T } | { ok: false; message: string };
-
-const GENERIC_ERROR = "خطایی رخ داد، دوباره تلاش کنید";
-
-async function readErrorMessage(res: Response): Promise<string> {
-  try {
-    const json = (await res.json()) as { error?: { message?: string } };
-    if (typeof json.error?.message === "string") return json.error.message;
-  } catch {
-    // fall through to the generic message
-  }
-  return GENERIC_ERROR;
-}
+export type AddressActionResult<T> = ActionResult<T>;
 
 // Client-side only, credentials:"include" -- /me/addresses is
 // requireAuth-gated (P6.S2), same session cookie every other /me/*
@@ -23,29 +10,18 @@ async function readErrorMessage(res: Response): Promise<string> {
 // backend-only.
 
 export async function fetchAddresses(): Promise<AddressDto[] | null> {
-  try {
-    const res = await fetch(`${API_URL}/api/v1/me/addresses`, { credentials: "include" });
-    if (!res.ok) return null;
-    const json = await res.json();
-    const parsed = addressListResponseSchema.safeParse(json);
-    return parsed.success ? parsed.data.data : null;
-  } catch {
-    return null;
-  }
+  const res = await apiFetch(`${API_URL}/api/v1/me/addresses`, addressListResponseSchema, {
+    credentials: "include",
+  });
+  return res.ok ? res.data.data : null;
 }
 
 export async function fetchAddressesServer(cookieHeader: string): Promise<AddressDto[] | null> {
-  try {
-    const res = await fetch(`${API_URL}/api/v1/me/addresses`, {
-      headers: { cookie: cookieHeader },
-      cache: "no-store",
-    });
-    if (!res.ok) return null;
-    const parsed = addressListResponseSchema.safeParse(await res.json());
-    return parsed.success ? parsed.data.data : null;
-  } catch {
-    return null;
-  }
+  const res = await apiFetch(`${API_URL}/api/v1/me/addresses`, addressListResponseSchema, {
+    headers: { cookie: cookieHeader },
+    cache: "no-store",
+  });
+  return res.ok ? res.data.data : null;
 }
 
 // Matches addresses.schema.ts's addressInputSchema shape (server-side
@@ -63,61 +39,32 @@ export interface CreateAddressInput {
   receiverPhone: string;
 }
 
-export async function createAddress(
-  input: CreateAddressInput,
-): Promise<AddressActionResult<AddressDto>> {
-  try {
-    const res = await fetch(`${API_URL}/api/v1/me/addresses`, {
-      method: "POST",
-      credentials: "include",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(input),
-    });
-    if (!res.ok) return { ok: false, message: await readErrorMessage(res) };
-    const json = await res.json();
-    const parsed = addressResponseSchema.safeParse(json);
-    return parsed.success
-      ? { ok: true, data: parsed.data.data }
-      : { ok: false, message: GENERIC_ERROR };
-  } catch {
-    return { ok: false, message: GENERIC_ERROR };
-  }
+export function createAddress(input: CreateAddressInput): Promise<AddressActionResult<AddressDto>> {
+  return apiAction(`${API_URL}/api/v1/me/addresses`, addressResponseSchema, {
+    method: "POST",
+    credentials: "include",
+    ...jsonBody(input),
+  });
 }
 
 // P7.S2 -- the address book page is the first real consumer of
 // PATCH/DELETE; checkout's own picker (P6.S6) only ever needed
 // list+create.
-export async function updateAddress(
+export function updateAddress(
   id: string,
   input: CreateAddressInput,
 ): Promise<AddressActionResult<AddressDto>> {
-  try {
-    const res = await fetch(`${API_URL}/api/v1/me/addresses/${id}`, {
-      method: "PATCH",
-      credentials: "include",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(input),
-    });
-    if (!res.ok) return { ok: false, message: await readErrorMessage(res) };
-    const json = await res.json();
-    const parsed = addressResponseSchema.safeParse(json);
-    return parsed.success
-      ? { ok: true, data: parsed.data.data }
-      : { ok: false, message: GENERIC_ERROR };
-  } catch {
-    return { ok: false, message: GENERIC_ERROR };
-  }
+  return apiAction(`${API_URL}/api/v1/me/addresses/${id}`, addressResponseSchema, {
+    method: "PATCH",
+    credentials: "include",
+    ...jsonBody(input),
+  });
 }
 
 export async function deleteAddress(id: string): Promise<AddressActionResult<{ id: string }>> {
-  try {
-    const res = await fetch(`${API_URL}/api/v1/me/addresses/${id}`, {
-      method: "DELETE",
-      credentials: "include",
-    });
-    if (!res.ok) return { ok: false, message: await readErrorMessage(res) };
-    return { ok: true, data: { id } };
-  } catch {
-    return { ok: false, message: GENERIC_ERROR };
-  }
+  const res = await apiAction(`${API_URL}/api/v1/me/addresses/${id}`, null, {
+    method: "DELETE",
+    credentials: "include",
+  });
+  return res.ok ? { ok: true, data: { id } } : res;
 }

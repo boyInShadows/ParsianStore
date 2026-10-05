@@ -3,8 +3,7 @@ import {
   type AdminAuditLogDto,
   type AuditMethodDto,
 } from "schemas";
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000";
+import { API_URL, apiFetch, toPage } from "@/lib/api-fetch";
 
 export interface AdminAuditFilters {
   entity?: string;
@@ -32,24 +31,14 @@ export async function fetchAdminAuditLogs(
   limit: number,
   filters: AdminAuditFilters = {},
 ): Promise<AdminAuditPage | null> {
-  try {
-    const params = new URLSearchParams({ page: String(page), limit: String(limit) });
-    for (const [key, value] of Object.entries(filters)) {
-      if (value) params.set(key, value);
-    }
-    const res = await fetch(`${API_URL}/api/v1/admin/audit?${params.toString()}`, {
-      credentials: "include",
-    });
-    if (!res.ok) return null;
-    const parsed = adminAuditLogListResponseSchema.safeParse(await res.json());
-    if (!parsed.success) return null;
-    return {
-      data: parsed.data.data,
-      total: parsed.data.meta.total,
-      page: parsed.data.meta.page,
-      limit: parsed.data.meta.limit,
-    };
-  } catch {
-    return null;
+  const params = new URLSearchParams({ page: String(page), limit: String(limit) });
+  for (const [key, value] of Object.entries(filters)) {
+    if (value) params.set(key, value);
   }
+  const res = await apiFetch(
+    `${API_URL}/api/v1/admin/audit?${params.toString()}`,
+    adminAuditLogListResponseSchema,
+    { credentials: "include" },
+  );
+  return res.ok ? toPage(res.data) : null;
 }

@@ -1,4 +1,5 @@
 import type { CartDto, CartItemDto } from "schemas";
+import { API_URL, apiAction, apiFetch, jsonBody, type ActionResult } from "@/lib/api-fetch";
 import { guardProductListItem } from "@/lib/fetchers/product-guard";
 import {
   isArrayOf,
@@ -8,8 +9,6 @@ import {
   isPlainObject,
   isString,
 } from "@/lib/shape-guard";
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000";
 
 // P15.S8b: hand-written shape guard replacing zod's safeParse -- see
 // lib/shape-guard.ts's own comment for why. `CartSession` mounts on every
@@ -41,7 +40,9 @@ function guardCartItem(value: unknown): value is CartItemDto {
 }
 
 // Mirrors packages/schemas/src/cart.ts's cartResponseSchema.
-function guardCartResponse(json: unknown): { success: true; data: CartDto } | { success: false } {
+function guardCartResponse(
+  json: unknown,
+): { success: true; data: { data: CartDto } } | { success: false } {
   if (!isPlainObject(json) || json.ok !== true || !isPlainObject(json.data)) {
     return { success: false };
   }
@@ -58,13 +59,15 @@ function guardCartResponse(json: unknown): { success: true; data: CartDto } | { 
     return {
       success: true,
       data: {
-        id: data.id,
-        items: data.items,
-        subtotalRial: data.subtotalRial,
-        discountRial: data.discountRial,
-        couponCode: data.couponCode,
-        couponIssue: data.couponIssue,
-        totalRial: data.totalRial,
+        data: {
+          id: data.id,
+          items: data.items,
+          subtotalRial: data.subtotalRial,
+          discountRial: data.discountRial,
+          couponCode: data.couponCode,
+          couponIssue: data.couponIssue,
+          totalRial: data.totalRial,
+        },
       },
     };
   }
@@ -75,78 +78,36 @@ function guardCartResponse(json: unknown): { success: true; data: CartDto } | { 
 // cookie (guest identity) and accessToken cookie (when signed in) both
 // ride along automatically, same mechanism P5.S7's auth/wishlist
 // fetchers already proved works cross-port.
-async function parseCart(res: Response): Promise<CartDto | null> {
-  if (!res.ok) return null;
-  const json = await res.json();
-  const parsed = guardCartResponse(json);
-  return parsed.success ? parsed.data : null;
+const cartResponse = { safeParse: guardCartResponse };
+
+async function cartRequest(path: string, init: RequestInit): Promise<CartDto | null> {
+  const res = await apiFetch(`${API_URL}/api/v1/cart${path}`, cartResponse, {
+    credentials: "include",
+    ...init,
+  });
+  return res.ok ? res.data.data : null;
 }
 
-export type CouponActionResult = { ok: true; data: CartDto } | { ok: false; message: string };
+export type CouponActionResult = ActionResult<CartDto>;
 
-const GENERIC_ERROR = "خطایی رخ داد، دوباره تلاش کنید";
-
-async function readErrorMessage(res: Response): Promise<string> {
-  try {
-    const json = (await res.json()) as { error?: { message?: string } };
-    if (typeof json.error?.message === "string") return json.error.message;
-  } catch {
-    // fall through to the generic message
-  }
-  return GENERIC_ERROR;
+export function fetchCart(): Promise<CartDto | null> {
+  return cartRequest("", {});
 }
 
-export async function fetchCart(): Promise<CartDto | null> {
-  try {
-    const res = await fetch(`${API_URL}/api/v1/cart`, { credentials: "include" });
-    return await parseCart(res);
-  } catch {
-    return null;
-  }
-}
-
-export async function addCartItem(
+export function addCartItem(
   productId: string,
   qty = 1,
   variantId?: string,
 ): Promise<CartDto | null> {
-  try {
-    const res = await fetch(`${API_URL}/api/v1/cart/items`, {
-      method: "POST",
-      credentials: "include",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ productId, qty, variantId }),
-    });
-    return await parseCart(res);
-  } catch {
-    return null;
-  }
+  return cartRequest("/items", { method: "POST", ...jsonBody({ productId, qty, variantId }) });
 }
 
-export async function updateCartItem(itemId: string, qty: number): Promise<CartDto | null> {
-  try {
-    const res = await fetch(`${API_URL}/api/v1/cart/items/${itemId}`, {
-      method: "PATCH",
-      credentials: "include",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ qty }),
-    });
-    return await parseCart(res);
-  } catch {
-    return null;
-  }
+export function updateCartItem(itemId: string, qty: number): Promise<CartDto | null> {
+  return cartRequest(`/items/${itemId}`, { method: "PATCH", ...jsonBody({ qty }) });
 }
 
-export async function removeCartItem(itemId: string): Promise<CartDto | null> {
-  try {
-    const res = await fetch(`${API_URL}/api/v1/cart/items/${itemId}`, {
-      method: "DELETE",
-      credentials: "include",
-    });
-    return await parseCart(res);
-  } catch {
-    return null;
-  }
+export function removeCartItem(itemId: string): Promise<CartDto | null> {
+  return cartRequest(`/items/${itemId}`, { method: "DELETE" });
 }
 
 // P6.S7. Real error surfacing (unlike the plain-null pattern above) --
@@ -154,31 +115,14 @@ export async function removeCartItem(itemId: string): Promise<CartDto | null> {
 // expired," "your cart doesn't meet the minimum") rather than a generic
 // toast, same reasoning lib/fetchers/checkout.ts's own ActionResult
 // pattern already established.
-export async function applyCartCoupon(code: string): Promise<CouponActionResult> {
-  try {
-    const res = await fetch(`${API_URL}/api/v1/cart/coupon`, {
-      method: "POST",
-      credentials: "include",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ code }),
-    });
-    if (!res.ok) return { ok: false, message: await readErrorMessage(res) };
-    const json = await res.json();
-    const parsed = guardCartResponse(json);
-    return parsed.success ? { ok: true, data: parsed.data } : { ok: false, message: GENERIC_ERROR };
-  } catch {
-    return { ok: false, message: GENERIC_ERROR };
-  }
+export function applyCartCoupon(code: string): Promise<CouponActionResult> {
+  return apiAction(`${API_URL}/api/v1/cart/coupon`, cartResponse, {
+    method: "POST",
+    credentials: "include",
+    ...jsonBody({ code }),
+  });
 }
 
-export async function removeCartCoupon(): Promise<CartDto | null> {
-  try {
-    const res = await fetch(`${API_URL}/api/v1/cart/coupon`, {
-      method: "DELETE",
-      credentials: "include",
-    });
-    return await parseCart(res);
-  } catch {
-    return null;
-  }
+export function removeCartCoupon(): Promise<CartDto | null> {
+  return cartRequest("/coupon", { method: "DELETE" });
 }

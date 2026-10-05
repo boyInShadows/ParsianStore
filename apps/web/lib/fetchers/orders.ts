@@ -4,8 +4,7 @@ import {
   type OrderSummaryDto,
   type OrderDetailDto,
 } from "schemas";
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000";
+import { API_URL, apiFetch, toPage } from "@/lib/api-fetch";
 
 // Server-side only (called from the /orders and /orders/[code] Server
 // Components with the incoming request's own cookies forwarded
@@ -31,46 +30,31 @@ export async function fetchOrders(
   limit: number,
   cookieHeader: string,
 ): Promise<OrdersFetchResult<OrderListPage>> {
-  try {
-    const params = new URLSearchParams({ page: String(page), limit: String(limit) });
-    const res = await fetch(`${API_URL}/api/v1/me/orders?${params.toString()}`, {
+  const params = new URLSearchParams({ page: String(page), limit: String(limit) });
+  const res = await apiFetch(
+    `${API_URL}/api/v1/me/orders?${params.toString()}`,
+    orderListResponseSchema,
+    {
       headers: { cookie: cookieHeader },
-    });
-    if (res.status === 401) return { ok: false, reason: "unauthorized" };
-    if (!res.ok) return { ok: false, reason: "down" };
-    const json = await res.json();
-    const parsed = orderListResponseSchema.safeParse(json);
-    if (!parsed.success) return { ok: false, reason: "down" };
-    return {
-      ok: true,
-      data: {
-        data: parsed.data.data,
-        total: parsed.data.meta.total,
-        page: parsed.data.meta.page,
-        limit: parsed.data.meta.limit,
-      },
-    };
-  } catch {
-    return { ok: false, reason: "down" };
-  }
+    },
+  );
+  if (res.ok) return { ok: true, data: toPage(res.data) };
+  return { ok: false, reason: res.res?.status === 401 ? "unauthorized" : "down" };
 }
 
 export async function fetchOrderByCode(
   code: string,
   cookieHeader: string,
 ): Promise<OrdersFetchResult<OrderDetailDto>> {
-  try {
-    const res = await fetch(`${API_URL}/api/v1/me/orders/${encodeURIComponent(code)}`, {
-      headers: { cookie: cookieHeader },
-    });
-    if (res.status === 401) return { ok: false, reason: "unauthorized" };
-    if (res.status === 404) return { ok: false, reason: "not-found" };
-    if (!res.ok) return { ok: false, reason: "down" };
-    const json = await res.json();
-    const parsed = orderDetailResponseSchema.safeParse(json);
-    if (!parsed.success) return { ok: false, reason: "down" };
-    return { ok: true, data: parsed.data.data };
-  } catch {
-    return { ok: false, reason: "down" };
-  }
+  const res = await apiFetch(
+    `${API_URL}/api/v1/me/orders/${encodeURIComponent(code)}`,
+    orderDetailResponseSchema,
+    { headers: { cookie: cookieHeader } },
+  );
+  if (res.ok) return { ok: true, data: res.data.data };
+  const status = res.res?.status;
+  return {
+    ok: false,
+    reason: status === 401 ? "unauthorized" : status === 404 ? "not-found" : "down",
+  };
 }

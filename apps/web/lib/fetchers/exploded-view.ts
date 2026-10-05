@@ -1,6 +1,5 @@
 import { CATALOG_SYSTEMS, facetsResponseSchema, type CatalogSystemCode } from "schemas";
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000";
+import { API_URL, apiFetch } from "@/lib/api-fetch";
 
 // `null` means "count unknown" (API unreachable at build/request time --
 // e.g. CI's `pnpm build` has no live API process, only MongoDB). Callers
@@ -23,21 +22,13 @@ export async function getSystemPartCounts(): Promise<SystemPartCounts> {
     CATALOG_SYSTEMS.map((system) => [system.code, null]),
   ) as SystemPartCounts;
 
-  try {
-    const res = await fetch(`${API_URL}/api/v1/catalog/facets`);
-    if (!res.ok) return unknown;
+  // A non-2xx status, a network-level failure (fetch() throws before a
+  // Response even exists) and an off-schema body all land here as `!ok`.
+  const res = await apiFetch(`${API_URL}/api/v1/catalog/facets`, facetsResponseSchema);
+  if (!res.ok) return unknown;
 
-    const json = await res.json();
-    const parsed = facetsResponseSchema.safeParse(json);
-    if (!parsed.success) return unknown;
-
-    const countBySlug = new Map(parsed.data.data.categories.map((b) => [b.slug, b.count]));
-    return Object.fromEntries(
-      CATALOG_SYSTEMS.map((system) => [system.code, countBySlug.get(system.slug) ?? 0]),
-    ) as SystemPartCounts;
-  } catch {
-    // Network-level failure (e.g. API not running) -- fetch() throws
-    // before a Response even exists, unlike a non-2xx status above.
-    return unknown;
-  }
+  const countBySlug = new Map(res.data.data.categories.map((b) => [b.slug, b.count]));
+  return Object.fromEntries(
+    CATALOG_SYSTEMS.map((system) => [system.code, countBySlug.get(system.slug) ?? 0]),
+  ) as SystemPartCounts;
 }

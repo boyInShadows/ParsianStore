@@ -20,6 +20,8 @@ const CONVERTED_FILES = [
   "fetchers/wishlist.ts",
   "fetchers/product-guard.ts",
   "shape-guard.ts",
+  // the shared fetch helper every session-path fetcher above routes through
+  "api-fetch.ts",
 ] as const;
 
 describe("the session path's zod budget", () => {

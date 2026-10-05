@@ -4,23 +4,22 @@ import {
   type AdminQuestionDto,
   type AdminReviewDto,
 } from "schemas";
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000";
+import { API_URL, apiFetch, jsonBody } from "@/lib/api-fetch";
+
 export async function fetchAdminFeedback(
   status = "pending",
 ): Promise<{ reviews: AdminReviewDto[]; questions: AdminQuestionDto[] } | null> {
-  try {
-    const query = `?status=${status}&limit=100`;
-    const [r, q] = await Promise.all([
-      fetch(`${API_URL}/api/v1/admin/feedback/reviews${query}`, { credentials: "include" }),
-      fetch(`${API_URL}/api/v1/admin/feedback/questions${query}`, { credentials: "include" }),
-    ]);
-    if (!r.ok || !q.ok) return null;
-    const rp = adminReviewsResponseSchema.safeParse(await r.json());
-    const qp = adminQuestionsResponseSchema.safeParse(await q.json());
-    return rp.success && qp.success ? { reviews: rp.data.data, questions: qp.data.data } : null;
-  } catch {
-    return null;
-  }
+  const query = `?status=${status}&limit=100`;
+  const init: RequestInit = { credentials: "include" };
+  const [r, q] = await Promise.all([
+    apiFetch(`${API_URL}/api/v1/admin/feedback/reviews${query}`, adminReviewsResponseSchema, init),
+    apiFetch(
+      `${API_URL}/api/v1/admin/feedback/questions${query}`,
+      adminQuestionsResponseSchema,
+      init,
+    ),
+  ]);
+  return r.ok && q.ok ? { reviews: r.data.data, questions: q.data.data } : null;
 }
 export async function moderateFeedback(
   kind: "reviews" | "questions",
@@ -28,15 +27,10 @@ export async function moderateFeedback(
   status: "approved" | "rejected",
   answer?: string,
 ): Promise<boolean> {
-  try {
-    const res = await fetch(`${API_URL}/api/v1/admin/feedback/${kind}/${id}`, {
-      method: "PATCH",
-      credentials: "include",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ status, answer: answer || undefined }),
-    });
-    return res.ok;
-  } catch {
-    return false;
-  }
+  const res = await apiFetch(`${API_URL}/api/v1/admin/feedback/${kind}/${id}`, null, {
+    method: "PATCH",
+    credentials: "include",
+    ...jsonBody({ status, answer: answer || undefined }),
+  });
+  return res.ok;
 }
