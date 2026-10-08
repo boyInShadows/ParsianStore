@@ -21,6 +21,13 @@ FROM node:22-bookworm-slim AS base
 ENV PNPM_HOME="/pnpm" \
     PATH="/pnpm:$PATH" \
     CI=true
+# Iranian IPs time out on registry.npmjs.org (it sits behind Cloudflare).
+# Point NPM_REGISTRY at a mirror to build there. pnpm reads npm_config_registry;
+# corepack ignores .npmrc and reads COREPACK_NPM_REGISTRY to fetch pnpm itself.
+# The lockfile pins integrity hashes, so a mirror cannot swap a package.
+ARG NPM_REGISTRY=https://registry.npmjs.org/
+ENV npm_config_registry=$NPM_REGISTRY \
+    COREPACK_NPM_REGISTRY=$NPM_REGISTRY
 RUN corepack enable
 WORKDIR /app
 
@@ -28,12 +35,8 @@ WORKDIR /app
 FROM base AS builder
 
 COPY pnpm-lock.yaml pnpm-workspace.yaml package.json ./
-# `pnpm.patchedDependencies` patches `next` itself — without patches/ the
-# install fails outright rather than silently skipping the patch.
-COPY patches ./patches
 COPY apps/web/package.json ./apps/web/
 COPY packages/schemas/package.json ./packages/schemas/
-COPY packages/config/package.json ./packages/config/
 # `--filter web...` pulls in packages/schemas and leaves apps/api's tree out.
 RUN --mount=type=cache,id=pnpm-store,target=/pnpm/store \
     pnpm install --frozen-lockfile --filter web...

@@ -9,7 +9,15 @@
  * `Validator` structurally, and so does `{ safeParse: someHandWrittenGuard }`.
  */
 
-export const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000";
+// On the server (SSR, server actions) API_INTERNAL_URL wins when set, so the
+// web container reaches the api over the compose network (`http://api:4000`)
+// instead of going out through public DNS and the reverse proxy and back in.
+// The browser never sees it: it is not NEXT_PUBLIC_, and the window check
+// keeps client code on the public origin.
+export const API_URL =
+  (typeof window === "undefined" && process.env.API_INTERNAL_URL) ||
+  process.env.NEXT_PUBLIC_API_URL ||
+  "http://localhost:4000";
 
 export const GENERIC_ERROR = "خطایی رخ داد، دوباره تلاش کنید";
 

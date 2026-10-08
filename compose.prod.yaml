@@ -47,10 +47,13 @@ x-api-environment: &api-environment
   # wrong value here shows up as broken product photos, not as an error.
   PUBLIC_URL: ${PUBLIC_URL:?PUBLIC_URL is required - the public origin of this API, e.g. https://api.example.ir}
   LOG_LEVEL: ${LOG_LEVEL:-info}
-  SMS_PROVIDER: ${SMS_PROVIDER:-mock}
+  # No default for either provider: production has to say out loud that it is
+  # running on mocks. mock SMS writes the OTP to the api log; mock payment
+  # marks orders paid with no money moving -- private preview only.
+  SMS_PROVIDER: ${SMS_PROVIDER:?SMS_PROVIDER is required - mock (private preview only) or kavenegar}
   KAVENEGAR_API_KEY: ${KAVENEGAR_API_KEY:-}
   OTP_TEMPLATE: ${OTP_TEMPLATE:-}
-  PAYMENT_PROVIDER: ${PAYMENT_PROVIDER:-mock}
+  PAYMENT_PROVIDER: ${PAYMENT_PROVIDER:?PAYMENT_PROVIDER is required - mock (private preview only) or zarinpal}
   ZARINPAL_MERCHANT_ID: ${ZARINPAL_MERCHANT_ID:-}
   ZARINPAL_SANDBOX: ${ZARINPAL_SANDBOX:-true}
   STORAGE_DRIVER: ${STORAGE_DRIVER:-local}
@@ -59,6 +62,8 @@ x-api-environment: &api-environment
   # Never true here. The 100/min/IP cap is the only thing in front of the
   # OTP endpoint; the flag exists for the Playwright run and nothing else.
   RATE_LIMIT_DISABLED: "false"
+  # One reverse proxy (the host's nginx) in front of the api. See env.ts.
+  TRUST_PROXY: ${TRUST_PROXY:-1}
 
 services:
   # ------------------------------------------------------------ database ---
@@ -110,6 +115,8 @@ services:
       context: .
       dockerfile: apps/api/Dockerfile
       target: ops
+      args: &npm-registry
+        NPM_REGISTRY: ${NPM_REGISTRY:-https://registry.npmjs.org/}
     image: parsianstore/api-ops:${IMAGE_TAG:-latest}
     restart: "no"
     environment:
@@ -124,6 +131,7 @@ services:
       context: .
       dockerfile: apps/api/Dockerfile
       target: runner
+      args: *npm-registry
     image: parsianstore/api:${IMAGE_TAG:-latest}
     restart: unless-stopped
     environment:
@@ -172,6 +180,7 @@ services:
         NEXT_PUBLIC_SITE_URL: ${NEXT_PUBLIC_SITE_URL:?NEXT_PUBLIC_SITE_URL is required at BUILD time - the public origin of the storefront}
         NEXT_PUBLIC_DEFAULT_LOCALE: ${NEXT_PUBLIC_DEFAULT_LOCALE:-fa}
         NEXT_PUBLIC_ENAMAD_ID: ${NEXT_PUBLIC_ENAMAD_ID:-}
+        NPM_REGISTRY: ${NPM_REGISTRY:-https://registry.npmjs.org/}
     image: parsianstore/web:${IMAGE_TAG:-latest}
     restart: unless-stopped
     environment:
@@ -179,9 +188,10 @@ services:
       PORT: 3000
       HOSTNAME: 0.0.0.0
       # Read by Server Components at request time (unlike the NEXT_PUBLIC_*
-      # build args above). Inside the compose network the api is `api:4000`;
-      # going out to the public URL and back in would be a pointless round
-      # trip through the reverse proxy.
+      # build args above). API_INTERNAL_URL is what server-side fetches use
+      # (lib/api-fetch.ts): inside the compose network the api is `api:4000`,
+      # so SSR never goes out to the public URL and back in through nginx.
+      API_INTERNAL_URL: http://api:4000
       NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:?NEXT_PUBLIC_API_URL is required}
       NEXT_PUBLIC_SITE_URL: ${NEXT_PUBLIC_SITE_URL:?NEXT_PUBLIC_SITE_URL is required}
       REVALIDATE_SECRET: ${REVALIDATE_SECRET:-}

@@ -45,6 +45,13 @@ const envSchema = z.object({
     .min(1, "CORS_ORIGINS must list at least one allowed origin")
     .default("http://localhost:3000,http://localhost:3200")
     .transform((value) => value.split(",").map((origin) => origin.trim())),
+  // How many reverse proxies sit in front of the API (Express's `trust proxy`
+  // hop count). 0 locally, where nothing does; 1 behind the VPS's nginx. Left
+  // at 0 behind a proxy, `req.ip` is the proxy's address for every visitor
+  // and the per-IP rate limits collapse into one site-wide bucket. Set higher
+  // than the real hop count and a client can spoof X-Forwarded-For to dodge
+  // them -- so it is a count, never `true`.
+  TRUST_PROXY: z.coerce.number().int().min(0).default(0),
   LOG_LEVEL: z.enum(["trace", "debug", "info", "warn", "error", "fatal", "silent"]).default("info"),
 
   // The only database. Required, and with no default: this URL carries a
