@@ -30,6 +30,13 @@ ENV PNPM_HOME="/pnpm" \
     CI=true
 # The version is pinned by the root package.json's `packageManager` field;
 # corepack reads it from there, so it can never drift from what CI uses.
+# Iranian IPs time out on registry.npmjs.org (it sits behind Cloudflare).
+# Point NPM_REGISTRY at a mirror to build there. pnpm reads npm_config_registry;
+# corepack ignores .npmrc and reads COREPACK_NPM_REGISTRY to fetch pnpm itself.
+# The lockfile pins integrity hashes, so a mirror cannot swap a package.
+ARG NPM_REGISTRY=https://registry.npmjs.org/
+ENV npm_config_registry=$NPM_REGISTRY \
+    COREPACK_NPM_REGISTRY=$NPM_REGISTRY
 RUN corepack enable
 WORKDIR /app
 
@@ -40,7 +47,6 @@ FROM base AS builder
 
 # Manifests first so the install layer is cached independently of source edits.
 COPY pnpm-lock.yaml pnpm-workspace.yaml package.json ./
-COPY patches ./patches
 COPY apps/api/package.json ./apps/api/
 COPY packages/schemas/package.json ./packages/schemas/
 # apps/api's `postinstall` is `prisma generate`, which runs during the install

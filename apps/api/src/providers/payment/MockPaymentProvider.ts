@@ -1,4 +1,4 @@
-import { nanoid } from "nanoid";
+import { randomBytes } from "node:crypto";
 import { logger } from "../../config/logger.js";
 import type {
   PaymentInitiateParams,
@@ -19,7 +19,7 @@ import type {
  * MockSmsProvider already has (it doesn't simulate OTP failure either). */
 export class MockPaymentProvider implements PaymentProvider {
   initiate(params: PaymentInitiateParams): Promise<PaymentInitiateResult> {
-    const authority = `MOCK-${nanoid()}`;
+    const authority = `MOCK-${randomBytes(16).toString("base64url")}`;
     logger.info(
       { amountRial: params.amountRial, orderId: params.orderId, authority },
       "MockPaymentProvider: payment not processed for real, logged for local dev",
@@ -31,7 +31,7 @@ export class MockPaymentProvider implements PaymentProvider {
   }
 
   verify(params: PaymentVerifyParams): Promise<PaymentVerifyResult> {
-    const refId = `MOCK-REF-${nanoid()}`;
+    const refId = `MOCK-REF-${randomBytes(16).toString("base64url")}`;
     logger.info(
       { authority: params.authority, refId },
       "MockPaymentProvider: verification not real, logged for local dev",

@@ -22,8 +22,8 @@ disagree about the stack, `docs/deployment.md` wins; when they disagree about
 ## 0. Hard rules — violate none of these
 
 1. **Never commit `.env.production`, or paste its contents anywhere** — not
-   into a chat, an issue, a screenshot, or a commit. It is covered by
-   `.gitignore`'s `.env.*` rule. Secrets are generated **on the VPS** and stay
+   into a chat, an issue, a screenshot, or a commit. It is listed by
+   name in `.gitignore` (the `.env.*` rule never matched it; fixed 2026-10-08). Secrets are generated **on the VPS** and stay
    there.
 2. **Never publish the Postgres port.** `dc ps` must show `5432/tcp` with
    nothing before the arrow. `0.0.0.0:5432->5432/tcp` means the database is on
@@ -92,7 +92,14 @@ generate them on the VPS where the instructions say so.**
 These were found by reading the code on 2026-09-16. Two of them are launch
 blockers. Handle them as part of this deploy, not afterwards.
 
-### 2.1 🔴 BLOCKER — rate limiting will throttle the entire site to one bucket
+### 2.1 ✅ FIXED 2026-10-08 — rate limiting will throttle the entire site to one bucket
+
+> `app.ts` now calls `app.set("trust proxy", env.TRUST_PROXY)`; compose sets
+> `TRUST_PROXY=1`. nginx MUST send `X-Forwarded-For` (`proxy_set_header
+> X-Forwarded-For $proxy_add_x_forwarded_for;`) or every visitor is still one IP.
+> Still open: SSR calls now come straight from the `web` container (§2.2), so
+> all server renders share that container's one 100/min bucket. Fine for a
+> private preview; must be solved before public traffic.
 
 **Verified in the code, not theorised.** `apps/api/src/app.ts` never calls
 `app.set("trust proxy", …)`, and `apps/api/src/middleware/rateLimit.ts`'s
@@ -118,7 +125,11 @@ erase it.
 Until it is fixed: the stack works fine for the owner's own testing and for a
 handful of people. It will fall over on launch day.
 
-### 2.2 ⚠️ Server-side rendering calls the API through the public internet
+### 2.2 ✅ FIXED 2026-10-08 — Server-side rendering calls the API through the public internet
+
+> `lib/api-fetch.ts` uses the server-only `API_INTERNAL_URL` when set, and
+> compose sets it to `http://api:4000`. SSR no longer depends on DNS/TLS or
+> hairpin routing. The text below is the original finding.
 
 `apps/web/lib/api-client.ts` and every file in `apps/web/lib/fetchers/` read
 `process.env.NEXT_PUBLIC_API_URL`, with no internal-URL override. In
@@ -160,6 +171,10 @@ intermittently unreachable from Iranian IP ranges.
 about this. **Test it before anything else** — §4 is a gate for exactly this
 reason. If the images cannot be pulled and the packages cannot be installed,
 no amount of correct configuration matters.
+
+**Repo side fixed 2026-10-08:** both Dockerfiles take an `NPM_REGISTRY` build
+arg (set it in `.env.production`) that feeds pnpm *and* corepack. The dead
+`COPY patches ./patches` lines that killed every image build are gone.
 
 ### 2.4 ⚠️ `docs/deployment.md` §1 says `git checkout development`
 

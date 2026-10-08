@@ -1,6 +1,5 @@
 import { productsResponseSchema, type ProductListItemDto } from "schemas";
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000";
+import { API_URL, apiFetch } from "@/lib/api-fetch";
 
 // masterPlan.md §5 item 04: no real sales history exists yet (Cart/Order
 // are Phase 5+), so there is no honest "best sellers" signal today --
@@ -29,33 +28,27 @@ const LIST_LIMIT_MAX = 100;
 
 export async function fetchFeaturedProducts(limit = 8): Promise<ProductListItemDto[]> {
   const rows = Math.min(LIST_LIMIT_MAX, limit * DEDUPE_WINDOW);
-  try {
-    const res = await fetch(
-      `${API_URL}/api/v1/catalog/products?sort=newest&inStock=true&limit=${rows}`,
-    );
-    if (!res.ok) return [];
-    const json = await res.json();
-    const parsed = productsResponseSchema.safeParse(json);
-    if (!parsed.success) return [];
+  const res = await apiFetch(
+    `${API_URL}/api/v1/catalog/products?sort=newest&inStock=true&limit=${rows}`,
+    productsResponseSchema,
+  );
+  if (!res.ok) return [];
 
-    // `name.fa` is the key because it is the only one the list DTO carries that
-    // identifies the template: there is no template id on the wire, and `slug`
-    // and `sku` both embed the vehicle, so they are distinct for rows that read
-    // as the same part. First occurrence wins, which under `sort=newest` is the
-    // newest variant of each template -- the same ordering promise the query
-    // makes, just applied per part rather than per row.
-    const seen = new Set<string>();
-    const unique: ProductListItemDto[] = [];
-    for (const product of parsed.data.data) {
-      if (seen.has(product.name.fa)) continue;
-      seen.add(product.name.fa);
-      unique.push(product);
-      if (unique.length === limit) break;
-    }
-    return unique;
-  } catch {
-    return [];
+  // `name.fa` is the key because it is the only one the list DTO carries that
+  // identifies the template: there is no template id on the wire, and `slug`
+  // and `sku` both embed the vehicle, so they are distinct for rows that read
+  // as the same part. First occurrence wins, which under `sort=newest` is the
+  // newest variant of each template -- the same ordering promise the query
+  // makes, just applied per part rather than per row.
+  const seen = new Set<string>();
+  const unique: ProductListItemDto[] = [];
+  for (const product of res.data.data) {
+    if (seen.has(product.name.fa)) continue;
+    seen.add(product.name.fa);
+    unique.push(product);
+    if (unique.length === limit) break;
   }
+  return unique;
 }
 
 // masterPlan.md §5 item 06: "Explains the Authenticity Record with a

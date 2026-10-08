@@ -52,6 +52,7 @@ pnpm-debug.log*
 .env
 .env.local
 .env.*.local
+.env.production
 
 # vercel (unused — kept only so an accidental `vercel link` doesn't get committed)
 .vercel

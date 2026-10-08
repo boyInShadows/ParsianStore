@@ -6,8 +6,7 @@ import {
   type VehicleMakeDto,
   type VehicleModelDto,
 } from "schemas";
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000";
+import { API_URL } from "@/lib/api-fetch";
 
 // masterPlan.md §9: every list endpoint is paginated, `limit` capped at
 // 100. The real seeded tree (2 makes, 23 models, 31 generations) fits in

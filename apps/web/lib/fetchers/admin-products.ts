@@ -11,22 +11,18 @@ import {
   type CategoryDto,
   type ProductStatusDto,
 } from "schemas";
+import {
+  API_URL,
+  GENERIC_ERROR,
+  apiAction,
+  apiFetch,
+  failureMessage,
+  jsonBody,
+  toPage,
+  type ActionResult,
+} from "@/lib/api-fetch";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000";
-
-export type AdminProductActionResult<T> = { ok: true; data: T } | { ok: false; message: string };
-
-const GENERIC_ERROR = "خطایی رخ داد، دوباره تلاش کنید";
-
-async function readErrorMessage(res: Response): Promise<string> {
-  try {
-    const json = (await res.json()) as { error?: { message?: string } };
-    if (typeof json.error?.message === "string") return json.error.message;
-  } catch {
-    // fall through to the generic message
-  }
-  return GENERIC_ERROR;
-}
+export type AdminProductActionResult<T> = ActionResult<T>;
 
 // Client-side only, credentials:"include" -- same reasoning
 // lib/fetchers/admin-orders.ts already established: this whole surface
@@ -56,7 +52,7 @@ export async function importAdminProducts(
       headers: { "Content-Type": "text/csv" },
       body: file,
     });
-    if (!res.ok) return { ok: false, message: await readErrorMessage(res) };
+    if (!res.ok) return { ok: false, message: await failureMessage({ res }) };
     const json = (await res.json()) as { data?: ProductImportResult };
     return json.data ? { ok: true, data: json.data } : { ok: false, message: GENERIC_ERROR };
   } catch {
@@ -70,167 +66,106 @@ export async function fetchAdminProducts(
   status?: ProductStatusDto,
   q?: string,
 ): Promise<AdminProductListPage | null> {
-  try {
-    const params = new URLSearchParams({ page: String(page), limit: String(limit) });
-    if (status) params.set("status", status);
-    // P8.S6: name/SKU search, used by the Fitment Manager's product picker.
-    if (q) params.set("q", q);
-    const res = await fetch(`${API_URL}/api/v1/admin/catalog/products?${params.toString()}`, {
-      credentials: "include",
-    });
-    if (!res.ok) return null;
-    const json = await res.json();
-    const parsed = adminProductListResponseSchema.safeParse(json);
-    if (!parsed.success) return null;
-    return {
-      data: parsed.data.data,
-      total: parsed.data.meta.total,
-      page: parsed.data.meta.page,
-      limit: parsed.data.meta.limit,
-    };
-  } catch {
-    return null;
-  }
+  const params = new URLSearchParams({ page: String(page), limit: String(limit) });
+  if (status) params.set("status", status);
+  // P8.S6: name/SKU search, used by the Fitment Manager's product picker.
+  if (q) params.set("q", q);
+  const res = await apiFetch(
+    `${API_URL}/api/v1/admin/catalog/products?${params.toString()}`,
+    adminProductListResponseSchema,
+    { credentials: "include" },
+  );
+  return res.ok ? toPage(res.data) : null;
 }
 
 export async function fetchAdminProduct(id: string): Promise<AdminProductDetailDto | null> {
-  try {
-    const res = await fetch(`${API_URL}/api/v1/admin/catalog/products/${id}`, {
-      credentials: "include",
-    });
-    if (!res.ok) return null;
-    const json = await res.json();
-    const parsed = adminProductDetailResponseSchema.safeParse(json);
-    return parsed.success ? parsed.data.data : null;
-  } catch {
-    return null;
-  }
+  const res = await apiFetch(
+    `${API_URL}/api/v1/admin/catalog/products/${id}`,
+    adminProductDetailResponseSchema,
+    { credentials: "include" },
+  );
+  return res.ok ? res.data.data : null;
 }
 
-export async function createAdminProduct(
+export function createAdminProduct(
   input: AdminCreateProductInput,
 ): Promise<AdminProductActionResult<AdminProductDetailDto>> {
-  try {
-    const res = await fetch(`${API_URL}/api/v1/admin/catalog/products`, {
-      method: "POST",
-      credentials: "include",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(input),
-    });
-    if (!res.ok) return { ok: false, message: await readErrorMessage(res) };
-    const json = await res.json();
-    const parsed = adminProductDetailResponseSchema.safeParse(json);
-    return parsed.success
-      ? { ok: true, data: parsed.data.data }
-      : { ok: false, message: GENERIC_ERROR };
-  } catch {
-    return { ok: false, message: GENERIC_ERROR };
-  }
+  return apiAction(`${API_URL}/api/v1/admin/catalog/products`, adminProductDetailResponseSchema, {
+    method: "POST",
+    credentials: "include",
+    ...jsonBody(input),
+  });
 }
 
-export async function updateAdminProduct(
+export function updateAdminProduct(
   id: string,
   input: AdminUpdateProductInput,
 ): Promise<AdminProductActionResult<AdminProductDetailDto>> {
-  try {
-    const res = await fetch(`${API_URL}/api/v1/admin/catalog/products/${id}`, {
+  return apiAction(
+    `${API_URL}/api/v1/admin/catalog/products/${id}`,
+    adminProductDetailResponseSchema,
+    {
       method: "PATCH",
       credentials: "include",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(input),
-    });
-    if (!res.ok) return { ok: false, message: await readErrorMessage(res) };
-    const json = await res.json();
-    const parsed = adminProductDetailResponseSchema.safeParse(json);
-    return parsed.success
-      ? { ok: true, data: parsed.data.data }
-      : { ok: false, message: GENERIC_ERROR };
-  } catch {
-    return { ok: false, message: GENERIC_ERROR };
-  }
+      ...jsonBody(input),
+    },
+  );
 }
 
-export async function archiveAdminProduct(
+export function archiveAdminProduct(
   id: string,
 ): Promise<AdminProductActionResult<AdminProductDetailDto>> {
-  try {
-    const res = await fetch(`${API_URL}/api/v1/admin/catalog/products/${id}/archive`, {
+  return apiAction(
+    `${API_URL}/api/v1/admin/catalog/products/${id}/archive`,
+    adminProductDetailResponseSchema,
+    {
       method: "POST",
       credentials: "include",
-    });
-    if (!res.ok) return { ok: false, message: await readErrorMessage(res) };
-    const json = await res.json();
-    const parsed = adminProductDetailResponseSchema.safeParse(json);
-    return parsed.success
-      ? { ok: true, data: parsed.data.data }
-      : { ok: false, message: GENERIC_ERROR };
-  } catch {
-    return { ok: false, message: GENERIC_ERROR };
-  }
+    },
+  );
 }
 
 export async function uploadAdminProductMedia(
   id: string,
   file: File,
 ): Promise<AdminProductActionResult<AdminProductDetailDto>> {
-  try {
-    const res = await fetch(`${API_URL}/api/v1/admin/catalog/products/${id}/media`, {
-      method: "POST",
-      credentials: "include",
-      headers: { "Content-Type": file.type },
-      body: file,
-    });
-    if (!res.ok) return { ok: false, message: await readErrorMessage(res) };
-    const product = await fetchAdminProduct(id);
-    return product ? { ok: true, data: product } : { ok: false, message: GENERIC_ERROR };
-  } catch {
-    return { ok: false, message: GENERIC_ERROR };
-  }
+  const res = await apiAction(`${API_URL}/api/v1/admin/catalog/products/${id}/media`, null, {
+    method: "POST",
+    credentials: "include",
+    headers: { "Content-Type": file.type },
+    body: file,
+  });
+  if (!res.ok) return res;
+  const product = await fetchAdminProduct(id);
+  return product ? { ok: true, data: product } : { ok: false, message: GENERIC_ERROR };
 }
-export async function removeAdminProductMedia(
+export function removeAdminProductMedia(
   id: string,
   url: string,
 ): Promise<AdminProductActionResult<AdminProductDetailDto>> {
-  try {
-    const res = await fetch(`${API_URL}/api/v1/admin/catalog/products/${id}/media`, {
+  return apiAction(
+    `${API_URL}/api/v1/admin/catalog/products/${id}/media`,
+    adminProductDetailResponseSchema,
+    {
       method: "DELETE",
       credentials: "include",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ url }),
-    });
-    if (!res.ok) return { ok: false, message: await readErrorMessage(res) };
-    const parsed = adminProductDetailResponseSchema.safeParse(await res.json());
-    return parsed.success
-      ? { ok: true, data: parsed.data.data }
-      : { ok: false, message: GENERIC_ERROR };
-  } catch {
-    return { ok: false, message: GENERIC_ERROR };
-  }
+      ...jsonBody({ url }),
+    },
+  );
 }
 
 // P3.S6's existing, previously-frontend-less endpoint -- see
 // docs/decisions/0021-p8s2-admin-products.md.
-export async function adjustAdminProductStock(
+export function adjustAdminProductStock(
   productId: string,
   delta: number,
   reason: "manual-adjustment" | "restock",
 ): Promise<AdminProductActionResult<AdminProductDetailDto>> {
-  try {
-    const res = await fetch(`${API_URL}/api/v1/admin/inventory/adjust`, {
-      method: "POST",
-      credentials: "include",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ productId, delta, reason }),
-    });
-    if (!res.ok) return { ok: false, message: await readErrorMessage(res) };
-    const json = await res.json();
-    const parsed = adminProductDetailResponseSchema.safeParse(json);
-    return parsed.success
-      ? { ok: true, data: parsed.data.data }
-      : { ok: false, message: GENERIC_ERROR };
-  } catch {
-    return { ok: false, message: GENERIC_ERROR };
-  }
+  return apiAction(`${API_URL}/api/v1/admin/inventory/adjust`, adminProductDetailResponseSchema, {
+    method: "POST",
+    credentials: "include",
+    ...jsonBody({ productId, delta, reason }),
+  });
 }
 
 // Public, unauthenticated list endpoints reused as the admin form's
@@ -238,29 +173,19 @@ export async function adjustAdminProductStock(
 // endpoint is needed just to populate a <select>, the real catalog
 // (~15 brands, ~10 categories) comfortably fits one page.
 export async function fetchAllBrands(): Promise<BrandDto[]> {
-  try {
-    const res = await fetch(`${API_URL}/api/v1/catalog/brands?limit=100`, {
-      credentials: "include",
-    });
-    if (!res.ok) return [];
-    const json = await res.json();
-    const parsed = brandsResponseSchema.safeParse(json);
-    return parsed.success ? parsed.data.data : [];
-  } catch {
-    return [];
-  }
+  const res = await apiFetch(`${API_URL}/api/v1/catalog/brands?limit=100`, brandsResponseSchema, {
+    credentials: "include",
+  });
+  return res.ok ? res.data.data : [];
 }
 
 export async function fetchAllCategories(): Promise<CategoryDto[]> {
-  try {
-    const res = await fetch(`${API_URL}/api/v1/catalog/categories?limit=100`, {
+  const res = await apiFetch(
+    `${API_URL}/api/v1/catalog/categories?limit=100`,
+    categoriesResponseSchema,
+    {
       credentials: "include",
-    });
-    if (!res.ok) return [];
-    const json = await res.json();
-    const parsed = categoriesResponseSchema.safeParse(json);
-    return parsed.success ? parsed.data.data : [];
-  } catch {
-    return [];
-  }
+    },
+  );
+  return res.ok ? res.data.data : [];
 }

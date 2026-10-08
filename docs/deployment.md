@@ -81,7 +81,7 @@ cp .env.production.example .env.production
 chmod 600 .env.production
 ```
 
-`.env.production` is matched by `.gitignore`'s `.env.*` rule. It never gets
+`.env.production` is listed by name in `.gitignore`. It never gets
 committed, and nothing in this repository ever reads a real secret from a
 tracked file.
 

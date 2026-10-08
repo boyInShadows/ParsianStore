@@ -11,8 +11,7 @@ import {
   type ProductDetailDto,
   type ProductListItemDto,
 } from "schemas";
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000";
+import { API_URL, apiFetch, toPage } from "@/lib/api-fetch";
 
 // The PLP route (P5.S1) needs to render three different states that a
 // plain `T | null` can't tell apart: a real "this category doesn't exist"
@@ -24,16 +23,12 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000";
 export type FetchResult<T> = { ok: true; data: T } | { ok: false; reason: "not-found" | "down" };
 
 export async function fetchCategoryBySlug(slug: string): Promise<FetchResult<CategoryDto>> {
-  try {
-    const res = await fetch(`${API_URL}/api/v1/catalog/categories/${slug}`);
-    if (res.status === 404) return { ok: false, reason: "not-found" };
-    if (!res.ok) return { ok: false, reason: "down" };
-    const json = await res.json();
-    const parsed = categoryResponseSchema.safeParse(json);
-    return parsed.success ? { ok: true, data: parsed.data.data } : { ok: false, reason: "down" };
-  } catch {
-    return { ok: false, reason: "down" };
-  }
+  const res = await apiFetch(
+    `${API_URL}/api/v1/catalog/categories/${slug}`,
+    categoryResponseSchema,
+  );
+  if (res.ok) return { ok: true, data: res.data.data };
+  return { ok: false, reason: res.res?.status === 404 ? "not-found" : "down" };
 }
 
 // Root-first ancestor names for the breadcrumb. `path` is empty for every
@@ -50,15 +45,11 @@ export async function fetchCategoryAncestors(path: string[]): Promise<CategoryDt
 // failure degrades to [] rather than a FetchResult since subcategory nav
 // is a nice-to-have, not primary page content the way the category itself is.
 export async function fetchChildCategories(parentId: string): Promise<CategoryDto[]> {
-  try {
-    const res = await fetch(`${API_URL}/api/v1/catalog/categories?parentId=${parentId}&limit=100`);
-    if (!res.ok) return [];
-    const json = await res.json();
-    const parsed = categoriesResponseSchema.safeParse(json);
-    return parsed.success ? parsed.data.data : [];
-  } catch {
-    return [];
-  }
+  const res = await apiFetch(
+    `${API_URL}/api/v1/catalog/categories?parentId=${parentId}&limit=100`,
+    categoriesResponseSchema,
+  );
+  return res.ok ? res.data.data : [];
 }
 
 export interface CatalogProductFilters {
@@ -89,6 +80,10 @@ function buildQueryString(filters: CatalogProductFilters): string {
   return params.toString();
 }
 
+function withViewerCookies(cookieHeader?: string): RequestInit {
+  return { credentials: "include", headers: cookieHeader ? { cookie: cookieHeader } : undefined };
+}
+
 export interface CatalogProductsPage {
   data: ProductListItemDto[];
   nextCursor: string | null;
@@ -106,38 +101,26 @@ export async function fetchCatalogProducts(
   filters: CatalogProductFilters,
   cookieHeader?: string,
 ): Promise<FetchResult<CatalogProductsPage>> {
-  try {
-    const res = await fetch(`${API_URL}/api/v1/catalog/products?${buildQueryString(filters)}`, {
-      credentials: "include",
-      headers: cookieHeader ? { cookie: cookieHeader } : undefined,
-    });
-    if (!res.ok) return { ok: false, reason: "down" };
-    const json = await res.json();
-    const parsed = productsResponseSchema.safeParse(json);
-    if (!parsed.success) return { ok: false, reason: "down" };
-    return { ok: true, data: { data: parsed.data.data, nextCursor: parsed.data.meta.nextCursor } };
-  } catch {
-    return { ok: false, reason: "down" };
-  }
+  const res = await apiFetch(
+    `${API_URL}/api/v1/catalog/products?${buildQueryString(filters)}`,
+    productsResponseSchema,
+    withViewerCookies(cookieHeader),
+  );
+  if (!res.ok) return { ok: false, reason: "down" };
+  return { ok: true, data: { data: res.data.data, nextCursor: res.data.meta.nextCursor } };
 }
 
 export async function fetchProductDetailBySlug(
   slug: string,
   cookieHeader?: string,
 ): Promise<FetchResult<ProductDetailDto>> {
-  try {
-    const res = await fetch(`${API_URL}/api/v1/catalog/products/${slug}`, {
-      credentials: "include",
-      headers: cookieHeader ? { cookie: cookieHeader } : undefined,
-    });
-    if (res.status === 404) return { ok: false, reason: "not-found" };
-    if (!res.ok) return { ok: false, reason: "down" };
-    const json = await res.json();
-    const parsed = productDetailResponseSchema.safeParse(json);
-    return parsed.success ? { ok: true, data: parsed.data.data } : { ok: false, reason: "down" };
-  } catch {
-    return { ok: false, reason: "down" };
-  }
+  const res = await apiFetch(
+    `${API_URL}/api/v1/catalog/products/${slug}`,
+    productDetailResponseSchema,
+    withViewerCookies(cookieHeader),
+  );
+  if (res.ok) return { ok: true, data: res.data.data };
+  return { ok: false, reason: res.res?.status === 404 ? "not-found" : "down" };
 }
 
 // Bounded widget (masterPlan §5's "related & alternative parts"), not
@@ -148,18 +131,12 @@ export async function fetchRelatedProducts(
   limit = 8,
   cookieHeader?: string,
 ): Promise<ProductListItemDto[]> {
-  try {
-    const res = await fetch(`${API_URL}/api/v1/catalog/products/${slug}/related?limit=${limit}`, {
-      credentials: "include",
-      headers: cookieHeader ? { cookie: cookieHeader } : undefined,
-    });
-    if (!res.ok) return [];
-    const json = await res.json();
-    const parsed = relatedProductsResponseSchema.safeParse(json);
-    return parsed.success ? parsed.data.data : [];
-  } catch {
-    return [];
-  }
+  const res = await apiFetch(
+    `${API_URL}/api/v1/catalog/products/${slug}/related?limit=${limit}`,
+    relatedProductsResponseSchema,
+    withViewerCookies(cookieHeader),
+  );
+  return res.ok ? res.data.data : [];
 }
 
 export interface SearchResultsPage {
@@ -178,28 +155,13 @@ export async function fetchSearchResults(
   limit = 20,
   cookieHeader?: string,
 ): Promise<FetchResult<SearchResultsPage>> {
-  try {
-    const params = new URLSearchParams({ q, page: String(page), limit: String(limit) });
-    const res = await fetch(`${API_URL}/api/v1/catalog/search?${params.toString()}`, {
-      credentials: "include",
-      headers: cookieHeader ? { cookie: cookieHeader } : undefined,
-    });
-    if (!res.ok) return { ok: false, reason: "down" };
-    const json = await res.json();
-    const parsed = searchProductsResponseSchema.safeParse(json);
-    if (!parsed.success) return { ok: false, reason: "down" };
-    return {
-      ok: true,
-      data: {
-        data: parsed.data.data,
-        total: parsed.data.meta.total,
-        page: parsed.data.meta.page,
-        limit: parsed.data.meta.limit,
-      },
-    };
-  } catch {
-    return { ok: false, reason: "down" };
-  }
+  const params = new URLSearchParams({ q, page: String(page), limit: String(limit) });
+  const res = await apiFetch(
+    `${API_URL}/api/v1/catalog/search?${params.toString()}`,
+    searchProductsResponseSchema,
+    withViewerCookies(cookieHeader),
+  );
+  return res.ok ? { ok: true, data: toPage(res.data) } : { ok: false, reason: "down" };
 }
 
 export type CatalogFacetFilters = Omit<CatalogProductFilters, "sort" | "cursor" | "limit">;
@@ -211,13 +173,9 @@ export type CatalogFacetFilters = Omit<CatalogProductFilters, "sort" | "cursor" 
 export async function fetchCatalogFacets(
   filters: CatalogFacetFilters,
 ): Promise<FacetsResponse["data"] | null> {
-  try {
-    const res = await fetch(`${API_URL}/api/v1/catalog/facets?${buildQueryString(filters)}`);
-    if (!res.ok) return null;
-    const json = await res.json();
-    const parsed = facetsResponseSchema.safeParse(json);
-    return parsed.success ? parsed.data.data : null;
-  } catch {
-    return null;
-  }
+  const res = await apiFetch(
+    `${API_URL}/api/v1/catalog/facets?${buildQueryString(filters)}`,
+    facetsResponseSchema,
+  );
+  return res.ok ? res.data.data : null;
 }

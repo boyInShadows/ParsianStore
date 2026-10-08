@@ -13,6 +13,15 @@ import {
   type AdminCreateCategoryInput,
   type AttributeTypeDto,
 } from "schemas";
+import {
+  API_URL,
+  apiAction,
+  apiFetch,
+  jsonBody,
+  toPage,
+  type ActionResult,
+  type Validator,
+} from "@/lib/api-fetch";
 
 // One file for all three taxonomy entities, unlike admin-coupons/-customers/
 // -products. These are a single screen group (one nav entry, one tab bar) and
@@ -21,22 +30,9 @@ import {
 // packages/schemas, where it buys real file-level tree-shaking; a fetcher
 // module in the (admin) group has nothing equivalent to gain.
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000";
 const BASE = `${API_URL}/api/v1/admin/catalog`;
 
-const GENERIC_ERROR = "خطایی رخ داد، دوباره تلاش کنید";
-
-export type AdminCatalogResult<T> = { ok: true; data: T } | { ok: false; message: string };
-
-async function readErrorMessage(res: Response): Promise<string> {
-  try {
-    const json = (await res.json()) as { error?: { message?: string } };
-    if (typeof json.error?.message === "string") return json.error.message;
-  } catch {
-    // fall through to the generic message
-  }
-  return GENERIC_ERROR;
-}
+export type AdminCatalogResult<T> = ActionResult<T>;
 
 export interface AdminCatalogListPage<T> {
   data: T[];
@@ -45,15 +41,6 @@ export interface AdminCatalogListPage<T> {
   limit: number;
 }
 
-/**
- * Structural stand-in for a Zod schema. `zod` is not a dependency of
- * apps/web — only of packages/schemas — so the shared response schemas are
- * consumed through the shape they expose rather than through `z.infer`.
- */
-type Validator<T> = {
-  safeParse: (input: unknown) => { success: true; data: T } | { success: false };
-};
-
 type ListEnvelope<T> = { data: T[]; meta: { total: number; page: number; limit: number } };
 
 async function getList<T>(
@@ -61,47 +48,26 @@ async function getList<T>(
   params: URLSearchParams,
   schema: Validator<ListEnvelope<T>>,
 ): Promise<AdminCatalogListPage<T> | null> {
-  try {
-    const res = await fetch(`${BASE}/${path}?${params.toString()}`, { credentials: "include" });
-    if (!res.ok) return null;
-    const parsed = schema.safeParse(await res.json());
-    if (!parsed.success) return null;
-    return {
-      data: parsed.data.data,
-      total: parsed.data.meta.total,
-      page: parsed.data.meta.page,
-      limit: parsed.data.meta.limit,
-    };
-  } catch {
-    return null;
-  }
+  const res = await apiFetch(`${BASE}/${path}?${params.toString()}`, schema, {
+    credentials: "include",
+  });
+  return res.ok ? toPage(res.data) : null;
 }
 
-async function write<T>(
+function write<T>(
   path: string,
   method: "POST" | "PATCH" | "DELETE",
   schema: Validator<{ data: T }> | null,
   body?: unknown,
 ): Promise<AdminCatalogResult<T | null>> {
-  try {
-    const res = await fetch(`${BASE}/${path}`, {
-      method,
-      credentials: "include",
-      ...(body === undefined
-        ? {}
-        : { headers: { "content-type": "application/json" }, body: JSON.stringify(body) }),
-    });
-    // The refusal messages the P8.S4 delete guards return (409, naming the
-    // real blocker and its count in Persian) reach the UI through here —
-    // swallowing them for a generic string would defeat the whole point.
-    if (!res.ok) return { ok: false, message: await readErrorMessage(res) };
-    if (!schema) return { ok: true, data: null };
-    const parsed = schema.safeParse(await res.json());
-    if (!parsed.success) return { ok: false, message: GENERIC_ERROR };
-    return { ok: true, data: parsed.data.data };
-  } catch {
-    return { ok: false, message: GENERIC_ERROR };
-  }
+  // The refusal messages the P8.S4 delete guards return (409, naming the
+  // real blocker and its count in Persian) reach the UI through here —
+  // swallowing them for a generic string would defeat the whole point.
+  return apiAction(`${BASE}/${path}`, schema, {
+    method,
+    credentials: "include",
+    ...(body === undefined ? {} : jsonBody(body)),
+  });
 }
 
 function listParams(

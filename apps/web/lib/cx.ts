@@ -11,7 +11,7 @@ export type { ClassValue };
  * `cn()` pulls in tailwind-merge, and tailwind-merge is **7 KB gzipped on
  * every route that reaches it from a Client Component** -- measured by
  * stubbing the merge out and rebuilding: the landing route went 200 KB ->
- * 193 KB. Four client primitives (Drawer, SearchField, Tabs, Toast) imported
+ * 193 KB. Client primitives (Drawer, Toast, and formerly SearchField and Tabs) imported
  * `cn()`, three of them live in the header, and the header renders on every
  * route, so the whole app carried it.
  *

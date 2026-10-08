@@ -1,6 +1,6 @@
 import { mkdir, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { nanoid } from "nanoid";
+import { randomBytes } from "node:crypto";
 import { renderImageVariants } from "./imagePipeline.js";
 import type { StorageProvider, StoredImage } from "./StorageProvider.js";
 
@@ -14,7 +14,7 @@ export class LocalDiskStorageProvider implements StorageProvider {
   ) {}
 
   async saveImage(buffer: Buffer): Promise<StoredImage> {
-    const key = nanoid();
+    const key = randomBytes(16).toString("base64url");
     const dir = path.join(this.uploadsDir, key);
     await mkdir(dir, { recursive: true });
 

@@ -4,8 +4,7 @@ import {
   type ProvinceDto,
   type CityDto,
 } from "schemas";
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000";
+import { API_URL, apiFetch } from "@/lib/api-fetch";
 
 // Client-side only. First real web consumer of /geo/provinces and
 // /geo/cities (P2.S7) -- the address form's province->city cascade
@@ -14,25 +13,17 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000";
 // (capital + major cities) that the default limit never truncates.
 
 export async function fetchProvinces(): Promise<ProvinceDto[] | null> {
-  try {
-    const res = await fetch(`${API_URL}/api/v1/geo/provinces?limit=100`);
-    if (!res.ok) return null;
-    const json = await res.json();
-    const parsed = provinceListResponseSchema.safeParse(json);
-    return parsed.success ? parsed.data.data : null;
-  } catch {
-    return null;
-  }
+  const res = await apiFetch(
+    `${API_URL}/api/v1/geo/provinces?limit=100`,
+    provinceListResponseSchema,
+  );
+  return res.ok ? res.data.data : null;
 }
 
 export async function fetchCities(provinceId: string): Promise<CityDto[] | null> {
-  try {
-    const res = await fetch(`${API_URL}/api/v1/geo/cities?provinceId=${provinceId}&limit=100`);
-    if (!res.ok) return null;
-    const json = await res.json();
-    const parsed = cityListResponseSchema.safeParse(json);
-    return parsed.success ? parsed.data.data : null;
-  } catch {
-    return null;
-  }
+  const res = await apiFetch(
+    `${API_URL}/api/v1/geo/cities?provinceId=${provinceId}&limit=100`,
+    cityListResponseSchema,
+  );
+  return res.ok ? res.data.data : null;
 }

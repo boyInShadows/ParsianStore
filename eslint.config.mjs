@@ -96,12 +96,7 @@ export default tseslint.config(
     // in the wrong runtime. Scoped to this one file rather than added to the
     // `scripts/**` block above, because in any other script a bare `document`
     // really would be the mistake that rule is for.
-    files: [
-      "scripts/hero-shots.mjs",
-      "scripts/og-image.mjs",
-      "scripts/mobile-shots.mjs",
-      "scripts/mobile-axe.mjs",
-    ],
+    files: ["scripts/hero-shots.mjs", "scripts/og-image.mjs"],
     languageOptions: {
       globals: { window: "readonly", document: "readonly" },
     },
@@ -129,8 +124,4 @@ export default tseslint.config(
       "@typescript-eslint/no-require-imports": "off",
     },
   },
-  // eslint-plugin-tailwindcss (installed, per masterPlan.md §4/P0.S4) is not wired
-  // in yet -- v4's recommended config eagerly loads a live Tailwind theme and
-  // hard-crashes without one, and Tailwind itself isn't installed until P1.S2.
-  // Activate it there, once apps/web/tailwind.config.js exists.
 );

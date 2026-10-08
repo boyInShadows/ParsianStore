@@ -48,6 +48,8 @@ export function healthHandler(_req: Request, res: Response): void {
 
 export const app = express();
 
+app.set("trust proxy", env.TRUST_PROXY);
+
 app.use(helmet());
 app.use(cors({ origin: env.CORS_ORIGINS, credentials: true }));
 app.use(compression());

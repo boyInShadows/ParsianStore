@@ -1,8 +1,7 @@
 import type { WishlistItemDto } from "schemas";
+import { API_URL, apiFetch, toPage } from "@/lib/api-fetch";
 import { guardProductListItem } from "@/lib/fetchers/product-guard";
 import { isNumber, isPlainObject, isString, toValidDate } from "@/lib/shape-guard";
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000";
 
 // P15.S8b: hand-written shape guards replacing zod's safeParse -- see
 // lib/shape-guard.ts's own comment for why. `use-auth-session.ts` imports
@@ -27,11 +26,14 @@ function parseWishlistItem(value: unknown): WishlistItemDto | undefined {
 }
 
 // Mirrors packages/schemas/src/wishlist.ts's wishlistResponseSchema.
+type WishlistEnvelope = {
+  data: WishlistItemDto[];
+  meta: { total: number; page: number; limit: number };
+};
+
 function guardWishlistResponse(
   json: unknown,
-):
-  | { success: true; data: WishlistItemDto[]; meta: { total: number; page: number; limit: number } }
-  | { success: false } {
+): { success: true; data: WishlistEnvelope } | { success: false } {
   if (
     !isPlainObject(json) ||
     json.ok !== true ||
@@ -51,8 +53,7 @@ function guardWishlistResponse(
   }
   return {
     success: true,
-    data,
-    meta: { total: json.meta.total, page: json.meta.page, limit: json.meta.limit },
+    data: { data, meta: { total: json.meta.total, page: json.meta.page, limit: json.meta.limit } },
   };
 }
 
@@ -68,6 +69,12 @@ function isWishlistMutationResponse(json: unknown): boolean {
     typeof json.data.isSaved === "boolean"
   );
 }
+
+const wishlistResponse = { safeParse: guardWishlistResponse };
+const wishlistMutationResponse = {
+  safeParse: (json: unknown): { success: true; data: null } | { success: false } =>
+    isWishlistMutationResponse(json) ? { success: true, data: null } : { success: false },
+};
 
 // Server-side only (called from the /wishlist Server Component with the
 // incoming request's own cookies forwarded explicitly) -- same
@@ -89,28 +96,16 @@ export async function fetchWishlist(
   limit: number,
   cookieHeader: string,
 ): Promise<WishlistFetchResult<WishlistPage>> {
-  try {
-    const params = new URLSearchParams({ page: String(page), limit: String(limit) });
-    const res = await fetch(`${API_URL}/api/v1/me/wishlist?${params.toString()}`, {
+  const params = new URLSearchParams({ page: String(page), limit: String(limit) });
+  const res = await apiFetch(
+    `${API_URL}/api/v1/me/wishlist?${params.toString()}`,
+    wishlistResponse,
+    {
       headers: { cookie: cookieHeader },
-    });
-    if (res.status === 401) return { ok: false, reason: "unauthorized" };
-    if (!res.ok) return { ok: false, reason: "down" };
-    const json = await res.json();
-    const parsed = guardWishlistResponse(json);
-    if (!parsed.success) return { ok: false, reason: "down" };
-    return {
-      ok: true,
-      data: {
-        data: parsed.data,
-        total: parsed.meta.total,
-        page: parsed.meta.page,
-        limit: parsed.meta.limit,
-      },
-    };
-  } catch {
-    return { ok: false, reason: "down" };
-  }
+    },
+  );
+  if (!res.ok) return { ok: false, reason: res.res?.status === 401 ? "unauthorized" : "down" };
+  return { ok: true, data: toPage(res.data) };
 }
 
 /** All saved product ids for the current user, one page's worth (capped at
@@ -121,43 +116,32 @@ export async function fetchWishlist(
  * v1 tradeoff until the Phase 7 dashboard needs true pagination through
  * this same endpoint. */
 export async function fetchWishlistIds(): Promise<string[]> {
-  try {
-    const res = await fetch(`${API_URL}/api/v1/me/wishlist?limit=100`, {
-      credentials: "include",
-    });
-    if (!res.ok) return [];
-    const json = await res.json();
-    const parsed = guardWishlistResponse(json);
-    return parsed.success ? parsed.data.map((item) => item.productId) : [];
-  } catch {
-    return [];
-  }
+  const res = await apiFetch(`${API_URL}/api/v1/me/wishlist?limit=100`, wishlistResponse, {
+    credentials: "include",
+  });
+  return res.ok ? res.data.data.map((item) => item.productId) : [];
 }
 
 export async function addToWishlist(productId: string): Promise<boolean> {
-  try {
-    const res = await fetch(`${API_URL}/api/v1/me/wishlist/${productId}`, {
+  const res = await apiFetch(
+    `${API_URL}/api/v1/me/wishlist/${productId}`,
+    wishlistMutationResponse,
+    {
       method: "POST",
       credentials: "include",
-    });
-    if (!res.ok) return false;
-    const json = await res.json();
-    return isWishlistMutationResponse(json);
-  } catch {
-    return false;
-  }
+    },
+  );
+  return res.ok;
 }
 
 export async function removeFromWishlist(productId: string): Promise<boolean> {
-  try {
-    const res = await fetch(`${API_URL}/api/v1/me/wishlist/${productId}`, {
+  const res = await apiFetch(
+    `${API_URL}/api/v1/me/wishlist/${productId}`,
+    wishlistMutationResponse,
+    {
       method: "DELETE",
       credentials: "include",
-    });
-    if (!res.ok) return false;
-    const json = await res.json();
-    return isWishlistMutationResponse(json);
-  } catch {
-    return false;
-  }
+    },
+  );
+  return res.ok;
 }

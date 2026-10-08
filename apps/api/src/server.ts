@@ -3,11 +3,10 @@ import { env } from "./config/env.js";
 import { logger } from "./config/logger.js";
 import { connectDB, disconnectDB } from "./config/prisma.js";
 import { scheduleInventoryJobs } from "./jobs/inventoryCron.js";
-import type { ScheduledTask } from "node-cron";
 import type { Server } from "node:http";
 
 let server: Server;
-let inventoryJob: ScheduledTask;
+let inventoryJob: NodeJS.Timeout | undefined;
 
 async function start(): Promise<void> {
   await connectDB();
@@ -19,7 +18,7 @@ async function start(): Promise<void> {
 
 function shutdown(signal: string): void {
   logger.info(`${signal} received, shutting down gracefully`);
-  void inventoryJob?.stop();
+  clearInterval(inventoryJob);
   server.close(async (err) => {
     if (err) {
       logger.error({ err }, "Error during shutdown");

@@ -1,5 +1,5 @@
 import type { RequestHandler } from "express";
-import { nanoid } from "nanoid";
+import { randomBytes } from "node:crypto";
 
 /**
  * Assigns a per-request id and echoes it back as `X-Request-Id` (§9/§10
@@ -9,7 +9,7 @@ import { nanoid } from "nanoid";
  * every log line for this request carry the same id the client can see.
  */
 export const requestId: RequestHandler = (req, res, next) => {
-  const id = nanoid();
+  const id = randomBytes(16).toString("base64url");
   req.id = id;
   res.setHeader("X-Request-Id", id);
   next();

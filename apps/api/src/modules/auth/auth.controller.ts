@@ -1,4 +1,4 @@
-import type { NextFunction, Request, Response } from "express";
+import type { Request, Response } from "express";
 import { env } from "../../config/env.js";
 import { ApiError } from "../../utils/ApiError.js";
 import { parseDurationMs } from "../../utils/token.js";
@@ -29,68 +29,36 @@ function clearSessionCookies(res: Response): void {
   res.clearCookie("refreshToken");
 }
 
-export async function requestOtpHandler(
-  req: Request,
-  res: Response,
-  next: NextFunction,
-): Promise<void> {
-  try {
-    const { phone } = req.body as OtpRequestInput;
-    await authService.requestOtp(phone);
-    res.json({ ok: true, data: { message: "کد تایید ارسال شد" } });
-  } catch (err) {
-    next(err);
-  }
+export async function requestOtpHandler(req: Request, res: Response): Promise<void> {
+  const { phone } = req.body as OtpRequestInput;
+  await authService.requestOtp(phone);
+  res.json({ ok: true, data: { message: "کد تایید ارسال شد" } });
 }
 
-export async function verifyOtpHandler(
-  req: Request,
-  res: Response,
-  next: NextFunction,
-): Promise<void> {
-  try {
-    const { phone, code } = req.body as OtpVerifyInput;
-    const session = await authService.verifyOtp(phone, code, req.get("user-agent"));
-    setSessionCookies(res, session);
-    res.json({ ok: true, data: session.user });
-  } catch (err) {
-    next(err);
-  }
+export async function verifyOtpHandler(req: Request, res: Response): Promise<void> {
+  const { phone, code } = req.body as OtpVerifyInput;
+  const session = await authService.verifyOtp(phone, code, req.get("user-agent"));
+  setSessionCookies(res, session);
+  res.json({ ok: true, data: session.user });
 }
 
-export async function refreshHandler(
-  req: Request,
-  res: Response,
-  next: NextFunction,
-): Promise<void> {
-  try {
-    const rawRefreshToken = req.cookies?.refreshToken as string | undefined;
-    if (!rawRefreshToken) {
-      throw new ApiError(401, "نشست یافت نشد");
-    }
-    const session = await authService.refreshSession(rawRefreshToken, req.get("user-agent"));
-    setSessionCookies(res, session);
-    res.json({ ok: true, data: session.user });
-  } catch (err) {
-    next(err);
+export async function refreshHandler(req: Request, res: Response): Promise<void> {
+  const rawRefreshToken = req.cookies?.refreshToken as string | undefined;
+  if (!rawRefreshToken) {
+    throw new ApiError(401, "نشست یافت نشد");
   }
+  const session = await authService.refreshSession(rawRefreshToken, req.get("user-agent"));
+  setSessionCookies(res, session);
+  res.json({ ok: true, data: session.user });
 }
 
-export async function logoutHandler(
-  req: Request,
-  res: Response,
-  next: NextFunction,
-): Promise<void> {
-  try {
-    const rawRefreshToken = req.cookies?.refreshToken as string | undefined;
-    if (rawRefreshToken) {
-      await authService.logout(rawRefreshToken);
-    }
-    clearSessionCookies(res);
-    res.json({ ok: true, data: null });
-  } catch (err) {
-    next(err);
+export async function logoutHandler(req: Request, res: Response): Promise<void> {
+  const rawRefreshToken = req.cookies?.refreshToken as string | undefined;
+  if (rawRefreshToken) {
+    await authService.logout(rawRefreshToken);
   }
+  clearSessionCookies(res);
+  res.json({ ok: true, data: null });
 }
 
 /**
@@ -108,28 +76,16 @@ export async function logoutHandler(
  * "signed out", so nothing downstream had to move. PATCH /me keeps
  * `requireAuth` -- reading who you are is public, changing it is not.
  */
-export async function meHandler(req: Request, res: Response, next: NextFunction): Promise<void> {
-  try {
-    if (!req.user) {
-      res.json({ ok: true, data: null });
-      return;
-    }
-    const user = await authService.getUserById(req.user.sub);
-    res.json({ ok: true, data: user });
-  } catch (err) {
-    next(err);
+export async function meHandler(req: Request, res: Response): Promise<void> {
+  if (!req.user) {
+    res.json({ ok: true, data: null });
+    return;
   }
+  const user = await authService.getUserById(req.user.sub);
+  res.json({ ok: true, data: user });
 }
 
-export async function updateProfileHandler(
-  req: Request,
-  res: Response,
-  next: NextFunction,
-): Promise<void> {
-  try {
-    const user = await authService.updateProfile(req.user!.sub, req.body as ProfileUpdateInput);
-    res.json({ ok: true, data: user });
-  } catch (err) {
-    next(err);
-  }
+export async function updateProfileHandler(req: Request, res: Response): Promise<void> {
+  const user = await authService.updateProfile(req.user!.sub, req.body as ProfileUpdateInput);
+  res.json({ ok: true, data: user });
 }

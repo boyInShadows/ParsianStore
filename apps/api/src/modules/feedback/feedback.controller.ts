@@ -1,4 +1,4 @@
-import type { NextFunction, Request, Response } from "express";
+import type { Request, Response } from "express";
 import type { PaginationQuery } from "../../utils/pagination.js";
 import * as service from "./feedback.service.js";
 import type {
@@ -41,49 +41,33 @@ function publicItem(item: {
     createdAt: item.createdAt,
   };
 }
-export async function listReviews(req: Request, res: Response, next: NextFunction) {
-  try {
-    const result = await service.listReviews(
-      (req.params as unknown as ProductFeedbackParam).productId,
-      req.validatedQuery as PaginationQuery,
-    );
-    res.json({ ok: true, data: result.data.map(publicItem), meta: result.meta });
-  } catch (e) {
-    next(e);
-  }
+export async function listReviews(req: Request, res: Response) {
+  const result = await service.listReviews(
+    (req.params as unknown as ProductFeedbackParam).productId,
+    req.validatedQuery as PaginationQuery,
+  );
+  res.json({ ok: true, data: result.data.map(publicItem), meta: result.meta });
 }
-export async function createReview(req: Request, res: Response, next: NextFunction) {
-  try {
-    const item = await service.createReview(
-      req.user!.sub,
-      (req.params as unknown as ProductFeedbackParam).productId,
-      req.body as CreateReviewInput,
-    );
-    res.status(201).json({ ok: true, data: { id: item.id, status: item.status } });
-  } catch (e) {
-    next(e);
-  }
+export async function createReview(req: Request, res: Response) {
+  const item = await service.createReview(
+    req.user!.sub,
+    (req.params as unknown as ProductFeedbackParam).productId,
+    req.body as CreateReviewInput,
+  );
+  res.status(201).json({ ok: true, data: { id: item.id, status: item.status } });
 }
-export async function listQuestions(req: Request, res: Response, next: NextFunction) {
-  try {
-    const result = await service.listQuestions(
-      (req.params as unknown as ProductFeedbackParam).productId,
-      req.validatedQuery as PaginationQuery,
-    );
-    res.json({ ok: true, data: result.data.map(publicItem), meta: result.meta });
-  } catch (e) {
-    next(e);
-  }
+export async function listQuestions(req: Request, res: Response) {
+  const result = await service.listQuestions(
+    (req.params as unknown as ProductFeedbackParam).productId,
+    req.validatedQuery as PaginationQuery,
+  );
+  res.json({ ok: true, data: result.data.map(publicItem), meta: result.meta });
 }
-export async function createQuestion(req: Request, res: Response, next: NextFunction) {
-  try {
-    const item = await service.createQuestion(
-      req.user!.sub,
-      (req.params as unknown as ProductFeedbackParam).productId,
-      req.body as CreateQuestionInput,
-    );
-    res.status(201).json({ ok: true, data: { id: item.id, status: item.status } });
-  } catch (e) {
-    next(e);
-  }
+export async function createQuestion(req: Request, res: Response) {
+  const item = await service.createQuestion(
+    req.user!.sub,
+    (req.params as unknown as ProductFeedbackParam).productId,
+    req.body as CreateQuestionInput,
+  );
+  res.status(201).json({ ok: true, data: { id: item.id, status: item.status } });
 }

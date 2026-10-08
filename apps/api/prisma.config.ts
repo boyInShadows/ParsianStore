@@ -1,6 +1,12 @@
-import "dotenv/config";
 import path from "node:path";
 import { defineConfig } from "prisma/config";
+
+// cwd-relative `.env`, as `dotenv/config` was; a missing file is fine (CI).
+try {
+  process.loadEnvFile();
+} catch (err) {
+  if ((err as NodeJS.ErrnoException).code !== "ENOENT") throw err;
+}
 
 /**
  * Prisma 7 configuration.
