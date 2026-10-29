@@ -1,5 +1,24 @@
 # ParsianStore — Remaining Work Checklist
 
+## GitHub presentation pass — 2026-10-29 (local verification complete)
+
+Codex prepared documentation on isolated branch `docs/github-showcase`, based
+on `4023ce1`; the original development checkout remains unchanged. README now
+leads with the product, confirmed contribution and pre-launch payment status;
+public setup is in `docs/local-development.md`. Two decisions are linked to
+checkout/payment source. No application code, dependencies or release state
+changed. No publication performed.
+
+Locked offline installation, fresh PostgreSQL 18 migrations and synthetic
+vehicle/geo/catalog/shipping/staff seeds succeeded. Lint/type-check, full tests
+(96 files / 932 tests), production build and route budgets all passed.
+Chromium verified storefront RTL at 1440/360px and real mock-OTP staff login;
+storefront and admin screenshots were captured and inspected. README/setup
+were rendered through GitHub Markdown and inspected; 20 relative targets
+resolve. Node was 24.11.1, not the Node 22 CI target. Full Playwright suite,
+browser checkout, live gateway and hosted CI remain unverified. See
+`docs/artifacts/github-showcase-verification.md` and JSON results for scope.
+
 > **The three Fable plan files are gone.** `fableTasks.md` (Phase 9) and
 > `fableTasks2.md` (Phase 12) were deleted on 2026-09-05 once every step in both
 > had shipped; `fableTasks.md` v1.1 (Phase 13) followed on 2026-09-07. All three
