@@ -1,0 +1,23 @@
+{
+  "runtime": "Installed Chromium via Playwright; production Next build; isolated PostgreSQL18; mock SMS/payment",
+  "storefront": {
+    "status": 200,
+    "rtl": true,
+    "desktop": 1440,
+    "mobile": 360,
+    "no_mobile_horizontal_overflow": true,
+    "verified_in_prior_capture": true
+  },
+  "admin": {
+    "status": 200,
+    "mock_otp_auth": true,
+    "synthetic_staff_role": "superadmin",
+    "route": "/fa/admin/products"
+  },
+  "page_errors": [],
+  "harness_note": "Initial OTP log parser failed; retry stripped ANSI formatting. Application unchanged.",
+  "limits": [
+    "Representative smoke only; full Playwright suite not run.",
+    "No live payment, external SMS or customer data used."
+  ]
+}

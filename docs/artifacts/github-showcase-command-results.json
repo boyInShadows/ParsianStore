@@ -1,0 +1,79 @@
+{
+  "runtime": "Node 24.11.1; pnpm 9.15.9",
+  "application_revision": "4023ce1c767f",
+  "database": "disposable PostgreSQL 18; container codex-parsian-showcase-20261029; loopback 55439; tmpfs",
+  "results": [
+    {
+      "command": "pnpm --filter schemas build",
+      "exit_code": 0,
+      "seconds": 1.48,
+      "output_tail": "\n> schemas@0.1.0 build $REPO\\packages\\schemas\n> tsc -p tsconfig.build.json\n\n"
+    },
+    {
+      "command": "pnpm --filter api db:deploy",
+      "exit_code": 0,
+      "seconds": 1.39,
+      "output_tail": "\n> api@0.1.0 db:deploy $REPO\\apps\\api\n> prisma migrate deploy\n\nLoaded Prisma config from prisma.config.ts.\n\nPrisma schema loaded from prisma\\schema.prisma.\nDatasource \"db\": PostgreSQL database \"parsian_showcase\", schema \"public\" at \"127.0.0.1:55439\"\n\n8 migrations found in prisma/migrations\n\nApplying migration `20260827055133_init`\nApplying migration `20260827060000_seed_natural_keys`\nApplying migration `20260827061500_catalog_system_code_wire_labels`\nApplying migration `20260827062000_hyphenated_enum_labels`\nApplying migration `20260827063000_product_search_vector`\nApplying migration `20260828204500_cart_identity_unique`\nApplying migration `20260828205500_shipping_band_no_unique`\nApplying migration `20260828213000_engine_displacement_float`\n\n┌─────────────────────────────────────────────────────────┐\n│  Update available 7.10.0 -> 8.0.0-rc.28                 │\n│                                                         │\n│  This is a major update - please follow the guide at    │\n│  https://pris.ly/d/major-version-upgrade                │\n│                                                         │\n│  Run the following to update                            │\n│    npm i --save-dev prisma@latest                       │\n│    npm i @prisma/client@latest                          │\n└─────────────────────────────────────────────────────────┘\nThe following migration(s) have been applied:\n\nmigrations/\n  └─ 20260827055133_init/\n    └─ migration.sql\n  └─ 20260827060000_seed_natural_keys/\n    └─ migration.sql\n  └─ 20260827061500_catalog_system_code_wire_labels/\n    └─ migration.sql\n  └─ 20260827062000_hyphenated_enum_labels/\n    └─ migration.sql\n  └─ 20260827063000_product_search_vector/\n    └─ migration.sql\n  └─ 20260828204500_cart_identity_unique/\n    └─ migration.sql\n  └─ 20260828205500_shipping_band_no_unique/\n    └─ migration.sql\n  └─ 20260828213000_engine_displacement_float/\n    └─ migration.sql\n\nAll migrations have been successfully applied.\n"
+    },
+    {
+      "command": "pnpm test",
+      "exit_code": 0,
+      "seconds": 51.18,
+      "output_tail": "\n> parsian-store@0.1.0 test $REPO\n> vitest run\n\n\n RUN  v4.1.10 D:/coding/WorkSpace/github-showcases/ParsianStore\n\n(node:35196) DeprecationWarning: Calling client.query() when the client is already executing a query is deprecated and will be removed in pg@9.0. Use async/await or an external async flow control mechanism instead.\n(Use `node --trace-deprecation ...` to show where the warning was created)\n(node:32396) DeprecationWarning: Calling client.query() when the client is already executing a query is deprecated and will be removed in pg@9.0. Use async/await or an external async flow control mechanism instead.\n(Use `node --trace-deprecation ...` to show where the warning was created)\n\n Test Files  96 passed (96)\n      Tests  932 passed (932)\n   Start at  21:07:10\n   Duration  50.58s (transform 3.55s, setup 0ms, import 10.55s, tests 35.58s, environment 6ms)\n\n"
+    },
+    {
+      "command": "pnpm --filter api seed:vehicles",
+      "exit_code": 0,
+      "seconds": 1.46,
+      "output_tail": "\n> api@0.1.0 seed:vehicles $REPO\\apps\\api\n> tsx src/seed/vehicles.ts\n\n"
+    },
+    {
+      "command": "pnpm --filter api seed:geo",
+      "exit_code": 0,
+      "seconds": 0.83,
+      "output_tail": "\n> api@0.1.0 seed:geo $REPO\\apps\\api\n> tsx src/seed/geo.ts\n\n"
+    },
+    {
+      "command": "pnpm --filter api seed:catalog",
+      "exit_code": 0,
+      "seconds": 2.84,
+      "output_tail": "\n> api@0.1.0 seed:catalog $REPO\\apps\\api\n> tsx src/seed/catalog.ts\n\n"
+    },
+    {
+      "command": "pnpm --filter api seed:shipping",
+      "exit_code": 0,
+      "seconds": 0.73,
+      "output_tail": "\n> api@0.1.0 seed:shipping $REPO\\apps\\api\n> tsx src/seed/shipping.ts\n\n"
+    },
+    {
+      "command": "pnpm --filter api seed:staff",
+      "exit_code": 0,
+      "seconds": 0.78,
+      "output_tail": "\n> api@0.1.0 seed:staff $REPO\\apps\\api\n> tsx src/seed/staff.ts\n\n"
+    },
+    {
+      "command": "pnpm lint",
+      "exit_code": 0,
+      "seconds": 8.67,
+      "output_tail": "\n> parsian-store@0.1.0 lint $REPO\n> eslint .\n\n"
+    },
+    {
+      "command": "pnpm typecheck",
+      "exit_code": 0,
+      "seconds": 9.19,
+      "output_tail": "\n> parsian-store@0.1.0 typecheck $REPO\n> tsc --noEmit -p apps/web/tsconfig.json && tsc --noEmit -p apps/api/tsconfig.json\n\n"
+    },
+    {
+      "command": "pnpm build",
+      "exit_code": 0,
+      "seconds": 55.41,
+      "output_tail": "lt\nweb:build: ├ ● /[locale]/compare                       2.12 kB         122 kB\nweb:build: ├   ├ /fa/compare\nweb:build: ├   └ /en/compare\nweb:build: ├ ● /[locale]/contact                         296 B         120 kB\nweb:build: ├   ├ /fa/contact\nweb:build: ├   └ /en/contact\nweb:build: ├ ● /[locale]/faq                             296 B         120 kB\nweb:build: ├   ├ /fa/faq\nweb:build: ├   └ /en/faq\nweb:build: ├ ● /[locale]/garage                        3.48 kB         138 kB\nweb:build: ├   ├ /fa/garage\nweb:build: ├   └ /en/garage\nweb:build: ├ ● /[locale]/orders                        2.12 kB         122 kB\nweb:build: ├   ├ /fa/orders\nweb:build: ├   └ /en/orders\nweb:build: ├ ƒ /[locale]/orders/[code]                 2.12 kB         122 kB\nweb:build: ├ ƒ /[locale]/p/[slug]                      10.9 kB         160 kB\nweb:build: ├ ● /[locale]/profile                       4.73 kB         135 kB\nweb:build: ├   ├ /fa/profile\nweb:build: ├   └ /en/profile\nweb:build: ├ ● /[locale]/search                        2.79 kB         136 kB\nweb:build: ├   ├ /fa/search\nweb:build: ├   └ /en/search\nweb:build: ├ ● /[locale]/styleguide                    14.5 kB         144 kB\nweb:build: ├   ├ /fa/styleguide\nweb:build: ├   └ /en/styleguide\nweb:build: ├ ƒ /[locale]/vehicle/[make]                2.12 kB         122 kB\nweb:build: ├ ƒ /[locale]/vehicle/[make]/[model]/[gen]  3.81 kB         137 kB\nweb:build: ├ ● /[locale]/wishlist                      2.79 kB         136 kB\nweb:build: ├   ├ /fa/wishlist\nweb:build: ├   └ /en/wishlist\nweb:build: ├ ○ /icon.svg                                   0 B            0 B\nweb:build: ├ ○ /robots.txt                               145 B         103 kB\nweb:build: └ ○ /sitemap.xml                              145 B         103 kB\nweb:build: + First Load JS shared by all                103 kB\nweb:build:   ├ chunks/3889-ae79439eefc5b2dc.js         46.4 kB\nweb:build:   ├ chunks/5886ae73-e5764e556e37f504.js     54.2 kB\nweb:build:   └ other shared chunks (total)             2.18 kB\nweb:build: \nweb:build: \nweb:build: ƒ Middleware                                45.7 kB\nweb:build: \nweb:build: ○  (Static)   prerendered as static content\nweb:build: ●  (SSG)      prerendered as static HTML (uses generateStaticParams)\nweb:build: ƒ  (Dynamic)  server-rendered on demand\nweb:build: \n\n Tasks:    3 successful, 3 total\nCached:    0 cached, 3 total\n  Time:    52.252s \n\n"
+    },
+    {
+      "command": "pnpm check:budget",
+      "exit_code": 0,
+      "seconds": 0.66,
+      "output_tail": "\n> parsian-store@0.1.0 check:budget $REPO\n> node scripts/check-budget.mjs\n\n\n  Route JS budgets -- measured from apps/web/.next, gzip level 9\n\n  route                                           first load    own\n  /[locale]/(shop)                                 186.2 kB    66.3 kB      \n  /[locale]/(shop)/checkout                        163.1 kB    43.2 kB      \n  /[locale]/(shop)/addresses                       160.3 kB    40.4 kB      \n  /[locale]/(shop)/p/[slug]                        159.5 kB    39.6 kB      \n  /[locale]/(shop)/styleguide                      144.3 kB    24.4 kB      \n  /[locale]/(shop)/brand/[slug]                    140.7 kB    20.8 kB      \n  /[locale]/(shop)/c/[slug]                        140.7 kB    20.8 kB      \n  /[locale]/(shop)/garage                          138.1 kB    18.2 kB      \n  /[locale]/(shop)/checkout/result                 137.5 kB    17.6 kB      \n  /[locale]/(shop)/auth/login                      137.5 kB    17.6 kB      \n  /[locale]/(shop)/vehicle/[make]/[model]/[gen]    137.2 kB    17.3 kB      \n  /[locale]/(shop)/cart                            136.8 kB    16.9 kB      \n  /[locale]/(shop)/search                          136.2 kB    16.2 kB      \n  /[locale]/(shop)/wishlist                        136.2 kB    16.2 kB      \n  /[locale]/(shop)/profile                         134.5 kB    14.6 kB      \n  /[locale]/(shop)/account                         122.0 kB     2.1 kB      \n  /[locale]/(shop)/orders/[code]                   122.0 kB     2.1 kB      \n  /[locale]/(shop)/orders                          122.0 kB     2.1 kB      \n  /[locale]/(shop)/compare                         122.0 kB     2.1 kB      \n  /[locale]/(shop)/vehicle/[make]                  122.0 kB     2.1 kB      \n  /[locale]/(shop)/contact                         120.2 kB     0.3 kB      \n  /[locale]/(shop)/faq                             120.2 kB     0.3 kB      \n  /[locale]/(shop)/about                           120.2 kB     0.3 kB      \n  /_not-found                                      103.9 kB     1.0 kB      \n\n  framework floor 102.9 kB (budget 105)   shop chrome 17.0 kB (budget 20)   -- both included in every first-load figure above\n\n\n"
+    }
+  ]
+}
